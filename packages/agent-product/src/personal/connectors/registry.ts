@@ -123,6 +123,12 @@ export class ConnectorRegistry {
     }
   }
 
+  /** Read the local connection state without discovering tools from the service. */
+  async status(id: string): Promise<IConnectorStatus> {
+    const connector = await this.book.existing(id);
+    return this.protocolOf(connector).status(connector);
+  }
+
   async list(): Promise<readonly IConnectorView[]> {
     const connectors = await this.book.list();
     return Promise.all(connectors.map((connector) => this.view(connector.id)));

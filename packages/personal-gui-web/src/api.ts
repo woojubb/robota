@@ -251,7 +251,7 @@ export interface IBrowserScreenshotView {
 }
 
 export type TConnectorState =
-  'not-connected' | 'connecting' | 'connected' | 'needs-sign-in' | 'failed';
+  'not-connected' | 'connecting' | 'connected' | 'needs-sign-in' | 'failed' | 'checking';
 export type TToolAccess = 'read' | 'write' | 'blocked';
 export type TConnectorKind = 'mail' | 'calendar' | 'files' | 'chat' | 'notes' | 'other';
 /** How a service is signed in to; a view that carries none is signed in to with OAuth. */
@@ -311,6 +311,16 @@ export interface IConnectorView {
   /** Present while the connector is kept in sync. */
   readonly sync?: IConnectorSyncView;
   readonly tools?: readonly IConnectorToolView[];
+  /** Tools the person has allowed case requests to propose; absent on older servers. */
+  readonly caseActionTools?: readonly string[];
+  /** Revision of the exact scope shown, for ordering the person's changes. */
+  readonly caseActionRevision?: string;
+  /** The saved setting could not be read and case requests cannot use it. */
+  readonly caseActionScopeError?: boolean;
+  /** A connector disconnect must finish before case settings can be used. */
+  readonly caseActionTransition?: boolean;
+  /** A new allow is being confirmed; the previous choices remain available for revocation. */
+  readonly caseActionChangePending?: boolean;
 }
 
 /** A service the add form suggests: values to fill in, never a connection. */
@@ -465,7 +475,20 @@ export interface IPersonalApi {
   /** Open cases first, then the ones closed last. */
   cases(): Promise<readonly ICaseView[]>;
   caseThread(id: string): Promise<ICaseView>;
-  connectors(): Promise<IConnectorsListing>;
+  connectors(signal?: AbortSignal): Promise<IConnectorsListing>;
+  connector(id: string, signal?: AbortSignal): Promise<{ connector: IConnectorView }>;
+  connectorInventory(signal?: AbortSignal): Promise<IConnectorsListing>;
+  connectorCaseActionScope(
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<{ connector: IConnectorView }>;
+  fenceCaseActionRequests(
+    signal?: AbortSignal,
+  ): Promise<IConnectorsListing & { fenced: readonly string[] }>;
+  openConnectorCaseActions(
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<{ connector: IConnectorView }>;
   /** Services to suggest when adding a connector, matching what was typed. */
   connectorCatalog(query: string): Promise<IConnectorCatalogView>;
   addConnector(input: {
@@ -504,18 +527,41 @@ export interface IPersonalApi {
     tool: string,
     decision: TToolAccess | null,
   ): Promise<{ connector: IConnectorView }>;
+  setConnectorCaseAction(
+    id: string,
+    tool: string,
+    allowed: boolean,
+    revision: string,
+    signal?: AbortSignal,
+  ): Promise<{ connector: IConnectorView }>;
+  resetConnectorCaseActions(
+    id: string,
+    revision: string,
+    signal?: AbortSignal,
+  ): Promise<{ connector: IConnectorView }>;
+  fenceConnectorCaseActions(
+    id: string,
+    revision: string,
+    signal?: AbortSignal,
+  ): Promise<{ connector: IConnectorView }>;
   saveProvider(provider: IProviderSettings): Promise<{ saved: true; restartRequired: boolean }>;
 }
 
 export function createPersonalApi(
   fetchImpl: TFetch = (input, init) => fetch(input, init),
 ): IPersonalApi {
-  const call = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
+  const call = async <T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    signal?: AbortSignal,
+  ): Promise<T> => {
     const write = method !== 'GET';
     const response = await fetchImpl(`api/${path}`, {
       method,
       credentials: 'same-origin',
       headers: write ? { 'content-type': 'application/json', [API_WRITE_HEADER]: '1' } : {},
+      ...(signal !== undefined && { signal }),
       ...(body !== undefined && { body: JSON.stringify(body) }),
     });
     const parsed = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -594,7 +640,7 @@ export function createPersonalApi(
     cases: async () => (await call<{ cases: ICaseView[] }>('GET', 'cases')).cases,
     caseThread: async (caseId) =>
       (await call<{ case: ICaseView }>('GET', `cases/${id(caseId)}`)).case,
-    connectors: () => call('GET', 'connectors'),
+    connectors: (signal) => call('GET', 'connectors', undefined, signal),
     connectorCatalog: (query) =>
       call('GET', `connectors/catalog?query=${encodeURIComponent(query)}`),
     addConnector: (input) => call('POST', 'connectors', input),
@@ -609,11 +655,43 @@ export function createPersonalApi(
     removeConnector: (connectorId, forgetPulled = false) =>
       call('POST', `connectors/${id(connectorId)}/remove`, { forgetPulled }),
     connectorPulled: (connectorId) => call('GET', `connectors/${id(connectorId)}/pulled`),
+    connector: (connectorId, signal) =>
+      call('GET', `connectors/${id(connectorId)}`, undefined, signal),
+    connectorInventory: (signal) =>
+      call('GET', 'connectors/case-actions/summary', undefined, signal),
+    connectorCaseActionScope: (connectorId, signal) =>
+      call('GET', `connectors/${id(connectorId)}/case-actions`, undefined, signal),
     setConnectorSync: (connectorId, everyMinutes) =>
       call('POST', `connectors/${id(connectorId)}/sync`, { everyMinutes }),
     setConnectorAttention: (connectorId, text) =>
       call('PUT', `connectors/${id(connectorId)}/attention`, { text }),
     decideConnectorTool: (connectorId, tool, decision) =>
       call('POST', `connectors/${id(connectorId)}/tools/${id(tool)}`, { decision }),
+    setConnectorCaseAction: (connectorId, tool, allowed, revision, signal) =>
+      call(
+        'POST',
+        `connectors/${id(connectorId)}/case-actions`,
+        {
+          tool,
+          allowed,
+          revision,
+        },
+        signal,
+      ),
+    resetConnectorCaseActions: (connectorId, revision, signal) =>
+      call(
+        'POST',
+        `connectors/${id(connectorId)}/case-actions`,
+        {
+          reset: true,
+          revision,
+        },
+        signal,
+      ),
+    fenceCaseActionRequests: (signal) => call('POST', 'connectors/case-actions/fence', {}, signal),
+    openConnectorCaseActions: (connectorId, signal) =>
+      call('POST', `connectors/${id(connectorId)}/case-actions`, { open: true }, signal),
+    fenceConnectorCaseActions: (connectorId, revision, signal) =>
+      call('POST', `connectors/${id(connectorId)}/case-actions`, { fence: revision }, signal),
   };
 }
