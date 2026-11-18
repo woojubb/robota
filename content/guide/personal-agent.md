@@ -60,7 +60,9 @@ Alt+Up/Down on it, to move it). On a narrow screen it opens from the menu button
 
 - **It asks before consequential actions.** Anything that would send data to a site (a form, a
   purchase) is held, and goes out only when you approve that exact request, showing its method and
-  address. A goal that hits such an action waits in your Feed.
+  address. A goal that hits such an action waits in your Feed. The Feed records your decision; the
+  goal history records the run's outcome. After an interruption, check the service to confirm whether
+  a request arrived.
 - **Its browser is its own.** It cannot reach your local network or private addresses, every redirect
   is checked, and pages are read as information, never as instructions. It does not hold reads: do
   not ask it to put private information into a web address. The globe button in the chat opens
