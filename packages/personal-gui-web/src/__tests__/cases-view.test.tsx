@@ -190,8 +190,9 @@ describe('a question in the feed', () => {
 
   it('offers only a reply box when the question has no choices', async () => {
     view(fakeApi({}, card({ ...QUESTION, options: [], allowsReply: true })).api);
-    await screen.findByRole('textbox', { name: 'Your reply' });
-    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
+    const reply = await screen.findByRole('textbox', { name: 'Your reply' });
+    const questionCard = reply.closest('li')!;
+    expect(within(questionCard).getAllByRole('button').map((button) => button.textContent)).toEqual([
       'Send reply',
       'Open thread',
     ]);

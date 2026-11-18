@@ -2,6 +2,7 @@ import { MarkdownText } from '@robota-sdk/agent-ui-web/client';
 import { useCallback, useEffect, useState } from 'react';
 
 import { CaseThread } from './CaseThread.js';
+import { CaseList } from './CaseList.js';
 import { QuestionCard } from './QuestionCard.js';
 import { Button, Notice, ViewFrame, errorText, when } from './ui.js';
 
@@ -34,6 +35,7 @@ export function FeedView({
   const [items, setItems] = useState<readonly IFeedItemView[] | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [thread, setThread] = useState<string | undefined>(undefined);
+  const [showCases, setShowCases] = useState(false);
   const reload = useCallback(async () => {
     try {
       const read = await api.feed();
@@ -66,9 +68,21 @@ export function FeedView({
     }
   };
   if (thread !== undefined)
-    return <CaseThread api={api} caseId={thread} onBack={() => setThread(undefined)} />;
+    return (
+      <CaseThread
+        api={api}
+        caseId={thread}
+        onBack={() => setThread(undefined)}
+        backLabel={showCases ? 'Back to cases' : 'Back to feed'}
+      />
+    );
+  if (showCases)
+    return <CaseList api={api} onBack={() => setShowCases(false)} onOpenCase={setThread} />;
   return (
-    <ViewFrame title="Feed">
+    <ViewFrame
+      title="Feed"
+      actions={<Button onClick={() => setShowCases(true)}>View cases</Button>}
+    >
       {error !== undefined && <Notice tone="error">{error}</Notice>}
       {items !== undefined && items.length === 0 && (
         <Notice>
