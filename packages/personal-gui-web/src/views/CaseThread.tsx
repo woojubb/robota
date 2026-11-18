@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { CaseConnector } from './CaseConnector.js';
 import { Button, Notice, ViewFrame, errorText, when } from './ui.js';
 
 import type { ICaseView, IPersonalApi, TCaseEventKind } from '../api.js';
@@ -56,6 +57,7 @@ export function CaseThread({
               {thread.state === 'open' ? 'Open' : 'Closed'} · opened {when(thread.createdAt)}
             </p>
           </header>
+          {thread.state === 'open' && <CaseConnector key={caseId} api={api} caseId={caseId} />}
           <ol aria-label="History" className="flex flex-col gap-2">
             {thread.history.map((event, index) => (
               <li key={index} className="rounded-lg border border-border p-3 text-[13px]">

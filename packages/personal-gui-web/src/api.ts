@@ -343,6 +343,13 @@ export interface IConnectorsListing {
   readonly connectors: readonly IConnectorView[];
 }
 
+/** The owner's explicit choice of a service a case may use. */
+export interface ICaseConnectorBinding {
+  readonly revision: string;
+  readonly connectorId?: string;
+  readonly error?: boolean;
+}
+
 export type TRevocation = 'revoked' | 'partial' | 'unsupported' | 'failed' | 'not-attempted';
 
 export interface IDisconnectView {
@@ -465,6 +472,18 @@ export interface IPersonalApi {
   /** Open cases first, then the ones closed last. */
   cases(): Promise<readonly ICaseView[]>;
   caseThread(id: string): Promise<ICaseView>;
+  caseConnector(id: string, signal?: AbortSignal): Promise<ICaseConnectorBinding>;
+  setCaseConnector(
+    id: string,
+    connectorId: string | null,
+    revision: string,
+    signal?: AbortSignal,
+  ): Promise<ICaseConnectorBinding>;
+  fenceCaseConnector(
+    id: string,
+    revision: string,
+    signal?: AbortSignal,
+  ): Promise<ICaseConnectorBinding>;
   connectors(): Promise<IConnectorsListing>;
   /** Services to suggest when adding a connector, matching what was typed. */
   connectorCatalog(query: string): Promise<IConnectorCatalogView>;
@@ -510,12 +529,18 @@ export interface IPersonalApi {
 export function createPersonalApi(
   fetchImpl: TFetch = (input, init) => fetch(input, init),
 ): IPersonalApi {
-  const call = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
+  const call = async <T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    signal?: AbortSignal,
+  ): Promise<T> => {
     const write = method !== 'GET';
     const response = await fetchImpl(`api/${path}`, {
       method,
       credentials: 'same-origin',
       headers: write ? { 'content-type': 'application/json', [API_WRITE_HEADER]: '1' } : {},
+      ...(signal !== undefined && { signal }),
       ...(body !== undefined && { body: JSON.stringify(body) }),
     });
     const parsed = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -594,6 +619,33 @@ export function createPersonalApi(
     cases: async () => (await call<{ cases: ICaseView[] }>('GET', 'cases')).cases,
     caseThread: async (caseId) =>
       (await call<{ case: ICaseView }>('GET', `cases/${id(caseId)}`)).case,
+    caseConnector: async (caseId, signal) =>
+      (
+        await call<{ binding: ICaseConnectorBinding }>(
+          'GET',
+          `cases/${id(caseId)}/connector`,
+          undefined,
+          signal,
+        )
+      ).binding,
+    setCaseConnector: async (caseId, connectorId, revision, signal) =>
+      (
+        await call<{ binding: ICaseConnectorBinding }>(
+          'POST',
+          `cases/${id(caseId)}/connector`,
+          { connectorId, revision },
+          signal,
+        )
+      ).binding,
+    fenceCaseConnector: async (caseId, revision, signal) =>
+      (
+        await call<{ binding: ICaseConnectorBinding }>(
+          'POST',
+          `cases/${id(caseId)}/connector`,
+          { fence: true, revision },
+          signal,
+        )
+      ).binding,
     connectors: () => call('GET', 'connectors'),
     connectorCatalog: (query) =>
       call('GET', `connectors/catalog?query=${encodeURIComponent(query)}`),
