@@ -144,12 +144,24 @@ export interface IConnectorCallResult {
   readonly isError: boolean;
 }
 
+export interface IConnectorDispatchRequest {
+  readonly tool: string;
+  readonly argumentsJson: string;
+}
+
+export type TConnectorDispatchAdmission = (
+  dispatch: () => Promise<unknown>,
+  request: IConnectorDispatchRequest,
+) => Promise<{ readonly response: Promise<unknown> }>;
+
 /**
  * One protocol's way to reach a service. The composition root supplies it, because reaching a
  * service needs a host (network, files, a browser sign-in), and the pack stays neutral.
  */
 export interface IConnectorProtocol {
   readonly id: string;
+  /** Guarded calls can be admitted at the final external handoff. */
+  readonly admitsToolDispatch?: true;
   status(connector: IConnector): Promise<IConnectorStatus>;
   /**
    * Start the person's sign-in. Returns at once with where their browser goes; the sign-in finishes
@@ -163,7 +175,10 @@ export interface IConnectorProtocol {
     connector: IConnector,
     tool: string,
     args: Readonly<Record<string, unknown>>,
-    options?: { readonly signal?: AbortSignal },
+    options?: {
+      readonly signal?: AbortSignal;
+      readonly admitDispatch?: TConnectorDispatchAdmission;
+    },
   ): Promise<IConnectorCallResult>;
   /** Let go of what is held for a connector that is being removed. */
   forget(connector: IConnector): Promise<void>;

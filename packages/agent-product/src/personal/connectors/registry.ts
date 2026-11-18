@@ -19,6 +19,7 @@ import type {
   ISignInContext,
   TToolAccess,
   TToolDecision,
+  TConnectorDispatchAdmission,
 } from './types.js';
 
 export interface IConnectorToolView extends IConnectorToolInfo {
@@ -264,13 +265,19 @@ export class ConnectorRegistry {
     tool: string,
     args: Readonly<Record<string, unknown>>,
     signal?: AbortSignal,
+    admitDispatch?: TConnectorDispatchAdmission,
   ): Promise<IConnectorCallResult> {
     const { connector, protocol, access } = await this.resolve(id, tool);
     if (access === 'blocked') throw new ConnectorRefusedError(`${tool} is blocked by the person`);
     if (access !== 'write') {
       throw new ConnectorRefusedError(`${tool} only reads, so it goes through ConnectorRead`);
     }
-    return protocol.call(connector, tool, args, signal === undefined ? {} : { signal });
+    if (admitDispatch !== undefined && protocol.admitsToolDispatch !== true)
+      throw new ConnectorRefusedError('This service cannot admit an action at dispatch');
+    return protocol.call(connector, tool, args, {
+      ...(signal !== undefined && { signal }),
+      ...(admitDispatch !== undefined && { admitDispatch }),
+    });
   }
 
   async close(): Promise<void> {

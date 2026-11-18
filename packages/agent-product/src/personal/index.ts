@@ -218,6 +218,7 @@ export { CONNECTOR_AUTHS, CONNECTOR_KINDS } from './connectors/types.js';
 export type {
   IConnector,
   IConnectorCallResult,
+  IConnectorDispatchRequest,
   IConnectorProtocol,
   IConnectorStatus,
   IConnectorToolHints,
@@ -225,6 +226,7 @@ export type {
   IDisconnectOutcome,
   ISignInContext,
   TConnectorAuth,
+  TConnectorDispatchAdmission,
   TConnectorKind,
   TConnectorState,
   TRevocation,

@@ -8,6 +8,7 @@ import {
   BROWSER_INSTRUCTIONS,
   BrowserOutbox,
   CASE_INSTRUCTIONS,
+  CONNECTOR_TOOL_NAMES,
   CONNECTOR_INSTRUCTIONS,
   CaseBook,
   CaseRefusedError,
@@ -45,6 +46,7 @@ import {
 import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playwright-browser.js';
 import { createApprovalRegistry } from './approvals.js';
 import { createCaseTurns } from './case-turns.js';
+import { captureCaseAction, createCaseAction } from './case-action.js';
 import { createCaseActionScope } from './connectors/case-action-scope.js';
 import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
@@ -336,6 +338,7 @@ export function createPersonalCapabilities(
     scope: caseActions,
     writes: caseWrites,
   });
+  const bindings = caseBindings;
   const syncRuns = createSyncRuns({
     book: connectorBook,
     registry: connectors,
@@ -343,7 +346,38 @@ export function createPersonalCapabilities(
     wiki,
     cases,
   });
-  const caseTurns = createCaseTurns({ goals, cases });
+  const connectorTools = createConnectorTools(connectors);
+  const actionSchema = connectorTools.find((tool) => tool.getName() === CONNECTOR_TOOL_NAMES.act)!
+    .schema;
+  const caseTurns = createCaseTurns({
+    goals,
+    cases,
+    makeAction: (snapshot) =>
+      createCaseAction(snapshot, actionSchema, {
+        call: (connector, tool, args, admission, signal) =>
+          connectors.act(connector, tool, args, signal, admission),
+        dispatch: async (chosen, tool, send) => {
+          const result = await bindings.withAuthority(chosen.caseId, (state) => {
+            if (
+              state === undefined ||
+              state.binding.connectorId !== chosen.connectorId ||
+              state.binding.generation !== chosen.bindingGeneration
+            )
+              throw new ConnectorRefusedError('The case connector choice changed');
+            const scope = caseActions.snapshot(chosen.connectorId);
+            if (
+              scope.generation !== chosen.scopeGeneration ||
+              !scope.tools.includes(tool) ||
+              (Object.hasOwn(state.connector.decisions, tool) &&
+                state.connector.decisions[tool] !== 'write')
+            )
+              throw new ConnectorRefusedError('The case action scope changed');
+            return { value: send() };
+          });
+          return { response: result.value };
+        },
+      }),
+  });
   let deliveryTimer: ReturnType<typeof setInterval> | undefined;
   // Watched, so the person can see what the agent's browser does and stop it.
   const watchedBrowser = watchBrowser(
@@ -363,7 +397,7 @@ export function createPersonalCapabilities(
       ...createGoalTools(goals),
       ...createCaseTools(cases),
       ...createIdeaTools(ideas),
-      ...createConnectorTools(connectors),
+      ...connectorTools,
       createConnectorKeepTool({ book: connectorBook, wiki }),
     ],
     instructions: [
@@ -399,7 +433,13 @@ export function createPersonalCapabilities(
       push: createPushApi({ vapid: pushVapid, subscriptions: pushSubscriptions }),
       // The answer is recorded already; the agent's turn on the case starts behind it and may fail without
       // touching it.
-      onCaseAnswered: (answered) => {
+      captureCaseAction: (caseId, feedItemId) =>
+        captureCaseAction(caseId, feedItemId, {
+          binding: (id) => bindings.authoritySnapshot(id),
+          scope: (id) => caseActions.exclusive(async () => caseActions.snapshot(id)),
+        }),
+      onCaseAnswered: (answered, snapshot) => {
+        caseTurns.remember(answered, snapshot);
         void caseTurns
           .onAnswered(answered)
           .then(() => runner?.runDue())

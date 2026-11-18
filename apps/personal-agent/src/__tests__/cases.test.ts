@@ -98,6 +98,42 @@ const SIGN_IN = {
 };
 
 describe('case connector authority', () => {
+  it('releases both authority locks before waiting for an admitted response', async () => {
+    harness = await startHarness();
+    const book = new ConnectorBook({
+      store: createFileConnectorStore(join(harness.stateDir, 'connectors')),
+    });
+    const connector = await book.create({
+      title: 'Notes', kind: 'notes', protocol: 'mcp',
+      endpoint: 'https://notes.example/mcp', auth: 'none',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const scope = createCaseActionScope(join(harness.stateDir, 'case-action-scope'));
+    const bindings = createCaseConnectorBindings({
+      directory: join(harness.stateDir, 'case-connector-bindings'),
+      cases: harness.capabilities.cases,
+      connectors: book,
+      scope,
+      writes: createCaseActionScope(join(harness.stateDir, 'cases')),
+    });
+    const initial = (await bindings.get(opened.id))!;
+    await bindings.set(opened.id, connector.id, initial.revision);
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => { finish = resolve; });
+    try {
+      const admitted = await bindings.withAuthority(opened.id, (state) => {
+        expect(state?.binding.connectorId).toBe(connector.id);
+        return { value: response };
+      });
+      expect(admitted.value).toBe(response);
+      await scope.exclusive(() => scope.reset(connector.id));
+      await harness.capabilities.cases.close(opened.id, 'Settled.');
+      expect(await bindings.authoritySnapshot(opened.id)).toBeUndefined();
+    } finally {
+      finish();
+    }
+  });
+
   it('preserves authority across passive fences but replaces it after an owner revokes and reselects', async () => {
     harness = await startHarness();
     const book = new ConnectorBook({
