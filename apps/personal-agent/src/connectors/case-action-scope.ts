@@ -5,13 +5,14 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 import { ConnectorRefusedError } from '@robota-sdk/agent-product/personal';
 import Database from 'better-sqlite3';
@@ -95,9 +96,10 @@ function lockIsBusy(error: unknown): boolean {
 /** A missing scope grants nothing; an unreadable or malformed scope is never replaced by a guess. */
 export function createCaseActionScope(directory: string): ICaseActionScope {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
-  // An uncommitted SQLite transaction holds the OS file lock until this process releases it or exits.
-  // The database has no records; it names the shared lock even when a volume has different mount paths.
-  const lockPath = join(directory, '.connector-settings.sqlite');
+  // Keep the lock beside scope data so an unreadable scope cannot stop the owner blocking a tool.
+  // The transaction holds an OS file lock even when a shared volume has different mount paths.
+  const canonical = realpathSync(directory);
+  const lockPath = join(dirname(canonical), `.${basename(canonical)}-connector-settings.sqlite`);
   const pathOf = (connectorId: string): string => {
     if (!CONNECTOR_ID.test(connectorId)) throw new ConnectorRefusedError('Invalid connector id');
     return join(directory, connectorId);

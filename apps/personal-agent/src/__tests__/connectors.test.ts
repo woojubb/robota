@@ -554,6 +554,32 @@ describe('using a connected service', () => {
   });
 
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'lets the owner block a tool when the case scope directory is inaccessible',
+    async () => {
+      const w = await connected();
+      const decision = ['connectors', w.id, 'tools', 'create_note'];
+      expect((await w.call('POST', decision, { decision: 'write' })).status).toBe(200);
+      const directory = join(w.harness.stateDir, 'case-action-scope');
+      chmodSync(directory, 0o000);
+      try {
+        const blocked = await w.call('POST', decision, { decision: 'blocked' });
+        expect(blocked.status).toBe(200);
+        expect(blocked.body.connector.caseActionScopeError).toBe(true);
+        expect(
+          blocked.body.connector.tools.find((tool: { name: string }) => tool.name === 'create_note')
+            .access,
+        ).toBe('blocked');
+      } finally {
+        chmodSync(directory, 0o700);
+      }
+      const view = (await w.call('GET', ['connectors', w.id])).body.connector;
+      expect(view.tools.find((tool: { name: string }) => tool.name === 'create_note').access).toBe(
+        'blocked',
+      );
+    },
+  );
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
     'does not restore a case grant when revocation could not be saved',
     async () => {
       const w = await connected();
@@ -618,7 +644,7 @@ describe('using a connected service', () => {
           })
         ).status,
       ).toBe(200);
-      const scopeDirectory = join(w.harness.stateDir, 'case-action-scope', w.id);
+      const scopeDirectory = join(w.harness.stateDir, 'case-action-scope');
       chmodSync(scopeDirectory, 0o500);
       try {
         const removed = await w.call('POST', ['connectors', w.id, 'remove'], {});

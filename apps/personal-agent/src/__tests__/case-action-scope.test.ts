@@ -29,8 +29,10 @@ afterEach(() => {
 });
 
 function directory(): string {
-  const path = mkdtempSync(join(tmpdir(), 'personal-case-scope-'));
-  directories.push(path);
+  const parent = mkdtempSync(join(tmpdir(), 'personal-case-scope-'));
+  directories.push(parent);
+  const path = join(parent, 'scope');
+  mkdirSync(path);
   return path;
 }
 
@@ -479,6 +481,7 @@ describe('the owner’s case action scope', () => {
     const program = `
       import { createCaseActionScope } from ${JSON.stringify(moduleUrl)};
       const scope = createCaseActionScope(${JSON.stringify(root)});
+      setInterval(() => {}, 1000);
       await scope.exclusive(async () => {
         process.send({ ready: true });
         await new Promise(() => {});
@@ -492,7 +495,7 @@ describe('the owner’s case action scope', () => {
     try {
       await message(child);
       const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
-      child.kill();
+      expect(child.kill()).toBe(true);
       await exited;
       await scope.exclusive(() => scope.initialize('connector-mail'));
       expect(scope.version('connector-mail', 'send')).toBeTruthy();
