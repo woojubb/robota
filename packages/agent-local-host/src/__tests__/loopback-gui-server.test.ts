@@ -62,6 +62,48 @@ describe('loopback GUI server', () => {
     expect((await fetch(new URL(`${location}assets/app.js`, server.url), { headers: { cookie } })).status).toBe(200);
   });
 
+  it('keeps the GUI unavailable until its runtime markup is ready', async () => {
+    let markup: string | undefined;
+    const server = await start({ headHtml: () => markup });
+    expect((await fetch(server.url)).status).toBe(503);
+    expect((await login(server, server.accessCode)).status).toBe(503);
+    markup = '<meta name="ready" content="yes">';
+    const response = await login(server, server.accessCode);
+    expect(response.status).toBe(303);
+    const cookie = response.headers.get('set-cookie')!.split(';')[0]!;
+    const page = await fetch(new URL(response.headers.get('location')!, server.url), { headers: { cookie } });
+    expect(await page.text()).toContain('<meta name="ready" content="yes">');
+  });
+
+  it('returns an authenticated browser to a named view without allowing another origin or path', async () => {
+    const server = await start();
+    const page = await (await fetch(new URL('/?return=feed', server.url))).text();
+    expect(page).toContain('<input type="hidden" name="return" value="feed">');
+
+    const response = await fetch(new URL('/__monitor_login', server.url), {
+      method: 'POST',
+      body: new URLSearchParams({ code: server.accessCode, return: 'feed' }),
+      redirect: 'manual',
+    });
+    expect(response.status).toBe(303);
+    const location = response.headers.get('location')!;
+    expect(location).toMatch(/^\/[A-Za-z0-9_-]+\/#feed$/u);
+    const cookie = response.headers.get('set-cookie')!.split(';')[0]!;
+    expect((await fetch(new URL(location, server.url))).status).toBe(403);
+    expect((await fetch(new URL(location, server.url), { headers: { cookie } })).status).toBe(200);
+
+    for (const value of ['//evil.example', 'https://evil.example', '../outside', '<script>']) {
+      const loginPage = await (await fetch(new URL(`/?return=${encodeURIComponent(value)}`, server.url))).text();
+      expect(loginPage).not.toContain('name="return"');
+      const refused = await fetch(new URL('/__monitor_login', server.url), {
+        method: 'POST',
+        body: new URLSearchParams({ code: server.accessCode, return: value }),
+        redirect: 'manual',
+      });
+      expect(refused.headers.get('location')).toMatch(/^\/[A-Za-z0-9_-]+\/$/u);
+    }
+  });
+
   it('refuses a symlink out of the web root and a non-loopback Host', async () => {
     const server = await start();
     const ok = await login(server, server.accessCode);

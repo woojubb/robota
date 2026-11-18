@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
 
 import { notificationPermission } from '../notifications.js';
-import { disablePush, enablePush, ownSubscription, pushSupported } from '../push.js';
+import {
+  disableAllPush,
+  disablePush,
+  enablePush,
+  hasLegacySubscription,
+  ownSubscription,
+  pushSupported,
+} from '../push.js';
 import { Button, errorText } from './ui.js';
 
 import type { IPersonalApi } from '../api.js';
@@ -35,26 +42,45 @@ export function PushNotifications({ api }: { readonly api: IPersonalApi }): Reac
   const supported = pushSupported();
   const [state, setState] = useState<TPushState>(supported ? 'checking' : 'unsupported');
   const [subscribed, setSubscribed] = useState<number | undefined>(undefined);
+  const [legacy, setLegacy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | undefined>(undefined);
   useEffect(() => {
-    if (!supported) return;
     let cancelled = false;
     // Only reads: nothing is registered, asked or changed until the person presses the button.
-    Promise.all([api.pushStatus(), ownSubscription()]).then(
-      ([status, own]) => {
-        if (cancelled) return;
-        setSubscribed(status.subscribed);
-        // It is on only when the browser holds a subscription and the agent holds one too: a browser that
-        // holds one the agent never kept (the agent's key was made anew) is not reachable, so it is off.
-        setState(settled(own !== undefined && status.subscribed > 0));
-      },
-      (caught: unknown) => {
-        if (cancelled) return;
-        setMessage({ text: errorText(caught), error: true });
-        setState(settled(false));
-      },
-    );
+    (supported
+      ? Promise.all([
+          ownSubscription().then(
+            (own) => ({ own, failed: false }),
+            () => ({ own: undefined, failed: true }),
+          ),
+          hasLegacySubscription().catch(() => true),
+        ])
+      : Promise.resolve([{ own: undefined, failed: false }, false] as const)
+    )
+      .then(async ([browser, earlier]) => ({
+        status: await api.pushStatus(browser.own?.endpoint),
+        earlier,
+        failed: browser.failed,
+      }))
+      .then(
+        ({ status, earlier, failed }) => {
+          if (cancelled) return;
+          setSubscribed(status.subscribed);
+          setLegacy(earlier);
+          if (supported) setState(settled(status.current === true));
+          if (failed)
+            setMessage({
+              text: 'Could not check this browser’s notification subscription.',
+              error: true,
+            });
+        },
+        (caught: unknown) => {
+          if (cancelled) return;
+          setMessage({ text: errorText(caught), error: true });
+          if (supported) setState(settled(false));
+        },
+      );
     return () => {
       cancelled = true;
     };
@@ -79,9 +105,15 @@ export function PushNotifications({ api }: { readonly api: IPersonalApi }): Reac
       <p role="status" className={message?.error ? 'text-destructive' : 'text-muted-foreground'}>
         {message?.text ?? STATE_TEXT[state]}
       </p>
-      {subscribed !== undefined && state !== 'unsupported' && (
+      {subscribed !== undefined && (
         <p className="text-[12.5px] text-muted-foreground">
           {subscribed} {subscribed === 1 ? 'browser is' : 'browsers are'} subscribed.
+        </p>
+      )}
+      {legacy && (
+        <p className="text-[12.5px] text-muted-foreground">
+          This browser may have an older notification subscription. Enable it again to replace it,
+          or stop this browser.
         </p>
       )}
       <div className="flex gap-2">
@@ -92,24 +124,43 @@ export function PushNotifications({ api }: { readonly api: IPersonalApi }): Reac
             run(async () => {
               const result = await enablePush(api);
               setState(result.state);
-              if (result.state === 'on') setSubscribed(result.subscribed);
+              if ('subscribed' in result && result.subscribed !== undefined) {
+                setSubscribed(result.subscribed);
+                setLegacy(await hasLegacySubscription().catch(() => true));
+              }
             })
           }
         >
           Also notify me when this page is closed
         </Button>
         <Button
-          disabled={busy || state !== 'on'}
+          disabled={busy || (state !== 'on' && !legacy)}
           onClick={() =>
             run(async () => {
               const status = await disablePush(api);
               setSubscribed(status.subscribed);
               setState(settled(false));
+              setLegacy(await hasLegacySubscription().catch(() => true));
             })
           }
         >
           Stop
         </Button>
+        {(subscribed ?? 0) > 0 && (
+          <Button
+            disabled={busy}
+            onClick={() =>
+              run(async () => {
+                const status = await disableAllPush(api);
+                setSubscribed(status.subscribed);
+                if (supported) setState(settled(false));
+                if (supported) setLegacy(await hasLegacySubscription().catch(() => true));
+              })
+            }
+          >
+            Remove all browsers from this agent
+          </Button>
+        )}
       </div>
     </section>
   );

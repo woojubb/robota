@@ -27,6 +27,11 @@ deepseek/deepseek-v4.1-flash --api-key-env AI_GATEWAY_API_KEY`, or `--type openr
 `start` prints a loopback URL and an access code. Open the URL, type the code, and you are in. It also
 prints an HTTP API address and the bearer for scripts.
 
+The local GUI keeps its selected port for the next start. If that port is in use, stop the other process
+or choose a new one with `--gui-port`. A closed-page notification can open the Feed after you enter the
+access code. If you subscribed before this update, enable closed-page notifications once again in Settings;
+the same page can remove browsers left on an earlier address from the agent.
+
 - `--type` takes any built-in provider type. An OpenAI-compatible endpoint is `--type openai --base-url <url>`.
 - The profile keeps only the name of the variable holding the key; the key itself lives in your
   environment or in the owner-only `.env`, which the agent refuses to read if others can.

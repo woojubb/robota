@@ -31,7 +31,7 @@ const USAGE = `Usage:
   personal-agent configure --type <provider> --model <model> [--base-url <url>] [--api-key-env <VAR>]
   personal-agent env        open the owner-only .env for your provider key in your editor
   personal-agent start [--no-gui] [--gui-port 7360]
-                            a fixed port for the web UI, for a sign-in redirect registered in advance
+                            choose a web UI port; the selected port is kept for the next local start
   personal-agent start --server --public-url https://agent.example.com [--gui-port 7360] [--ws-port 7361]
                             publish through a TLS reverse proxy on this host (see the guide)
   personal-agent access-code   print the published agent's access code
