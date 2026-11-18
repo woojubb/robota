@@ -4,6 +4,8 @@ import {
   chmodSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
+  readFileSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -12,7 +14,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -64,6 +66,226 @@ function message(child: ChildProcess): Promise<void> {
 }
 
 describe('the owner’s case action scope', () => {
+  it('keeps settings closed until a legacy lock is migrated offline', async () => {
+    const root = directory();
+    const legacy = join(dirname(root), '.scope-connector-settings.sqlite');
+    writeFileSync(legacy, 'legacy lock');
+    const scope = createCaseActionScope(root);
+    await expect(scope.exclusive(() => scope.initialize('connector-mail'))).rejects.toThrow(
+      /offline migration/u,
+    );
+    await expect(scope.tools('connector-mail')).rejects.toThrow(/offline migration/u);
+    expect(readFileSync(legacy, 'utf8')).toBe('legacy lock');
+
+    // The owner must stop every old agent before moving the legacy lock aside.
+    renameSync(legacy, `${legacy}.backup`);
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    expect(await scope.tools('connector-mail')).toEqual([]);
+    expect(statSync(legacy).isDirectory()).toBe(true);
+    expect(() => openSync(legacy, 'a')).toThrow();
+  });
+
+  it('does not cancel a newer pending allow with an older conditional fence', async () => {
+    const scope = createCaseActionScope(directory());
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    const old = scope.version('connector-mail', 'send');
+    await scope.exclusive(() => scope.set('connector-mail', 'other', false));
+    const current = scope.version('connector-mail', 'send');
+    const staged = await scope.exclusive(async () =>
+      scope.stageAllow('connector-mail', 'send', current),
+    );
+    await scope.exclusive(() => scope.fence('connector-mail', old));
+    expect(scope.pendingSnapshot('connector-mail')?.revision).toBe(current);
+    await scope.exclusive(async () => scope.finishAllow('connector-mail', staged, true));
+    expect(await scope.tools('connector-mail')).toEqual(['send']);
+  });
+
+  it('does not recover an active allow on a read, but lets a revoke cancel it', async () => {
+    const scope = createCaseActionScope(directory());
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    const revision = scope.version('connector-mail', 'send');
+    const active = await scope.exclusive(async () =>
+      scope.stageAllow('connector-mail', 'send', revision),
+    );
+    await expect(scope.exclusive(() => scope.initialize('connector-mail'))).rejects.toThrow(
+      /progress/u,
+    );
+    await scope.exclusive(() => scope.set('connector-mail', 'send', false));
+    await expect(
+      scope.exclusive(async () => scope.finishAllow('connector-mail', active, true)),
+    ).rejects.toThrow();
+    expect(await scope.tools('connector-mail')).toEqual([]);
+    const retry = await scope.exclusive(async () =>
+      scope.stageAllow('connector-mail', 'send', scope.version('connector-mail', 'send')),
+    );
+    await expect(scope.exclusive(() => scope.initialize('connector-mail'))).rejects.toThrow(
+      /progress/u,
+    );
+    await scope.exclusive(async () => scope.finishAllow('connector-mail', retry, true));
+    expect(await scope.tools('connector-mail')).toEqual(['send']);
+  });
+
+  it.each(['before-write', 'after-write', 'during-recovery'] as const)(
+    'recovers an interrupted allow %s without restoring it',
+    async (stage) => {
+      const root = directory();
+      const scope = createCaseActionScope(root);
+      await scope.exclusive(() => scope.initialize('connector-mail'));
+      const previous = scope.snapshot('connector-mail');
+      const next = randomUUID();
+      const recovery = randomUUID();
+      const dir = join(root, 'connector-mail');
+      writeFileSync(join(dir, 'pending-allow.json'), JSON.stringify({ previous, next, recovery }));
+      if (stage !== 'before-write') {
+        writeFileSync(
+          join(dir, 'scope.json'),
+          JSON.stringify({
+            revision: stage === 'after-write' ? next : recovery,
+            tools: stage === 'after-write' ? ['send'] : previous.tools,
+          }),
+        );
+      }
+      await expect(scope.tools('connector-mail')).rejects.toThrow(/recovery/u);
+      const transition = scope.beginDisconnect('connector-mail');
+      transition.complete();
+      transition.release();
+      await scope.exclusive(() => scope.fence('connector-mail', previous.revision));
+      await scope.exclusive(() => scope.initialize('connector-mail'));
+      expect(await scope.tools('connector-mail')).toEqual([]);
+      expect(scope.version('connector-mail', 'send')).not.toBe(previous.revision);
+    },
+  );
+
+  it('rolls back an allow if its process dies after the scope write', async () => {
+    const root = directory();
+    const scope = createCaseActionScope(root);
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    const revision = scope.version('connector-mail', 'send');
+    const moduleUrl = new URL('../connectors/case-action-scope.ts', import.meta.url).href;
+    const program = `
+      import fs from 'node:fs';
+      import { syncBuiltinESMExports } from 'node:module';
+      const rename = fs.renameSync;
+      fs.renameSync = (source, target) => {
+        rename(source, target);
+        if (String(target).endsWith('/scope.json')) {
+          fs.writeSync(1, 'written\\n');
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);
+        }
+      };
+      syncBuiltinESMExports();
+      const { createCaseActionScope } = await import(${JSON.stringify(moduleUrl)});
+      const scope = createCaseActionScope(${JSON.stringify(root)});
+      await scope.exclusive(async () => scope.stageAllow('connector-mail', 'send', ${JSON.stringify(revision)}));
+    `;
+    const child = spawn(
+      process.execPath,
+      ['--conditions=source', '--import', 'tsx', '--input-type=module', '-e', program],
+      { stdio: ['ignore', 'pipe', 'inherit'] },
+    );
+    try {
+      await new Promise<void>((resolve, reject) => {
+        child.stdout!.once('data', () => resolve());
+        child.once('exit', (code) => reject(new Error(`scope writer exited with ${code}`)));
+      });
+      const transition = scope.beginDisconnect('connector-mail');
+      const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+      child.kill('SIGKILL');
+      await exited;
+      transition.complete();
+      transition.release();
+      await scope.exclusive(() => scope.fence('connector-mail', revision));
+      await scope.exclusive(() => scope.initialize('connector-mail'));
+      expect(await scope.tools('connector-mail')).toEqual([]);
+      expect(scope.version('connector-mail', 'send')).not.toBe(revision);
+    } finally {
+      child.kill();
+    }
+  }, 15_000);
+
+  it('keeps authority closed during disconnect and fences older requests after it ends', async () => {
+    const root = directory();
+    const scope = createCaseActionScope(root);
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    await scope.exclusive(() => scope.set('connector-mail', 'send', true));
+    const before = scope.version('connector-mail', 'send');
+    const transition = scope.beginDisconnect('connector-mail');
+    try {
+      await expect(scope.tools('connector-mail')).rejects.toThrow(/disconnecting/u);
+      await expect(scope.exclusive(() => scope.initialize('connector-mail'))).rejects.toThrow(
+        /progress|interrupted/u,
+      );
+      expect(await scope.tools('connector-other')).toEqual([]);
+      await scope.exclusive(() => scope.set('connector-mail', 'send', false));
+    } finally {
+      transition.complete();
+      transition.release();
+    }
+    const restarted = createCaseActionScope(root);
+    await restarted.exclusive(() => restarted.initialize('connector-mail'));
+    expect(await restarted.tools('connector-mail')).toEqual([]);
+    expect(restarted.version('connector-mail', 'send')).not.toBe(before);
+    await expect(
+      restarted.exclusive(() => restarted.set('connector-mail', 'send', true, before)),
+    ).rejects.toThrow();
+  });
+
+  it('settles completed changes and requires a new disconnect for interrupted ones', async () => {
+    const root = directory();
+    const scope = createCaseActionScope(root);
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    const before = scope.version('connector-mail', 'send');
+    const done = scope.beginDisconnect('connector-mail');
+    done.complete();
+    done.release();
+    await expect(scope.tools('connector-mail')).rejects.toThrow(/disconnecting/u);
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    expect(scope.version('connector-mail', 'send')).not.toBe(before);
+    const unfinished = scope.beginDisconnect('connector-mail');
+    unfinished.release();
+    await expect(scope.exclusive(() => scope.initialize('connector-mail'))).rejects.toThrow(
+      /interrupted/u,
+    );
+    await scope.exclusive(() => scope.settleDisconnects('connector-mail', true));
+    expect(await scope.tools('connector-mail')).toEqual([]);
+  });
+
+  it('fences an interrupted disconnect after the holding process exits', async () => {
+    const root = directory();
+    const scope = createCaseActionScope(root);
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    const before = scope.version('connector-mail', 'send');
+    const moduleUrl = new URL('../connectors/case-action-scope.ts', import.meta.url).href;
+    const program = `
+      import { createCaseActionScope } from ${JSON.stringify(moduleUrl)};
+      createCaseActionScope(${JSON.stringify(root)}).beginDisconnect('connector-mail');
+      process.send({ ready: true });
+      await new Promise(() => {});
+    `;
+    const child = spawn(
+      process.execPath,
+      ['--conditions=source', '--import', 'tsx', '--input-type=module', '-e', program],
+      { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] },
+    );
+    try {
+      await message(child);
+      await expect(scope.exclusive(() => scope.initialize('connector-mail'))).rejects.toThrow(
+        /progress|interrupted/u,
+      );
+      const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+      child.kill('SIGKILL');
+      await exited;
+      await expect(scope.exclusive(() => scope.initialize('connector-mail'))).rejects.toThrow(
+        /interrupted/u,
+      );
+      await scope.exclusive(() => scope.settleDisconnects('connector-mail', true));
+      expect(scope.version('connector-mail', 'send')).not.toBe(before);
+      expect(await scope.tools('connector-mail')).toEqual([]);
+    } finally {
+      child.kill();
+    }
+  }, 15_000);
+
   it('starts empty, preserves simultaneous choices, and persists only for that connector', async () => {
     const root = directory();
     const scope = createCaseActionScope(root);
@@ -370,50 +592,6 @@ describe('the owner’s case action scope', () => {
       {
         stdio: ['ignore', 'ignore', 'inherit', 'ipc'],
       },
-    );
-    try {
-      await message(child);
-      let entered = false;
-      const waiting = scope.exclusive(async () => {
-        entered = true;
-      });
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      expect(entered).toBe(false);
-      const released = message(child);
-      child.send!('release');
-      await Promise.all([released, waiting]);
-      expect(entered).toBe(true);
-    } finally {
-      child.kill();
-    }
-  }, 30_000);
-
-  it('keeps the same lock when an addon from another Node version needs the built-in backend', async () => {
-    const root = directory();
-    const scope = createCaseActionScope(root);
-    const moduleUrl = new URL('../connectors/case-action-scope.ts', import.meta.url).href;
-    const program = `
-      const original = process.dlopen;
-      process.dlopen = function (module, filename, flags) {
-        if (filename.includes('better_sqlite3')) {
-          const error = new Error('addon built for another Node version');
-          error.code = 'ERR_DLOPEN_FAILED';
-          throw error;
-        }
-        return original.call(this, module, filename, flags);
-      };
-      const { createCaseActionScope } = await import(${JSON.stringify(moduleUrl)});
-      const scope = createCaseActionScope(${JSON.stringify(root)});
-      await scope.exclusive(async () => {
-        process.send({ ready: true });
-        await new Promise((resolve) => process.once('message', resolve));
-      });
-      process.send({ released: true });
-    `;
-    const child = spawn(
-      process.execPath,
-      ['--conditions=source', '--import', 'tsx', '--input-type=module', '-e', program],
-      { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] },
     );
     try {
       await message(child);

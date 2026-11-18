@@ -180,6 +180,59 @@ exact host names in `PERSONAL_AGENT_CONNECTOR_HOSTS` (comma-separated, for examp
 the agent. Only the hosts you list are exempted from that refusal, and the service must still use `https`.
 The same list decides whether the notification address you set in Settings, and the push service of a browser you subscribed, may be at such a host.
 
+## Recover case-request settings
+
+Before upgrading, stop **every** older agent that uses the same state folder, including agents on
+another machine or in a container. Older and newer versions use different locks and cannot protect
+each other's changes. Do not start an older agent against that folder after upgrading: an older agent
+can still change a connection without using the newer lock. If the folder contains
+`.case-action-scope-connector-settings.sqlite` as a file, follow the offline recovery steps below
+before starting the upgraded agents. This clears existing case-request choices. To downgrade, stop
+all agents and start the older version with a separate, empty state folder.
+
+If a case-request choice is still being confirmed, use **Cancel pending choice** on its connector card.
+If an interrupted connection change keeps the settings closed, choose **Finish disconnect**. After a
+machine restart or a failure on another machine, the agent may be unable to prove that the old lock is
+unused. In that case the settings stay closed and may need offline recovery:
+
+1. Stop every agent and container that can access the state folder. Close any unfinished sign-in pages.
+   Do not restart an agent until the recovery command completes. If you cannot ensure that all agents
+   have stopped and cannot resume, leave the settings closed. If sync must not run after restart, turn
+   it off before stopping, or revoke the service sign-in (and block access for a service needing no
+   sign-in) before restarting. Otherwise a scheduled sync may start before you disconnect.
+2. Set `PERSONAL_AGENT_RECOVERY_STATE_DIR` below to the actual state folder (`--state-dir`, then
+   `PERSONAL_AGENT_STATE_DIR`, or `~/.robota/personal` by default), and run the command. It moves all
+   case-request settings, pending choices, locks and connection-change markers into a new owner-only
+   folder inside the state folder. It installs a marker that stops older agents changing case-request
+   settings, but does not stop them changing connections. It clears case-request choices for **all**
+   connectors; it does not remove sign-ins or tokens. If the command fails, fix the error and run it
+   again before restarting.
+
+   ```sh
+   export PERSONAL_AGENT_RECOVERY_STATE_DIR="$HOME/.robota/personal"
+   node <<'NODE'
+   const fs = require('node:fs');
+   const path = require('node:path');
+   const state = fs.realpathSync(process.env.PERSONAL_AGENT_RECOVERY_STATE_DIR);
+   const backup = fs.mkdtempSync(path.join(state, 'case-action-recovery-'));
+   for (const name of fs.readdirSync(state)) {
+     const settings = ['case-action-scope', '.case-action-scope-recovery',
+       '.case-action-scope-transitions'].includes(name);
+     const lock = name.startsWith('.case-action-scope-') && /\.lock(?:\.|$)/.test(name);
+     const oldLock = name.startsWith('.case-action-scope-connector-settings.sqlite');
+     if (settings || lock || oldLock) fs.renameSync(path.join(state, name), path.join(backup, name));
+   }
+   const guard = path.join(state, '.case-action-scope-connector-settings.sqlite');
+   fs.mkdirSync(guard, { mode: 0o700 });
+   fs.writeFileSync(path.join(guard, 'format'), 'case-action-directory-lock-v1\n', { mode: 0o600 });
+   console.log(`Moved case-request state to ${backup}`);
+   NODE
+   ```
+
+3. Start the upgraded agent. Disconnect the affected connector normally before reconnecting it, and
+   choose its case-request tools again only when needed. The moved files are a recovery record, not
+   current settings; restoring them would also restore old choices.
+
 ## Messengers
 
 Any messenger can reach your agent through an adapter of the standard channel contract
