@@ -108,6 +108,33 @@ describe('personal API client', () => {
     expect(one.calls[0]!.init?.headers).toEqual({});
   });
 
+  it('reads and conditionally changes or fences a case connector', async () => {
+    const binding = { revision: 'revision-1', connectorId: 'connector-mail' };
+    const { api, calls } = recorder({ status: 200, body: { binding } });
+    const controller = new AbortController();
+    expect(await api.caseConnector('case-1/x', controller.signal)).toEqual(binding);
+    expect(await api.setCaseConnector('case-1/x', 'connector-mail', 'revision-1')).toEqual(binding);
+    expect(await api.fenceCaseConnector('case-1/x', 'revision-1')).toEqual(binding);
+    expect(calls.map((item) => [item.init?.method, item.url])).toEqual([
+      ['GET', 'api/cases/case-1%2Fx/connector'],
+      ['POST', 'api/cases/case-1%2Fx/connector'],
+      ['POST', 'api/cases/case-1%2Fx/connector'],
+    ]);
+    expect(calls[0]!.init?.signal).toBe(controller.signal);
+    expect(JSON.parse(String(calls[1]!.init?.body))).toEqual({
+      connectorId: 'connector-mail',
+      revision: 'revision-1',
+    });
+    expect(JSON.parse(String(calls[2]!.init?.body))).toEqual({
+      fence: true,
+      revision: 'revision-1',
+    });
+    expect(calls[1]!.init?.headers).toEqual({
+      'content-type': 'application/json',
+      [API_WRITE_HEADER]: '1',
+    });
+  });
+
   it('reads the delivery limits, and saves them with a PUT that carries the write header', async () => {
     const status = {
       settings: {

@@ -66,6 +66,15 @@ function fakeApi(
 }
 
 describe('the Connectors tab', () => {
+  it('shows identifiers for services with the same name and address', async () => {
+    const other = { ...NOTES, id: 'connector-notes-2' };
+    render(<ConnectorsView api={fakeApi([NOTES, other])} />);
+    expect(await screen.findByText('Service ID: connector-notes-1')).toBeTruthy();
+    expect(screen.getByText('Service ID: connector-notes-2')).toBeTruthy();
+    expect(screen.getByRole('listitem', { name: 'Notes (connector-notes-1)' })).toBeTruthy();
+    expect(screen.getByRole('listitem', { name: 'Notes (connector-notes-2)' })).toBeTruthy();
+  });
+
   it('settles older requests before showing settings in a newly opened page', async () => {
     let finish!: (result: IConnectorsListing & { fenced: readonly string[] }) => void;
     const fence = new Promise<IConnectorsListing & { fenced: readonly string[] }>((resolve) => {
