@@ -176,11 +176,20 @@ export function createApprovalRegistry(
           recorded.approval?.state !== (approve ? 'approved' : 'denied')
         )
           throw new Error('The recorded approval differs from the displayed action');
-        await cancellations?.authorize(expected, () => !flight.cancelled && !closing);
-        if (flight.cancelled || closing) throw new Error('The approval was cancelled');
-        answering.delete(feedId);
-        handedOff = true;
-        waiting.session.resolvePermission(waiting.promptId, approve);
+        const handoff = (): void => {
+          if (flight.cancelled || closing) throw new Error('The approval was cancelled');
+          answering.delete(feedId);
+          handedOff = true;
+          waiting.session.resolvePermission(waiting.promptId, approve);
+        };
+        if (cancellations === undefined) handoff();
+        else
+          await cancellations.authorize(
+            expected,
+            approve ? 'approved' : 'denied',
+            () => !flight.cancelled && !closing,
+            handoff,
+          );
         try {
           await cancellations?.finish(expected);
         } catch {

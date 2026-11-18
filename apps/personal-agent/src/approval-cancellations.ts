@@ -15,6 +15,7 @@ import {
 import { dirname, join } from 'node:path';
 
 import { createSharedLock } from './shared-lock.js';
+import type { IFeedItem } from '@robota-sdk/agent-product/personal';
 
 export interface IApprovalIdentity {
   readonly id: string;
@@ -26,7 +27,12 @@ export interface IApprovalIdentity {
 
 export interface IApprovalCancellations {
   mark(expected: IApprovalIdentity): void;
-  authorize(expected: IApprovalIdentity, stillWaiting: () => boolean): Promise<void>;
+  authorize(
+    expected: IApprovalIdentity,
+    state: 'approved' | 'denied',
+    stillWaiting: () => boolean,
+    handoff: () => void,
+  ): Promise<void>;
   list(): readonly IApprovalIntent[];
   finish(expected: IApprovalIdentity): Promise<void>;
 }
@@ -136,14 +142,30 @@ export function createApprovalCancellations(stateDir: string): IApprovalCancella
         throw new Error('The approval cancellation changed');
       if (existing?.phase !== 'pending') write(expected, 'pending');
     },
-    async authorize(expected, stillWaiting) {
+    async authorize(expected, state, stillWaiting, handoff) {
       await withFeedLock(async () => {
         const existing = read(pathOf(expected.id));
         if (!stillWaiting()) throw new Error('The approval was cancelled');
         if (existing === undefined || !same(existing, expected) || existing.phase !== 'pending')
           throw new Error('The approval intent changed');
+        const feed: unknown = JSON.parse(
+          readFileSync(join(stateDir, 'goals', 'feed.json'), 'utf8'),
+        );
+        if (typeof feed !== 'object' || feed === null || !Object.hasOwn(feed, expected.id))
+          throw new Error('The recorded approval is no longer in the feed');
+        const item = (feed as Record<string, IFeedItem>)[expected.id];
+        if (
+          item?.id !== expected.id ||
+          item.goalId !== expected.goalId ||
+          item.runId !== expected.runId ||
+          item.approval?.tool !== expected.tool ||
+          item.approval.detail !== expected.detail ||
+          item.approval.state !== state
+        )
+          throw new Error('The recorded approval changed');
         syncFeed();
         write(expected, 'authorized');
+        handoff();
       });
     },
     list() {

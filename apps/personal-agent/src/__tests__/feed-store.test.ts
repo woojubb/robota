@@ -31,6 +31,70 @@ const approval: IFeedItem = {
 };
 
 describe('the shared feed', () => {
+  it.each(['approval', 'question'] as const)(
+    'does not leave a waiting %s when a feed directory sync fails after rename',
+    async (kind) => {
+      if (process.platform === 'win32') return;
+      const root = directory();
+      const moduleUrl = new URL('../feed-store.ts', import.meta.url).href;
+      const program = `
+        import fs from 'node:fs';
+        import path from 'node:path';
+        import { syncBuiltinESMExports } from 'node:module';
+        let armed = false, renamed = false;
+        const rename = fs.renameSync, sync = fs.fsyncSync;
+        fs.renameSync = (source, target) => {
+          const result = rename(source, target);
+          if (armed && String(target).endsWith('/goals/feed.json')) renamed = true;
+          return result;
+        };
+        fs.fsyncSync = fd => {
+          if (armed && renamed && fs.fstatSync(fd).isDirectory()) {
+            armed = false;
+            throw Object.assign(new Error('directory sync failed'), { code: 'EIO' });
+          }
+          return sync(fd);
+        };
+        syncBuiltinESMExports();
+        const { createSharedFeedStore } = await import(${JSON.stringify(moduleUrl)});
+        const { GoalBook, CaseBook, createFileCaseStore } = await import('@robota-sdk/agent-product/personal');
+        const book = new GoalBook({ store: createSharedFeedStore(${JSON.stringify(root)}) });
+        const cases = new CaseBook({ store: createFileCaseStore(path.join(${JSON.stringify(root)}, 'cases')), feed: book });
+        const opened = await cases.open({ title: 'Case', noticed: 'A decision.', source: 'fixture' });
+        armed = true;
+        let failed = false;
+        try {
+          if (${JSON.stringify(kind)} === 'question') await cases.ask(opened.case.id, { question: 'Continue?' });
+          else await book.post({ kind: 'approval', title: 'Action', body: '',
+            approval: { tool: 'ConnectorAct', detail: 'Send', state: 'pending' } });
+        } catch { failed = true; }
+        fs.writeSync(1, JSON.stringify({ failed, feed: await book.feed(), question: (await cases.get(opened.case.id)).question ?? null }));
+      `;
+      const child = spawn(
+        process.execPath,
+        ['--import', 'tsx', '--input-type=module', '-e', program],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      );
+      let output = '';
+      let errors = '';
+      child.stdout!.on('data', (chunk: Buffer) => {
+        output += chunk.toString();
+      });
+      child.stderr!.on('data', (chunk: Buffer) => {
+        errors += chunk.toString();
+      });
+      const code = await new Promise<number | null>((resolve, reject) => {
+        child.once('exit', resolve);
+        child.once('error', reject);
+      });
+      expect(code, errors).toBe(0);
+      expect(JSON.parse(output)).toEqual({ failed: true, feed: [], question: null });
+    },
+    15_000,
+  );
+
   it('does not let a stale item change an approved call or restore pending', async () => {
     const store = createSharedFeedStore(directory());
     await store.putFeedItem(approval);

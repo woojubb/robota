@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,6 +10,101 @@ import { createApprovalRegistry } from '../approvals.js';
 import { tryDirectoryLock } from '../connectors/directory-lock.js';
 import { createSharedFeedStore } from '../feed-store.js';
 import { startHarness } from './harness.js';
+
+it('refuses an action if its recorded approval was removed before handoff', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'approval-trim-'));
+  const store = createSharedFeedStore(root);
+  const book = new GoalBook({ store });
+  const cancellations = createApprovalCancellations(root);
+  const approvals = createApprovalRegistry(book, undefined, undefined, cancellations);
+  const resolvePermission = vi.fn();
+  try {
+    const notices = Object.fromEntries(
+      Array.from({ length: 500 }, (_, index) => {
+        const id = `feed-notice${index}`;
+        return [
+          id,
+          {
+            id,
+            at: '2999-01-01T00:00:00.000Z',
+            kind: 'notice',
+            title: 'Notice',
+            body: '',
+            dismissed: false,
+          },
+        ];
+      }),
+    );
+    writeFileSync(join(root, 'goals', 'feed.json'), JSON.stringify(notices));
+    const item = await book.post({
+      kind: 'approval',
+      title: 'Action',
+      body: '',
+      approval: { tool: 'ConnectorAct', detail: 'Send the message', state: 'pending' },
+    });
+    approvals.register(item, {
+      session: { resolvePermission },
+      promptId: 'prompt',
+      recordAnswer: async () => {
+        const recorded = await book.setApproval(item.id, 'approved');
+        await store.putFeedItem({
+          id: 'feed-another',
+          at: '2999-01-02T00:00:00.000Z',
+          kind: 'notice',
+          title: 'Another',
+          body: '',
+          dismissed: false,
+        });
+        return recorded;
+      },
+    });
+    await expect(approvals.answer(item.id, true)).rejects.toThrow(/no longer in the feed/u);
+    await approvals.settleFailed();
+    expect(resolvePermission).toHaveBeenCalledWith('prompt', false);
+    expect(resolvePermission).not.toHaveBeenCalledWith('prompt', true);
+    expect(await book.feedItem(item.id)).toBeUndefined();
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}, 15_000);
+
+it('hands off an approved decision while its durable intent is protected', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'approval-handoff-'));
+  const book = new GoalBook({ store: createSharedFeedStore(root) });
+  const cancellations = createApprovalCancellations(root);
+  const approvals = createApprovalRegistry(book, undefined, undefined, cancellations);
+  try {
+    const item = await book.post({
+      kind: 'approval',
+      title: 'Action',
+      body: '',
+      approval: { tool: 'ConnectorAct', detail: 'Send the message', state: 'pending' },
+    });
+    let observed = false;
+    approvals.register(item, {
+      session: {
+        resolvePermission: (_id, allowed) => {
+          if (allowed !== true) return;
+          expect(cancellations.list()[0]?.phase).toBe('authorized');
+          const competing = tryDirectoryLock(join(root, '.feed-write.lock'));
+          try {
+            expect(competing).toBeUndefined();
+          } finally {
+            competing?.release();
+          }
+          observed = true;
+        },
+      },
+      promptId: 'prompt',
+      recordAnswer: async () => book.setApproval(item.id, 'approved'),
+    });
+    expect((await approvals.answer(item.id, true)).approval?.state).toBe('approved');
+    expect(observed).toBe(true);
+    expect(cancellations.list()).toEqual([]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}, 15_000);
 
 it('refuses an answer cancelled while authorization waits for the feed lock', async () => {
   const root = mkdtempSync(join(tmpdir(), 'approval-lock-'));

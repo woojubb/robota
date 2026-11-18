@@ -23,6 +23,16 @@ const FEED_ID = /^feed-[a-z0-9]{1,40}$/;
 const FEED_LIMIT = 500;
 const RUNS_PER_GOAL = 100;
 
+function syncDirectory(path: string): void {
+  if (process.platform === 'win32') return;
+  const fd = openSync(path, 'r');
+  try {
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function readJson<T>(path: string, empty: T): T {
   return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as T) : empty;
 }
@@ -41,14 +51,7 @@ function writeAtomic(path: string, value: unknown, durable = false): void {
     writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
   }
   renameSync(temporary, path);
-  if (durable && process.platform !== 'win32') {
-    const directory = openSync(dirname(path), 'r');
-    try {
-      fsyncSync(directory);
-    } finally {
-      closeSync(directory);
-    }
-  }
+  if (durable) syncDirectory(dirname(path));
 }
 
 const newestFirst = <T extends { readonly id: string }>(items: T[], at: (item: T) => string): T[] =>
@@ -74,7 +77,10 @@ function boundedFeed(items: IFeedItem[]): IFeedItem[] {
 }
 
 export function createFileGoalStore(directory: string): IGoalStore {
+  const created: string[] = [];
+  for (let path = directory; !existsSync(path); path = dirname(path)) created.push(path);
   mkdirSync(join(directory, 'runs'), { recursive: true, mode: 0o700 });
+  for (const path of created) syncDirectory(dirname(path));
   const goalsPath = join(directory, 'goals.json');
   const feedPath = join(directory, 'feed.json');
   const runsPath = (goalId: string): string => {
@@ -107,8 +113,22 @@ export function createFileGoalStore(directory: string): IGoalStore {
     listRuns: async (goalId, limit) => readJson<IGoalRun[]>(runsPath(goalId), []).slice(0, limit),
     putFeedItem: async (item) => {
       if (!FEED_ID.test(item.id)) throw new Error(`Invalid feed item id: ${item.id}`);
-      const items = boundedFeed(Object.values({ ...feed(), [item.id]: item }));
-      writeAtomic(feedPath, Object.fromEntries(items.map((entry) => [entry.id, entry])), true);
+      const previous = feed();
+      const items = boundedFeed(Object.values({ ...previous, [item.id]: item }));
+      const next = Object.fromEntries(items.map((entry) => [entry.id, entry]));
+      try {
+        writeAtomic(feedPath, next, true);
+      } catch (error) {
+        try {
+          // A directory sync can fail after rename made the new card visible. Restore the old
+          // feed while the host's write lock is still held, if that is still the current version.
+          if (JSON.stringify(feed()) === JSON.stringify(next))
+            writeAtomic(feedPath, previous, true);
+        } catch {
+          // The original storage failure is still the useful error to the caller.
+        }
+        throw error;
+      }
     },
     getFeedItem: async (id) => own(feed(), id),
     listFeed: async (limit) =>
