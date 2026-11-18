@@ -140,6 +140,38 @@ afterEach(async () => {
 });
 
 describe('explicit stateless MCP session', () => {
+  it('does not replay an admitted action when the service requests more input', async () => {
+    const client = await openModern(
+      (method, result) =>
+        method === 'tools/call'
+          ? {
+              ...result,
+              resultType: 'input_required',
+              inputRequests: {
+                ask: { method: 'elicitation/create', params: { message: 'Continue?' } },
+              },
+              requestState: 'opaque-state',
+            }
+          : result,
+      true,
+    );
+    let asked = 0;
+    await expect(
+      client.callTool(
+        'echo',
+        {},
+        {
+          admitDispatch: async (dispatch) => ({ response: dispatch() }),
+          ask: async () => {
+            asked += 1;
+            return { type: 'answer' as const, values: ['yes'] };
+          },
+        },
+      ),
+    ).rejects.toThrow(/input_required/u);
+    expect(requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
+    expect(asked).toBe(0);
+  });
   it('sends a call its own traceparent through the SDK, and on no other request', async () => {
     const client = await openModern();
     const address = listener!.address();
@@ -234,10 +266,22 @@ describe('explicit stateless MCP session', () => {
   });
 
   it.each([
-    [{ ttlMs: -1, cacheScope: 'public' }, { ttlMs: 0, cacheScope: 'public' }],
-    [{ ttlMs: 1.5, cacheScope: 'public' }, { ttlMs: 0, cacheScope: 'public' }],
-    [{ ttlMs: 60_000, cacheScope: 'everyone' }, { ttlMs: 60_000, cacheScope: 'private' }],
-    [{ ttlMs: -1, cacheScope: 'everyone' }, { ttlMs: 0, cacheScope: 'private' }],
+    [
+      { ttlMs: -1, cacheScope: 'public' },
+      { ttlMs: 0, cacheScope: 'public' },
+    ],
+    [
+      { ttlMs: 1.5, cacheScope: 'public' },
+      { ttlMs: 0, cacheScope: 'public' },
+    ],
+    [
+      { ttlMs: 60_000, cacheScope: 'everyone' },
+      { ttlMs: 60_000, cacheScope: 'private' },
+    ],
+    [
+      { ttlMs: -1, cacheScope: 'everyone' },
+      { ttlMs: 0, cacheScope: 'private' },
+    ],
   ])(
     'coerces invalid discovery freshness %j field by field to the safest value, not a refusal',
     async (hint, expected) => {
@@ -319,7 +363,10 @@ describe('explicit stateless MCP session', () => {
               inputRequests: {
                 again: {
                   method: 'elicitation/create',
-                  params: { message: 'Again?', requestedSchema: { type: 'object', properties: {} } },
+                  params: {
+                    message: 'Again?',
+                    requestedSchema: { type: 'object', properties: {} },
+                  },
                 },
               },
               requestState: 'round',
@@ -354,7 +401,12 @@ describe('explicit stateless MCP session', () => {
               inputRequests: {
                 link: {
                   method: 'elicitation/create',
-                  params: { mode: 'url', message: 'Sign in', url: 'https://example.com/sign-in', elicitationId: 'e1' },
+                  params: {
+                    mode: 'url',
+                    message: 'Sign in',
+                    url: 'https://example.com/sign-in',
+                    elicitationId: 'e1',
+                  },
                 },
               },
             }
@@ -368,9 +420,7 @@ describe('explicit stateless MCP session', () => {
     };
     // The client refuses the mode it never declared before anything is asked; the server learns it
     // from the failed call. The carrier stays open: a later call still completes.
-    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(
-      /URL-mode/,
-    );
+    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(/URL-mode/);
     expect(asked).toEqual([]);
     expect(requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
     expect(await client.callTool('echo', { value: 'input' }, { ask })).toMatchObject({
@@ -449,7 +499,13 @@ describe('explicit stateless MCP session', () => {
       method === 'tools/list'
         ? {
             ...result,
-            tools: [{ name: 'echo', inputSchema: { type: 'object', properties: { value: true } }, outputSchema: { type: 'string' } }],
+            tools: [
+              {
+                name: 'echo',
+                inputSchema: { type: 'object', properties: { value: true } },
+                outputSchema: { type: 'string' },
+              },
+            ],
           }
         : result,
     );

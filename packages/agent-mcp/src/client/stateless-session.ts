@@ -31,6 +31,7 @@ import {
 } from './session-protocol.js';
 import { MCPStdioError } from './stdio-error.js';
 import { outboundTraceHeaders } from './trace-propagation.js';
+import { withDispatchAdmission } from './effect-dispatch.js';
 import { lastHttpAnswerOf } from './transport.js';
 
 import type { Client, Result, Transport } from '@modelcontextprotocol/client';
@@ -46,7 +47,8 @@ async function closeCarrier(client: Client, transport: Transport): Promise<void>
 
 /** The SDK wraps what the carrier threw during its probe; the carrier's own refusal keeps its class. */
 function probeCause(error: unknown): unknown {
-  if (!(error instanceof SdkError) || error.code !== SdkErrorCode.EraNegotiationFailed) return error;
+  if (!(error instanceof SdkError) || error.code !== SdkErrorCode.EraNegotiationFailed)
+    return error;
   const cause = (error.data as { readonly cause?: unknown } | undefined)?.cause;
   return cause instanceof Error ? cause : error;
 }
@@ -97,7 +99,8 @@ function unofferedRevision(error: unknown, transport: Transport): MCPSessionErro
  */
 function unsupportedResult(error: unknown): MCPStatelessProtocolError | undefined {
   if (!(error instanceof SdkError)) return undefined;
-  const data = error.data as { readonly resultType?: unknown; readonly method?: unknown } | undefined;
+  const data = error.data as
+    { readonly resultType?: unknown; readonly method?: unknown } | undefined;
   switch (error.code) {
     case SdkErrorCode.UnsupportedResultType:
       return new MCPStatelessProtocolError(
@@ -340,26 +343,39 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
           callOptions?.outboundTraceContext === undefined
             ? undefined
             : outboundTraceHeaders(transport, callOptions.outboundTraceContext);
-        const call = async () =>
-          toToolCallResult(
-            await invoke(
-              // `request`, not `callTool`: the latter re-lists and replays the call on a header
-              // mismatch, and this surface sends each effectful request exactly once.
-              () =>
+        const call = async () => {
+          const result = await invoke(
+            // `request`, not `callTool`: the latter re-lists and replays the call on a header
+            // mismatch, and this surface sends each effectful request exactly once.
+            () => {
+              const send = () =>
                 client.request(
                   { method: 'tools/call', params: { name, arguments: args } },
                   {
                     signal: callOptions?.signal,
                     timeout: callOptions?.timeoutMs ?? options.timeouts.perCallMs,
+                    ...(callOptions?.admitDispatch !== undefined && { allowInputRequired: true }),
                     ...(traceHeaders === undefined || Object.keys(traceHeaders).length === 0
                       ? {}
                       : { headers: traceHeaders }),
                   },
-                ),
-              callOptions?.signal,
-              () => new MCPStatelessProtocolError('invalid-tool-result'),
-            ),
+                );
+              return callOptions?.admitDispatch === undefined
+                ? send()
+                : withDispatchAdmission(transport, callOptions.admitDispatch, send);
+            },
+            callOptions?.signal,
+            () => new MCPStatelessProtocolError('invalid-tool-result'),
           );
+          if (
+            typeof result === 'object' &&
+            result !== null &&
+            'resultType' in result &&
+            result.resultType === 'input_required'
+          )
+            throw new MCPStatelessProtocolError('input_required');
+          return toToolCallResult(result);
+        };
         const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
         try {
           return await call();

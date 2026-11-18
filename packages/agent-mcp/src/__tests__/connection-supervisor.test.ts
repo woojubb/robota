@@ -73,7 +73,7 @@ describe('MCPConnectionSupervisor — open / reuse / close / listChanged', () =>
     expect(seen.map((s) => s.kind)).toEqual(['connecting', 'connected', 'closed']);
   });
 
-  it('hands the call\'s ask port to the session unchanged, and nothing when the call has none', async () => {
+  it("hands the call's ask port to the session unchanged, and nothing when the call has none", async () => {
     const identity = fixtureIdentity();
     const session = new FakeMcpSession({ identity });
     const supervisor = new MCPConnectionSupervisor({
@@ -87,6 +87,27 @@ describe('MCPConnectionSupervisor — open / reuse / close / listChanged', () =>
     await supervisor.callTool('ping', {});
 
     expect(session.callToolCalls.map((call) => call.ask)).toEqual([ask, undefined]);
+  });
+
+  it('passes a dispatch admission to the connected session for that call only', async () => {
+    const identity = fixtureIdentity();
+    const seen: unknown[] = [];
+    const session = new FakeMcpSession({
+      identity,
+      callTool: async (_name, _args, options) => {
+        seen.push(options?.admitDispatch);
+        return { content: [], isError: false };
+      },
+    });
+    const supervisor = new MCPConnectionSupervisor({
+      serverId: identity.serverId,
+      openSession: async () => session,
+      timeouts: fixtureTimeouts(),
+    });
+    const admit = async (dispatch: () => Promise<unknown>) => ({ response: dispatch() });
+    await supervisor.callTool('ping', {}, { admitDispatch: admit });
+    await supervisor.callTool('ping', {});
+    expect(seen).toEqual([admit, undefined]);
   });
 
   it('closes the live session on shutdown()', async () => {

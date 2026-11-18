@@ -36,6 +36,7 @@ import type {
   IMCPReadResourceResult,
   IMCPSession,
   IMCPToolCallResult,
+  TMCPDispatchAdmission,
 } from '../client/session.js';
 import type {
   IOutboundTraceContext,
@@ -469,6 +470,7 @@ export class MCPConnectionSupervisor {
       readonly signal?: AbortSignal;
       readonly outboundTraceContext?: IOutboundTraceContext;
       readonly ask?: IUserInteraction['ask'];
+      readonly admitDispatch?: TMCPDispatchAdmission;
     },
   ): Promise<IMCPToolCallResult> {
     return this.withDefaultBudget(options?.signal, async (effectiveSignal) => {
@@ -484,6 +486,7 @@ export class MCPConnectionSupervisor {
             ? { outboundTraceContext: options.outboundTraceContext }
             : {}),
           ...(options?.ask ? { ask: options.ask } : {}),
+          ...(options?.admitDispatch ? { admitDispatch: options.admitDispatch } : {}),
         });
       } catch (error) {
         this.retireSelfClosedStdioSession(session, error);

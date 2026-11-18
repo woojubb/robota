@@ -11,6 +11,7 @@
  */
 
 import { openStatelessSession } from './stateless-session.js';
+import { fromJsonSchema } from '@modelcontextprotocol/client';
 import {
   buildDeclaredCapabilities,
   createMcpClient,
@@ -30,6 +31,7 @@ import { discoverAll } from './discovery.js';
 import { createElicitationHandler, MCPElicitationCalls } from './elicitation.js';
 import { MCPStdioError } from './stdio-error.js';
 import { outboundTraceHeaders } from './trace-propagation.js';
+import { withDispatchAdmission } from './effect-dispatch.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
 
 import type { IMCPDiscovery, IMCPServerIdentity } from '../catalog/types.js';
@@ -54,6 +56,7 @@ export type {
   IMCPSessionTimeouts,
   IMCPToolCallOptions,
   IMCPToolCallResult,
+  TMCPDispatchAdmission,
   TMCPListChangedListener,
 } from './session-types.js';
 
@@ -268,7 +271,10 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     throw new MCPStdioError('early-exit');
   };
 
-  const maskStdioFailure = async (error: unknown, signal: AbortSignal | undefined): Promise<never> => {
+  const maskStdioFailure = async (
+    error: unknown,
+    signal: AbortSignal | undefined,
+  ): Promise<never> => {
     if (signal?.aborted || isRequestTimeout(error)) {
       await closeSession();
       throw new MCPStdioError('cancelled');
@@ -346,9 +352,48 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
         );
       const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
       try {
+        if (callOptions?.admitDispatch !== undefined) {
+          const raw = await withDispatchAdmission(
+            options.transport,
+            callOptions.admitDispatch,
+            () =>
+              client.request(
+                { method: 'tools/call', params: { name, arguments: args } },
+                {
+                  timeout: callOptions.timeoutMs,
+                  signal: callOptions.signal,
+                  allowInputRequired: true,
+                  ...(traceHeaders === undefined || Object.keys(traceHeaders).length === 0
+                    ? {}
+                    : { headers: traceHeaders }),
+                },
+              ),
+          );
+          if (
+            typeof raw === 'object' &&
+            raw !== null &&
+            'resultType' in raw &&
+            raw.resultType === 'input_required'
+          )
+            throw new Error('The admitted tool call requires additional input');
+          const result = toToolCallResult(raw);
+          if (outputSchema !== undefined && !result.isError) {
+            if (result.structuredContent === undefined)
+              throw new Error(
+                'The tool result has no structured content required by its output schema',
+              );
+            const checked = await fromJsonSchema(outputSchema as NonNullable<Tool['outputSchema']>)[
+              '~standard'
+            ].validate(result.structuredContent);
+            if (checked.issues !== undefined)
+              throw new Error('The tool result does not match its output schema');
+          }
+          return result;
+        }
         return toToolCallResult(await call());
       } catch (error) {
-        if (sensitiveTransport(options.transport)) return maskStdioFailure(error, callOptions?.signal);
+        if (sensitiveTransport(options.transport))
+          return maskStdioFailure(error, callOptions?.signal);
         throw error;
       } finally {
         leave();
@@ -368,7 +413,8 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
           ),
         );
       } catch (error) {
-        if (sensitiveTransport(options.transport)) return maskStdioFailure(error, readOptions?.signal);
+        if (sensitiveTransport(options.transport))
+          return maskStdioFailure(error, readOptions?.signal);
         throw error;
       }
     },

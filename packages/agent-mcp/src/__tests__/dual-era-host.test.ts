@@ -134,6 +134,202 @@ afterEach(async () => {
 });
 
 describe('one client for both protocol eras', () => {
+  it.each([undefined, '2026-07-28'])(
+    'admits one tool dispatch at the request boundary (%s)',
+    async (version) => {
+      let releaseResponse!: () => void;
+      let received!: () => void;
+      let admitted!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        releaseResponse = resolve;
+      });
+      const arrived = new Promise<void>((resolve) => {
+        received = resolve;
+      });
+      const admissionFinished = new Promise<void>((resolve) => {
+        admitted = resolve;
+      });
+      const client = await open(
+        await startHost([tool], async (request) => {
+          received();
+          await gate;
+          return echoCall(request);
+        }),
+        version,
+      );
+      await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
+      try {
+        const call = client.callTool(
+          'echo',
+          { value: 'allowed' },
+          {
+            admitDispatch: async (dispatch) => {
+              const response = dispatch();
+              expect(() => dispatch()).toThrow(/already dispatched/u);
+              admitted();
+              return { response };
+            },
+          },
+        );
+        await admissionFinished;
+        await arrived;
+        expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(1);
+        releaseResponse();
+        expect(await call).toMatchObject({ content: [{ text: 'echo:allowed' }], isError: false });
+      } finally {
+        releaseResponse();
+      }
+    },
+  );
+
+  it.each([undefined, '2026-07-28'])(
+    'does not send a refused or late dispatch (%s)',
+    async (version) => {
+      const client = await open(await startHost(), version);
+      await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
+      await expect(
+        client.callTool(
+          'echo',
+          {},
+          {
+            admitDispatch: async () => {
+              throw new Error('authority revoked');
+            },
+          },
+        ),
+      ).rejects.toThrow(/authority revoked/u);
+      let delayed!: () => Promise<unknown>;
+      await expect(
+        client.callTool(
+          'echo',
+          {},
+          {
+            admitDispatch: async (dispatch) => {
+              delayed = dispatch;
+              return { response: Promise.resolve({}) };
+            },
+          },
+        ),
+      ).rejects.toThrow(/not admitted/u);
+      expect(() => delayed()).toThrow(/already dispatched/u);
+      expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(0);
+    },
+  );
+
+  it('validates a legacy admitted result against its declared output schema', async () => {
+    const typed = {
+      ...tool,
+      name: 'typed',
+      outputSchema: { type: 'object', properties: { n: { type: 'number' } }, required: ['n'] },
+    } as Tool;
+    const client = await open(
+      await startHost([typed], async () => ({
+        content: [{ type: 'text', text: 'typed' }],
+        structuredContent: { n: 'wrong' },
+      })),
+    );
+    await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
+    await expect(
+      client.callTool(
+        'typed',
+        {},
+        {
+          admitDispatch: async (dispatch) => ({ response: dispatch() }),
+        },
+      ),
+    ).rejects.toThrow(/output schema/u);
+    expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(1);
+  });
+
+  it.each([undefined, '2026-07-28'])(
+    'does not send an admitted call cancelled while it waits (%s)',
+    async (version) => {
+      const client = await open(await startHost(), version);
+      await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
+      const abort = new AbortController();
+      let release!: () => void;
+      let entered!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const waiting = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const call = client.callTool(
+        'echo',
+        {},
+        {
+          signal: abort.signal,
+          admitDispatch: async (dispatch) => {
+            entered();
+            await gate;
+            return { response: dispatch() };
+          },
+        },
+      );
+      try {
+        await waiting;
+        abort.abort();
+        await expect(call).rejects.toThrow();
+        release();
+        await new Promise<void>((resolve) => setTimeout(resolve, 25));
+        expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(0);
+      } finally {
+        release();
+      }
+    },
+  );
+
+  it.each([undefined, '2026-07-28'])(
+    'checks admission after delayed authentication and before the request (%s)',
+    async (version) => {
+      let pause = false;
+      let release!: () => void;
+      let reached!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const waiting = new Promise<void>((resolve) => {
+        reached = resolve;
+      });
+      const authenticator = {
+        authorize: async () => {
+          if (pause) {
+            reached();
+            await gate;
+          }
+          return { authorization: 'Bearer fixture' };
+        },
+        onRejected: async () => 'fail' as const,
+      };
+      const client = await open(await startHost(), version, {
+        authentication: { serverId: 'fixture', securityIdentity: 'fixture', authenticator },
+      });
+      await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
+      let allowed = true;
+      pause = true;
+      const call = client.callTool(
+        'echo',
+        {},
+        {
+          admitDispatch: async (dispatch) => {
+            if (!allowed) throw new Error('authority revoked');
+            return { response: dispatch() };
+          },
+        },
+      );
+      try {
+        await waiting;
+        allowed = false;
+        release();
+        await expect(call).rejects.toThrow(/authority revoked/u);
+        expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(0);
+      } finally {
+        release();
+      }
+    },
+  );
+
   it('connects in legacy mode, discovers and completes tools/call', async () => {
     const client = await open(await startHost());
     expect(client.identity).toMatchObject({
@@ -176,9 +372,9 @@ describe('one client for both protocol eras', () => {
       structuredContent: { n: 1 },
       isError: false,
     });
-    const error = await client.callTool('typed', { n: 'not-a-number' }).catch(
-      (failure: unknown) => failure,
-    );
+    const error = await client
+      .callTool('typed', { n: 'not-a-number' })
+      .catch((failure: unknown) => failure);
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).message).toMatch(/output schema/);
     expect(classifyMcpFailure(error)).toBe('config');

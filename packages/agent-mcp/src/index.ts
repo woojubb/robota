@@ -220,6 +220,7 @@ export {
   type IMCPSession,
   type IMCPSessionTimeouts,
   type IMCPToolCallOptions,
+  type TMCPDispatchAdmission,
   type IMCPToolCallResult,
   type TMCPListChangedListener,
 } from './client/session.js';

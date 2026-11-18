@@ -29,6 +29,7 @@ import {
   respondedRequestId,
   toolsCallRequestId,
 } from './trace-propagation.js';
+import { MCPDispatchAdmissions, bindDispatchAdmissions } from './effect-dispatch.js';
 
 import type { JSONRPCMessage, Transport, TransportSendOptions } from '@modelcontextprotocol/client';
 import type { IMCPHttpEgress } from './http-egress.js';
@@ -245,6 +246,7 @@ class CancellableStreamableHTTPClientTransport extends StreamableHTTPClientTrans
     url: URL,
     options: ConstructorParameters<typeof StreamableHTTPClientTransport>[1],
     private readonly calls: MCPCallRequests,
+    private readonly admissions: MCPDispatchAdmissions,
     private readonly closeCarrier: () => Promise<void>,
   ) {
     super(url, options);
@@ -272,6 +274,7 @@ class CancellableStreamableHTTPClientTransport extends StreamableHTTPClientTrans
 
   override async close(): Promise<void> {
     this.calls.clear();
+    this.admissions.clear();
     await Promise.all([this.closeCarrier(), super.close()]);
   }
 
@@ -279,16 +282,20 @@ class CancellableStreamableHTTPClientTransport extends StreamableHTTPClientTrans
     message: JSONRPCMessage | JSONRPCMessage[],
     options?: TransportSendOptions,
   ): Promise<void> {
+    const admittedId = this.admissions.attach(message);
     const callId = toolsCallRequestId(message);
+    let sent: Promise<void>;
     if (callId !== undefined && options?.requestSignal === undefined) {
-      return this.sendCall(callId, message, options);
+      sent = this.sendCall(callId, message, options);
+    } else {
+      const cancelledId = cancelledRequestId(message);
+      const traceHeaders = cancelledId === undefined ? undefined : this.calls.abort(cancelledId);
+      sent =
+        traceHeaders !== undefined
+          ? super.send(message, { ...options, headers: { ...options?.headers, ...traceHeaders } })
+          : super.send(message, options);
     }
-    const cancelledId = cancelledRequestId(message);
-    const traceHeaders = cancelledId === undefined ? undefined : this.calls.abort(cancelledId);
-    if (traceHeaders !== undefined) {
-      return super.send(message, { ...options, headers: { ...options?.headers, ...traceHeaders } });
-    }
-    return super.send(message, options);
+    return admittedId === undefined ? sent : sent.finally(() => this.admissions.sent(admittedId));
   }
 
   private async sendCall(
@@ -404,6 +411,7 @@ export function constructStreamableHttpTransport(
   const carrier = egress.open(admittedUrl);
   const baseFetch = carrier.fetch;
   const calls = new MCPCallRequests();
+  const admissions = new MCPDispatchAdmissions();
 
   // The admitted URL is the only URL spoken to: every call this transport makes is forced to
   // `redirect: 'manual'` (never trusting the SDK's default of following one), and any 3xx response
@@ -423,9 +431,15 @@ export function constructStreamableHttpTransport(
         throw new Error('Stateless MCP automatic stream resumption is unavailable');
     }
     const traced: RequestInit = { ...effectiveInit, signal };
+    const message = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
     const response = await fetchAuthenticated(
       (headers) =>
-        baseFetch(input, { ...traced, ...(headers ? { headers } : {}), redirect: 'manual' }),
+        admissions.send(
+          message,
+          () =>
+            baseFetch(input, { ...traced, ...(headers ? { headers } : {}), redirect: 'manual' }),
+          signal,
+        ),
       traced,
       boundEndpoint,
     );
@@ -433,7 +447,8 @@ export function constructStreamableHttpTransport(
     // no `Location`, as a browser reports it), the type is all there is to judge by.
     if (
       response.type === 'opaqueredirect' ||
-      (response.status >= HTTP_REDIRECT_STATUS_MIN && response.status < HTTP_REDIRECT_STATUS_MAX_EXCLUSIVE)
+      (response.status >= HTTP_REDIRECT_STATUS_MIN &&
+        response.status < HTTP_REDIRECT_STATUS_MAX_EXCLUSIVE)
     ) {
       await response.body?.cancel().catch(() => undefined);
       throw new MCPTransportRedirectRefusedError(
@@ -469,9 +484,11 @@ export function constructStreamableHttpTransport(
       fetch: redirectRefusingFetch,
     },
     calls,
+    admissions,
     () => carrier.close(),
   );
   bindCallRequests(transport, calls);
+  bindDispatchAdmissions(transport, admissions);
   bindTraceEndpoint(transport, admittedUrl);
   return transport;
 }

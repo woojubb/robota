@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { MCPAuthenticationError, type IMCPClientAuthenticator } from '../client/authentication.js';
 import { openMcpSession } from '../client/session.js';
+import { withDispatchAdmission } from '../client/effect-dispatch.js';
 import { createStreamableHttpAdapter } from '../client/transport.js';
 import { decodeEntry } from '../definition/decode.js';
 import { classifyMcpFailure } from '../supervisor/connection.js';
@@ -61,7 +62,9 @@ async function send(
   headers: Record<string, string> = {},
 ): Promise<{ calls: ICall[]; error: unknown }> {
   const { fetch: fetchStub, calls } = stubFetch(statuses);
-  const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ fetch: fetchStub, lookup }) });
+  const adapter = createStreamableHttpAdapter({
+    egress: createNodeHttpEgress({ fetch: fetchStub, lookup }),
+  });
   const admission = await adapter.admit({
     url: 'https://mcp.example.test/mcp',
     headers,
@@ -81,6 +84,38 @@ async function send(
 }
 
 describe('client authentication port', () => {
+  it('never replays an admitted tool request after an authentication rejection', async () => {
+    const { fetch: fetchStub, calls } = stubFetch([401, 202]);
+    const auth = authenticator();
+    const adapter = createStreamableHttpAdapter({
+      egress: createNodeHttpEgress({ fetch: fetchStub, lookup }),
+    });
+    const admission = await adapter.admit({
+      url: 'https://mcp.example.test/mcp',
+      authentication: { serverId: 'alpha', securityIdentity: 'sid-alpha', authenticator: auth },
+    });
+    if (!admission.ok) throw new Error(admission.message);
+    const transport = adapter.construct(admission.admitted);
+    const admit = vi.fn(async (dispatch: () => Promise<unknown>) => ({ response: dispatch() }));
+    try {
+      await expect(
+        withDispatchAdmission(transport, admit, () =>
+          transport.send({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'tools/call',
+            params: { name: 'write', arguments: {} },
+          }),
+        ),
+      ).rejects.toThrow(/already dispatched/u);
+      expect(calls).toHaveLength(1);
+      expect(admit).toHaveBeenCalledOnce();
+      expect(auth.onRejected).toHaveBeenCalledOnce();
+    } finally {
+      await transport.close();
+    }
+  });
+
   it('adds the authenticator headers to each request, over a static header of the same name', async () => {
     const auth = authenticator();
     const { calls, error } = await send([202], auth, {
@@ -153,7 +188,9 @@ describe('client authentication port', () => {
 describe('authentication on the connect path', () => {
   it('reaches the supervisor typed, so a refused credential is classified auth, not retried', async () => {
     const { fetch: fetchStub } = stubFetch([401, 401]);
-    const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ fetch: fetchStub, lookup }) });
+    const adapter = createStreamableHttpAdapter({
+      egress: createNodeHttpEgress({ fetch: fetchStub, lookup }),
+    });
     const admission = await adapter.admit({
       url: 'https://mcp.example.test/mcp',
       authentication: {

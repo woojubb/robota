@@ -42,7 +42,13 @@ export interface IMCPToolCallOptions {
    * put to a person through it; absent, such a request is declined on the server's behalf.
    */
   readonly ask?: IUserInteraction['ask'];
+  /** Admit the single wire request immediately before it starts; its response settles afterward. */
+  readonly admitDispatch?: TMCPDispatchAdmission;
 }
+
+export type TMCPDispatchAdmission = (
+  dispatch: () => Promise<unknown>,
+) => Promise<{ readonly response: Promise<unknown> }>;
 
 export interface IMCPToolCallResult {
   readonly content: readonly IUniversalObjectValue[];
