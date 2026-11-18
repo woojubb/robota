@@ -470,6 +470,7 @@ export interface IPersonalApi {
   cases(): Promise<readonly ICaseView[]>;
   caseThread(id: string): Promise<ICaseView>;
   connectors(): Promise<IConnectorsListing>;
+  connector(id: string): Promise<{ connector: IConnectorView }>;
   /** Services to suggest when adding a connector, matching what was typed. */
   connectorCatalog(query: string): Promise<IConnectorCatalogView>;
   addConnector(input: {
@@ -619,6 +620,7 @@ export function createPersonalApi(
     removeConnector: (connectorId, forgetPulled = false) =>
       call('POST', `connectors/${id(connectorId)}/remove`, { forgetPulled }),
     connectorPulled: (connectorId) => call('GET', `connectors/${id(connectorId)}/pulled`),
+    connector: (connectorId) => call('GET', `connectors/${id(connectorId)}`),
     setConnectorSync: (connectorId, everyMinutes) =>
       call('POST', `connectors/${id(connectorId)}/sync`, { everyMinutes }),
     setConnectorAttention: (connectorId, text) =>

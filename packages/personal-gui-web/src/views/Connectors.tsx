@@ -160,23 +160,28 @@ function ToolGroup({
   );
 }
 
-/** Keep distinct tool names distinct when a service uses invisible characters or backslashes. */
+/** Give every tool name an unambiguous spelling, including spaces and non-ASCII characters. */
 function visibleToolName(name: string): string {
-  return name.replace(/[\\\p{Cc}\p{Cf}]/gu, (character) =>
+  return name.replace(/[^!-~]|\\/gu, (character) =>
     character === '\\' ? '\\\\' : `\\u{${character.codePointAt(0)!.toString(16)}}`,
   );
 }
 
 function CaseActions({
   connector,
+  unavailable,
   onChange,
   onReset,
+  onRefresh,
 }: {
   readonly connector: IConnectorView;
+  readonly unavailable: boolean;
   readonly onChange: (tool: string, allowed: boolean) => Promise<void>;
   readonly onReset: () => Promise<void>;
+  readonly onRefresh: () => Promise<void>;
 }): React.ReactElement | null {
   const [saving, setSaving] = useState(false);
+  const inFlight = useRef(false);
   const [refusal, setRefusal] = useState<string | undefined>(undefined);
   if (connector.caseActionTools === undefined) return null;
 
@@ -184,6 +189,8 @@ function CaseActions({
   const writable = (connector.tools ?? []).filter((tool) => tool.access === 'write');
   const names = [...new Set([...writable.map((tool) => tool.name), ...allowed])];
   const change = async (work: () => Promise<void>): Promise<void> => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setSaving(true);
     setRefusal(undefined);
     try {
@@ -191,6 +198,7 @@ function CaseActions({
     } catch (caught) {
       setRefusal(errorText(caught));
     } finally {
+      inFlight.current = false;
       setSaving(false);
     }
   };
@@ -204,13 +212,31 @@ function CaseActions({
         When case actions are available, a case can ask to use the selected tools. You must approve
         each action separately.
       </p>
+      {unavailable && (
+        <div className="mt-1">
+          <p role="alert" className="text-[12.5px] text-destructive">
+            The saved settings could not be confirmed. Refresh them before changing them.
+          </p>
+          <Button
+            disabled={saving}
+            label={`Refresh case request settings for ${connector.title}`}
+            onClick={() => void change(onRefresh)}
+          >
+            Refresh settings
+          </Button>
+        </div>
+      )}
       {connector.caseActionScopeError === true ? (
         <div className="mt-2">
           <p className="text-[12.5px] text-destructive">
             These settings could not be read, so case requests cannot use them. Resetting removes
             all allowed tools for this connector.
           </p>
-          <Button disabled={saving} onClick={() => void change(onReset)}>
+          <Button
+            disabled={saving || unavailable}
+            label={`Reset case request settings for ${connector.title}`}
+            onClick={() => void change(onReset)}
+          >
             Reset case request settings
           </Button>
         </div>
@@ -234,7 +260,7 @@ function CaseActions({
                     type="checkbox"
                     aria-label={`Allow ${label} for case requests on ${connector.title}`}
                     checked={checked}
-                    disabled={saving || (!checked && !mayAllow)}
+                    disabled={saving || unavailable || (!checked && !mayAllow)}
                     onChange={(event) => void change(() => onChange(name, event.target.checked))}
                   />
                   <span className="break-all font-mono">{label}</span>
@@ -362,6 +388,8 @@ function ConnectorCard({
   onSaveAttention,
   onCaseAction,
   onResetCaseActions,
+  onRefreshCaseActions,
+  unavailable,
   pulledCount,
 }: {
   readonly connector: IConnectorView;
@@ -374,6 +402,8 @@ function ConnectorCard({
   readonly onSaveAttention: (text: string) => Promise<void>;
   readonly onCaseAction: (tool: string, allowed: boolean) => Promise<void>;
   readonly onResetCaseActions: () => Promise<void>;
+  readonly onRefreshCaseActions: () => Promise<void>;
+  readonly unavailable: boolean;
   /** How many library claims this connector put there. */
   readonly pulledCount: () => Promise<number>;
 }): React.ReactElement {
@@ -475,7 +505,13 @@ function ConnectorCard({
           />
         </>
       )}
-      <CaseActions connector={connector} onChange={onCaseAction} onReset={onResetCaseActions} />
+      <CaseActions
+        connector={connector}
+        unavailable={unavailable}
+        onChange={onCaseAction}
+        onReset={onResetCaseActions}
+        onRefresh={onRefreshCaseActions}
+      />
       {status.state === 'connected' && (
         <section aria-label="Keep up to date" className="mt-3 border-t border-border pt-2">
           <div className="flex items-center gap-2">
@@ -900,14 +936,89 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
   const [refusal, setRefusal] = useState<string | undefined>(undefined);
   const [message, setMessage] = useState<string | undefined>(undefined);
   const [adding, setAdding] = useState(false);
+  const requestNumber = useRef(0);
+  const scopeRevisions = useRef(new Map<string, number>());
+  const [uncertainScopes, setUncertainScopes] = useState<ReadonlySet<string>>(new Set());
+  const replaceConnector = (connector: IConnectorView): void => {
+    setListing((current) =>
+      current === undefined
+        ? current
+        : {
+            ...current,
+            connectors: current.connectors.map((item) =>
+              item.id === connector.id ? connector : item,
+            ),
+          },
+    );
+  };
+  const confirmScope = (id: string): void => {
+    setUncertainScopes((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+  };
   const reload = useCallback(async () => {
+    const request = ++requestNumber.current;
+    const revisions = new Map(scopeRevisions.current);
     try {
-      setListing(await api.connectors());
-      setError(undefined);
+      const next = await api.connectors();
+      if (request === requestNumber.current) {
+        setListing((current) =>
+          current === undefined
+            ? next
+            : {
+                ...next,
+                connectors: next.connectors.map((item) =>
+                  revisions.get(item.id) === scopeRevisions.current.get(item.id)
+                    ? item
+                    : (current.connectors.find((previous) => previous.id === item.id) ?? item),
+                ),
+              },
+        );
+        setUncertainScopes((current) => {
+          const remaining = new Set(current);
+          for (const item of next.connectors) {
+            if (revisions.get(item.id) === scopeRevisions.current.get(item.id))
+              remaining.delete(item.id);
+          }
+          return remaining;
+        });
+        setError(undefined);
+      }
     } catch (caught) {
-      setError(errorText(caught));
+      if (request === requestNumber.current) setError(errorText(caught));
     }
   }, [api]);
+  const refreshScope = async (id: string): Promise<void> => {
+    const revision = scopeRevisions.current.get(id);
+    const { connector } = await api.connector(id);
+    if (revision !== scopeRevisions.current.get(id)) return;
+    replaceConnector(connector);
+    confirmScope(id);
+  };
+  const saveScope = async (
+    id: string,
+    work: () => Promise<{ connector: IConnectorView }>,
+  ): Promise<void> => {
+    const advance = (): void => {
+      scopeRevisions.current.set(id, (scopeRevisions.current.get(id) ?? 0) + 1);
+    };
+    advance();
+    try {
+      const { connector } = await work();
+      advance();
+      replaceConnector(connector);
+      confirmScope(id);
+    } catch (caught) {
+      advance();
+      setUncertainScopes((current) => new Set([...current, id]));
+      // A failed request may have reached the server. Confirm this connector without waiting for
+      // unrelated services, and keep controls disabled if its state cannot be read.
+      void refreshScope(id).catch(() => undefined);
+      throw caught;
+    }
+  };
   useEffect(() => {
     void reload();
     const timer = setInterval(() => void reload(), REFRESH_MS);
@@ -956,6 +1067,7 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
           <ConnectorCard
             key={connector.id}
             connector={connector}
+            unavailable={uncertainScopes.has(connector.id)}
             onConnect={(typed) =>
               void run(async () => {
                 setMessage(undefined);
@@ -1014,13 +1126,14 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
               await reload();
             }}
             onCaseAction={async (tool, allowed) => {
-              await api.setConnectorCaseAction(connector.id, tool, allowed);
-              await reload();
+              await saveScope(connector.id, () =>
+                api.setConnectorCaseAction(connector.id, tool, allowed),
+              );
             }}
             onResetCaseActions={async () => {
-              await api.resetConnectorCaseActions(connector.id);
-              await reload();
+              await saveScope(connector.id, () => api.resetConnectorCaseActions(connector.id));
             }}
+            onRefreshCaseActions={() => refreshScope(connector.id)}
             onDecide={(tool, decision) =>
               void run(async () => {
                 await api.decideConnectorTool(connector.id, tool, decision);
