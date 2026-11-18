@@ -48,6 +48,15 @@ function fakeApi(
 }
 
 describe('the Connectors tab', () => {
+  it('shows identifiers for services with the same name and address', async () => {
+    const other = { ...NOTES, id: 'connector-notes-2' };
+    render(<ConnectorsView api={fakeApi([NOTES, other])} />);
+    expect(await screen.findByText('Service ID: connector-notes-1')).toBeTruthy();
+    expect(screen.getByText('Service ID: connector-notes-2')).toBeTruthy();
+    expect(screen.getByRole('listitem', { name: 'Notes (connector-notes-1)' })).toBeTruthy();
+    expect(screen.getByRole('listitem', { name: 'Notes (connector-notes-2)' })).toBeTruthy();
+  });
+
   it('says what to do when nothing is connected', async () => {
     render(<ConnectorsView api={fakeApi([])} />);
     await waitFor(() => expect(screen.getByText(/Nothing connected yet/u)).toBeTruthy());

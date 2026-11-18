@@ -26,37 +26,54 @@ export function CaseThread({
   api,
   caseId,
   onBack,
+  backLabel = 'Back to feed',
 }: {
   readonly api: IPersonalApi;
   readonly caseId: string;
   readonly onBack: () => void;
+  readonly backLabel?: string;
 }): React.ReactElement {
   const [thread, setThread] = useState<ICaseView | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const requestNumber = useRef(0);
   const appliedRequest = useRef(0);
+  const closedCases = useRef(new Set<string>());
+  const generation = useRef(0);
   const active = useRef(false);
   const load = useCallback(async () => {
     const request = ++requestNumber.current;
+    const started = generation.current;
     try {
       const next = await caseRequest((signal) => api.caseThread(caseId, signal));
-      if (!active.current || request <= appliedRequest.current) return;
+      if (!active.current || started !== generation.current) return;
+      if (next.id === caseId && next.state === 'closed') {
+        closedCases.current.add(caseId);
+        appliedRequest.current = Math.max(appliedRequest.current, request);
+        setThread(next);
+        setError(undefined);
+        return;
+      }
+      if (request <= appliedRequest.current) return;
       appliedRequest.current = request;
+      if (next.id === caseId && next.state === 'open' && closedCases.current.has(caseId)) return;
       setThread(next);
       setError(undefined);
     } catch (caught) {
-      if (!active.current || request <= appliedRequest.current) return;
+      if (!active.current || started !== generation.current || request <= appliedRequest.current)
+        return;
       appliedRequest.current = request;
       setError(errorText(caught));
     }
   }, [api, caseId]);
   useEffect(() => {
     active.current = true;
+    generation.current += 1;
     setError(undefined);
     void load();
     const timer = setInterval(() => void load(), REFRESH_MS);
     return () => {
       active.current = false;
+      generation.current += 1;
       requestNumber.current += 1;
       appliedRequest.current = requestNumber.current;
       clearInterval(timer);
@@ -64,7 +81,7 @@ export function CaseThread({
   }, [load]);
   const shown = thread?.id === caseId ? thread : undefined;
   return (
-    <ViewFrame title="Case" actions={<Button onClick={onBack}>Back to feed</Button>}>
+    <ViewFrame title="Case" actions={<Button onClick={onBack}>{backLabel}</Button>}>
       {error !== undefined && <Notice tone="error">{error}</Notice>}
       {shown === undefined && error === undefined && <Notice>Loading…</Notice>}
       {shown !== undefined && (

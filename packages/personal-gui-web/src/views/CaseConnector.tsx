@@ -310,7 +310,7 @@ export function CaseConnector({
             {!draftAvailable && <option value={draft}>{draft} (unavailable)</option>}
             {choices?.map((choice) => (
               <option key={choice.id} value={choice.id}>
-                {choice.title} ({choice.id})
+                {choice.title} — {choice.endpoint} ({choice.id})
               </option>
             ))}
           </select>

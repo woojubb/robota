@@ -6,16 +6,33 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api.js';
 import { CaseConnector } from '../views/CaseConnector.js';
 import { CaseThread } from '../views/CaseThread.js';
+import { FeedView } from '../views/Feed.js';
 
-import type { ICaseConnectorBinding, ICaseView, IConnectorView, IPersonalApi } from '../api.js';
+import type {
+  ICaseConnectorBinding,
+  ICaseView,
+  IConnectorView,
+  IFeedItemView,
+  IPersonalApi,
+} from '../api.js';
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
 
-const MAIL = { id: 'connector-mail', title: 'Mail', kind: 'mail' } as IConnectorView;
-const NOTES = { id: 'connector-notes', title: 'Notes', kind: 'notes' } as IConnectorView;
+const MAIL = {
+  id: 'connector-mail',
+  title: 'Mail',
+  kind: 'mail',
+  endpoint: 'https://mail.example/mcp',
+} as IConnectorView;
+const NOTES = {
+  id: 'connector-notes',
+  title: 'Notes',
+  kind: 'notes',
+  endpoint: 'https://notes.example/mcp',
+} as IConnectorView;
 const THREAD: ICaseView = {
   id: 'case-1',
   title: 'A case',
@@ -155,6 +172,24 @@ describe('the case service choice', () => {
       expect.any(AbortSignal),
     );
     await waitFor(() => expect(fake.read().connectorId).toBe(NOTES.id));
+  });
+
+  it('distinguishes services with the same name by their endpoint', async () => {
+    const fake = fakeApi();
+    const personal = {
+      ...NOTES,
+      id: 'connector-personal',
+      endpoint: 'https://personal.example/mcp',
+    };
+    const work = { ...NOTES, id: 'connector-work', endpoint: 'https://work.example/mcp' };
+    fake.api.connectorInventory = async () => ({
+      callbackPath: '/connector-callback',
+      connectors: [personal, work],
+    });
+    render(<CaseConnector api={fake.api} caseId={THREAD.id} />);
+    await waitFor(() => expect(select().disabled).toBe(false));
+    expect(screen.getByRole('option', { name: /personal\.example\/mcp/u })).toBeTruthy();
+    expect(screen.getByRole('option', { name: /work\.example\/mcp/u })).toBeTruthy();
   });
 
   it('removes an existing choice even while the connector list is stalled', async () => {
@@ -376,6 +411,42 @@ describe('the case service choice', () => {
     expect(fake.caseConnector).not.toHaveBeenCalled();
   });
 
+  it('keeps a case reachable for removal after its feed card is dismissed', async () => {
+    const fake = fakeApi({ revision: 'revision-1', connectorId: MAIL.id });
+    let items: readonly IFeedItemView[] = [
+      {
+        id: 'feed-1',
+        at: THREAD.createdAt,
+        kind: 'question',
+        title: THREAD.title,
+        body: 'A note',
+        question: {
+          caseId: THREAD.id,
+          text: 'Continue?',
+          options: ['Yes'],
+          allowsReply: false,
+          state: 'answered',
+          answer: { choice: 'Yes', at: THREAD.createdAt },
+        },
+      },
+    ];
+    fake.api.feed = async () => items;
+    fake.api.answerFeed = async () => {
+      items = [];
+      return {};
+    };
+    fake.api.cases = async () => [THREAD];
+    render(<FeedView api={fake.api} onOpenGoal={() => undefined} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Dismiss' }));
+    await screen.findByText(/Nothing new/u);
+    fireEvent.click(screen.getByRole('button', { name: 'View cases' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open case: A case (case-1)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove choice' }));
+    await waitFor(() => expect(fake.read().connectorId).toBeUndefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Back to cases' }));
+    expect(await screen.findByRole('button', { name: 'Open case: A case (case-1)' })).toBeTruthy();
+  });
+
   it('does not reopen a case from an older delayed response', async () => {
     let tick!: () => void;
     vi.spyOn(globalThis, 'setInterval').mockImplementation(((
@@ -403,6 +474,74 @@ describe('the case service choice', () => {
       await first;
     });
     expect(screen.getByText(/Closed · opened/u)).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Service for this case' })).toBeNull();
+  });
+
+  it('keeps a confirmed closed case closed when a newer request returns an older view', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    const fake = fakeApi();
+    let close!: (value: ICaseView) => void;
+    let oldOpen!: (value: ICaseView) => void;
+    const first = new Promise<ICaseView>((resolve) => {
+      close = resolve;
+    });
+    const second = new Promise<ICaseView>((resolve) => {
+      oldOpen = resolve;
+    });
+    let calls = 0;
+    fake.api.caseThread = async () => (++calls === 1 ? first : second);
+    render(<CaseThread api={fake.api} caseId={THREAD.id} onBack={() => undefined} />);
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      close({ ...THREAD, state: 'closed' });
+      await first;
+    });
+    await screen.findByText(/Closed · opened/u);
+    await act(async () => {
+      oldOpen(THREAD);
+      await second;
+    });
+    expect(screen.getByText(/Closed · opened/u)).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Service for this case' })).toBeNull();
+  });
+
+  it('applies a closed response from an earlier request after a newer open response', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    const fake = fakeApi();
+    let close!: (value: ICaseView) => void;
+    const first = new Promise<ICaseView>((resolve) => {
+      close = resolve;
+    });
+    let calls = 0;
+    fake.api.caseThread = async () => (++calls === 1 ? first : THREAD);
+    render(<CaseThread api={fake.api} caseId={THREAD.id} onBack={() => undefined} />);
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+    });
+    await screen.findByText(/Open · opened/u);
+    await act(async () => {
+      close({ ...THREAD, state: 'closed' });
+      await first;
+    });
+    expect(await screen.findByText(/Closed · opened/u)).toBeTruthy();
     expect(screen.queryByRole('region', { name: 'Service for this case' })).toBeNull();
   });
 
