@@ -521,6 +521,66 @@ describe('using a connected service', () => {
     expect(w.notes.calls).toEqual([]);
   });
 
+  it('keeps the newer answer’s action scope when an older answer record is recovered', async () => {
+    const w = await connected();
+    const other = await startHarness({ stateDir: w.harness.stateDir });
+    try {
+      expect(
+        (
+          await w.call('POST', ['connectors', w.id, 'case-actions'], {
+            tool: 'create_note',
+            allowed: true,
+            revision: await scopeRevision(w),
+          })
+        ).status,
+      ).toBe(200);
+      const { case: opened } = await w.harness.capabilities.cases.open({
+        title: 'A note',
+        noticed: 'An untrusted note.',
+        source: 'notes:recover-newer',
+      });
+      const first = await w.harness.capabilities.cases.ask(opened.id, {
+        question: 'Create the note?',
+        options: ['Yes', 'No'],
+      });
+      const bindingPath = ['cases', opened.id, 'connector'];
+      const initial = (await w.call('GET', bindingPath)).body.binding;
+      expect(
+        (await w.call('POST', bindingPath, { connectorId: w.id, revision: initial.revision }))
+          .status,
+      ).toBe(200);
+      const runner = w.harness.capabilities.runner()!;
+      vi.spyOn(runner, 'runDue').mockResolvedValue(0);
+      const failure = vi
+        .spyOn(w.harness.capabilities.goals, 'enqueueCaseAnswer')
+        .mockRejectedValue(new Error('queue unavailable'));
+      expect(
+        (await w.call('POST', ['feed', first.item.id, 'answer'], { choice: 'No' })).status,
+      ).toBe(200);
+      failure.mockRestore();
+      const later = await other.capabilities.cases.ask(opened.id, {
+        question: 'Create it now?',
+        options: ['Yes', 'No'],
+      });
+      other.model.script({ text: 'The newer answer was handled.' });
+      const result = await other.capabilities.api({
+        method: 'POST',
+        path: `/feed/${later.item.id}/answer`,
+        segments: ['feed', later.item.id, 'answer'],
+        query: new URLSearchParams(),
+        body: { choice: 'Yes' },
+      });
+      expect(result.status).toBe(200);
+      for (let attempt = 0; other.model.requests.length === 0 && attempt < 200; attempt += 1)
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      await other.capabilities.runner()!.settled();
+      expect(offeredTools(other.model.requests[0]!)).toContain('ConnectorAct');
+      expect(w.notes.calls).toEqual([]);
+    } finally {
+      await other.close();
+    }
+  }, 20_000);
+
   it('keeps a live approval waiting when another agent starts on the same state', async () => {
     const w = await connected();
     w.harness.model.script(

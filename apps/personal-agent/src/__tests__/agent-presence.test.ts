@@ -166,6 +166,176 @@ it('adopts a stopped owner’s pending answer while other agents remain active',
   }
 }, 20_000);
 
+it('adopts a normally closed owner’s pending answer while other agents remain active', async () => {
+  const { startHarness } = await import('./harness.js');
+  const { offeredTools } = await import('./scripted-model.js');
+  const root = mkdtempSync(join(tmpdir(), 'personal-answer-close-'));
+  directories.push(root);
+  const first = await startHarness({ stateDir: root });
+  const second = await startHarness({ stateDir: root });
+  const third = await startHarness({ stateDir: root });
+  let firstClosed = false;
+  try {
+    vi.spyOn(first.capabilities.runner()!, 'runDue').mockResolvedValue(0);
+    const { case: opened } = await first.capabilities.cases.open({
+      title: 'Answer',
+      noticed: 'A note',
+      source: 'test:close-owner',
+    });
+    const { item } = await first.capabilities.cases.ask(opened.id, {
+      question: 'Continue?',
+      options: ['Yes', 'No'],
+    });
+    const answered = await first.capabilities.api({
+      method: 'POST',
+      path: `/feed/${item.id}/answer`,
+      segments: ['feed', item.id, 'answer'],
+      query: new URLSearchParams(),
+      body: { choice: 'Yes' },
+    });
+    expect(answered.status).toBe(200);
+    await first.close();
+    firstClosed = true;
+    second.model.script({ text: 'The previous owner closed.' });
+    expect(await second.capabilities.runner()!.runDue()).toBe(1);
+    await second.capabilities.runner()!.settled();
+    const goal = (await second.capabilities.goals.list()).find(
+      (entry) => entry.caseId === opened.id,
+    )!;
+    expect(await second.capabilities.goals.runs(goal.id)).toHaveLength(1);
+    expect(offeredTools(second.model.requests[0]!)).not.toContain('ConnectorAct');
+    expect(await third.capabilities.runner()!.runDue()).toBe(0);
+  } finally {
+    if (!firstClosed) await first.close();
+    await second.close();
+    await third.close();
+  }
+}, 20_000);
+
+it('adopts an unqueued answer after its owner closes normally', async () => {
+  if (process.platform === 'win32') return;
+  const { startHarness } = await import('./harness.js');
+  const { offeredTools } = await import('./scripted-model.js');
+  const root = mkdtempSync(join(tmpdir(), 'personal-answer-close-unqueued-'));
+  directories.push(root);
+  const first = await startHarness({ stateDir: root });
+  const second = await startHarness({ stateDir: root });
+  const third = await startHarness({ stateDir: root });
+  let firstClosed = false;
+  try {
+    vi.spyOn(first.capabilities.runner()!, 'runDue').mockResolvedValue(0);
+    vi.spyOn(first.capabilities.goals, 'enqueueCaseAnswer').mockRejectedValue(
+      new Error('unavailable'),
+    );
+    const { case: opened } = await first.capabilities.cases.open({
+      title: 'Answer',
+      noticed: 'A note',
+      source: 'test:close-unqueued',
+    });
+    const { item } = await first.capabilities.cases.ask(opened.id, {
+      question: 'Continue?',
+      options: ['Yes', 'No'],
+    });
+    const answered = await first.capabilities.api({
+      method: 'POST',
+      path: `/feed/${item.id}/answer`,
+      segments: ['feed', item.id, 'answer'],
+      query: new URLSearchParams(),
+      body: { choice: 'Yes' },
+    });
+    expect(answered.status).toBe(200);
+    expect(await first.capabilities.goals.list()).toEqual([]);
+    await first.close();
+    firstClosed = true;
+    second.model.script({ text: 'The previous owner closed.' });
+    expect(await second.capabilities.runner()!.runDue()).toBe(1);
+    await second.capabilities.runner()!.settled();
+    const goal = (await second.capabilities.goals.list()).find(
+      (entry) => entry.caseId === opened.id,
+    )!;
+    expect(await second.capabilities.goals.runs(goal.id)).toHaveLength(1);
+    expect(offeredTools(second.model.requests[0]!)).not.toContain('ConnectorAct');
+    expect(await third.capabilities.runner()!.runDue()).toBe(0);
+  } finally {
+    if (!firstClosed) await first.close();
+    await second.close();
+    await third.close();
+  }
+}, 20_000);
+
+it('drains an answer already being recorded before marking its owner stopped', async () => {
+  if (process.platform === 'win32') return;
+  const { startHarness } = await import('./harness.js');
+  const root = mkdtempSync(join(tmpdir(), 'personal-answer-close-inflight-'));
+  directories.push(root);
+  const first = await startHarness({ stateDir: root });
+  const second = await startHarness({ stateDir: root });
+  const third = await startHarness({ stateDir: root });
+  let release!: () => void;
+  let reached!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const waiting = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  let closing: Promise<void> | undefined;
+  try {
+    vi.spyOn(first.capabilities.runner()!, 'runDue').mockResolvedValue(0);
+    const goals = first.capabilities.goals;
+    const save = goals.answerQuestion.bind(goals);
+    vi.spyOn(goals, 'answerQuestion').mockImplementation(async (...args) => {
+      reached();
+      await gate;
+      return save(...args);
+    });
+    const { case: opened } = await first.capabilities.cases.open({
+      title: 'Answer',
+      noticed: 'A note',
+      source: 'test:close-inflight',
+    });
+    const { item } = await first.capabilities.cases.ask(opened.id, {
+      question: 'Continue?',
+      options: ['Yes', 'No'],
+    });
+    const answer = first.capabilities.api({
+      method: 'POST',
+      path: `/feed/${item.id}/answer`,
+      segments: ['feed', item.id, 'answer'],
+      query: new URLSearchParams(),
+      body: { choice: 'Yes' },
+    });
+    await waiting;
+    closing = first.close();
+    const refused = await first.capabilities.api({
+      method: 'GET',
+      path: '/feed',
+      segments: ['feed'],
+      query: new URLSearchParams(),
+      body: undefined,
+    });
+    expect(refused.status).toBe(503);
+    expect(
+      await Promise.race([
+        closing.then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 50)),
+      ]),
+    ).toBe(false);
+    release();
+    expect((await answer).status).toBe(200);
+    await closing;
+    expect(await second.capabilities.runner()!.runDue()).toBe(1);
+    await second.capabilities.runner()!.settled();
+    expect(await third.capabilities.runner()!.runDue()).toBe(0);
+  } finally {
+    release();
+    if (closing === undefined) closing = first.close();
+    await closing;
+    await second.close();
+    await third.close();
+  }
+}, 20_000);
+
 it('serializes goal recovery with a concurrent schedule change', async () => {
   const { startHarness } = await import('./harness.js');
   const first = await startHarness();

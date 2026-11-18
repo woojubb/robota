@@ -22,6 +22,9 @@ import type {
 } from '@robota-sdk/agent-product/personal';
 
 const FEED_ID = /^feed-[a-z0-9]{1,40}$/u;
+const CASE_ID = /^case-[a-z0-9]{1,40}$/u;
+const OWNER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.live$/u;
+type TStoredAnswer = ICaseAnswerEvent & { readonly ownerId: string };
 
 function sync(path: string): void {
   const fd = openSync(path, 'r');
@@ -36,56 +39,104 @@ export function createCaseAnswerOutbox(options: {
   readonly stateDir: string;
   readonly cases: ICaseStore;
   readonly goals: GoalBook;
+  readonly ownerId: string;
   readonly withCaseLock: <T>(work: () => Promise<T>) => Promise<T>;
-  readonly deliver: (item: ICase) => Promise<void>;
+  readonly deliver: (item: ICase, ownerId: string) => Promise<void>;
 }) {
   const directory = join(options.stateDir, 'case-answer-outbox');
-  const pathOf = (id: string): string => {
-    if (!FEED_ID.test(id)) throw new Error('Invalid case answer id');
-    return join(directory, `${id}.json`);
+  const caseDirectory = (caseId: string): string => {
+    if (!CASE_ID.test(caseId)) throw new Error('Invalid case id');
+    return join(directory, caseId);
   };
-  const has = (id: string): boolean => {
+  const pathOf = (caseId: string, id: string): string => {
+    if (!FEED_ID.test(id)) throw new Error('Invalid case answer id');
+    return join(caseDirectory(caseId), `${id}.json`);
+  };
+  const caseDirectories = (): string[] => {
     try {
-      statSync(pathOf(id));
-      return true;
+      return readdirSync(directory).filter((name) => CASE_ID.test(name));
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
-      throw new Error('A case answer recovery record cannot be inspected');
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw new Error('Case answer recovery records cannot be inspected');
     }
   };
-  const read = (id: string): ICaseAnswerEvent | undefined => {
+  const has = (id: string, caseId?: string): boolean => {
+    for (const candidate of caseId === undefined ? caseDirectories() : [caseId]) {
+      try {
+        statSync(pathOf(candidate, id));
+        return true;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+          throw new Error('A case answer recovery record cannot be inspected');
+      }
+    }
+    return false;
+  };
+  const read = (caseId: string, id: string): TStoredAnswer | undefined => {
     try {
-      const value: unknown = JSON.parse(readFileSync(pathOf(id), 'utf8'));
+      const value: unknown = JSON.parse(readFileSync(pathOf(caseId, id), 'utf8'));
       if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error();
-      const event = value as ICaseAnswerEvent;
+      const event = value as TStoredAnswer;
+      const question = event.before?.question;
+      const card = event.item?.question;
+      const choice = event.answer?.choice;
+      const reply = event.answer?.reply;
       if (
+        event.before?.id !== caseId ||
+        typeof event.ownerId !== 'string' ||
+        !OWNER_ID.test(event.ownerId) ||
+        event.before.state !== 'open' ||
+        !Array.isArray(event.before.history) ||
+        question?.feedItemId !== id ||
         event.item?.id !== id ||
-        event.item.question?.caseId !== event.before?.id ||
+        card?.caseId !== caseId ||
+        card.state !== 'open' ||
+        card.text !== question.text ||
+        card.allowsReply !== question.allowsReply ||
+        JSON.stringify(card.options) !== JSON.stringify(question.options) ||
         event.after?.id !== event.before.id ||
         event.after.lastAnsweredFeedItemId !== id ||
-        (typeof event.answer?.choice !== 'string' && typeof event.answer?.reply !== 'string') ||
-        (event.answer.choice !== undefined && event.answer.reply !== undefined)
+        typeof event.after.updatedAt !== 'string' ||
+        !(
+          (typeof choice === 'string' && reply === undefined && card.options.includes(choice)) ||
+          (typeof reply === 'string' &&
+            choice === undefined &&
+            card.allowsReply &&
+            reply.trim() === reply &&
+            reply !== '')
+        )
       )
         throw new Error();
+      const { question: _question, ...rest } = event.before;
+      const expected: ICase = {
+        ...rest,
+        lastAnsweredFeedItemId: id,
+        history: [
+          ...event.before.history,
+          { at: event.after.updatedAt, kind: 'answered', text: choice ?? reply! },
+        ],
+        updatedAt: event.after.updatedAt,
+      };
+      if (JSON.stringify(event.after) !== JSON.stringify(expected)) throw new Error();
       return event;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
       throw new Error('A case answer recovery record cannot be read');
     }
   };
-  const forget = (id: string): void => {
-    const path = pathOf(id);
-    if (!has(id)) return;
+  const forget = (caseId: string, id: string): void => {
+    const path = pathOf(caseId, id);
+    if (!has(id, caseId)) return;
     rmSync(path);
-    sync(directory);
+    sync(caseDirectory(caseId));
   };
   const persistCase = async (): Promise<void> => {
     const path = join(options.stateDir, 'cases', 'cases.json');
     sync(path);
     sync(dirname(path));
   };
-  const complete = (id: string): void => {
-    if (!has(id)) return;
+  const complete = (caseId: string, id: string): void => {
+    if (!has(id, caseId)) return;
     for (const path of [
       join(options.stateDir, 'cases', 'cases.json'),
       join(options.stateDir, 'goals', 'feed.json'),
@@ -94,53 +145,58 @@ export function createCaseAnswerOutbox(options: {
       sync(path);
       sync(dirname(path));
     }
-    forget(id);
+    forget(caseId, id);
   };
   const prepare = async (event: ICaseAnswerEvent): Promise<void> => {
     mkdirSync(directory, { recursive: true, mode: 0o700 });
     sync(dirname(directory));
-    const path = pathOf(event.item.id);
+    const folder = caseDirectory(event.before.id);
+    mkdirSync(folder, { recursive: true, mode: 0o700 });
+    sync(directory);
+    const path = pathOf(event.before.id, event.item.id);
     if (has(event.item.id)) throw new Error('The case answer needs recovery');
-    const temporary = join(directory, `${randomUUID()}.tmp`);
+    const temporary = join(folder, `${randomUUID()}.tmp`);
     let created = false;
     try {
       const fd = openSync(temporary, 'wx', 0o600);
       created = true;
       try {
-        writeFileSync(fd, `${JSON.stringify(event)}\n`);
+        writeFileSync(fd, `${JSON.stringify({ ...event, ownerId: options.ownerId })}\n`);
         fsyncSync(fd);
       } finally {
         closeSync(fd);
       }
       renameSync(temporary, path);
-      sync(directory);
+      sync(folder);
     } finally {
       if (created) rmSync(temporary, { force: true });
     }
   };
   const recoverUnlocked = async (onlyId?: string, onlyCase?: string): Promise<readonly ICase[]> => {
-    let ids: string[];
-    try {
-      ids =
-        onlyId === undefined
-          ? readdirSync(directory)
-              .filter((name) => name.endsWith('.json'))
-              .map((name) => name.slice(0, -5))
-          : [onlyId];
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-      throw new Error('Case answer recovery records cannot be read');
-    }
-    const delivered: ICase[] = [];
-    for (const id of ids) {
+    const records: { caseId: string; id: string }[] = [];
+    for (const caseId of onlyCase === undefined ? caseDirectories() : [onlyCase]) {
       try {
-        if (onlyCase !== undefined) {
-          const card = await options.goals.feedItem(id);
-          if (card?.question !== undefined && card.question.caseId !== onlyCase) continue;
-        }
-        const event = read(id);
+        const ids =
+          onlyId === undefined
+            ? readdirSync(caseDirectory(caseId))
+                .filter((name) => name.endsWith('.json'))
+                .map((name) => name.slice(0, -5))
+            : has(onlyId, caseId)
+              ? [onlyId]
+              : [];
+        records.push(...ids.map((id) => ({ caseId, id })));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+        if (onlyId !== undefined || onlyCase !== undefined) throw error;
+      }
+    }
+    if (onlyId !== undefined && records.length > 1)
+      throw new Error('A case answer recovery record is ambiguous');
+    const delivered: ICase[] = [];
+    for (const { caseId, id } of records) {
+      try {
+        const event = read(caseId, id);
         if (event === undefined) continue;
-        if (onlyCase !== undefined && event.before.id !== onlyCase) continue;
         let current = await options.cases.get(event.before.id);
         const card = await options.goals.feedItem(id);
         if (
@@ -171,7 +227,7 @@ export function createCaseAnswerOutbox(options: {
             throw new Error('The case answer requires manual recovery');
           if (current!.state === 'closed' && card.question.state === 'open')
             await options.goals.withdrawQuestion(id);
-          forget(id);
+          forget(caseId, id);
           continue;
         }
         if (
@@ -197,8 +253,20 @@ export function createCaseAnswerOutbox(options: {
           const closed = current!.history.at(-1);
           if (closed?.kind === 'closed') await options.goals.resolveQuestion(id, closed.text);
         }
-        await options.deliver(current!);
-        complete(id);
+        if (current!.lastAnsweredFeedItemId === id) {
+          await options.deliver(current!, event.ownerId);
+        } else {
+          const latest = current!.lastAnsweredFeedItemId;
+          const goal = (await options.goals.list()).find((item) => item.caseId === caseId);
+          if (
+            latest === undefined ||
+            (goal?.pendingCaseAnswer?.feedItemId !== latest &&
+              goal?.lastCaseAnswerId !== latest &&
+              !has(latest, caseId))
+          )
+            throw new Error('The newer case answer requires manual recovery');
+        }
+        complete(caseId, id);
         delivered.push(current!);
       } catch (error) {
         if (onlyId !== undefined || onlyCase !== undefined) throw error;
@@ -214,5 +282,22 @@ export function createCaseAnswerOutbox(options: {
       await recoverUnlocked(undefined, caseId);
       await work();
     });
-  return { prepare, complete, persistCase, recover, stopCase, has };
+  const hasOwner = (ownerId: string): boolean => {
+    try {
+      for (const caseId of caseDirectories()) {
+        for (const name of readdirSync(caseDirectory(caseId))) {
+          if (!name.endsWith('.json')) continue;
+          try {
+            if (read(caseId, name.slice(0, -5))?.ownerId === ownerId) return true;
+          } catch {
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  return { prepare, complete, persistCase, recover, stopCase, has, hasOwner };
 }

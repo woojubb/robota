@@ -361,10 +361,10 @@ export function createPersonalCapabilities(
         stateDir: options.stateDir,
         cases: caseStore,
         goals,
+        ownerId: presence.id,
         withCaseLock: (work) => caseWrites.exclusive(work),
-        deliver: async (answered) => {
-          caseTurns.remember(answered, undefined);
-          await caseTurns.onAnswered(answered);
+        deliver: async (answered, ownerId) => {
+          await caseTurns.onAnswered(answered, ownerId);
         },
       })
     : undefined;
@@ -411,7 +411,7 @@ export function createPersonalCapabilities(
         committed: async (event, context) => {
           caseTurns.remember(event.after, context as ICaseActionSnapshot | undefined);
           await caseTurns.onAnswered(event.after);
-          answerOutbox.complete(event.item.id);
+          answerOutbox.complete(event.after.id, event.item.id);
         },
       },
     }),
@@ -461,7 +461,7 @@ export function createPersonalCapabilities(
                   state === undefined ||
                   state.case.lastAnsweredFeedItemId !== chosen.feedItemId ||
                   state.case.question !== undefined ||
-                  answerOutbox?.has(chosen.feedItemId) === true ||
+                  answerOutbox?.has(chosen.feedItemId, chosen.caseId) === true ||
                   state.binding.connectorId !== chosen.connectorId ||
                   state.binding.generation !== chosen.bindingGeneration
                 )
@@ -494,6 +494,23 @@ export function createPersonalCapabilities(
     }),
   );
   const browser = watchedBrowser.port;
+  let shuttingDown = false;
+  const pendingWork = new Set<Promise<unknown>>();
+  const track = <T>(task: Promise<T>): Promise<T> => {
+    pendingWork.add(task);
+    void task.then(
+      () => pendingWork.delete(task),
+      () => pendingWork.delete(task),
+    );
+    return task;
+  };
+  const trackApi =
+    (api: TPersonalApi): TPersonalApi =>
+    (request) => {
+      if (shuttingDown)
+        return Promise.resolve({ status: 503, body: { error: 'The agent is stopping' } });
+      return track(api(request));
+    };
   return {
     tools: [
       ...createWikiTools(wiki),
@@ -526,79 +543,83 @@ export function createPersonalCapabilities(
     landing: { path: CONSENT_CALLBACK_PATH, handle: (query) => consent.land(query) },
     channels,
     runner: () => runner,
-    api: createPersonalApi({
-      wiki,
-      goals,
-      cases,
-      caseBindings,
-      delivery,
-      notificationAddress,
-      notifications,
-      push: createPushApi({ vapid: pushVapid, subscriptions: pushSubscriptions }),
-      // The answer is recorded already; the agent's turn on the case starts behind it and may fail without
-      // touching it.
-      captureCaseAction: (caseId, feedItemId) =>
-        captureCaseAction(caseId, feedItemId, {
-          binding: (id) => bindings.authoritySnapshot(id),
-          scope: (id) => caseActions.exclusive(async () => caseActions.snapshot(id)),
-        }),
-      ...(answerOutbox !== undefined && {
-        recoverCaseAnswer: async (feedItemId) => {
-          let recovered: readonly import('@robota-sdk/agent-product/personal').ICase[];
-          try {
-            recovered = await answerOutbox.recover(feedItemId);
-          } catch {
-            throw new CaseRefusedError(
-              'This answer needs manual recovery. Stop all agents and follow the Personal Agent guide.',
-            );
-          }
-          if (recovered.length === 0) return undefined;
-          void runner?.runDue().catch(() => undefined);
-          return recovered[0];
-        },
-      }),
-      onCaseAnswered: (answered, snapshot) => {
-        if (answerOutbox !== undefined) {
-          void runner?.runDue().catch(() => undefined);
-          return;
-        }
-        caseTurns.remember(answered, snapshot);
-        void caseTurns
-          .onAnswered(answered)
-          .then(() => runner?.runDue())
-          .catch(() => undefined);
-      },
-      ideas,
-      spaces,
-      sideChats,
-      layout,
-      browser: watchedBrowser,
-      interruptWork: () => {
-        runner?.interrupt();
-        channelTurns?.interrupt();
-      },
-      runner: () => runner,
-      stateDir: options.stateDir,
-      environment: options.environment,
-      browserAvailable: () => findChromiumExecutable(options.environment) !== undefined,
-      connectors: createConnectorsApi({
-        registry: connectors,
-        book: connectorBook,
-        caseActions,
-        sync: connectorSync,
+    api: trackApi(
+      createPersonalApi({
         wiki,
-        origins: () => guiOrigins,
-        catalog: createConnectorCatalog({
-          stateDir: options.stateDir,
-          ...(options.connectorRegistryUrl !== undefined && {
-            registryUrl: options.connectorRegistryUrl,
+        goals,
+        cases,
+        caseBindings,
+        delivery,
+        notificationAddress,
+        notifications,
+        push: createPushApi({ vapid: pushVapid, subscriptions: pushSubscriptions }),
+        // The answer is recorded already; the agent's turn on the case starts behind it and may fail without
+        // touching it.
+        captureCaseAction: (caseId, feedItemId) =>
+          captureCaseAction(caseId, feedItemId, {
+            binding: (id) => bindings.authoritySnapshot(id),
+            scope: (id) => caseActions.exclusive(async () => caseActions.snapshot(id)),
           }),
-          ...(options.connectorNetwork?.fetch !== undefined && {
-            fetch: options.connectorNetwork.fetch,
+        ...(answerOutbox !== undefined && {
+          recoverCaseAnswer: async (feedItemId) => {
+            let recovered: readonly import('@robota-sdk/agent-product/personal').ICase[];
+            try {
+              recovered = await answerOutbox.recover(feedItemId);
+            } catch {
+              throw new CaseRefusedError(
+                'This answer needs manual recovery. Stop all agents and follow the Personal Agent guide.',
+              );
+            }
+            if (recovered.length === 0) return undefined;
+            void runner?.runDue().catch(() => undefined);
+            return recovered[0];
+          },
+        }),
+        onCaseAnswered: (answered, snapshot) => {
+          if (answerOutbox !== undefined) {
+            void runner?.runDue().catch(() => undefined);
+            return;
+          }
+          caseTurns.remember(answered, snapshot);
+          void track(
+            caseTurns
+              .onAnswered(answered)
+              .then(() => runner?.runDue())
+              .catch(() => undefined),
+          );
+        },
+        ideas,
+        spaces,
+        sideChats,
+        layout,
+        browser: watchedBrowser,
+        interruptWork: () => {
+          runner?.interrupt();
+          channelTurns?.interrupt();
+        },
+        runner: () => runner,
+        stateDir: options.stateDir,
+        environment: options.environment,
+        browserAvailable: () => findChromiumExecutable(options.environment) !== undefined,
+        connectors: createConnectorsApi({
+          registry: connectors,
+          book: connectorBook,
+          caseActions,
+          sync: connectorSync,
+          wiki,
+          origins: () => guiOrigins,
+          catalog: createConnectorCatalog({
+            stateDir: options.stateDir,
+            ...(options.connectorRegistryUrl !== undefined && {
+              registryUrl: options.connectorRegistryUrl,
+            }),
+            ...(options.connectorNetwork?.fetch !== undefined && {
+              fetch: options.connectorNetwork.fetch,
+            }),
           }),
         }),
       }),
-    }),
+    ),
     attach: async (agent, attachOptions) => {
       guiOrigins = attachOptions?.guiOrigins ?? [];
       let recoveredAnswers = false;
@@ -621,7 +642,7 @@ export function createPersonalCapabilities(
           if (goal.caseId === undefined || answerId === undefined || answerOutbox === undefined)
             return true;
           try {
-            return !answerOutbox.has(answerId);
+            return !answerOutbox.has(answerId, goal.caseId);
           } catch {
             return false;
           }
@@ -685,23 +706,25 @@ export function createPersonalCapabilities(
       }
     },
     dispose: async () => {
-      try {
-        clearInterval(deliveryTimer);
-        const stopped = await Promise.allSettled([
-          approvals.shutdown(),
-          runner?.stop(),
-          channelTurns?.stop(),
-        ]);
-        const closed = await Promise.allSettled([
-          ...channels.channels().map((channel) => channels.disconnect(channel.id)),
-          connectors.close(),
-          browser.close(),
-        ]);
-        const failure = [...stopped, ...closed].find((result) => result.status === 'rejected');
-        if (failure?.status === 'rejected') throw failure.reason;
-      } finally {
-        presence.close();
-      }
+      shuttingDown = true;
+      while (pendingWork.size > 0) await Promise.allSettled([...pendingWork]);
+      clearInterval(deliveryTimer);
+      const stopped = await Promise.allSettled([
+        approvals.shutdown(),
+        runner?.stop(),
+        channelTurns?.stop(),
+      ]);
+      const closed = await Promise.allSettled([
+        ...channels.channels().map((channel) => channels.disconnect(channel.id)),
+        connectors.close(),
+        browser.close(),
+      ]);
+      const failure = [...stopped, ...closed].find((result) => result.status === 'rejected');
+      if (failure?.status === 'rejected') throw failure.reason;
+      presence.close(
+        (await goals.list()).some((goal) => goal.pendingCaseAnswer?.ownerId === presence.id) ||
+          answerOutbox?.hasOwner(presence.id) === true,
+      );
     },
   };
 }

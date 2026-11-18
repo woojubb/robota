@@ -1,6 +1,15 @@
 /** Keep a second agent from recovering work that another live agent still owns. */
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readdirSync, realpathSync } from 'node:fs';
+import {
+  closeSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  realpathSync,
+  renameSync,
+  statSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
 import { ownerHasExited, tryDirectoryLock } from './connectors/directory-lock.js';
@@ -11,12 +20,30 @@ export function createAgentPresence(stateDir: string) {
   const name = `${randomUUID()}.live`;
   const path = join(root, name);
   let active: { release(): void } | undefined;
+  const stoppedPath = (id: string): string => join(root, `${id}.stopped`);
+  const isStopped = (id: string): boolean => {
+    try {
+      return statSync(stoppedPath(id)).isDirectory();
+    } catch {
+      return false;
+    }
+  };
+  const markExited = (id: string): boolean => {
+    if (isStopped(id)) return true;
+    const other = join(root, id);
+    if (!ownerHasExited(other)) return false;
+    try {
+      renameSync(other, stoppedPath(id));
+      return true;
+    } catch {
+      return isStopped(id);
+    }
+  };
   const others = (): boolean => {
     try {
       for (const entry of readdirSync(root)) {
         if (entry === name || !entry.endsWith('.live')) continue;
-        const other = join(root, entry);
-        if (!ownerHasExited(other)) return true;
+        if (!markExited(entry)) return true;
       }
       return false;
     } catch {
@@ -45,7 +72,7 @@ export function createAgentPresence(stateDir: string) {
     id: name,
     ownerExited(ownerId: string): boolean {
       if (!/^[0-9a-f-]{36}\.live$/u.test(ownerId) || ownerId === name) return false;
-      return ownerHasExited(join(root, ownerId));
+      return markExited(ownerId);
     },
     others,
     async enter(recover: () => Promise<unknown>): Promise<void> {
@@ -69,9 +96,23 @@ export function createAgentPresence(stateDir: string) {
         return true;
       });
     },
-    close(): void {
-      active?.release();
-      active = undefined;
+    close(retainEvidence = false): void {
+      if (active === undefined) return;
+      if (retainEvidence) {
+        renameSync(path, stoppedPath(name));
+        active = undefined;
+        if (process.platform !== 'win32') {
+          const fd = openSync(root, 'r');
+          try {
+            fsyncSync(fd);
+          } finally {
+            closeSync(fd);
+          }
+        }
+      } else {
+        active.release();
+        active = undefined;
+      }
     },
   };
 }

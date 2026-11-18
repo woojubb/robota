@@ -5,7 +5,7 @@
  * with stand-in sessions, to see what a session is opened with and how a turn is reported.
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -121,11 +121,14 @@ describe('the agent takes a turn on a case once its question is answered', () =>
       failure.mockRestore();
       other.model.script({ text: 'The answer was recovered.' });
       expect((await answer(other, item.id, 'No')).status).toBe(200);
-      const goal = await turnEnded(other, opened.id, 1);
+      expect(await other.capabilities.runner()!.runDue()).toBe(0);
+      harness.model.script({ text: 'The answer belongs to its original owner.' });
+      expect(await harness.capabilities.runner()!.runDue()).toBe(1);
+      const goal = await turnEnded(harness, opened.id, 1);
       expect((await goals.feedItem(item.id))?.question?.state).toBe('answered');
       expect((await goals.list()).filter((entry) => entry.caseId === opened.id)).toHaveLength(1);
       expect(await goals.runs(goal.id)).toHaveLength(1);
-      expect(offeredTools(other.model.requests[0]!)).not.toContain(CONNECTOR_TOOL_NAMES.act);
+      expect(other.model.requests).toHaveLength(0);
     } finally {
       await other.close();
     }
@@ -144,6 +147,31 @@ describe('the agent takes a turn on a case once its question is answered', () =>
     expect(retried.body).toEqual({ error: expect.stringMatching(/earlier answer was saved/u) });
     expect((await goals.feedItem(item.id))?.question?.answer?.choice).toBe('Yes, it was me');
     await turnEnded(harness, opened.id, 1);
+  });
+
+  it('keeps a live answer owner when another agent recovers its queue', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    try {
+      const { opened, item } = await asked(harness);
+      const { goals } = harness.capabilities;
+      const firstRunner = harness.capabilities.runner()!;
+      const scheduled = vi.spyOn(firstRunner, 'runDue').mockResolvedValue(0);
+      const failure = vi
+        .spyOn(goals, 'enqueueCaseAnswer')
+        .mockRejectedValue(new Error('queue unavailable'));
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      failure.mockRestore();
+      expect(await other.capabilities.runner()!.runDue()).toBe(0);
+      scheduled.mockRestore();
+      harness.model.script({ text: 'The owner handled its answer.' });
+      expect(await firstRunner.runDue()).toBe(1);
+      await turnEnded(harness, opened.id, 1);
+      expect(other.model.requests).toHaveLength(0);
+    } finally {
+      await other.close();
+    }
   });
 
   it.each(['note', 'close'] as const)(
@@ -299,7 +327,7 @@ describe('the agent takes a turn on a case once its question is answered', () =>
         throw new Error('interrupted after enqueue');
       });
       expect((await answer(harness, item.id, 'No')).status).toBe(200);
-      writeFileSync(join(root, 'case-answer-outbox', `${item.id}.json`), '{damaged');
+      writeFileSync(join(root, 'case-answer-outbox', opened.id, `${item.id}.json`), '{damaged');
       const other = await goals.create({
         title: 'Other work',
         instructions: 'Do something unrelated.',
@@ -323,6 +351,47 @@ describe('the agent takes a turn on a case once its question is answered', () =>
       harness = undefined;
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it('does not let an unrelated damaged record block stopping a case goal', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    const { goals } = harness.capabilities;
+    vi.spyOn(harness.capabilities.runner()!, 'runDue').mockResolvedValue(0);
+    expect((await answer(harness, item.id, 'No')).status).toBe(200);
+    const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+    const unrelated = join(harness.stateDir, 'case-answer-outbox', 'case-abcdef');
+    mkdirSync(unrelated, { recursive: true });
+    writeFileSync(join(unrelated, 'feed-abcd.json'), '{damaged');
+    const stopped = await harness.capabilities.api({
+      method: 'POST',
+      path: `/goals/${goal.id}/stop`,
+      segments: ['goals', goal.id, 'stop'],
+      query: new URLSearchParams(),
+      body: {},
+    });
+    expect(stopped.status).toBe(200);
+    expect(await goals.get(goal.id)).toBeUndefined();
+  });
+
+  it('refuses a recovery record whose saved answer differs from the case history', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    const { cases, goals } = harness.capabilities;
+    vi.spyOn(goals, 'answerQuestion').mockRejectedValueOnce(new Error('feed unavailable'));
+    await expect(answer(harness, item.id, 'Yes, it was me')).rejects.toThrow('feed unavailable');
+    const path = join(harness.stateDir, 'case-answer-outbox', opened.id, `${item.id}.json`);
+    const record = JSON.parse(readFileSync(path, 'utf8')) as { answer: { choice: string } };
+    record.answer.choice = 'No';
+    writeFileSync(path, JSON.stringify(record));
+    expect(await harness.capabilities.runner()!.runDue()).toBe(0);
+    expect((await goals.feedItem(item.id))?.question?.state).toBe('open');
+    expect((await cases.get(opened.id))?.history.at(-1)?.text).toBe('Yes, it was me');
+    const retry = await answer(harness, item.id, 'No');
+    expect(retry.status).toBe(400);
+    expect(retry.body).toEqual({ error: expect.stringMatching(/manual recovery/u) });
   });
 
   it.each(['feed', 'queue'] as const)(

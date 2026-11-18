@@ -27,7 +27,7 @@ export interface ICaseTurns {
   /** Keep only the authority captured for the answer that was actually accepted. */
   remember(answered: ICase, snapshot: ICaseActionSnapshot | undefined): void;
   /** Make the case's goal due: one goal for each case, created by its first answer and run again by each later one. */
-  onAnswered(answered: ICase): Promise<void>;
+  onAnswered(answered: ICase, ownerId?: string): Promise<void>;
   shape(goal: IGoal, run?: IGoalRun): Promise<IGoalShape | undefined>;
   quiet(goal: IGoal): Promise<boolean>;
   /**
@@ -49,12 +49,12 @@ export function createCaseTurns(options: {
   const atStart = new Map<string, number>();
   const answers = new Map<string, ICaseActionSnapshot>();
 
-  async function onAnswered(answered: ICase): Promise<void> {
+  async function onAnswered(answered: ICase, ownerId?: string): Promise<void> {
     if (answered.lastAnsweredFeedItemId === undefined) return;
     await options.goals.enqueueCaseAnswer({
       caseId: answered.id,
       feedItemId: answered.lastAnsweredFeedItemId,
-      ownerId: options.ownerId ?? 'local',
+      ownerId: ownerId ?? options.ownerId ?? 'local',
       title: `Case: ${answered.title}`,
       instructions: caseTurnPrompt(),
     });
