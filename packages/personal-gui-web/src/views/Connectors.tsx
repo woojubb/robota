@@ -183,8 +183,10 @@ function CaseActions({
   const [saving, setSaving] = useState(false);
   const inFlight = useRef(false);
   const [refusal, setRefusal] = useState<string | undefined>(undefined);
-  if (connector.caseActionTools === undefined) return null;
+  if (connector.caseActionTools === undefined || connector.caseActionRevision === undefined)
+    return null;
 
+  const identity = `${connector.title} (${connector.id})`;
   const allowed = connector.caseActionTools;
   const writable = (connector.tools ?? []).filter((tool) => tool.access === 'write');
   const names = [...new Set([...writable.map((tool) => tool.name), ...allowed])];
@@ -204,7 +206,7 @@ function CaseActions({
   };
   return (
     <section
-      aria-label={`Case requests for ${connector.title}`}
+      aria-label={`Case requests for ${identity}`}
       className="mt-3 border-t border-border pt-2"
     >
       <h3 className="text-[13px] font-semibold">Case requests</h3>
@@ -215,14 +217,14 @@ function CaseActions({
       {unavailable && (
         <div className="mt-1">
           <p role="alert" className="text-[12.5px] text-destructive">
-            The saved settings could not be confirmed. Refresh them before changing them.
+            The change could not be confirmed. Retry to secure these settings before changing them.
           </p>
           <Button
             disabled={saving}
-            label={`Refresh case request settings for ${connector.title}`}
+            label={`Secure case request settings for ${identity}`}
             onClick={() => void change(onRefresh)}
           >
-            Refresh settings
+            Secure settings
           </Button>
         </div>
       )}
@@ -234,7 +236,7 @@ function CaseActions({
           </p>
           <Button
             disabled={saving || unavailable}
-            label={`Reset case request settings for ${connector.title}`}
+            label={`Reset case request settings for ${identity}`}
             onClick={() => void change(onReset)}
           >
             Reset case request settings
@@ -258,7 +260,7 @@ function CaseActions({
                 <label className="flex items-center gap-2 text-[12.5px]">
                   <input
                     type="checkbox"
-                    aria-label={`Allow ${label} for case requests on ${connector.title}`}
+                    aria-label={`Allow ${label} for case requests on ${identity}`}
                     checked={checked}
                     disabled={saving || unavailable || (!checked && !mayAllow)}
                     onChange={(event) => void change(() => onChange(name, event.target.checked))}
@@ -937,8 +939,21 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
   const [message, setMessage] = useState<string | undefined>(undefined);
   const [adding, setAdding] = useState(false);
   const requestNumber = useRef(0);
+  const appliedRequest = useRef(0);
   const scopeRevisions = useRef(new Map<string, number>());
+  const scopeRecovery = useRef(
+    new Map<
+      string,
+      {
+        readonly fence: () => Promise<{ connector: IConnectorView }>;
+        pending?: Promise<void>;
+      }
+    >(),
+  );
   const [uncertainScopes, setUncertainScopes] = useState<ReadonlySet<string>>(new Set());
+  const advanceScope = (id: string): void => {
+    scopeRevisions.current.set(id, (scopeRevisions.current.get(id) ?? 0) + 1);
+  };
   const replaceConnector = (connector: IConnectorView): void => {
     setListing((current) =>
       current === undefined
@@ -963,7 +978,8 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
     const revisions = new Map(scopeRevisions.current);
     try {
       const next = await api.connectors();
-      if (request === requestNumber.current) {
+      if (request > appliedRequest.current) {
+        appliedRequest.current = request;
         setListing((current) =>
           current === undefined
             ? next
@@ -976,46 +992,52 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
                 ),
               },
         );
-        setUncertainScopes((current) => {
-          const remaining = new Set(current);
-          for (const item of next.connectors) {
-            if (revisions.get(item.id) === scopeRevisions.current.get(item.id))
-              remaining.delete(item.id);
-          }
-          return remaining;
-        });
         setError(undefined);
       }
     } catch (caught) {
-      if (request === requestNumber.current) setError(errorText(caught));
+      if (request > appliedRequest.current) {
+        appliedRequest.current = request;
+        setError(errorText(caught));
+      }
     }
   }, [api]);
-  const refreshScope = async (id: string): Promise<void> => {
-    const revision = scopeRevisions.current.get(id);
-    const { connector } = await api.connector(id);
-    if (revision !== scopeRevisions.current.get(id)) return;
-    replaceConnector(connector);
-    confirmScope(id);
+  const recoverScope = (id: string): Promise<void> => {
+    const recovery = scopeRecovery.current.get(id);
+    if (recovery === undefined) return Promise.resolve();
+    if (recovery.pending !== undefined) return recovery.pending;
+    const pending = recovery
+      .fence()
+      .then(({ connector }) => {
+        if (scopeRecovery.current.get(id) !== recovery) return;
+        advanceScope(id);
+        replaceConnector(connector);
+        scopeRecovery.current.delete(id);
+        confirmScope(id);
+      })
+      .finally(() => {
+        recovery.pending = undefined;
+      });
+    recovery.pending = pending;
+    return pending;
   };
   const saveScope = async (
     id: string,
     work: () => Promise<{ connector: IConnectorView }>,
+    fence: () => Promise<{ connector: IConnectorView }>,
   ): Promise<void> => {
-    const advance = (): void => {
-      scopeRevisions.current.set(id, (scopeRevisions.current.get(id) ?? 0) + 1);
-    };
-    advance();
+    advanceScope(id);
     try {
       const { connector } = await work();
-      advance();
+      advanceScope(id);
       replaceConnector(connector);
       confirmScope(id);
     } catch (caught) {
-      advance();
+      advanceScope(id);
+      scopeRecovery.current.set(id, { fence });
       setUncertainScopes((current) => new Set([...current, id]));
-      // A failed request may have reached the server. Confirm this connector without waiting for
-      // unrelated services, and keep controls disabled if its state cannot be read.
-      void refreshScope(id).catch(() => undefined);
+      // A failed request can still arrive later. The unconditional revoke or reset advances the
+      // server revision, so that delayed request cannot apply after the settings are secured.
+      void recoverScope(id).catch(() => undefined);
       throw caught;
     }
   };
@@ -1126,14 +1148,26 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
               await reload();
             }}
             onCaseAction={async (tool, allowed) => {
-              await saveScope(connector.id, () =>
-                api.setConnectorCaseAction(connector.id, tool, allowed),
+              await saveScope(
+                connector.id,
+                () =>
+                  api.setConnectorCaseAction(
+                    connector.id,
+                    tool,
+                    allowed,
+                    connector.caseActionRevision,
+                  ),
+                () => api.setConnectorCaseAction(connector.id, tool, false),
               );
             }}
             onResetCaseActions={async () => {
-              await saveScope(connector.id, () => api.resetConnectorCaseActions(connector.id));
+              await saveScope(
+                connector.id,
+                () => api.resetConnectorCaseActions(connector.id, connector.caseActionRevision),
+                () => api.resetConnectorCaseActions(connector.id),
+              );
             }}
-            onRefreshCaseActions={() => refreshScope(connector.id)}
+            onRefreshCaseActions={() => recoverScope(connector.id)}
             onDecide={(tool, decision) =>
               void run(async () => {
                 await api.decideConnectorTool(connector.id, tool, decision);

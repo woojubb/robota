@@ -11,6 +11,7 @@ import {
 } from '@robota-sdk/agent-product/personal';
 
 import { CONSENT_CALLBACK_PATH } from './consent.js';
+import { UNREADABLE_SCOPE_REVISION } from './case-action-scope.js';
 
 import type { IConnectorCatalog } from './catalog.js';
 import type { ICaseActionScope } from './case-action-scope.js';
@@ -65,7 +66,11 @@ function text(body: Record<string, unknown>, key: string): string {
 
 function present(
   view: IConnectorView,
-  caseScope: { readonly tools: readonly string[]; readonly error?: true },
+  caseScope: {
+    readonly tools: readonly string[];
+    readonly revision?: string;
+    readonly error?: true;
+  },
   sync?: IConnectorSyncStatus,
 ): Record<string, unknown> {
   const { connector, status, tools } = view;
@@ -82,6 +87,7 @@ function present(
     ...(connector.attention !== undefined && { attention: connector.attention }),
     defaultAttention: defaultAttention(connector.kind),
     caseActionTools: caseScope.tools,
+    ...(caseScope.revision !== undefined && { caseActionRevision: caseScope.revision }),
     ...(caseScope.error === true && { caseActionScopeError: true }),
     status,
     ...(sync !== undefined && { sync }),
@@ -154,18 +160,24 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
   };
   const caseScope = async (
     id: string,
-  ): Promise<{ readonly tools: readonly string[]; readonly error?: true }> => {
+  ): Promise<{
+    readonly tools: readonly string[];
+    readonly revision?: string;
+    readonly error?: true;
+  }> => {
     try {
-      const tools = await change(async () => {
+      const snapshot = await change(async () => {
         // A stale page request must not recreate settings after the connector was removed.
         if ((await book.get(id)) === undefined) return undefined;
         await caseActions.initialize(id);
-        return caseActions.tools(id);
+        return caseActions.snapshot(id);
       });
-      return tools === undefined ? { tools: [], error: true } : { tools };
+      return snapshot === undefined
+        ? { tools: [], revision: UNREADABLE_SCOPE_REVISION, error: true }
+        : snapshot;
     } catch (error) {
       if (!(error instanceof ConnectorRefusedError)) throw error;
-      return { tools: [], error: true };
+      return { tools: [], revision: UNREADABLE_SCOPE_REVISION, error: true };
     }
   };
   /** A connector as the page shows it, with how its sync stands. */
@@ -436,9 +448,13 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       if (record(request.body)['reset'] !== true) {
         throw new ConnectorRefusedError('reset must be true');
       }
+      const revision = body?.['revision'];
+      if (revision !== undefined && typeof revision !== 'string') {
+        throw new ConnectorRefusedError('revision must be a string');
+      }
       const changed = await change(async () => {
         if (!(await known(id))) return false;
-        await caseActions.reset(id);
+        await caseActions.reset(id, revision);
         return true;
       });
       return changed ? ok({ connector: await show(id) }) : notFound;
@@ -447,11 +463,21 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       const allowed = record(request.body)['allowed'];
       if (typeof allowed !== 'boolean')
         throw new ConnectorRefusedError('allowed must be true or false');
+      const requested = body?.['revision'];
+      if (requested !== undefined && typeof requested !== 'string') {
+        throw new ConnectorRefusedError('revision must be a string');
+      }
+      if (allowed && tool === undefined && requested === undefined) {
+        throw new ConnectorRefusedError('Reload case action settings before allowing a tool');
+      }
       const captured = allowed ? capturedVersion : undefined;
       if (allowed && captured === undefined)
         throw new ConnectorRefusedError('Case action settings changed; try again');
       if (captured !== undefined && !captured.ok) throw captured.error;
-      const version = captured?.value;
+      if (captured !== undefined && requested !== undefined && requested !== captured.value) {
+        throw new ConnectorRefusedError('Case action settings changed; try again');
+      }
+      const version = requested ?? captured?.value;
       const view = allowed ? await registry.view(id) : undefined;
       const candidate = view?.tools?.find((item) => item.name === caseTool);
       if (allowed && (view?.status.state !== 'connected' || candidate === undefined)) {
@@ -470,7 +496,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
           throw new ConnectorRefusedError('Choose a connected writable tool for case requests');
         }
         const savedVersion = await caseActions.set(id, caseTool, allowed, version);
-        if (version !== undefined) {
+        if (allowed && version !== undefined) {
           const latest = caseActions.version(id, caseTool);
           if (savedVersion !== latest) {
             throw new ConnectorRefusedError('Case action settings changed; try again');

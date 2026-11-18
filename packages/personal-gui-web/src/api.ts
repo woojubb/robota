@@ -313,6 +313,8 @@ export interface IConnectorView {
   readonly tools?: readonly IConnectorToolView[];
   /** Tools the person has allowed case requests to propose; absent on older servers. */
   readonly caseActionTools?: readonly string[];
+  /** Revision of the exact scope shown, for ordering the person's changes. */
+  readonly caseActionRevision?: string;
   /** The saved setting could not be read and case requests cannot use it. */
   readonly caseActionScopeError?: boolean;
 }
@@ -470,7 +472,6 @@ export interface IPersonalApi {
   cases(): Promise<readonly ICaseView[]>;
   caseThread(id: string): Promise<ICaseView>;
   connectors(): Promise<IConnectorsListing>;
-  connector(id: string): Promise<{ connector: IConnectorView }>;
   /** Services to suggest when adding a connector, matching what was typed. */
   connectorCatalog(query: string): Promise<IConnectorCatalogView>;
   addConnector(input: {
@@ -513,8 +514,9 @@ export interface IPersonalApi {
     id: string,
     tool: string,
     allowed: boolean,
+    revision?: string,
   ): Promise<{ connector: IConnectorView }>;
-  resetConnectorCaseActions(id: string): Promise<{ connector: IConnectorView }>;
+  resetConnectorCaseActions(id: string, revision?: string): Promise<{ connector: IConnectorView }>;
   saveProvider(provider: IProviderSettings): Promise<{ saved: true; restartRequired: boolean }>;
 }
 
@@ -620,16 +622,22 @@ export function createPersonalApi(
     removeConnector: (connectorId, forgetPulled = false) =>
       call('POST', `connectors/${id(connectorId)}/remove`, { forgetPulled }),
     connectorPulled: (connectorId) => call('GET', `connectors/${id(connectorId)}/pulled`),
-    connector: (connectorId) => call('GET', `connectors/${id(connectorId)}`),
     setConnectorSync: (connectorId, everyMinutes) =>
       call('POST', `connectors/${id(connectorId)}/sync`, { everyMinutes }),
     setConnectorAttention: (connectorId, text) =>
       call('PUT', `connectors/${id(connectorId)}/attention`, { text }),
     decideConnectorTool: (connectorId, tool, decision) =>
       call('POST', `connectors/${id(connectorId)}/tools/${id(tool)}`, { decision }),
-    setConnectorCaseAction: (connectorId, tool, allowed) =>
-      call('POST', `connectors/${id(connectorId)}/case-actions`, { tool, allowed }),
-    resetConnectorCaseActions: (connectorId) =>
-      call('POST', `connectors/${id(connectorId)}/case-actions`, { reset: true }),
+    setConnectorCaseAction: (connectorId, tool, allowed, revision) =>
+      call('POST', `connectors/${id(connectorId)}/case-actions`, {
+        tool,
+        allowed,
+        ...(revision !== undefined && { revision }),
+      }),
+    resetConnectorCaseActions: (connectorId, revision) =>
+      call('POST', `connectors/${id(connectorId)}/case-actions`, {
+        reset: true,
+        ...(revision !== undefined && { revision }),
+      }),
   };
 }

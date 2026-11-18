@@ -49,21 +49,31 @@ describe('personal API client', () => {
 
   it('saves and resets case-request settings as explicit owner writes', async () => {
     const { api, calls } = recorder({ status: 200, body: { connector: {} } });
-    await api.setConnectorCaseAction('service/a', 'send/message', true);
+    await api.setConnectorCaseAction('service/a', 'send/message', true, 'revision-1');
+    await api.setConnectorCaseAction('service/a', 'send/message', false, 'revision-2');
+    await api.resetConnectorCaseActions('service/a', 'revision-3');
     await api.setConnectorCaseAction('service/a', 'send/message', false);
-    await api.resetConnectorCaseActions('service/a');
     expect(calls.map((call) => [call.init?.method, call.url, call.init?.body])).toEqual([
       [
         'POST',
         'api/connectors/service%2Fa/case-actions',
-        JSON.stringify({ tool: 'send/message', allowed: true }),
+        JSON.stringify({ tool: 'send/message', allowed: true, revision: 'revision-1' }),
+      ],
+      [
+        'POST',
+        'api/connectors/service%2Fa/case-actions',
+        JSON.stringify({ tool: 'send/message', allowed: false, revision: 'revision-2' }),
+      ],
+      [
+        'POST',
+        'api/connectors/service%2Fa/case-actions',
+        JSON.stringify({ reset: true, revision: 'revision-3' }),
       ],
       [
         'POST',
         'api/connectors/service%2Fa/case-actions',
         JSON.stringify({ tool: 'send/message', allowed: false }),
       ],
-      ['POST', 'api/connectors/service%2Fa/case-actions', JSON.stringify({ reset: true })],
     ]);
     for (const call of calls)
       expect(call.init?.headers).toEqual({

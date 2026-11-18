@@ -326,16 +326,45 @@ describe('using a connected service', () => {
       });
       return { status: response.status, body: (await response.json()) as any };
     };
+    let revision = (await w.call('GET', ['connectors', w.id])).body.connector.caseActionRevision;
     for (const tool of ['.', '..']) {
-      const enabled = await send({ tool, allowed: true });
+      const enabled = await send({ tool, allowed: true, revision });
       expect(enabled.status).toBe(200);
       expect(enabled.body.connector.caseActionTools).toEqual([tool]);
-      const disabled = await send({ tool, allowed: false });
+      const disabled = await send({
+        tool,
+        allowed: false,
+        revision: enabled.body.connector.caseActionRevision,
+      });
       expect(disabled.status).toBe(200);
       expect(disabled.body.connector.caseActionTools).toEqual([]);
+      revision = disabled.body.connector.caseActionRevision;
     }
     expect((await send({ tool: '.', allowed: true, reset: true })).status).toBe(400);
     expect((await send({ allowed: true, reset: true })).status).toBe(400);
+  });
+
+  it('fences a lost request even if it reaches the server after revocation', async () => {
+    const w = await connected();
+    const path = ['connectors', w.id, 'case-actions'];
+    const old = (await w.call('GET', ['connectors', w.id])).body.connector.caseActionRevision;
+    const fence = await w.call('POST', path, { tool: 'create_note', allowed: false });
+    expect(fence.status).toBe(200);
+    expect(
+      (await w.call('POST', path, { tool: 'create_note', allowed: true, revision: old })).status,
+    ).toBe(400);
+    const current = fence.body.connector.caseActionRevision;
+    expect(
+      (await w.call('POST', path, { tool: 'create_note', allowed: true, revision: current }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await w.call('POST', path, { tool: 'create_note', allowed: false, revision: old })).status,
+    ).toBe(400);
+    expect((await w.call('POST', path, { reset: true, revision: old })).status).toBe(400);
+    expect((await w.call('GET', ['connectors', w.id])).body.connector.caseActionTools).toEqual([
+      'create_note',
+    ]);
   });
 
   it('lets the owner allow only named writable tools for case requests', async () => {
@@ -390,6 +419,8 @@ describe('using a connected service', () => {
     async (intervention) => {
       const w = await connected();
       const registry = w.harness.capabilities.connectors;
+      const revision = (await w.call('GET', ['connectors', w.id])).body.connector
+        .caseActionRevision;
       const second = createConnectorsApi({
         registry,
         book: new ConnectorBook({
@@ -423,6 +454,7 @@ describe('using a connected service', () => {
       const allow = w.call('POST', ['connectors', w.id, 'case-actions'], {
         tool: 'create_note',
         allowed: true,
+        revision,
       });
       let block: Promise<unknown> | undefined;
       try {
@@ -572,6 +604,7 @@ describe('using a connected service', () => {
     expect(damaged.status).toBe(200);
     expect(damaged.body.connector.caseActionTools).toEqual([]);
     expect(damaged.body.connector.caseActionScopeError).toBe(true);
+    expect(damaged.body.connector.caseActionRevision).toBe('unreadable');
     const blocked = await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], {
       decision: 'blocked',
     });
@@ -581,10 +614,21 @@ describe('using a connected service', () => {
       (await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], { decision: 'write' }))
         .status,
     ).toBe(400);
-    const reset = await w.call('POST', ['connectors', w.id, 'case-actions'], { reset: true });
+    const reset = await w.call('POST', ['connectors', w.id, 'case-actions'], {
+      reset: true,
+      revision: 'unreadable',
+    });
     expect(reset.status).toBe(200);
     expect(reset.body.connector.caseActionScopeError).toBeUndefined();
     expect(reset.body.connector.caseActionTools).toEqual([]);
+    expect(
+      (
+        await w.call('POST', ['connectors', w.id, 'case-actions'], {
+          reset: true,
+          revision: 'unreadable',
+        })
+      ).status,
+    ).toBe(400);
     expect(
       reset.body.connector.tools.find((tool: { name: string }) => tool.name === 'create_note')
         .access,

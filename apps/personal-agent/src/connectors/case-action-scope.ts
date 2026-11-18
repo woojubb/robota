@@ -17,9 +17,13 @@ import { basename, dirname, join } from 'node:path';
 import { ConnectorRefusedError } from '@robota-sdk/agent-product/personal';
 import Database from 'better-sqlite3';
 
+export const UNREADABLE_SCOPE_REVISION = 'unreadable';
+
 export interface ICaseActionScope {
   exclusive<T>(work: () => Promise<T>): Promise<T>;
   tools(connectorId: string): Promise<readonly string[]>;
+  /** Read the allowed tools and their shared revision as one snapshot. */
+  snapshot(connectorId: string): { readonly revision: string; readonly tools: readonly string[] };
   /** Establish an empty scope only when none exists; caller holds the settings lock. */
   initialize(connectorId: string): Promise<void>;
   /** Captured synchronously before a request yields to another settings change. */
@@ -30,7 +34,7 @@ export interface ICaseActionScope {
     allowed: boolean,
     expected?: string,
   ): Promise<string | undefined>;
-  reset(connectorId: string): Promise<void>;
+  reset(connectorId: string, expected?: string): Promise<void>;
   clear(connectorId: string): Promise<void>;
 }
 
@@ -189,6 +193,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       }
     },
     tools: async (connectorId) => read(connectorId).tools,
+    snapshot: (connectorId) => read(connectorId),
     initialize: async (connectorId) => {
       if (read(connectorId).revision === '0') {
         write(connectorId, { revision: randomUUID(), tools: [] });
@@ -208,7 +213,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       if (allowed && current.revision === '0') {
         throw new ConnectorRefusedError('Open the connector settings before allowing case actions');
       }
-      if (allowed && expected !== undefined && expected !== current.revision) {
+      if (expected !== undefined && expected !== current.revision) {
         throw new ConnectorRefusedError('Case action settings changed; try again');
       }
       if (allowed && current.tools.includes(tool)) return current.revision;
@@ -221,7 +226,19 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       write(connectorId, next);
       return allowed ? next.revision : undefined;
     },
-    reset: async (connectorId) => {
+    reset: async (connectorId, expected) => {
+      if (expected === UNREADABLE_SCOPE_REVISION) {
+        let readable = true;
+        try {
+          read(connectorId);
+        } catch (error) {
+          if (!(error instanceof ConnectorRefusedError)) throw error;
+          readable = false;
+        }
+        if (readable) throw new ConnectorRefusedError('Case action settings changed; try again');
+      } else if (expected !== undefined && read(connectorId).revision !== expected) {
+        throw new ConnectorRefusedError('Case action settings changed; try again');
+      }
       // Replace the whole authority in one rename. A failed write leaves the old file intact.
       write(connectorId, { revision: randomUUID(), tools: [] });
       const path = pathOf(connectorId);
