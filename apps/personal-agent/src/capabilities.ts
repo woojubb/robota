@@ -334,6 +334,7 @@ export function createPersonalCapabilities(
     cases,
     connectors: connectorBook,
     scope: caseActions,
+    writes: caseWrites,
   });
   const syncRuns = createSyncRuns({
     book: connectorBook,
