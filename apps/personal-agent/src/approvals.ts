@@ -4,6 +4,7 @@
  * answer, from the page or as a channel's structured action, resolves exactly that prompt.
  */
 import type { GoalBook, IFeedItem } from '@robota-sdk/agent-product/personal';
+import type { IApprovalCancellations, IApprovalIdentity } from './approval-cancellations.js';
 import type { TPersonalSession } from './agent.js';
 
 export interface IPendingApproval {
@@ -27,6 +28,8 @@ export interface IApprovalRegistry {
   answer(feedId: string, approve: boolean): Promise<IFeedItem>;
   /** Retry expiration of approvals whose answer could not be recorded. */
   settleFailed(): Promise<void>;
+  /** Reconcile durable cancellations before recovering abandoned work. */
+  restore(): Promise<void>;
   /** Cancel and drain answers owned by a session that is stopping. */
   cancelSession(session: IPendingApproval['session']): Promise<void>;
   /** Prevent new answers and drain all in-flight approval records. */
@@ -39,14 +42,9 @@ export function createApprovalRegistry(
   book: GoalBook,
   otherAgents: () => boolean = () => false,
   recoverOrphan?: (item: IFeedItem) => Promise<void>,
+  cancellations?: IApprovalCancellations,
 ): IApprovalRegistry {
-  type TExpected = {
-    readonly id: string;
-    readonly goalId: string | undefined;
-    readonly runId: string | undefined;
-    readonly tool: string;
-    readonly detail: string;
-  };
+  type TExpected = IApprovalIdentity;
   const pending = new Map<
     string,
     { readonly entry: IPendingApproval; readonly expected: TExpected }
@@ -55,6 +53,7 @@ export function createApprovalRegistry(
     string,
     {
       readonly entry: IPendingApproval;
+      readonly expected: TExpected;
       cancelled: boolean;
       readonly done: Promise<void>;
     }
@@ -71,9 +70,16 @@ export function createApprovalRegistry(
     item.approval.detail === expected.detail;
   const expireFailed = (expected: TExpected): void => {
     failed.set(expected.id, expected);
+    try {
+      cancellations?.mark(expected);
+    } catch {
+      // A failed intent is retried before shutdown or any later work.
+    }
     if (attempts.has(expected.id)) return;
     const attempt = (async () => {
+      cancellations?.mark(expected);
       await book.cancelApproval(expected.id, expected);
+      cancellations?.finish(expected);
       failed.delete(expected.id);
     })()
       .catch(() => undefined)
@@ -114,9 +120,17 @@ export function createApprovalRegistry(
       }
     },
     release: (feedId) => {
-      if (pending.delete(feedId)) return true;
+      const found = pending.get(feedId);
+      if (found !== undefined) {
+        pending.delete(feedId);
+        expireFailed(found.expected);
+        return true;
+      }
       const flight = answering.get(feedId);
-      if (flight !== undefined) flight.cancelled = true;
+      if (flight !== undefined) {
+        flight.cancelled = true;
+        expireFailed(flight.expected);
+      }
       return false;
     },
     waitingFor: (goalId) => [...pending.values()].some(({ entry }) => entry.goalId === goalId),
@@ -149,7 +163,7 @@ export function createApprovalRegistry(
       const done = new Promise<void>((resolve) => {
         finish = resolve;
       });
-      const flight = { entry: waiting, cancelled: false, done };
+      const flight = { entry: waiting, expected, cancelled: false, done };
       answering.set(feedId, flight);
       let handedOff = false;
       try {
@@ -178,6 +192,13 @@ export function createApprovalRegistry(
     async settleFailed() {
       for (const expected of failed.values()) expireFailed(expected);
       await Promise.all([...attempts.values()]);
+      // If feed repair is unavailable, a durable intent must survive shutdown.
+      for (const expected of failed.values()) cancellations?.mark(expected);
+    },
+    async restore() {
+      for (const expected of cancellations?.list() ?? []) failed.set(expected.id, expected);
+      await this.settleFailed();
+      if (failed.size > 0) throw new Error('Approval cancellations could not be recovered');
     },
     async cancelSession(session) {
       stoppingSessions.add(session);
@@ -188,7 +209,10 @@ export function createApprovalRegistry(
         expireFailed(found.expected);
       }
       const active = [...answering.values()].filter((flight) => flight.entry.session === session);
-      for (const flight of active) flight.cancelled = true;
+      for (const flight of active) {
+        flight.cancelled = true;
+        expireFailed(flight.expected);
+      }
       await Promise.all(active.map((flight) => flight.done));
     },
     async shutdown() {
@@ -199,7 +223,10 @@ export function createApprovalRegistry(
         expireFailed(found.expected);
       }
       const active = [...answering.values()];
-      for (const flight of active) flight.cancelled = true;
+      for (const flight of active) {
+        flight.cancelled = true;
+        expireFailed(flight.expected);
+      }
       await Promise.all(active.map((flight) => flight.done));
       await this.settleFailed();
     },

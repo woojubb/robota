@@ -45,6 +45,7 @@ import {
 
 import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playwright-browser.js';
 import { createApprovalRegistry } from './approvals.js';
+import { createApprovalCancellations } from './approval-cancellations.js';
 import { createCaseTurns } from './case-turns.js';
 import { callCaseConnector, captureCaseAction, createCaseAction } from './case-action.js';
 import { createCaseApprovalRecorder } from './case-approval-record.js';
@@ -61,6 +62,7 @@ import { createConnectorsApi } from './connectors/connectors-api.js';
 import { createMcpConnectorProtocol } from './connectors/mcp-protocol.js';
 import { createSyncRuns } from './connectors/sync-runs.js';
 import { createCaseConnectorBindings } from './case-connector-binding.js';
+import type { IApprovalRegistry } from './approvals.js';
 import type { ICaseConnectorBindings } from './case-connector-binding.js';
 import { createLayoutBook } from './layout.js';
 import { createNotificationTransport } from './notification-transport.js';
@@ -238,14 +240,22 @@ export function createPersonalCapabilities(
   });
   let guiOrigins: readonly string[] = [];
   let channelTurns: IChannelTurns | undefined;
-  const approvals = createApprovalRegistry(goals, presence.others, async (item) => {
-    const recovered = await presence.whenAlone(async () => {
-      if (item.goalId !== undefined && runner?.isRunning(item.goalId) === true)
-        throw new Error('This approval is still being prepared; try again');
-      if (item.goalId !== undefined) await goals.recoverGoal(item.goalId);
-    });
-    if (!recovered) throw new Error('This approval is waiting in another agent; answer it there');
-  });
+  const cancellations = createApprovalCancellations(options.stateDir);
+  let approvals: IApprovalRegistry;
+  approvals = createApprovalRegistry(
+    goals,
+    presence.others,
+    async (item) => {
+      const recovered = await presence.whenAlone(async () => {
+        await approvals.restore();
+        if (item.goalId !== undefined && runner?.isRunning(item.goalId) === true)
+          throw new Error('This approval is still being prepared; try again');
+        if (item.goalId !== undefined) await goals.recoverGoal(item.goalId);
+      });
+      if (!recovered) throw new Error('This approval is waiting in another agent; answer it there');
+    },
+    cancellations,
+  );
   const channels = createChannelHub({
     runTurn: async (key, text) => {
       if (channelTurns === undefined) throw new Error('The agent is not running yet');
@@ -514,7 +524,10 @@ export function createPersonalCapabilities(
     }),
     attach: async (agent, attachOptions) => {
       guiOrigins = attachOptions?.guiOrigins ?? [];
-      await presence.enter(() => goals.recover());
+      await presence.enter(async () => {
+        await approvals.restore();
+        await goals.recover();
+      });
       channelTurns = createChannelTurns({
         book: goals,
         approvals,
@@ -545,6 +558,7 @@ export function createPersonalCapabilities(
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
         beforeRunDue: async (isRunning) => {
           await presence.whenAlone(async () => {
+            await approvals.restore();
             for (const goal of await goals.list()) {
               if (!isRunning(goal.id)) await goals.recoverGoal(goal.id);
             }
@@ -570,16 +584,20 @@ export function createPersonalCapabilities(
       }
     },
     dispose: async () => {
-      const drainingApprovals = approvals.shutdown();
       try {
         clearInterval(deliveryTimer);
-        await runner?.stop();
-        await channelTurns?.stop();
-        await drainingApprovals;
-        await approvals.settleFailed();
-        for (const channel of channels.channels()) await channels.disconnect(channel.id);
-        await connectors.close();
-        await browser.close();
+        const stopped = await Promise.allSettled([
+          approvals.shutdown(),
+          runner?.stop(),
+          channelTurns?.stop(),
+        ]);
+        const closed = await Promise.allSettled([
+          ...channels.channels().map((channel) => channels.disconnect(channel.id)),
+          connectors.close(),
+          browser.close(),
+        ]);
+        const failure = [...stopped, ...closed].find((result) => result.status === 'rejected');
+        if (failure?.status === 'rejected') throw failure.reason;
       } finally {
         presence.close();
       }

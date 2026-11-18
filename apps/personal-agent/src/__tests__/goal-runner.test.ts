@@ -714,6 +714,76 @@ async function pendingApproval(book: GoalBook) {
 }
 
 describe('goal runner', () => {
+  it('does not approve when the prompt backstop fires while the answer is recorded', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession();
+    const resolve = vi.spyOn(stub.session, 'resolvePermission');
+    const original = book.setWaiting.bind(book);
+    const waiting = vi.spyOn(book, 'setWaiting').mockImplementation(async (id, value) => {
+      await original(id, value);
+      if (!value) stub.backstop();
+    });
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    try {
+      await book.create({ title: 'Buy', instructions: 'Buy tickets' });
+      await runner.runDue();
+      const approval = await pendingApproval(book);
+      await expect(runner.answer(approval.id, true)).rejects.toThrow(/cancelled/u);
+      await runner.settled();
+      expect(resolve).not.toHaveBeenCalledWith('prompt-1', true);
+      expect((await book.feedItem(approval.id))?.approval?.state).toBe('expired');
+    } finally {
+      waiting.mockRestore();
+      await runner.stop();
+    }
+  });
+
+  it('expires a prompt settled before its approval finishes posting', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession();
+    const original = book.post.bind(book);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const posted = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const write = vi.spyOn(book, 'post').mockImplementation(async (item) => {
+      const result = await original(item);
+      if (item.kind === 'approval') {
+        reached();
+        await gate;
+      }
+      return result;
+    });
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    try {
+      await book.create({ title: 'Buy', instructions: 'Buy tickets' });
+      await runner.runDue();
+      await posted;
+      stub.backstop();
+      release();
+      await runner.settled();
+      expect((await book.feed()).find((item) => item.kind === 'approval')?.approval?.state).toBe(
+        'expired',
+      );
+    } finally {
+      release();
+      write.mockRestore();
+      await runner.stop();
+    }
+  });
+
   it("interrupts a run in progress, as a person's Stop does, and keeps running goals afterwards", async () => {
     const book = new GoalBook({ store: createMemoryGoalStore() });
     let stub = promptingSession();

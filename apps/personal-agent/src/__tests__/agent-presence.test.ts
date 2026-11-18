@@ -309,3 +309,96 @@ it('waits for an in-progress recovery before stopping', async () => {
     await harness.close();
   }
 }, 15_000);
+
+it('interrupts a goal whose run is claimed but whose session is not open yet', async () => {
+  const { startHarness } = await import('./harness.js');
+  const harness = await startHarness();
+  const { goals } = harness.capabilities;
+  const goal = await goals.create({ title: 'Once', instructions: 'Look.' });
+  const original = goals.startRun.bind(goals);
+  let release!: () => void;
+  let reached!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const waiting = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  const spy = vi.spyOn(goals, 'startRun').mockImplementation(async (...args) => {
+    const run = await original(...args);
+    reached();
+    await gate;
+    return run;
+  });
+  const runner = harness.capabilities.runner()!;
+  const starting = runner.runDue();
+  let settling: Promise<void> | undefined;
+  try {
+    await waiting;
+    runner.interrupt(goal.id);
+    settling = runner.settled(goal.id);
+    const early = await Promise.race([
+      settling.then(() => true),
+      new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+    ]);
+    expect(early).toBe(false);
+    release();
+    await settling;
+    expect(await starting).toBe(0);
+    expect(harness.model.requests).toHaveLength(0);
+    expect((await goals.runs(goal.id))[0]?.outcome).toBe('interrupted');
+  } finally {
+    release();
+    await Promise.allSettled([starting, ...(settling === undefined ? [] : [settling])]);
+    spy.mockRestore();
+    await harness.close();
+  }
+}, 15_000);
+
+it('waits for recovery and prevents a goal from starting after Stop', async () => {
+  const { startHarness } = await import('./harness.js');
+  const harness = await startHarness();
+  const { goals } = harness.capabilities;
+  const goal = await goals.create({ title: 'Abandoned', instructions: 'Look.' });
+  await goals.startRun(goal.id);
+  const store = (
+    goals as unknown as { store: import('@robota-sdk/agent-product/personal').IGoalStore }
+  ).store;
+  const original = store.listFeed.bind(store);
+  let release!: () => void;
+  let reached!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const waiting = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  const spy = vi.spyOn(store, 'listFeed').mockImplementation(async (limit) => {
+    reached();
+    await gate;
+    return original(limit);
+  });
+  const runner = harness.capabilities.runner()!;
+  const scheduling = runner.runDue();
+  let settling: Promise<void> | undefined;
+  try {
+    await waiting;
+    runner.interrupt(goal.id);
+    settling = runner.settled(goal.id);
+    const early = await Promise.race([
+      settling.then(() => true),
+      new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+    ]);
+    expect(early).toBe(false);
+    release();
+    await settling;
+    expect(await scheduling).toBe(0);
+    expect(harness.model.requests).toHaveLength(0);
+    expect((await goals.runs(goal.id))[0]?.outcome).toBe('interrupted');
+  } finally {
+    release();
+    await Promise.allSettled([scheduling, ...(settling === undefined ? [] : [settling])]);
+    spy.mockRestore();
+    await harness.close();
+  }
+}, 15_000);

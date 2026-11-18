@@ -144,9 +144,21 @@ function approvedConnectorCall(
 export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
   const { book } = options;
   const running = new Map<string, Promise<void>>();
-  const scheduling = new Set<Promise<number>>();
+  const scheduling = new Set<{
+    cancelledAll: boolean;
+    readonly cancelled: Set<string>;
+    done: Promise<number>;
+  }>();
   /** A goal is owned from before its persisted claim until its session is registered. */
-  const claiming = new Map<string, Promise<IGoalRun>>();
+  const claiming = new Map<
+    string,
+    {
+      readonly started: Promise<IGoalRun>;
+      readonly completed: Promise<void>;
+      readonly finish: () => void;
+      cancelled: boolean;
+    }
+  >();
   const owns = (goalId: string): boolean => running.has(goalId) || claiming.has(goalId);
   /** The runs' sessions, with the goal each belongs to. */
   const sessions = new Map<TRunSession, string>();
@@ -193,6 +205,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     sessions.set(session, goal.id);
     /** Prompt id to the feed item that shows it. */
     const ownPrompts = new Map<string, string>();
+    const settledEarly = new Set<string>();
     let approvalFailed = false;
     const onToolEnd = (state: { toolName: string; firstArg: string; result?: string }): void => {
       const outcome =
@@ -218,6 +231,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
           (caseCall === undefined || executionId === undefined))
       ) {
         session.resolvePermission(event.id, false);
+        settledEarly.delete(event.id);
         void record({
           tool: event.toolName,
           detail: 'Action details cannot be shown safely',
@@ -254,6 +268,10 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
           });
           const posted = item;
           ownPrompts.set(event.id, posted.id);
+          if (settledEarly.delete(event.id)) {
+            await book.setApproval(posted.id, 'expired');
+            return;
+          }
           approvals.register(item, {
             session,
             promptId: event.id,
@@ -289,6 +307,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
           if (item === undefined || !registered || approvals.release(item.id) || stopped) {
             approvalFailed = true;
             session.resolvePermission(event.id, false);
+            settledEarly.delete(event.id);
             if (item !== undefined)
               await book.setApproval(item.id, 'expired').catch(() => undefined);
           }
@@ -300,9 +319,13 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     // A prompt settled by anything but the person's answer (the session's backstop, a shutdown) was
     // refused: its approval can no longer be given, so it is expired, never approved.
     const onResolved = (event: { id: string }): void => {
+      const feedId = ownPrompts.get(event.id);
+      if (feedId === undefined) {
+        settledEarly.add(event.id);
+        return;
+      }
+      if (!approvals.release(feedId)) return;
       void enqueue(async () => {
-        const feedId = ownPrompts.get(event.id);
-        if (feedId === undefined || !approvals.release(feedId)) return;
         await book.setApproval(feedId, 'expired');
         const item = await book.feedItem(feedId);
         run = await book.recordAction(run, {
@@ -354,24 +377,47 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     await session.shutdown().catch(() => undefined);
   };
 
-  const runDueWork = async (): Promise<number> => {
-    if (stopped) return 0;
+  const runDueWork = async (activity: {
+    cancelledAll: boolean;
+    readonly cancelled: Set<string>;
+  }): Promise<number> => {
+    if (stopped || activity.cancelledAll) return 0;
     await approvals.settleFailed();
     await options.beforeRunDue?.(owns);
     if (stopped) return 0;
     let started = 0;
     for (const goal of await book.due()) {
-      if (stopped) break;
+      if (stopped || activity.cancelledAll) break;
+      if (activity.cancelled.has(goal.id)) continue;
       if (owns(goal.id)) continue;
-      const claim = book.startRun(goal.id, { requireDue: true });
+      let finish!: () => void;
+      const completed = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      const claim = {
+        started: book.startRun(goal.id, { requireDue: true }),
+        completed,
+        finish,
+        cancelled: false,
+      };
       claiming.set(goal.id, claim);
       let run: IGoalRun;
       try {
-        run = await claim;
+        run = await claim.started;
       } catch (error) {
         claiming.delete(goal.id);
+        claim.finish();
         if (error instanceof GoalRefusedError) continue;
         throw error;
+      }
+      if (claim.cancelled || stopped) {
+        try {
+          await book.finishRun(run, 'interrupted', 'The run was stopped.');
+        } finally {
+          claiming.delete(goal.id);
+          claim.finish();
+        }
+        continue;
       }
       started += 1;
       const task = runGoal(goal, run)
@@ -388,16 +434,23 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
         .finally(() => running.delete(goal.id));
       running.set(goal.id, task);
       claiming.delete(goal.id);
+      claim.finish();
     }
     return started;
   };
 
   const runDue = (): Promise<number> => {
-    const task = runDueWork();
-    scheduling.add(task);
+    const activity = {
+      cancelledAll: false,
+      cancelled: new Set<string>(),
+      done: Promise.resolve(0),
+    };
+    scheduling.add(activity);
+    const task = runDueWork(activity);
+    activity.done = task;
     void task.then(
-      () => scheduling.delete(task),
-      () => scheduling.delete(task),
+      () => scheduling.delete(activity),
+      () => scheduling.delete(activity),
     );
     return task;
   };
@@ -416,12 +469,30 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     answer: (feedId, approve) => approvals.answer(feedId, approve),
     async settled(goalId) {
       if (goalId !== undefined) {
+        await Promise.allSettled(
+          [...scheduling]
+            .filter((activity) => activity.cancelledAll || activity.cancelled.has(goalId))
+            .map((activity) => activity.done),
+        );
+        while (claiming.has(goalId)) await claiming.get(goalId)!.completed;
         await running.get(goalId);
         return;
       }
-      while (running.size > 0) await Promise.allSettled([...running.values()]);
+      while (scheduling.size > 0 || claiming.size > 0 || running.size > 0)
+        await Promise.allSettled([
+          ...[...scheduling].map((activity) => activity.done),
+          ...[...claiming.values()].map((claim) => claim.completed),
+          ...running.values(),
+        ]);
     },
     interrupt(goalId) {
+      for (const activity of scheduling) {
+        if (goalId === undefined) activity.cancelledAll = true;
+        else activity.cancelled.add(goalId);
+      }
+      for (const [id, claim] of claiming) {
+        if (goalId === undefined || id === goalId) claim.cancelled = true;
+      }
       for (const [session, owner] of sessions) {
         if (goalId === undefined || owner === goalId) session.abort();
       }
@@ -433,8 +504,10 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       const cancelling = [...sessions.keys()].map((session) => approvals.cancelSession(session));
       for (const session of sessions.keys()) session.abort();
       await Promise.allSettled(cancelling);
-      while (scheduling.size > 0) await Promise.allSettled([...scheduling]);
-      while (claiming.size > 0) await Promise.allSettled([...claiming.values()]);
+      while (scheduling.size > 0)
+        await Promise.allSettled([...scheduling].map((activity) => activity.done));
+      while (claiming.size > 0)
+        await Promise.allSettled([...claiming.values()].map((claim) => claim.completed));
       for (const session of sessions.keys()) session.abort();
       await Promise.allSettled([...running.values()]);
       await approvals.settleFailed();

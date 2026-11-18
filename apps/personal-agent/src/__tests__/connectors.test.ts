@@ -548,6 +548,50 @@ describe('using a connected service', () => {
     }
   });
 
+  it('stops a sync run whose claim is saved before its session starts', async () => {
+    const w = await connected();
+    expect((await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 60 })).status).toBe(
+      200,
+    );
+    const { goals } = w.harness.capabilities;
+    const goal = (await goals.list()).find((entry) => entry.connectorId === w.id)!;
+    const original = goals.startRun.bind(goals);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const spy = vi.spyOn(goals, 'startRun').mockImplementation(async (...args) => {
+      const run = await original(...args);
+      reached();
+      await gate;
+      return run;
+    });
+    const starting = w.harness.capabilities.runner()!.runDue();
+    let disabling: Promise<{ status: number; body: any }> | undefined;
+    try {
+      await waiting;
+      disabling = w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: null });
+      const early = await Promise.race([
+        disabling.then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+      ]);
+      expect(early).toBe(false);
+      release();
+      expect((await disabling).status).toBe(200);
+      expect(await starting).toBe(0);
+      expect(w.harness.model.requests).toHaveLength(0);
+      expect(await goals.get(goal.id)).toBeUndefined();
+    } finally {
+      release();
+      await Promise.allSettled([starting, ...(disabling === undefined ? [] : [disabling])]);
+      spy.mockRestore();
+    }
+  });
+
   it('allows and revokes exact dot tool names through the authenticated HTTP API', async () => {
     const w = await connected([
       { name: '.', run: () => 'done' },
