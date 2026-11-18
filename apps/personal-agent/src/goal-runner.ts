@@ -33,7 +33,19 @@ export interface IGoalShape {
   /** The only tools the run has. */
   readonly onlyTools: readonly string[];
   /** A case-only replacement for the connector action; every call still requires approval. */
-  readonly caseAction?: IToolWithEventService;
+  readonly caseAction?: ICaseAction;
+}
+
+export interface IApprovedConnectorCall {
+  readonly connector: string;
+  readonly tool: string;
+  readonly argumentsJson: string;
+}
+
+export interface ICaseAction {
+  readonly tool: IToolWithEventService;
+  /** Bind the displayed call to its execution and the durable approval record. */
+  approved(executionId: string, call: IApprovedConnectorCall, recorded: Promise<IFeedItem>): void;
 }
 
 export interface IGoalRunnerOptions {
@@ -94,6 +106,25 @@ export function describeCall(
   return `${toolName} ${json.length > DETAIL_LIMIT ? `${json.slice(0, DETAIL_LIMIT)}…` : json}`;
 }
 
+function approvedConnectorCall(
+  args: Readonly<Record<string, unknown>>,
+): IApprovedConnectorCall | undefined {
+  const connector = args['connector'];
+  const tool = args['tool'];
+  const raw = args['argumentsJson'];
+  if (
+    typeof connector !== 'string' ||
+    typeof tool !== 'string' ||
+    (raw !== undefined && typeof raw !== 'string')
+  )
+    return undefined;
+  try {
+    return { connector, tool, argumentsJson: JSON.stringify(parseConnectorArguments(raw)) };
+  } catch {
+    return undefined;
+  }
+}
+
 export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
   const { book } = options;
   const running = new Map<string, Promise<void>>();
@@ -137,7 +168,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       permissionMode: shape?.caseAction === undefined && goal.readOnly ? 'plan' : 'acceptEdits',
       deniedTools: Object.values(GOAL_TOOL_NAMES),
       ...(shape !== undefined && { onlyTools: shape.onlyTools }),
-      ...(shape?.caseAction !== undefined && { caseAction: shape.caseAction }),
+      ...(shape?.caseAction !== undefined && { caseAction: shape.caseAction.tool }),
     });
     sessions.set(session, goal.id);
     /** Prompt id to the feed item that shows it. */
@@ -151,9 +182,20 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       id: string;
       toolName: string;
       toolArgs: Record<string, unknown>;
+      executionId?: string;
     }): void => {
       const detail = describeCall(event.toolName, event.toolArgs);
-      if (detail === undefined) {
+      const executionId = event.executionId;
+      const caseCall =
+        shape?.caseAction !== undefined && event.toolName === CONNECTOR_TOOL_NAMES.act
+          ? approvedConnectorCall(event.toolArgs)
+          : undefined;
+      if (
+        detail === undefined ||
+        (shape?.caseAction !== undefined &&
+          event.toolName === CONNECTOR_TOOL_NAMES.act &&
+          (caseCall === undefined || executionId === undefined))
+      ) {
         session.resolvePermission(event.id, false);
         void record({
           tool: event.toolName,
@@ -201,10 +243,13 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
               });
               await settleWaiting(goal.id);
             });
-            return done.then(() => {
+            const recorded = done.then(() => {
               if (answered === undefined) throw new Error('The answer could not be recorded');
               return answered;
             });
+            if (approve && caseCall !== undefined && executionId !== undefined)
+              shape?.caseAction?.approved(executionId, caseCall, recorded);
+            return recorded;
           },
         });
         await book.setWaiting(goal.id, true);

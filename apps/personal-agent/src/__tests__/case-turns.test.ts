@@ -568,8 +568,11 @@ describe('how a case turn is started and run', () => {
       (tool) => tool.getName() === CONNECTOR_TOOL_NAMES.act,
     )!;
     let executions = 0;
-    const replacement = new FunctionTool(original.schema, async () => {
+    let bodyExecution: string | undefined;
+    let promptExecution: string | undefined;
+    const replacement = new FunctionTool(original.schema, async (_args, context) => {
       executions += 1;
+      bodyExecution = context?.executionId;
       return 'The case action ran.';
     });
     const scoped = harness.local.agent.openSession({
@@ -586,10 +589,12 @@ describe('how a case turn is started and run', () => {
       onlyTools: [CONNECTOR_TOOL_NAMES.act],
     });
     let prompts = 0;
-    const approve = (session: TPersonalSession) => (event: { id: string }) => {
-      prompts += 1;
-      session.resolvePermission(event.id, true);
-    };
+    const approve =
+      (session: TPersonalSession) => (event: { id: string; executionId?: string }) => {
+        prompts += 1;
+        if (session === scoped) promptExecution = event.executionId;
+        session.resolvePermission(event.id, true);
+      };
     scoped.on('permission_request', approve(scoped) as never);
     ordinary.on('permission_request', approve(ordinary) as never);
     try {
@@ -606,6 +611,8 @@ describe('how a case turn is started and run', () => {
         await scoped.submit('Continue.')
       ).completed;
       expect(executions).toBe(1);
+      expect(promptExecution).toBeDefined();
+      expect(bodyExecution).toBe(promptExecution);
       script();
       await (
         await ordinary.submit('Continue.')
@@ -637,7 +644,7 @@ describe('how a case turn is started and run', () => {
       shape: async () => ({
         instructions: 'Case context.',
         onlyTools: [CONNECTOR_TOOL_NAMES.act],
-        caseAction: action,
+        caseAction: { tool: action, approved: () => undefined },
       }),
     });
     expect(await runner.runDue()).toBe(1);

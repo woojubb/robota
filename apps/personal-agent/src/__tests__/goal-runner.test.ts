@@ -6,6 +6,7 @@ import { createChannelTurns } from '../channel-turns.js';
 import { createGoalRunner, describeCall } from '../goal-runner.js';
 
 import type { TRunSession } from '../goal-runner.js';
+import type { IToolWithEventService } from '@robota-sdk/agent-core';
 
 type THandler = (event: never) => void;
 
@@ -14,7 +15,7 @@ type THandler = (event: never) => void;
  * (answered, refused by a backstop, or aborted) before it ends its turn, as a real session does.
  */
 function promptingSession(
-  request: { toolName: string; toolArgs: Record<string, unknown> } = {
+  request: { toolName: string; toolArgs: Record<string, unknown>; executionId?: string } = {
     toolName: 'BrowserSubmit',
     toolArgs: { method: 'POST', url: 'https://shop.example/buy' },
   },
@@ -75,6 +76,92 @@ describe('connector action approvals', () => {
       argumentsJson: JSON.stringify({ body: 'x'.repeat(400), to: 'recipient@example.invalid' }),
     },
   };
+
+  it('binds the displayed case call and its recorded approval to the execution', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const args = {
+      connector: 'mail',
+      tool: 'send',
+      argumentsJson: '{"to":"first@example.invalid"}',
+    };
+    const stub = promptingSession({
+      toolName: 'ConnectorAct',
+      toolArgs: args,
+      executionId: 'call-one',
+    });
+    const accepted: { id: string; call: unknown; recorded: Promise<unknown> }[] = [];
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+      shape: async () => ({
+        instructions: 'Case context.',
+        onlyTools: ['ConnectorAct'],
+        caseAction: {
+          tool: {} as IToolWithEventService,
+          approved: (id, call, recorded) => accepted.push({ id, call, recorded }),
+        },
+      }),
+    });
+    await book.create({
+      title: 'Case',
+      instructions: 'Continue.',
+      readOnly: true,
+      caseId: 'case-test',
+    });
+    try {
+      await runner.runDue();
+      const approval = await pendingApproval(book);
+      expect(approval.approval?.detail).toContain('first@example.invalid');
+      args.argumentsJson = '{"to":"later@example.invalid"}';
+      await runner.answer(approval.id, true);
+      await runner.settled();
+      expect(accepted).toHaveLength(1);
+      expect(accepted[0]).toMatchObject({
+        id: 'call-one',
+        call: { connector: 'mail', tool: 'send', argumentsJson: '{"to":"first@example.invalid"}' },
+      });
+      expect(await accepted[0]!.recorded).toMatchObject({ approval: { state: 'approved' } });
+    } finally {
+      await runner.stop();
+    }
+  });
+
+  it('refuses a case action when the prompt lacks an execution identity', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession({
+      toolName: 'ConnectorAct',
+      toolArgs: { connector: 'mail', tool: 'send' },
+    });
+    const accepted: unknown[] = [];
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+      shape: async () => ({
+        instructions: 'Case context.',
+        onlyTools: ['ConnectorAct'],
+        caseAction: {
+          tool: {} as IToolWithEventService,
+          approved: (...args) => accepted.push(args),
+        },
+      }),
+    });
+    await book.create({
+      title: 'Case',
+      instructions: 'Continue.',
+      readOnly: true,
+      caseId: 'case-test',
+    });
+    try {
+      await runner.runDue();
+      expect((await firstFeedItem(book)).kind).toBe('notice');
+      await runner.settled();
+      expect(accepted).toEqual([]);
+    } finally {
+      await runner.stop();
+    }
+  });
 
   it('shows the complete short call even if an extra URL is present', () => {
     const detail = describeCall('ConnectorAct', {
