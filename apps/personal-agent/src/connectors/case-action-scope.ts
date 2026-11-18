@@ -1,23 +1,26 @@
 /** Owner-selected connector tools a case may propose, kept separately from service content. */
 import { randomUUID } from 'node:crypto';
 import {
+  chmodSync,
   mkdirSync,
   readFileSync,
   readdirSync,
-  realpathSync,
   renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 import { ConnectorRefusedError } from '@robota-sdk/agent-product/personal';
-import { lock } from 'proper-lockfile';
+import Database from 'better-sqlite3';
 
 export interface ICaseActionScope {
   exclusive<T>(work: () => Promise<T>): Promise<T>;
   tools(connectorId: string): Promise<readonly string[]>;
+  /** Establish an empty scope only when none exists; caller holds the settings lock. */
+  initialize(connectorId: string): Promise<void>;
   /** Captured synchronously before a request yields to another settings change. */
   version(connectorId: string, tool: string): string;
   set(
@@ -35,17 +38,66 @@ interface IScopeState {
   readonly tools: readonly string[];
 }
 
+interface ILockDatabase {
+  exec(sql: string): unknown;
+  close(): void;
+}
+
 const CONNECTOR_ID = /^connector-[a-z0-9-]{1,60}$/u;
 const VERSION = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 const MAX_TOOL_NAME = 128;
 const MAX_TOOLS = 200;
 
+// An addon installed under one Node major cannot be loaded under another. Choose one backend per
+// process: different SQLite libraries in one process must not each believe they own the same lock.
+let backend: 'undecided' | 'addon' | 'builtin' = 'undecided';
+let builtinDatabase: typeof import('node:sqlite').DatabaseSync | undefined;
+function openLockDatabase(path: string): ILockDatabase {
+  if (backend === 'builtin' && builtinDatabase !== undefined) return new builtinDatabase(path);
+  try {
+    const database = new Database(path, { timeout: 0 });
+    backend = 'addon';
+    return database;
+  } catch (error) {
+    if (
+      backend !== 'undecided' ||
+      typeof error !== 'object' ||
+      error === null ||
+      !('code' in error) ||
+      error.code !== 'ERR_DLOPEN_FAILED'
+    ) {
+      throw error;
+    }
+    try {
+      const sqlite = createRequire(import.meta.url)('node:sqlite') as typeof import('node:sqlite');
+      builtinDatabase = sqlite.DatabaseSync;
+    } catch {
+      throw new ConnectorRefusedError(
+        'SQLite is unavailable for this Node version; reinstall dependencies with the Node version used to start the agent',
+      );
+    }
+    backend = 'builtin';
+    return new builtinDatabase(path);
+  }
+}
+
+function lockIsBusy(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return false;
+  if (error.code === 'SQLITE_BUSY') return true;
+  return (
+    error.code === 'ERR_SQLITE_ERROR' &&
+    'errcode' in error &&
+    typeof error.errcode === 'number' &&
+    (error.errcode & 0xff) === 5
+  );
+}
+
 /** A missing scope grants nothing; an unreadable or malformed scope is never replaced by a guess. */
 export function createCaseActionScope(directory: string): ICaseActionScope {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
-  const lockDirectory = join(directory, '.locks');
-  mkdirSync(lockDirectory, { recursive: true, mode: 0o700 });
-  const lockTarget = join(realpathSync(lockDirectory), 'connector-state');
+  // An uncommitted SQLite transaction holds the OS file lock until this process releases it or exits.
+  // The database has no records; it names the shared lock even when a volume has different mount paths.
+  const lockPath = join(directory, '.connector-settings.sqlite');
   const pathOf = (connectorId: string): string => {
     if (!CONNECTOR_ID.test(connectorId)) throw new ConnectorRefusedError('Invalid connector id');
     return join(directory, connectorId);
@@ -104,50 +156,56 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
   };
   return {
     exclusive: async (work) => {
-      let release: () => Promise<void>;
-      try {
-        release = await lock(lockTarget, {
-          realpath: false,
-          stale: 60_000,
-          update: 10_000,
-          retries: { retries: 100, factor: 1, minTimeout: 50, maxTimeout: 50 },
-        });
-      } catch {
-        throw new ConnectorRefusedError('Connector settings are busy or cannot be locked');
+      let held: ILockDatabase | undefined;
+      for (let attempt = 0; attempt <= 100; attempt += 1) {
+        let candidate: ILockDatabase | undefined;
+        try {
+          candidate = openLockDatabase(lockPath);
+          chmodSync(lockPath, 0o600);
+          candidate.exec('BEGIN IMMEDIATE');
+          held = candidate;
+          break;
+        } catch (error) {
+          candidate?.close();
+          if (error instanceof ConnectorRefusedError) throw error;
+          if (!lockIsBusy(error) || attempt === 100) {
+            throw new ConnectorRefusedError('Connector settings are busy or cannot be locked');
+          }
+        }
+        await new Promise<void>((resolve) => setTimeout(resolve, 50));
       }
+      if (held === undefined)
+        throw new ConnectorRefusedError('Connector settings cannot be locked');
       try {
         return await work();
       } finally {
-        await release();
+        try {
+          held.exec('ROLLBACK');
+        } finally {
+          held.close();
+        }
       }
     },
     tools: async (connectorId) => read(connectorId).tools,
+    initialize: async (connectorId) => {
+      if (read(connectorId).revision === '0') {
+        write(connectorId, { revision: randomUUID(), tools: [] });
+      }
+    },
     version: (connectorId, tool) => {
       if (!validTool(tool)) throw new ConnectorRefusedError('Invalid tool name');
       const current = read(connectorId);
-      if (current.revision !== '0') return current.revision;
-      const path = pathOf(connectorId);
-      const initial = { revision: randomUUID(), tools: [] };
-      try {
-        mkdirSync(path, { mode: 0o700 });
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'EEXIST') return read(connectorId).revision;
-        throw new ConnectorRefusedError('The case action settings could not be saved');
+      if (current.revision === '0') {
+        throw new ConnectorRefusedError('Open the connector settings before allowing case actions');
       }
-      try {
-        writeFileSync(join(path, 'scope.json'), `${JSON.stringify(initial)}\n`, {
-          flag: 'wx',
-          mode: 0o600,
-        });
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'EEXIST') return read(connectorId).revision;
-        throw new ConnectorRefusedError('The case action settings could not be saved');
-      }
-      return initial.revision;
+      return current.revision;
     },
     set: async (connectorId, tool, allowed, expected) => {
       if (!validTool(tool)) throw new ConnectorRefusedError('Invalid tool name');
       const current = read(connectorId);
+      if (allowed && current.revision === '0') {
+        throw new ConnectorRefusedError('Open the connector settings before allowing case actions');
+      }
       if (allowed && expected !== undefined && expected !== current.revision) {
         throw new ConnectorRefusedError('Case action settings changed; try again');
       }

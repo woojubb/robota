@@ -329,6 +329,8 @@ describe('using a connected service', () => {
     expect(existsSync(storedScope)).toBe(true);
     expect((await w.call('POST', ['connectors', w.id, 'remove'], {})).status).toBe(200);
     expect(existsSync(storedScope)).toBe(false);
+    expect((await w.call('POST', path('create_note'), { allowed: true })).status).toBe(404);
+    expect(existsSync(storedScope)).toBe(false);
   });
 
   it('does not restore case authority when an allow and a block arrive together', async () => {
@@ -527,8 +529,7 @@ describe('using a connected service', () => {
   it('keeps a damaged case scope closed while letting the owner block a tool and reset it', async () => {
     const w = await connected();
     const scope = join(w.harness.stateDir, 'case-action-scope', w.id);
-    mkdirSync(scope);
-    writeFileSync(join(scope, 'bad.json'), '{"tool":7}');
+    writeFileSync(join(scope, 'scope.json'), '{"tool":7}');
     const damaged = await w.call('GET', ['connectors', w.id]);
     expect(damaged.status).toBe(200);
     expect(damaged.body.connector.caseActionTools).toEqual([]);
@@ -617,7 +618,7 @@ describe('using a connected service', () => {
           })
         ).status,
       ).toBe(200);
-      const scopeDirectory = join(w.harness.stateDir, 'case-action-scope');
+      const scopeDirectory = join(w.harness.stateDir, 'case-action-scope', w.id);
       chmodSync(scopeDirectory, 0o500);
       try {
         const removed = await w.call('POST', ['connectors', w.id, 'remove'], {});
@@ -633,25 +634,35 @@ describe('using a connected service', () => {
     },
   );
 
-  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
-    'disconnects first when the connector settings lock cannot be acquired',
-    async () => {
-      const w = await connected();
-      const locks = join(w.harness.stateDir, 'case-action-scope', '.locks');
-      chmodSync(locks, 0o500);
-      try {
-        const answer = await w.call('POST', ['connectors', w.id, 'remove'], {});
-        expect(answer.status).toBe(500);
-        expect(answer.body.outcome.removed).toBe(true);
-        expect(w.auth.revoked.length).toBeGreaterThan(0);
-        expect((await w.call('GET', ['connectors', w.id])).body.connector.status.state).toBe(
-          'not-connected',
-        );
-      } finally {
-        chmodSync(locks, 0o700);
-      }
-    },
-  );
+  it('disconnects first when the connector settings lock cannot be acquired', async () => {
+    const w = await connected();
+    const scope = createCaseActionScope(join(w.harness.stateDir, 'case-action-scope'));
+    let release = (): void => undefined;
+    let entered = (): void => undefined;
+    const acquired = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const holding = scope.exclusive(async () => {
+      entered();
+      await wait;
+    });
+    await acquired;
+    try {
+      const answer = await w.call('POST', ['connectors', w.id, 'remove'], {});
+      expect(answer.status).toBe(500);
+      expect(answer.body.outcome.removed).toBe(true);
+      expect(w.auth.revoked.length).toBeGreaterThan(0);
+    } finally {
+      release();
+      await holding;
+    }
+    expect((await w.call('GET', ['connectors', w.id])).body.connector.status.state).toBe(
+      'not-connected',
+    );
+  });
 
   it('reads on its own and hands the content to the model as data', async () => {
     const w = await connected();

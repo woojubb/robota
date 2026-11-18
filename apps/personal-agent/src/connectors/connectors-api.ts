@@ -156,7 +156,13 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
     id: string,
   ): Promise<{ readonly tools: readonly string[]; readonly error?: true }> => {
     try {
-      return { tools: await caseActions.tools(id) };
+      const tools = await change(async () => {
+        // A stale page request must not recreate settings after the connector was removed.
+        if ((await book.get(id)) === undefined) return undefined;
+        await caseActions.initialize(id);
+        return caseActions.tools(id);
+      });
+      return tools === undefined ? { tools: [], error: true } : { tools };
     } catch (error) {
       if (!(error instanceof ConnectorRefusedError)) throw error;
       return { tools: [], error: true };
