@@ -18,6 +18,7 @@ import {
 } from '@robota-sdk/agent-product/personal';
 
 import type { GoalBook, IFeedItem, IGoal, IGoalRun } from '@robota-sdk/agent-product/personal';
+import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IExtraSessionOptions, TPersonalSession } from './agent.js';
 import type { IApprovalRegistry } from './approvals.js';
 
@@ -31,6 +32,8 @@ export interface IGoalShape {
   readonly instructions: string;
   /** The only tools the run has. */
   readonly onlyTools: readonly string[];
+  /** A case-only replacement for the connector action; every call still requires approval. */
+  readonly caseAction?: IToolWithEventService;
 }
 
 export interface IGoalRunnerOptions {
@@ -118,14 +121,23 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
         run = await book.recordAction(run, action);
       });
     const shape = await options.shape?.(goal);
+    if (
+      shape?.caseAction !== undefined &&
+      (goal.caseId === undefined || !shape.onlyTools.includes(CONNECTOR_TOOL_NAMES.act))
+    )
+      throw new Error('A case action requires a case goal and its scoped tool');
     const session = options.openSession({
       sessionName: `Goal: ${goal.title}`,
-      instructions: [goalRunInstructions(goal), shape?.instructions]
+      instructions: [
+        goalRunInstructions(shape?.caseAction === undefined ? goal : { ...goal, readOnly: false }),
+        shape?.instructions,
+      ]
         .filter((text) => text !== undefined)
         .join('\n\n'),
-      permissionMode: goal.readOnly ? 'plan' : 'acceptEdits',
+      permissionMode: shape?.caseAction === undefined && goal.readOnly ? 'plan' : 'acceptEdits',
       deniedTools: Object.values(GOAL_TOOL_NAMES),
       ...(shape !== undefined && { onlyTools: shape.onlyTools }),
+      ...(shape?.caseAction !== undefined && { caseAction: shape.caseAction }),
     });
     sessions.set(session, goal.id);
     /** Prompt id to the feed item that shows it. */

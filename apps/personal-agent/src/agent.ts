@@ -15,6 +15,7 @@ import { createSessionCommandModule } from '@robota-sdk/agent-product/command';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
+import { CONNECTOR_TOOL_NAMES } from '@robota-sdk/agent-product/personal';
 
 import { createPersonalGoalSessionStore, createPersonalSessionStore } from './session-stores.js';
 
@@ -71,6 +72,8 @@ export interface IExtraSessionOptions {
    * beyond those is caught by the test that names what each such session is offered.
    */
   readonly onlyTools?: readonly string[];
+  /** Replace the existing connector action for this session with a case-scoped implementation. */
+  readonly caseAction?: IToolWithEventService;
   /** Where its transcript is kept: among the person's chats, or with the goal runs' audit (the default). */
   readonly keepWith?: 'chats' | 'goals';
 }
@@ -109,9 +112,25 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
     ...createDefaultTools({ cwd: workspace }).map((tool) => tool.getName()),
     ...(options.tools ?? []).map((tool) => tool.getName()),
   ];
-  const openSession = (extra: IExtraSessionOptions): TPersonalSession =>
-    runtime.createSession({
+  const openSession = (extra: IExtraSessionOptions): TPersonalSession => {
+    let additionalTools = options.tools;
+    if (extra.caseAction !== undefined) {
+      const name = CONNECTOR_TOOL_NAMES.act;
+      if (
+        extra.caseAction.getName() !== name ||
+        extra.onlyTools?.includes(name) !== true ||
+        extra.deniedTools?.includes(name) === true ||
+        (options.tools ?? []).filter((tool) => tool.getName() === name).length !== 1
+      )
+        throw new Error('A case action must replace the existing connector action');
+      additionalTools = [
+        ...(options.tools ?? []).filter((tool) => tool.getName() !== name),
+        extra.caseAction,
+      ];
+    }
+    return runtime.createSession({
       ...base,
+      ...(additionalTools !== undefined && { additionalTools: [...additionalTools] }),
       sessionStore: extra.keepWith === 'chats' ? runtime.sessionStore : goalSessionStore,
       sessionName: extra.sessionName,
       permissionMode: extra.permissionMode,
@@ -126,5 +145,6 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
         .filter((text) => text !== undefined)
         .join('\n\n'),
     });
+  };
   return { runtime, chatRecipe, workspace, openSession };
 }

@@ -5,12 +5,15 @@
  * with stand-in sessions, to see what a session is opened with and how a turn is reported.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { FunctionTool } from '@robota-sdk/agent-core';
 
 import {
   CaseBook,
   GoalBook,
   caseTurnPrompt,
   caseTurnTools,
+  CONNECTOR_TOOL_NAMES,
+  createConnectorTools,
   createMemoryCaseStore,
   createMemoryGoalStore,
 } from '@robota-sdk/agent-product/personal';
@@ -21,7 +24,7 @@ import { createGoalRunner } from '../goal-runner.js';
 import { offeredTools } from './scripted-model.js';
 import { startHarness } from './harness.js';
 
-import type { ICase, IGoal } from '@robota-sdk/agent-product/personal';
+import type { ConnectorRegistry, ICase, IGoal } from '@robota-sdk/agent-product/personal';
 import type { IExtraSessionOptions, TPersonalSession } from '../agent.js';
 import type { TRunSession } from '../goal-runner.js';
 import type { IHarness } from './harness.js';
@@ -559,6 +562,95 @@ async function pieces() {
 }
 
 describe('how a case turn is started and run', () => {
+  it('keeps the case action replacement inside its session and still asks for approval', async () => {
+    harness = await startHarness();
+    const original = harness.capabilities.tools.find(
+      (tool) => tool.getName() === CONNECTOR_TOOL_NAMES.act,
+    )!;
+    let executions = 0;
+    const replacement = new FunctionTool(original.schema, async () => {
+      executions += 1;
+      return 'The case action ran.';
+    });
+    const scoped = harness.local.agent.openSession({
+      sessionName: 'Case fixture',
+      instructions: 'Continue.',
+      permissionMode: 'acceptEdits',
+      onlyTools: [CONNECTOR_TOOL_NAMES.act],
+      caseAction: replacement,
+    });
+    const ordinary = harness.local.agent.openSession({
+      sessionName: 'Ordinary fixture',
+      instructions: 'Continue.',
+      permissionMode: 'acceptEdits',
+      onlyTools: [CONNECTOR_TOOL_NAMES.act],
+    });
+    let prompts = 0;
+    const approve = (session: TPersonalSession) => (event: { id: string }) => {
+      prompts += 1;
+      session.resolvePermission(event.id, true);
+    };
+    scoped.on('permission_request', approve(scoped) as never);
+    ordinary.on('permission_request', approve(ordinary) as never);
+    try {
+      const script = () =>
+        harness!.model.script(
+          {
+            tool: CONNECTOR_TOOL_NAMES.act,
+            args: { connector: 'connector-missing', tool: 'write' },
+          },
+          { text: 'Done.' },
+        );
+      script();
+      await (
+        await scoped.submit('Continue.')
+      ).completed;
+      expect(executions).toBe(1);
+      script();
+      await (
+        await ordinary.submit('Continue.')
+      ).completed;
+      expect(executions).toBe(1);
+      expect(prompts).toBe(2);
+    } finally {
+      await scoped.shutdown();
+      await ordinary.shutdown();
+    }
+  });
+
+  it('opens only an explicitly shaped case run with its scoped action replacement', async () => {
+    const goals = new GoalBook({ store: createMemoryGoalStore() });
+    const sessions = stubSessions();
+    const action = createConnectorTools({} as ConnectorRegistry).find(
+      (tool) => tool.getName() === CONNECTOR_TOOL_NAMES.act,
+    )!;
+    const goal = await goals.create({
+      title: 'Case',
+      instructions: 'Continue.',
+      readOnly: true,
+      caseId: 'case-fixture',
+    });
+    const runner = createGoalRunner({
+      book: goals,
+      approvals: createApprovalRegistry(goals),
+      openSession: sessions.openSession,
+      shape: async () => ({
+        instructions: 'Case context.',
+        onlyTools: [CONNECTOR_TOOL_NAMES.act],
+        caseAction: action,
+      }),
+    });
+    expect(await runner.runDue()).toBe(1);
+    await runner.settled();
+    expect(sessions.opened[0]).toMatchObject({
+      permissionMode: 'acceptEdits',
+      onlyTools: [CONNECTOR_TOOL_NAMES.act],
+      caseAction: action,
+    });
+    expect(sessions.opened[0]!.instructions).not.toContain('This goal is read-only');
+    expect((await goals.get(goal.id))?.readOnly).toBe(true);
+  });
+
   it('opens its session in plan mode with exactly the case turn tools, and no goal tools', async () => {
     const { turns, runner, sessions, answered, caseGoals } = await pieces();
     const found = await answered();
