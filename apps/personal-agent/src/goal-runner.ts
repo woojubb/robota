@@ -35,6 +35,8 @@ export interface IGoalShape {
   readonly onlyTools: readonly string[];
   /** A case-only replacement for the connector action; every call still requires approval. */
   readonly caseAction?: ICaseAction;
+  /** Case mutations that are valid only for this answer and this case. */
+  readonly caseTools?: readonly IToolWithEventService[];
 }
 
 export interface IApprovedConnectorCall {
@@ -81,6 +83,8 @@ export interface IGoalRunnerOptions {
   /** A goal that is more than the person's instruction, such as one keeping a connector in sync. */
   readonly shape?: (goal: IGoal, run: IGoalRun) => Promise<IGoalShape | undefined>;
   readonly ownerId?: string;
+  /** Leave a goal due if its host cannot yet establish that its input is ready. */
+  readonly mayStart?: (goal: IGoal) => boolean | Promise<boolean>;
   /** A run that went well and is not worth the person's attention: kept in the goal's history only. */
   readonly quiet?: (goal: IGoal) => Promise<boolean>;
 }
@@ -222,6 +226,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       deniedTools: Object.values(GOAL_TOOL_NAMES),
       ...(shape !== undefined && { onlyTools: shape.onlyTools }),
       ...(shape?.caseAction !== undefined && { caseAction: shape.caseAction.tool }),
+      ...(shape?.caseTools !== undefined && { caseTools: shape.caseTools }),
     });
     sessions.set(session, goal.id);
     if (stopped || control.cancelled) {
@@ -433,6 +438,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       if (stopped || activity.cancelledAll) break;
       if (activity.cancelled.has(goal.id)) continue;
       if (owns(goal.id)) continue;
+      if (options.mayStart !== undefined && !(await options.mayStart(goal))) continue;
       let finish!: () => void;
       const completed = new Promise<void>((resolve) => {
         finish = resolve;

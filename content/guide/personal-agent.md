@@ -207,6 +207,9 @@ unused. In that case the settings stay closed and may need offline recovery:
 If the feed reports an uncertain commit, stop all agents and preserve `goals/feed.json`,
 `goals/feed-commit-uncertain.json`, and the case records. Compare the current and previous feed with the
 cases before choosing which version to restore; do not delete the recovery record until they agree.
+If a case answer needs manual recovery, stop all agents and preserve `cases/`, `goals/` and
+`case-answer-outbox/`. Restore them together from a matching backup or obtain help reconciling the
+records; do not delete the answer recovery record while its outcome is uncertain.
 
 1. Stop every agent and container that can access the state folder. Close any unfinished sign-in pages.
    Do not restart an agent until the recovery command completes. If you cannot ensure that all agents
@@ -223,8 +226,8 @@ cases before choosing which version to restore; do not delete the recovery recor
    recovery leaves them in place. They contain the action details shown at approval.
    Pending approval cancellation records are retained and reconciled when one agent is active.
    An unfinished feed recovery record is kept and applied when the feed is next read.
-   An unfinished case answer is also retained and reconciled when one agent is active. Its follow-up
-   starts read-only because the earlier process's action permissions are not restored.
+   An unfinished case answer is also retained and reconciled under the shared case lock. A follow-up
+   adopted from a stopped agent starts read-only because its action permissions are not restored.
    Interrupted work is recovered when only one agent can be confirmed active. An agent that cannot
    confirm another agent has stopped leaves its pending work untouched until offline recovery.
    If the command fails, fix the error and run it again before restarting.

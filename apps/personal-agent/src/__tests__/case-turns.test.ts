@@ -5,7 +5,7 @@
  * with stand-in sessions, to see what a session is opened with and how a turn is reported.
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -108,29 +108,221 @@ describe('the agent takes a turn on a case once its question is answered', () =>
   it('recovers an answer when saving its feed card fails', async () => {
     if (process.platform === 'win32') return;
     harness = await startHarness();
-    const { opened, item } = await asked(harness);
-    const { cases, goals } = harness.capabilities;
-    const failure = vi
-      .spyOn(goals, 'answerQuestion')
-      .mockRejectedValueOnce(new Error('feed unavailable'));
-    await expect(answer(harness, item.id, 'No')).rejects.toThrow('feed unavailable');
-    expect((await cases.get(opened.id))?.lastAnsweredFeedItemId).toBe(item.id);
-    expect((await goals.feedItem(item.id))?.question?.state).toBe('open');
-    failure.mockRestore();
     const other = await startHarness({ stateDir: harness.stateDir });
     try {
-      await expect(answer(other, item.id, 'No')).rejects.toThrow(/being recovered/u);
+      const { opened, item } = await asked(harness);
+      const { cases, goals } = harness.capabilities;
+      const failure = vi
+        .spyOn(goals, 'answerQuestion')
+        .mockRejectedValueOnce(new Error('feed unavailable'));
+      await expect(answer(harness, item.id, 'No')).rejects.toThrow('feed unavailable');
+      expect((await cases.get(opened.id))?.lastAnsweredFeedItemId).toBe(item.id);
       expect((await goals.feedItem(item.id))?.question?.state).toBe('open');
+      failure.mockRestore();
+      other.model.script({ text: 'The answer was recovered.' });
+      expect((await answer(other, item.id, 'No')).status).toBe(200);
+      const goal = await turnEnded(other, opened.id, 1);
+      expect((await goals.feedItem(item.id))?.question?.state).toBe('answered');
+      expect((await goals.list()).filter((entry) => entry.caseId === opened.id)).toHaveLength(1);
+      expect(await goals.runs(goal.id)).toHaveLength(1);
+      expect(offeredTools(other.model.requests[0]!)).not.toContain(CONNECTOR_TOOL_NAMES.act);
     } finally {
       await other.close();
     }
-    harness.model.script({ text: 'The answer was recovered.' });
-    expect((await answer(harness, item.id, 'No')).status).toBe(200);
-    const goal = await turnEnded(harness, opened.id, 1);
-    expect((await goals.feedItem(item.id))?.question?.state).toBe('answered');
-    expect((await goals.list()).filter((entry) => entry.caseId === opened.id)).toHaveLength(1);
-    expect(await goals.runs(goal.id)).toHaveLength(1);
+  });
+
+  it('reports a conflict when a retry differs from the answer that was already saved', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    const { goals } = harness.capabilities;
+    vi.spyOn(goals, 'answerQuestion').mockRejectedValueOnce(new Error('feed unavailable'));
+    await expect(answer(harness, item.id, 'Yes, it was me')).rejects.toThrow('feed unavailable');
+    harness.model.script({ text: 'The earlier answer was recovered.' });
+    const retried = await answer(harness, item.id, 'No');
+    expect(retried.status).toBe(409);
+    expect(retried.body).toEqual({ error: expect.stringMatching(/earlier answer was saved/u) });
+    expect((await goals.feedItem(item.id))?.question?.answer?.choice).toBe('Yes, it was me');
+    await turnEnded(harness, opened.id, 1);
+  });
+
+  it.each(['note', 'close'] as const)(
+    'does not invent an answer when the case write failed before a later %s',
+    async (change) => {
+      if (process.platform === 'win32') return;
+      harness = await startHarness();
+      const { opened, item } = await asked(harness);
+      const { cases, goals } = harness.capabilities;
+      const store = (
+        cases as unknown as { store: import('@robota-sdk/agent-product/personal').ICaseStore }
+      ).store;
+      const failure = vi.spyOn(store, 'put').mockRejectedValueOnce(new Error('case unavailable'));
+      await expect(answer(harness, item.id, 'No')).rejects.toThrow('case unavailable');
+      failure.mockRestore();
+      if (change === 'note') await cases.note(opened.id, 'A later note.');
+      else await cases.close(opened.id, 'Closed before an answer.');
+      await harness.capabilities.runner()!.runDue();
+      const found = (await cases.get(opened.id))!;
+      expect(found.history.some((event) => event.kind === 'answered')).toBe(false);
+      expect((await goals.feedItem(item.id))?.question?.state).toBe(
+        change === 'note' ? 'open' : 'withdrawn',
+      );
+      expect(await goals.list()).toEqual([]);
+      if (change === 'note')
+        expect(found.notes.map((note) => note.text)).toContain('A later note.');
+    },
+  );
+
+  it('preserves later notes while recovering an accepted answer', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    let closed = false;
+    try {
+      const { opened, item } = await asked(harness);
+      const { goals, cases } = harness.capabilities;
+      const failure = vi
+        .spyOn(goals, 'enqueueCaseAnswer')
+        .mockRejectedValue(new Error('queue unavailable'));
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      await other.capabilities.cases.note(opened.id, 'A later note from another agent.');
+      failure.mockRestore();
+      await other.close();
+      closed = true;
+      harness.model.script({ text: 'The answer and later note were recovered.' });
+      await harness.capabilities.runner()!.runDue();
+      const goal = await turnEnded(harness, opened.id, 1);
+      expect((await cases.get(opened.id))?.notes.map((note) => note.text)).toContain(
+        'A later note from another agent.',
+      );
+      expect(await goals.runs(goal.id)).toHaveLength(1);
+      expect(offeredTools(harness.model.requests[0]!)).not.toContain(CONNECTOR_TOOL_NAMES.act);
+    } finally {
+      if (!closed) await other.close();
+    }
+  });
+
+  it('keeps a later closing when recovering a case answer whose feed write failed', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    const { cases, goals } = harness.capabilities;
+    vi.spyOn(goals, 'answerQuestion').mockRejectedValueOnce(new Error('feed unavailable'));
+    await expect(answer(harness, item.id, 'No')).rejects.toThrow('feed unavailable');
+    await cases.close(opened.id, 'The person settled it another way.');
+    await harness.capabilities.runner()!.runDue();
+    await turnEnded(harness, opened.id, 1);
+    expect((await cases.get(opened.id))?.state).toBe('closed');
+    expect((await goals.feedItem(item.id))?.question).toEqual(
+      expect.objectContaining({
+        state: 'answered',
+        resolution: 'The person settled it another way.',
+      }),
+    );
     expect(offeredTools(harness.model.requests[0]!)).not.toContain(CONNECTOR_TOOL_NAMES.act);
+  });
+
+  it('recovers an answered card if the preceding case write was lost', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    const { cases, goals } = harness.capabilities;
+    const before = (await cases.get(opened.id))!;
+    const runner = harness.capabilities.runner()!;
+    const schedule = vi.spyOn(runner, 'runDue').mockResolvedValue(0);
+    const queue = vi
+      .spyOn(goals, 'enqueueCaseAnswer')
+      .mockRejectedValue(new Error('queue unavailable'));
+    expect((await answer(harness, item.id, 'No')).status).toBe(200);
+    const path = join(harness.stateDir, 'cases', 'cases.json');
+    const file = JSON.parse(readFileSync(path, 'utf8')) as Record<string, ICase>;
+    file[opened.id] = before;
+    writeFileSync(path, JSON.stringify(file));
+    queue.mockRestore();
+    schedule.mockRestore();
+    harness.model.script({ text: 'The answer was recovered after storage rolled back.' });
+    await runner.runDue();
+    await turnEnded(harness, opened.id, 1);
+    expect((await cases.get(opened.id))?.lastAnsweredFeedItemId).toBe(item.id);
+    expect((await goals.feedItem(item.id))?.question?.answer?.choice).toBe('No');
+  });
+
+  it('does not recreate a stopped case goal from an unfinished answer record', async () => {
+    if (process.platform === 'win32') return;
+    const root = mkdtempSync(join(tmpdir(), 'personal-answer-stop-'));
+    try {
+      harness = await startHarness({ stateDir: root });
+      const { opened, item } = await asked(harness);
+      const { goals } = harness.capabilities;
+      const runner = harness.capabilities.runner()!;
+      vi.spyOn(runner, 'runDue').mockResolvedValue(0);
+      const enqueue = goals.enqueueCaseAnswer.bind(goals);
+      vi.spyOn(goals, 'enqueueCaseAnswer').mockImplementationOnce(async (input) => {
+        await enqueue(input);
+        throw new Error('interrupted after enqueue');
+      });
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+      const stopped = await harness.capabilities.api({
+        method: 'POST',
+        path: `/goals/${goal.id}/stop`,
+        segments: ['goals', goal.id, 'stop'],
+        query: new URLSearchParams(),
+        body: {},
+      });
+      expect(stopped.status).toBe(200);
+      expect(await goals.list()).toEqual([]);
+      await harness.close();
+      harness = await startHarness({ stateDir: root });
+      expect(await harness.capabilities.runner()!.runDue()).toBe(0);
+      expect(await harness.capabilities.goals.list()).toEqual([]);
+      expect(harness.model.requests).toHaveLength(0);
+    } finally {
+      await harness?.close();
+      harness = undefined;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('isolates a damaged answer record from other goals and a restart', async () => {
+    if (process.platform === 'win32') return;
+    const root = mkdtempSync(join(tmpdir(), 'personal-answer-damaged-'));
+    try {
+      harness = await startHarness({ stateDir: root });
+      const { opened, item } = await asked(harness);
+      const { goals } = harness.capabilities;
+      const runner = harness.capabilities.runner()!;
+      const schedule = vi.spyOn(runner, 'runDue').mockResolvedValue(0);
+      const enqueue = goals.enqueueCaseAnswer.bind(goals);
+      vi.spyOn(goals, 'enqueueCaseAnswer').mockImplementationOnce(async (input) => {
+        await enqueue(input);
+        throw new Error('interrupted after enqueue');
+      });
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      writeFileSync(join(root, 'case-answer-outbox', `${item.id}.json`), '{damaged');
+      const other = await goals.create({
+        title: 'Other work',
+        instructions: 'Do something unrelated.',
+      });
+      schedule.mockRestore();
+      harness.model.script({ text: 'The unrelated goal finished.' });
+      expect(await runner.runDue()).toBe(1);
+      await runner.settled();
+      expect((await goals.get(other.id))?.status).toBe('done');
+      const blocked = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+      expect(await goals.runs(blocked.id)).toEqual([]);
+      const retry = await answer(harness, item.id, 'No');
+      expect(retry.status).toBe(400);
+      expect(retry.body).toEqual({ error: expect.stringMatching(/manual recovery/u) });
+      await harness.close();
+      harness = await startHarness({ stateDir: root });
+      expect(await harness.capabilities.runner()!.runDue()).toBe(0);
+      expect(await harness.capabilities.goals.runs(blocked.id)).toEqual([]);
+    } finally {
+      await harness?.close();
+      harness = undefined;
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it.each(['feed', 'queue'] as const)(
@@ -663,6 +855,56 @@ async function pieces() {
 }
 
 describe('how a case turn is started and run', () => {
+  it('prevents an older turn from changing a case after a newer answer', async () => {
+    const goals = new GoalBook({ store: createMemoryGoalStore() });
+    const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
+    const first = createCaseTurns({ goals, cases, ownerId: 'first' });
+    const tool = createConnectorTools({} as ConnectorRegistry).find(
+      (candidate) => candidate.getName() === CONNECTOR_TOOL_NAMES.act,
+    )!;
+    const second = createCaseTurns({
+      goals,
+      cases,
+      ownerId: 'second',
+      makeAction: () => ({ tool, approved: () => undefined }),
+    });
+    const { case: opened } = await cases.open(SIGN_IN);
+    const initial = await cases.ask(opened.id, QUESTION);
+    const answer1 = (await cases.answer(initial.item.id, { choice: 'Yes, it was me' })).case;
+    await first.onAnswered(answer1);
+    const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+    const run1 = await goals.startRun(goal.id, { ownerId: 'first' });
+    const openedShape = (await first.shape(goal, run1))!;
+    const later = await cases.ask(opened.id, { question: 'Still sure?', options: ['Yes', 'No'] });
+    const answer2 = (await cases.answer(later.item.id, { choice: 'No' })).case;
+    second.remember(answer2, {
+      caseId: opened.id,
+      feedItemId: later.item.id,
+      connectorId: 'connector-mail',
+      bindingGeneration: 'binding',
+      scopeGeneration: 'scope',
+      tools: ['send'],
+    });
+    await second.onAnswered(answer2);
+    for (const [name, args] of [
+      ['CaseNote', { id: opened.id, text: 'Stale note' }],
+      ['CaseAsk', { id: opened.id, question: 'Stale question?' }],
+      ['CaseClose', { id: opened.id, resolution: 'Stale closing' }],
+    ] as const) {
+      const scoped = openedShape.caseTools!.find((candidate) => candidate.getName() === name)!;
+      const result = await scoped.execute(args, { toolName: name, parameters: {} });
+      expect(JSON.parse(result.data as string)).toEqual({
+        error: expect.stringMatching(/case changed/u),
+      });
+    }
+    expect((await first.shape(goal, run1))?.onlyTools).toEqual([]);
+    await goals.finishRun(run1, 'done', 'The case moved on.');
+    const current = (await goals.get(goal.id))!;
+    const run2 = await goals.startRun(goal.id, { ownerId: 'second' });
+    expect((await second.shape(current, run2))?.onlyTools).toContain(CONNECTOR_TOOL_NAMES.act);
+    expect((await cases.get(opened.id))?.state).toBe('open');
+  });
+
   it('keeps an answer with the agent that captured its authority', async () => {
     const store = createMemoryGoalStore();
     const firstGoals = new GoalBook({ store });

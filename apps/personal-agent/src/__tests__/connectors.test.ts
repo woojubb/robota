@@ -322,6 +322,7 @@ describe('using a connected service', () => {
     'revoke',
     'regrant',
     'close',
+    'new-answer',
     'rebind',
     'unlisted',
     'other',
@@ -397,6 +398,13 @@ describe('using a connected service', () => {
         }
       }
       if (scenario === 'close') await w.harness.capabilities.cases.close(opened.id, 'Settled.');
+      if (scenario === 'new-answer') {
+        const later = await w.harness.capabilities.cases.ask(opened.id, {
+          question: 'Still create the note?',
+          options: ['Yes', 'No'],
+        });
+        await w.harness.capabilities.cases.answer(later.item.id, { choice: 'No' });
+      }
       if (scenario === 'rebind') {
         const removed = await w.call('POST', bindingPath, {
           connectorId: null,

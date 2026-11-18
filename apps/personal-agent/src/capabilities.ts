@@ -176,18 +176,28 @@ export function createPersonalCapabilities(
   });
   const goalStore = createSharedFeedStore(options.stateDir);
   const supportsDurableApprovals = process.platform !== 'win32';
-  const goals = new GoalBook({
+  let answerOutbox: ReturnType<typeof createCaseAnswerOutbox> | undefined;
+  let goals: GoalBook;
+  goals = new GoalBook({
     store: goalStore,
     withWriteLock: createSharedLock(
       join(realpathSync(options.stateDir), '.goal-write.lock'),
       'Goals',
     ),
+    withRemoveLock: async (id, work) => {
+      const goal = await goals.get(id);
+      if (goal?.caseId !== undefined && answerOutbox !== undefined)
+        return answerOutbox.stopCase(goal.caseId, work);
+      return work();
+    },
   });
   if (
     (supportsDurableApprovals && goalStore.durableFeedWrites !== true) ||
     goals.usesUniqueFeedIds !== true ||
     goals.supportsSharedGoalLock !== true ||
     goals.supportsCaseAnswerQueue !== true ||
+    goals.supportsCoordinatedRemoval !== true ||
+    typeof goals.adoptCaseAnswer !== 'function' ||
     typeof goals.recoverGoal !== 'function' ||
     typeof goals.cancelApproval !== 'function'
   )
@@ -346,7 +356,7 @@ export function createPersonalCapabilities(
   // Case writes must not resurrect a closed case even when connector settings are unavailable.
   const caseWrites = createCaseActionScope(join(options.stateDir, 'cases'));
   let caseTurns: ICaseTurns;
-  const answerOutbox = supportsDurableApprovals
+  answerOutbox = supportsDurableApprovals
     ? createCaseAnswerOutbox({
         stateDir: options.stateDir,
         cases: caseStore,
@@ -394,9 +404,10 @@ export function createPersonalCapabilities(
       answerHooks: {
         before: async (feedItemId) => {
           if (answerOutbox.has(feedItemId))
-            throw new Error('The case answer is being recovered; try again');
+            throw new CaseRefusedError('This answer is waiting for recovery; try again');
         },
         prepare: answerOutbox.prepare,
+        persistCase: answerOutbox.persistCase,
         committed: async (event, context) => {
           caseTurns.remember(event.after, context as ICaseActionSnapshot | undefined);
           await caseTurns.onAnswered(event.after);
@@ -407,7 +418,11 @@ export function createPersonalCapabilities(
     // Not waited for, and it cannot fail the ask: the question is in the feed already.
     onAsked: (event) => delivery.onAsked(event),
   });
-  if (cases.supportsSharedWriteLock !== true || cases.supportsCaseAnswerHooks !== true)
+  if (
+    cases.supportsSharedWriteLock !== true ||
+    cases.supportsCaseAnswerHooks !== true ||
+    cases.supportsAnswerScopedWrites !== true
+  )
     throw new Error('The product SDK cannot safely coordinate cases; rebuild the workspace');
   caseBindings = createCaseConnectorBindings({
     directory: join(options.stateDir, 'case-connector-bindings'),
@@ -444,6 +459,9 @@ export function createPersonalCapabilities(
               caseActions.withDispatch(chosen.connectorId, () => {
                 if (
                   state === undefined ||
+                  state.case.lastAnsweredFeedItemId !== chosen.feedItemId ||
+                  state.case.question !== undefined ||
+                  answerOutbox?.has(chosen.feedItemId) === true ||
                   state.binding.connectorId !== chosen.connectorId ||
                   state.binding.generation !== chosen.bindingGeneration
                 )
@@ -526,12 +544,14 @@ export function createPersonalCapabilities(
         }),
       ...(answerOutbox !== undefined && {
         recoverCaseAnswer: async (feedItemId) => {
-          let recovered: readonly import('@robota-sdk/agent-product/personal').ICase[] = [];
-          const alone = await presence.whenAlone(async () => {
+          let recovered: readonly import('@robota-sdk/agent-product/personal').ICase[];
+          try {
             recovered = await answerOutbox.recover(feedItemId);
-          });
-          if (!alone && answerOutbox.has(feedItemId))
-            throw new Error('The case answer is being recovered by another agent');
+          } catch {
+            throw new CaseRefusedError(
+              'This answer needs manual recovery. Stop all agents and follow the Personal Agent guide.',
+            );
+          }
           if (recovered.length === 0) return undefined;
           void runner?.runDue().catch(() => undefined);
           return recovered[0];
@@ -585,8 +605,8 @@ export function createPersonalCapabilities(
       await presence.enter(async () => {
         await approvals.restore();
         await goals.recover();
-        recoveredAnswers = answerOutbox !== undefined && (await answerOutbox.recover()).length > 0;
       });
+      recoveredAnswers = answerOutbox !== undefined && (await answerOutbox.recover()).length > 0;
       channelTurns = createChannelTurns({
         book: goals,
         approvals,
@@ -596,6 +616,16 @@ export function createPersonalCapabilities(
         book: goals,
         approvals,
         ownerId: presence.id,
+        mayStart: (goal) => {
+          const answerId = goal.pendingCaseAnswer?.feedItemId ?? goal.lastCaseAnswerId;
+          if (goal.caseId === undefined || answerId === undefined || answerOutbox === undefined)
+            return true;
+          try {
+            return !answerOutbox.has(answerId);
+          } catch {
+            return false;
+          }
+        },
         onReport: (goal, report, { quiet }) => {
           // A quiet run is kept in the goal's history only, so it is not pushed either: pushing it would
           // let the runs the agent starts on its own reach the person outside their limits. A run that is
@@ -617,9 +647,14 @@ export function createPersonalCapabilities(
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
         beforeRunDue: async (isRunning, recover) => {
+          await answerOutbox?.recover();
+          for (const goal of await goals.list()) {
+            const owner = goal.pendingCaseAnswer?.ownerId;
+            if (owner !== undefined && presence.ownerExited(owner))
+              await goals.adoptCaseAnswer(goal.id, owner, presence.id);
+          }
           await presence.whenAlone(async () => {
             await approvals.restore();
-            await answerOutbox?.recover();
             for (const goal of await goals.list()) {
               if (!isRunning(goal.id))
                 await recover(goal.id, () =>

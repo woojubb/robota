@@ -21,6 +21,8 @@ export interface IGoalBookOptions {
   readonly now?: () => Date;
   /** Serialize goal and run mutations across hosts sharing the store. */
   readonly withWriteLock?: <T>(work: () => Promise<T>) => Promise<T>;
+  /** Coordinate removing a goal with the host's pending work for it. */
+  readonly withRemoveLock?: (id: string, work: () => Promise<void>) => Promise<void>;
 }
 
 export interface ICreateGoalInput {
@@ -57,10 +59,12 @@ export class GoalBook {
   readonly usesUniqueFeedIds = true as const;
   readonly supportsSharedGoalLock = true as const;
   readonly supportsCaseAnswerQueue = true as const;
+  readonly supportsCoordinatedRemoval = true as const;
 
   private readonly store: IGoalStore;
   private readonly now: () => Date;
   private readonly withWriteLock: IGoalBookOptions['withWriteLock'];
+  private readonly withRemoveLock: IGoalBookOptions['withRemoveLock'];
   private tail: Promise<unknown> = Promise.resolve();
   private sequence = 0;
 
@@ -68,6 +72,7 @@ export class GoalBook {
     this.store = options.store;
     this.now = options.now ?? (() => new Date());
     this.withWriteLock = options.withWriteLock;
+    this.withRemoveLock = options.withRemoveLock;
   }
 
   private exclusive<T>(work: () => Promise<T>): Promise<T> {
@@ -178,6 +183,19 @@ export class GoalBook {
     });
   }
 
+  /** Transfer only a still-pending answer whose original owner has been proven stopped. */
+  adoptCaseAnswer(id: string, previousOwner: string, ownerId: string): Promise<boolean> {
+    return this.exclusive(async () => {
+      const goal = await this.store.getGoal(id);
+      if (goal?.pendingCaseAnswer?.ownerId !== previousOwner || previousOwner === ownerId)
+        return false;
+      await this.save(goal, {
+        pendingCaseAnswer: { ...goal.pendingCaseAnswer, ownerId },
+      });
+      return true;
+    });
+  }
+
   async list(): Promise<readonly IGoal[]> {
     return [...(await this.store.listGoals())].sort((a, b) =>
       b.createdAt.localeCompare(a.createdAt),
@@ -270,7 +288,8 @@ export class GoalBook {
   }
 
   remove(id: string): Promise<void> {
-    return this.exclusive(() => this.removeUnlocked(id));
+    const work = (): Promise<void> => this.exclusive(() => this.removeUnlocked(id));
+    return this.withRemoveLock === undefined ? work() : this.withRemoveLock(id, work);
   }
 
   private async removeUnlocked(id: string): Promise<void> {

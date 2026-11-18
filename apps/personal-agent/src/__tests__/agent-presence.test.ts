@@ -107,6 +107,65 @@ it.each(['run', 'answer'] as const)(
   20_000,
 );
 
+it('adopts a stopped owner’s pending answer while other agents remain active', async () => {
+  if (process.platform === 'win32') return;
+  const { spawn } = await import('node:child_process');
+  const { startHarness } = await import('./harness.js');
+  const { offeredTools } = await import('./scripted-model.js');
+  const root = mkdtempSync(join(tmpdir(), 'personal-answer-owner-'));
+  directories.push(root);
+  const harnessUrl = new URL('./harness.ts', import.meta.url).href;
+  const program = `
+    import fs from 'node:fs';
+    const { startHarness } = await import(${JSON.stringify(harnessUrl)});
+    const h = await startHarness({ stateDir: ${JSON.stringify(root)} });
+    h.capabilities.runner().runDue = async () => 0;
+    const { case: opened } = await h.capabilities.cases.open({ title: 'Answer', noticed: 'A note', source: 'test:owner' });
+    const { item } = await h.capabilities.cases.ask(opened.id, { question: 'Continue?', options: ['Yes', 'No'] });
+    await h.capabilities.api({ method: 'POST', path: '/feed/' + item.id + '/answer',
+      segments: ['feed', item.id, 'answer'], query: new URLSearchParams(), body: { choice: 'Yes' } });
+    fs.writeSync(1, 'READY:' + JSON.stringify({ caseId: opened.id, feedId: item.id }) + '\\n');
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);
+  `;
+  const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', program], {
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  const ended = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+  let second: Awaited<ReturnType<typeof startHarness>> | undefined;
+  let third: Awaited<ReturnType<typeof startHarness>> | undefined;
+  try {
+    const ids = await new Promise<{ caseId: string; feedId: string }>((resolve, reject) => {
+      let output = '';
+      child.stdout!.on('data', (chunk: Buffer) => {
+        output += chunk.toString();
+        const match = /READY:(\{[^\n]+\})/u.exec(output);
+        if (match !== null) resolve(JSON.parse(match[1]!));
+      });
+      child.once('exit', () => reject(new Error('the owner exited before its answer')));
+      child.once('error', reject);
+    });
+    second = await startHarness({ stateDir: root });
+    third = await startHarness({ stateDir: root });
+    expect(await second.capabilities.runner()!.runDue()).toBe(0);
+    child.kill('SIGKILL');
+    await ended;
+    second.model.script({ text: 'The interrupted answer is handled read-only.' });
+    expect(await second.capabilities.runner()!.runDue()).toBe(1);
+    await second.capabilities.runner()!.settled();
+    const goal = (await second.capabilities.goals.list()).find(
+      (entry) => entry.caseId === ids.caseId,
+    )!;
+    expect(await second.capabilities.goals.runs(goal.id)).toHaveLength(1);
+    expect(offeredTools(second.model.requests[0]!)).not.toContain('ConnectorAct');
+    expect(await third.capabilities.runner()!.runDue()).toBe(0);
+  } finally {
+    child.kill('SIGKILL');
+    await ended;
+    await second?.close();
+    await third?.close();
+  }
+}, 20_000);
+
 it('serializes goal recovery with a concurrent schedule change', async () => {
   const { startHarness } = await import('./harness.js');
   const first = await startHarness();

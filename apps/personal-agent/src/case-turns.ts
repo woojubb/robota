@@ -9,6 +9,7 @@ import {
   caseTurnPrompt,
   caseTurnTools,
   CONNECTOR_TOOL_NAMES,
+  createCaseTools,
 } from '@robota-sdk/agent-product/personal';
 
 import type {
@@ -89,6 +90,12 @@ export function createCaseTurns(options: {
           onlyTools: [],
         };
       }
+      if (run?.caseAnswerId !== undefined && run.caseAnswerId !== found.lastAnsweredFeedItemId) {
+        return {
+          instructions: 'A newer answer is waiting for its own turn. Leave the case unchanged.',
+          onlyTools: [],
+        };
+      }
       if (found.question !== undefined) {
         return {
           instructions:
@@ -96,14 +103,22 @@ export function createCaseTurns(options: {
           onlyTools: [],
         };
       }
+      if (answerId === undefined) {
+        return {
+          instructions: 'The answer cannot be identified. Leave the case unchanged.',
+          onlyTools: [],
+        };
+      }
+      const caseTools = createCaseTools(options.cases, { caseId: found.id, answerId });
       if (snapshot !== undefined && options.makeAction !== undefined) {
         return {
           instructions: caseTurnInstructions(found, { allowApprovedActions: true }),
           onlyTools: [...caseTurnTools(), CONNECTOR_TOOL_NAMES.act],
           caseAction: options.makeAction(snapshot),
+          caseTools,
         };
       }
-      return { instructions: caseTurnInstructions(found), onlyTools: caseTurnTools() };
+      return { instructions: caseTurnInstructions(found), onlyTools: caseTurnTools(), caseTools };
     },
 
     /**
@@ -127,6 +142,7 @@ export function createCaseTurns(options: {
       if (start === undefined) return false;
       const found = await options.cases.get(goal.caseId);
       if (found === undefined) return false;
+      if ((await options.goals.get(goal.id))?.pendingCaseAnswer !== undefined) return true;
       // The case's last event is an answer, so no question waits, and it came after the turn began.
       const last = found.history.length - 1;
       if (found.history[last]?.kind !== 'answered' || last < start) return false;

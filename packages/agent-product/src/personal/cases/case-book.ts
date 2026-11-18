@@ -73,6 +73,7 @@ export interface ICaseBookOptions {
   readonly answerHooks?: {
     before(feedItemId: string): Promise<void>;
     prepare(event: ICaseAnswerEvent): Promise<void>;
+    persistCase(): Promise<void>;
     committed(event: ICaseAnswerEvent, context: unknown): Promise<void>;
   };
   readonly now?: () => Date;
@@ -125,6 +126,7 @@ export class CaseBook {
   /** This book serializes a complete mutation with the host's write lock. */
   readonly supportsSharedWriteLock = true as const;
   readonly supportsCaseAnswerHooks = true as const;
+  readonly supportsAnswerScopedWrites = true as const;
 
   private readonly store: ICaseStore;
   private readonly feed: GoalBook;
@@ -228,9 +230,18 @@ export class CaseBook {
     });
   }
 
-  note(id: string, text: string): Promise<ICase> {
+  private requireAnswer(found: ICase, answerId: string | undefined): void {
+    if (
+      answerId !== undefined &&
+      (found.lastAnsweredFeedItemId !== answerId || found.question !== undefined)
+    )
+      throw new CaseRefusedError('The case changed after this answer; leave it for the newer turn');
+  }
+
+  note(id: string, text: string, options?: { readonly answerId: string }): Promise<ICase> {
     return this.exclusive(async () => {
       const found = await this.requireOpen(id);
+      this.requireAnswer(found, options?.answerId);
       const value = kept(text, 'A note', NOTE_LIMIT);
       if (found.notes.length >= NOTES_MAX)
         throw new CaseRefusedError(`This case holds ${NOTES_MAX} notes already`);
@@ -248,9 +259,14 @@ export class CaseBook {
   }
 
   /** Ask the person the case's one question; it shows in their feed with the notes as its evidence. */
-  ask(id: string, input: IAskInput): Promise<{ readonly case: ICase; readonly item: IFeedItem }> {
+  ask(
+    id: string,
+    input: IAskInput,
+    scope?: { readonly answerId: string },
+  ): Promise<{ readonly case: ICase; readonly item: IFeedItem }> {
     return this.exclusive(async () => {
       const found = await this.requireOpen(id);
+      this.requireAnswer(found, scope?.answerId);
       if (found.question !== undefined)
         throw new CaseRefusedError('This case already has a question waiting for the person');
       this.requireRoom(found);
@@ -347,6 +363,7 @@ export class CaseBook {
       const event: ICaseAnswerEvent = { before: found, after: next, item: card!, answer };
       if (options !== undefined) await this.answerHooks?.prepare(event);
       await this.store.put(next);
+      if (options !== undefined) await this.answerHooks?.persistCase();
       const item = await this.feed.answerQuestion(feedItemId, answer);
       if (options !== undefined && this.answerHooks !== undefined) {
         try {
@@ -367,10 +384,11 @@ export class CaseBook {
    * still waits on a visible card, and if the withdrawal fails the case is closed and its card is
    * withdrawn when the person next answers it.
    */
-  close(id: string, resolution: string): Promise<ICase> {
+  close(id: string, resolution: string, options?: { readonly answerId: string }): Promise<ICase> {
     let written: ICase | undefined;
     return this.exclusive(async () => {
       const found = await this.requireOpen(id);
+      this.requireAnswer(found, options?.answerId);
       const text = kept(resolution, 'The resolution', RESOLUTION_LIMIT);
       const at = this.stamp();
       const { question: waiting, ...rest } = found;

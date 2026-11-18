@@ -15,7 +15,12 @@ import { join } from 'node:path';
 
 import { ConnectorRefusedError } from '@robota-sdk/agent-product/personal';
 
-import type { CaseBook, ConnectorBook, IConnector } from '@robota-sdk/agent-product/personal';
+import type {
+  CaseBook,
+  ConnectorBook,
+  ICase,
+  IConnector,
+} from '@robota-sdk/agent-product/personal';
 import type { ICaseActionScope } from './connectors/case-action-scope.js';
 
 export interface ICaseConnectorBinding {
@@ -30,6 +35,7 @@ export interface ICaseConnectorAuthority {
 }
 
 export interface ICaseAuthorityState {
+  readonly case: ICase;
   readonly binding: ICaseConnectorAuthority;
   readonly connector: IConnector;
 }
@@ -225,12 +231,14 @@ export function createCaseConnectorBindings(options: {
       const result = await options.scope.tryExclusive(() =>
         options.writes.tryExclusive(async () => {
           let state: ICaseAuthorityState | undefined;
-          if ((await options.cases.get(caseId))?.state === 'open' && !hasRecovery(caseId)) {
+          const found = await options.cases.get(caseId);
+          if (found?.state === 'open' && !hasRecovery(caseId)) {
             const current = read(caseId);
             if (current?.connectorId !== undefined) {
               const connector = await options.connectors.get(current.connectorId);
               if (connector !== undefined) {
                 state = {
+                  case: found,
                   binding: { connectorId: current.connectorId, generation: current.generation },
                   connector,
                 };

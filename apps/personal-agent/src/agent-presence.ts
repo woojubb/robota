@@ -3,11 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, readdirSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  ownerHasExited,
-  removeDirectoryGuard,
-  tryDirectoryLock,
-} from './connectors/directory-lock.js';
+import { ownerHasExited, tryDirectoryLock } from './connectors/directory-lock.js';
 
 export function createAgentPresence(stateDir: string) {
   const root = join(realpathSync(stateDir), '.agent-presence');
@@ -20,13 +16,7 @@ export function createAgentPresence(stateDir: string) {
       for (const entry of readdirSync(root)) {
         if (entry === name || !entry.endsWith('.live')) continue;
         const other = join(root, entry);
-        if (ownerHasExited(other)) {
-          try {
-            removeDirectoryGuard(other);
-          } catch {
-            return true;
-          }
-        } else return true;
+        if (!ownerHasExited(other)) return true;
       }
       return false;
     } catch {
@@ -53,6 +43,10 @@ export function createAgentPresence(stateDir: string) {
   };
   return {
     id: name,
+    ownerExited(ownerId: string): boolean {
+      if (!/^[0-9a-f-]{36}\.live$/u.test(ownerId) || ownerId === name) return false;
+      return ownerHasExited(join(root, ownerId));
+    },
     others,
     async enter(recover: () => Promise<unknown>): Promise<void> {
       if (active !== undefined) throw new Error('The agent is already attached');

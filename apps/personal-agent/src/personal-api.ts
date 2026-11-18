@@ -351,9 +351,17 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
         const recoveredCase = await options.recoverCaseAnswer?.(collection);
         if (recoveredCase !== undefined) {
           const recovered = await goals.feedItem(collection);
-          return recovered === undefined
-            ? fail(404, 'no such feed item')
-            : ok({ item: recovered, case: recoveredCase });
+          if (recovered === undefined) return fail(404, 'no such feed item');
+          const saved = recovered.question?.answer;
+          const same =
+            (choice !== undefined && reply === undefined && saved?.choice === choice) ||
+            (reply !== undefined && choice === undefined && saved?.reply === reply.trim());
+          if (!same)
+            return fail(
+              409,
+              'An earlier answer was saved. Review the recorded answer on this card.',
+            );
+          return ok({ item: recovered, case: recoveredCase });
         }
         const item = await goals.feedItem(collection);
         if (item === undefined) return fail(404, 'no such feed item');
