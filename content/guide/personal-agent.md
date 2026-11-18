@@ -185,10 +185,11 @@ The same list decides whether the notification address you set in Settings, and 
 Before upgrading, stop **every** older agent that uses the same state folder, including agents on
 another machine or in a container. Older and newer versions use different locks and cannot protect
 each other's changes. Do not start an older agent against that folder after upgrading: an older agent
-can still change a connection without using the newer lock. If the folder contains
-`.case-action-scope-connector-settings.sqlite` as a file, follow the offline recovery steps below
-before starting the upgraded agents. This clears existing case-request choices. To downgrade, stop
-all agents and start the older version with a separate, empty state folder.
+can still change a connection without using the newer lock. If the folder contains either
+`.case-action-scope-connector-settings.sqlite` or `.cases-connector-settings.sqlite` as a file,
+follow the offline recovery steps below before starting the upgraded agents. This clears existing
+case-request choices. To downgrade, stop all agents and start the older version with a separate,
+empty state folder.
 
 If a case-request choice is still being confirmed, use **Cancel pending choice** on its connector card.
 If an interrupted connection change keeps the settings closed, choose **Finish disconnect**. After a
@@ -202,11 +203,11 @@ unused. In that case the settings stay closed and may need offline recovery:
    sign-in) before restarting. Otherwise a scheduled sync may start before you disconnect.
 2. Set `PERSONAL_AGENT_RECOVERY_STATE_DIR` below to the actual state folder (`--state-dir`, then
    `PERSONAL_AGENT_STATE_DIR`, or `~/.robota/personal` by default), and run the command. It moves all
-   case-request settings, pending choices, locks and connection-change markers into a new owner-only
-   folder inside the state folder. It installs a marker that stops older agents changing case-request
-   settings, but does not stop them changing connections. It clears case-request choices for **all**
-   connectors; it does not remove sign-ins or tokens. If the command fails, fix the error and run it
-   again before restarting.
+   case-request settings, case-service choices, pending choices, case-write locks and connection-change
+   markers into a new owner-only folder inside the state folder. It installs a marker that stops older
+   agents changing case-request settings, but does not stop them changing connections. It clears
+   case-request choices for **all** connectors and cases; it does not remove cases, sign-ins or tokens.
+   If the command fails, fix the error and run it again before restarting.
 
    ```sh
    export PERSONAL_AGENT_RECOVERY_STATE_DIR="$HOME/.robota/personal"
@@ -216,15 +217,21 @@ unused. In that case the settings stay closed and may need offline recovery:
    const state = fs.realpathSync(process.env.PERSONAL_AGENT_RECOVERY_STATE_DIR);
    const backup = fs.mkdtempSync(path.join(state, 'case-action-recovery-'));
    for (const name of fs.readdirSync(state)) {
-     const settings = ['case-action-scope', '.case-action-scope-recovery',
+     const settings = ['case-action-scope', 'case-connector-bindings', '.case-action-scope-recovery',
        '.case-action-scope-transitions'].includes(name);
      const lock = name.startsWith('.case-action-scope-') && /\.lock(?:\.|$)/.test(name);
      const oldLock = name.startsWith('.case-action-scope-connector-settings.sqlite');
-     if (settings || lock || oldLock) fs.renameSync(path.join(state, name), path.join(backup, name));
+     const caseLock = name.startsWith('.cases-connector-settings.lock') ||
+       name.startsWith('.cases-connector-settings.sqlite');
+     if (settings || lock || oldLock || caseLock)
+       fs.renameSync(path.join(state, name), path.join(backup, name));
    }
-   const guard = path.join(state, '.case-action-scope-connector-settings.sqlite');
-   fs.mkdirSync(guard, { mode: 0o700 });
-   fs.writeFileSync(path.join(guard, 'format'), 'case-action-directory-lock-v1\n', { mode: 0o600 });
+   for (const name of ['.case-action-scope-connector-settings.sqlite',
+     '.cases-connector-settings.sqlite']) {
+     const guard = path.join(state, name);
+     fs.mkdirSync(guard, { mode: 0o700 });
+     fs.writeFileSync(path.join(guard, 'format'), 'case-action-directory-lock-v1\n', { mode: 0o600 });
+   }
    console.log(`Moved case-request state to ${backup}`);
    NODE
    ```
