@@ -264,7 +264,6 @@ function checkOAuth(oauth: ICreateConnectorInput['oauth']): IConnector['oauth'] 
 export class ConnectorBook {
   private readonly store: IConnectorStore;
   private readonly now: () => Date;
-  private sequence = 0;
 
   constructor(options: { readonly store: IConnectorStore; readonly now?: () => Date }) {
     this.store = options.store;
@@ -274,9 +273,8 @@ export class ConnectorBook {
   async create(input: ICreateConnectorInput): Promise<IConnector> {
     const { title, endpoint, auth, tokenHeader, oauth } = checkConnectorInput(input);
     const at = this.now().toISOString();
-    this.sequence += 1;
-    const unique = `${this.now().getTime().toString(36)}${this.sequence.toString(36)}`;
-    const base = slug(title);
+    const unique = crypto.randomUUID().replaceAll('-', '');
+    const base = slug(title).slice(0, 27);
     const connector: IConnector = {
       id: `connector-${base === '' ? '' : `${base}-`}${unique}`,
       title,

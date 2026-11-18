@@ -110,7 +110,6 @@ export class CaseBook {
   private readonly feed: GoalBook;
   private readonly onAsked: ICaseBookOptions['onAsked'];
   private readonly now: () => Date;
-  private sequence = 0;
   private tail: Promise<unknown> = Promise.resolve();
 
   constructor(options: ICaseBookOptions) {
@@ -186,9 +185,8 @@ export class CaseBook {
           `${OPEN_CASES_MAX} cases are open already: close one before opening another`,
         );
       const at = this.stamp();
-      this.sequence += 1;
       const opened: ICase = {
-        id: `case-${this.now().getTime().toString(36)}${this.sequence.toString(36)}`,
+        id: `case-${crypto.randomUUID().replaceAll('-', '')}`,
         title,
         origin: { source, ...(connectorId !== undefined && { connectorId }) },
         state: 'open',

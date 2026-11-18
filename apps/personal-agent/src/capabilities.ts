@@ -10,8 +10,10 @@ import {
   CASE_INSTRUCTIONS,
   CONNECTOR_INSTRUCTIONS,
   CaseBook,
+  CaseRefusedError,
   ConnectorBook,
   ConnectorRegistry,
+  ConnectorRefusedError,
   ConnectorSync,
   GOAL_INSTRUCTIONS,
   GoalBook,
@@ -52,6 +54,8 @@ import { createConnectorCatalog } from './connectors/catalog.js';
 import { createConnectorsApi } from './connectors/connectors-api.js';
 import { createMcpConnectorProtocol } from './connectors/mcp-protocol.js';
 import { createSyncRuns } from './connectors/sync-runs.js';
+import { createCaseConnectorBindings } from './case-connector-binding.js';
+import type { ICaseConnectorBindings } from './case-connector-binding.js';
 import { createLayoutBook } from './layout.js';
 import { createNotificationTransport } from './notification-transport.js';
 import { createPushApi } from './push/push-api.js';
@@ -165,11 +169,18 @@ export function createPersonalCapabilities(
   const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
   const layout = createLayoutBook(join(options.stateDir, 'layout'));
   const caseActions = createCaseActionScope(join(options.stateDir, 'case-action-scope'));
+  let caseBindings: ICaseConnectorBindings | undefined;
   const connectorStore = createFileConnectorStore(join(options.stateDir, 'connectors'));
   const connectorBook = new ConnectorBook({
     store: {
       ...connectorStore,
-      remove: (id) => caseActions.exclusive(() => connectorStore.remove(id)),
+      remove: (id) =>
+        caseActions.exclusive(async () => {
+          if (caseBindings === undefined)
+            throw new ConnectorRefusedError('Case connector settings are unavailable');
+          await caseBindings.removeConnectorLocked(id);
+          await connectorStore.remove(id);
+        }),
     },
   });
   const consent = createConsentBroker();
@@ -285,11 +296,44 @@ export function createPersonalCapabilities(
     feed: goals,
     ...(options.deliveryClock !== undefined && { now: options.deliveryClock }),
   });
+  const caseStore = createFileCaseStore(join(options.stateDir, 'cases'));
+  // Case writes must not resurrect a closed case even when connector settings are unavailable.
+  const caseWrites = createCaseActionScope(join(options.stateDir, 'cases'));
   const cases = new CaseBook({
-    store: createFileCaseStore(join(options.stateDir, 'cases')),
+    store: {
+      ...caseStore,
+      put: async (item) => {
+        const save = () =>
+          caseWrites.exclusive(async () => {
+            const existing = await caseStore.get(item.id);
+            if (item.state === 'open' && existing?.state === 'closed')
+              throw new CaseRefusedError('This case is closed');
+            if (item.state === 'open' && existing === undefined && item.history.length !== 1)
+              throw new CaseRefusedError('This case no longer exists');
+            await caseStore.put(item);
+          });
+        if (item.state !== 'closed') return save();
+        await save();
+        try {
+          await caseActions.exclusive(async () => {
+            // Failure to clean a setting must not prevent closing the case; closed cases do not expose it.
+            await caseBindings?.closeLocked(item.id).catch(() => undefined);
+          });
+        } catch (error) {
+          if (!(error instanceof ConnectorRefusedError)) throw error;
+          // Even an unavailable settings lock cannot prevent the person's case from closing.
+        }
+      },
+    },
     feed: goals,
     // Not waited for, and it cannot fail the ask: the question is in the feed already.
     onAsked: (event) => delivery.onAsked(event),
+  });
+  caseBindings = createCaseConnectorBindings({
+    directory: join(options.stateDir, 'case-connector-bindings'),
+    cases,
+    connectors: connectorBook,
+    scope: caseActions,
   });
   const syncRuns = createSyncRuns({
     book: connectorBook,
@@ -347,6 +391,7 @@ export function createPersonalCapabilities(
       wiki,
       goals,
       cases,
+      caseBindings,
       delivery,
       notificationAddress,
       notifications,

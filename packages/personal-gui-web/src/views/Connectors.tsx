@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { ApiError } from '../api.js';
 import { Button, Notice, ViewFrame, errorText, inputClass, when } from './ui.js';
 
 import type {
@@ -17,6 +18,29 @@ import type {
 } from '../api.js';
 
 const REFRESH_MS = 3_000;
+const LIST_TIMEOUT_MS = 15_000;
+const DISCOVERY_TIMEOUT_MS = 75_000;
+
+async function scopeRequest<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = LIST_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      run(controller.signal),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          reject(new Error('The case settings request took too long'));
+          controller.abort();
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
 
 /** What the long-lasting sign-in choice asks of a service that ends sign-ins after about an hour. */
 const LONG_LASTING: Readonly<Record<string, string>> = {
@@ -36,6 +60,7 @@ const STATE_LABEL: Readonly<Record<TConnectorState, string>> = {
   'not-connected': 'Not connected',
   connecting: 'Waiting for you to sign in',
   connected: 'Connected',
+  checking: 'Checking connection',
   'needs-sign-in': 'Needs you to sign in again',
   failed: 'Could not connect',
 };
@@ -160,6 +185,202 @@ function ToolGroup({
   );
 }
 
+/** Give every tool name an unambiguous spelling, including spaces and non-ASCII characters. */
+function visibleToolName(name: string): string {
+  return name.replace(/[^!-~]|\\/gu, (character) =>
+    character === '\\' ? '\\\\' : `\\u{${character.codePointAt(0)!.toString(16)}}`,
+  );
+}
+
+function CaseActions({
+  connector,
+  unavailable,
+  ready,
+  supported,
+  onChange,
+  onReset,
+  onRefresh,
+  onFinishDisconnect,
+  onCancelPending,
+}: {
+  readonly connector: IConnectorView;
+  readonly unavailable: boolean;
+  readonly ready: boolean;
+  readonly supported: boolean;
+  readonly onChange: (tool: string, allowed: boolean) => Promise<void>;
+  readonly onReset: () => Promise<void>;
+  readonly onRefresh: () => Promise<void>;
+  readonly onFinishDisconnect: () => void;
+  readonly onCancelPending: () => Promise<void>;
+}): React.ReactElement | null {
+  const [saving, setSaving] = useState(false);
+  const inFlight = useRef(new Map<symbol, 'allow' | 'revoke' | 'cancel' | 'other'>());
+  const [refusal, setRefusal] = useState<string | undefined>(undefined);
+  if (
+    !supported ||
+    connector.caseActionTools === undefined ||
+    (connector.caseActionRevision === undefined && connector.caseActionScopeError !== true)
+  )
+    return null;
+
+  const identity = `${connector.title} (${connector.id})`;
+  const allowed = connector.caseActionTools;
+  const writable = (connector.tools ?? []).filter((tool) => tool.access === 'write');
+  const names = [...new Set([...writable.map((tool) => tool.name), ...allowed])];
+  const change = async (
+    work: () => Promise<void>,
+    kind: 'allow' | 'revoke' | 'cancel' | 'other',
+  ): Promise<void> => {
+    if (
+      inFlight.current.size > 0 &&
+      !(
+        (kind === 'revoke' || kind === 'cancel') &&
+        [...inFlight.current.values()].every((entry) => entry === 'allow')
+      )
+    )
+      return;
+    const token = Symbol();
+    inFlight.current.set(token, kind);
+    setSaving(true);
+    setRefusal(undefined);
+    try {
+      await work();
+    } catch (caught) {
+      setRefusal(errorText(caught));
+    } finally {
+      inFlight.current.delete(token);
+      setSaving(inFlight.current.size > 0);
+    }
+  };
+  return (
+    <section
+      aria-label={`Case requests for ${identity}`}
+      className="mt-3 border-t border-border pt-2"
+    >
+      <h3 className="text-[13px] font-semibold">Case requests</h3>
+      <p className="text-[12px] text-muted-foreground">
+        When case actions are available, a case can ask to use the selected tools. You must approve
+        each action separately. Reconnecting clears these choices; select them again after sign-in.
+      </p>
+      {!ready && connector.caseActionChangePending !== true && (
+        <p className="mt-1 text-[12.5px] text-destructive">
+          Case settings are not confirmed yet. Reset any unreadable settings and wait for this page
+          to reconnect.
+        </p>
+      )}
+      {unavailable && (
+        <div className="mt-1">
+          <p role="alert" className="text-[12.5px] text-destructive">
+            The change could not be confirmed. Retry to settle it before changing these settings.
+          </p>
+          <Button
+            disabled={saving}
+            label={`Settle case request settings for ${identity}`}
+            onClick={() => void change(onRefresh, 'other')}
+          >
+            Settle settings
+          </Button>
+        </div>
+      )}
+      {connector.caseActionChangePending === true && (
+        <div className="mt-1">
+          <p className="text-[12.5px] text-muted-foreground">
+            A new choice is being confirmed. You can remove an existing choice or cancel the pending
+            change.
+          </p>
+          <Button
+            disabled={saving && ![...inFlight.current.values()].every((entry) => entry === 'allow')}
+            label={`Cancel pending choice for ${identity}`}
+            onClick={() => void change(onCancelPending, 'cancel')}
+          >
+            Cancel pending choice
+          </Button>
+        </div>
+      )}
+      {connector.caseActionScopeError === true ? (
+        <div className="mt-2">
+          {connector.caseActionTransition === true && (
+            <div>
+              <p className="text-[12.5px] text-destructive">
+                A connection change has not finished. If it was interrupted, disconnect again before
+                using case settings. If this still fails, stop every agent using the state folder
+                and follow the case-request recovery instructions in the Personal Agent guide.
+              </p>
+              <Button label={`Finish disconnecting ${identity}`} onClick={onFinishDisconnect}>
+                Finish disconnect
+              </Button>
+            </div>
+          )}
+          <p className="text-[12.5px] text-destructive">
+            These settings could not be confirmed. Resetting removes all allowed tools for this
+            connector.
+          </p>
+          <Button
+            disabled={saving || connector.caseActionRevision === undefined}
+            label={`Reset case request settings for ${identity}`}
+            onClick={() => void change(onReset, 'other')}
+          >
+            Reset case request settings
+          </Button>
+        </div>
+      ) : names.length === 0 ? (
+        <p className="mt-1 text-[12px] text-muted-foreground">
+          {connector.status.state === 'connected'
+            ? 'There are no writable tools to select.'
+            : connector.status.state === 'checking'
+              ? 'Checking which tools can be selected.'
+              : 'Connect this service to select writable tools.'}
+        </p>
+      ) : (
+        <ul className="mt-1 space-y-1">
+          {names.map((name) => {
+            const checked = allowed.includes(name);
+            const label = visibleToolName(name);
+            const mayAllow =
+              connector.status.state === 'connected' && writable.some((tool) => tool.name === name);
+            const mayInterrupt =
+              checked &&
+              saving &&
+              [...inFlight.current.values()].every((entry) => entry === 'allow');
+            return (
+              <li key={name}>
+                <label className="flex items-center gap-2 text-[12.5px]">
+                  <input
+                    type="checkbox"
+                    aria-label={`Allow ${label} for case requests on ${identity}`}
+                    checked={checked}
+                    disabled={
+                      (saving && !mayInterrupt) ||
+                      unavailable ||
+                      (!ready && !(connector.caseActionChangePending === true && checked)) ||
+                      (!checked && (!mayAllow || connector.caseActionChangePending === true))
+                    }
+                    onChange={(event) => {
+                      const next = event.target.checked;
+                      void change(() => onChange(name, next), next ? 'allow' : 'revoke');
+                    }}
+                  />
+                  <span className="break-all font-mono">{label}</span>
+                  {!mayAllow && (
+                    <span className="text-muted-foreground">
+                      — unavailable; you can remove access
+                    </span>
+                  )}
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {refusal !== undefined && (
+        <p role="alert" className="mt-1 text-[12.5px] text-destructive">
+          {refusal}
+        </p>
+      )}
+    </section>
+  );
+}
+
 /** The longest text the agent keeps as what to ask about; it refuses a longer one, this only stops typing. */
 const ATTENTION_MAX = 600;
 
@@ -262,6 +483,13 @@ function ConnectorCard({
   onSync,
   onRunSync,
   onSaveAttention,
+  onCaseAction,
+  onResetCaseActions,
+  onRefreshCaseActions,
+  onCancelPendingCaseAction,
+  unavailable,
+  scopeReady,
+  scopeSupported,
   pulledCount,
 }: {
   readonly connector: IConnectorView;
@@ -272,6 +500,13 @@ function ConnectorCard({
   readonly onSync: (everyMinutes: number | null) => void;
   readonly onRunSync: () => void;
   readonly onSaveAttention: (text: string) => Promise<void>;
+  readonly onCaseAction: (tool: string, allowed: boolean) => Promise<void>;
+  readonly onResetCaseActions: () => Promise<void>;
+  readonly onRefreshCaseActions: () => Promise<void>;
+  readonly onCancelPendingCaseAction: () => Promise<void>;
+  readonly unavailable: boolean;
+  readonly scopeReady: boolean;
+  readonly scopeSupported: boolean;
   /** How many library claims this connector put there. */
   readonly pulledCount: () => Promise<number>;
 }): React.ReactElement {
@@ -286,7 +521,8 @@ function ConnectorCard({
     if (value === '') onConnect();
     else onConnect(auth === 'token' ? { token: value } : { clientSecret: value });
   };
-  const idle = status.state !== 'connected' && status.state !== 'connecting';
+  const idle =
+    status.state !== 'connected' && status.state !== 'connecting' && status.state !== 'checking';
   const asksClientSecret = idle && auth === 'oauth' && connector.oauth?.clientId !== undefined;
   const asksToken = idle && auth === 'token';
   // What the person is being asked, and how much of the library the connector filled.
@@ -377,6 +613,17 @@ function ConnectorCard({
           />
         </>
       )}
+      <CaseActions
+        connector={connector}
+        unavailable={unavailable}
+        ready={scopeReady}
+        supported={scopeSupported}
+        onChange={onCaseAction}
+        onReset={onResetCaseActions}
+        onRefresh={onRefreshCaseActions}
+        onFinishDisconnect={() => onDisconnect(false)}
+        onCancelPending={onCancelPendingCaseAction}
+      />
       {status.state === 'connected' && (
         <section aria-label="Keep up to date" className="mt-3 border-t border-border pt-2">
           <div className="flex items-center gap-2">
@@ -798,28 +1045,597 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
   // Why the list could not be loaded (cleared by the next load that works) and why the person's last
   // action was refused (kept until they act again, so a refusal is not wiped by the reload after it).
   const [error, setError] = useState<string | undefined>(undefined);
+  const [scopeStartError, setScopeStartError] = useState<string | undefined>(undefined);
   const [refusal, setRefusal] = useState<string | undefined>(undefined);
   const [message, setMessage] = useState<string | undefined>(undefined);
   const [adding, setAdding] = useState(false);
-  const reload = useCallback(async () => {
-    try {
-      setListing(await api.connectors());
-      setError(undefined);
-    } catch (caught) {
-      setError(errorText(caught));
+  const [scopeReady, setScopeReady] = useState<ReadonlySet<string>>(new Set());
+  const [initialFenceDone, setInitialFenceDone] = useState(false);
+  const [scopeSupported, setScopeSupported] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
+  const requestNumber = useRef(0);
+  const listPending = useRef(false);
+  const listAbort = useRef<AbortController | undefined>(undefined);
+  const legacyServer = useRef(false);
+  const appliedRequest = useRef(0);
+  const scopeRevisions = useRef(new Map<string, number>());
+  const viewRevisions = useRef(new Map<string, number>());
+  const viewObservations = useRef(new Map<string, string>());
+  const pendingViews = useRef(new Map<string, number>());
+  const inventoryRevision = useRef(0);
+  const inventoryPending = useRef(false);
+  const scopeObservations = useRef(new Map<string, { key: string; serial: number }>());
+  const displayedScopes = useRef(new Map<string, string>());
+  const openingScopes = useRef(new Set<string>());
+  const viewingConnectors = useRef(new Map<string, number>());
+  const refreshingScopes = useRef(new Set<string>());
+  const savingScopes = useRef(new Map<string, number>());
+  const viewedAt = useRef(new Map<string, number>());
+  const openedAt = useRef(new Map<string, number>());
+  const refreshedAt = useRef(new Map<string, number>());
+  const pendingErrors = useRef(new Map<string, string>());
+  const scopeRecovery = useRef(
+    new Map<
+      string,
+      {
+        readonly fence: () => Promise<{ connector: IConnectorView }>;
+        pending?: Promise<void>;
+      }
+    >(),
+  );
+  const [uncertainScopes, setUncertainScopes] = useState<ReadonlySet<string>>(new Set());
+  const scopeKey = (connector: IConnectorView): string =>
+    `${connector.caseActionRevision ?? ''}:${connector.caseActionScopeError === true}:${connector.caseActionTransition === true}:${connector.caseActionChangePending === true}`;
+  const readScope = async (id: string): Promise<IConnectorView> => {
+    return (await scopeRequest((signal) => api.connectorCaseActionScope(id, signal))).connector;
+  };
+  const advanceScope = (id: string): void => {
+    scopeRevisions.current.set(id, (scopeRevisions.current.get(id) ?? 0) + 1);
+  };
+  const advanceView = (id: string): void => {
+    viewRevisions.current.set(id, (viewRevisions.current.get(id) ?? 0) + 1);
+  };
+  const withScope = (view: IConnectorView, scoped: IConnectorView): IConnectorView => {
+    const {
+      caseActionTools: _tools,
+      caseActionRevision: _revision,
+      caseActionScopeError: _error,
+      caseActionTransition: _transition,
+      caseActionChangePending: _pending,
+      ...rest
+    } = view;
+    return {
+      ...rest,
+      ...(scoped.caseActionTools !== undefined && { caseActionTools: scoped.caseActionTools }),
+      ...(scoped.caseActionRevision !== undefined && {
+        caseActionRevision: scoped.caseActionRevision,
+      }),
+      ...(scoped.caseActionScopeError === true && { caseActionScopeError: true }),
+      ...(scoped.caseActionTransition === true && { caseActionTransition: true }),
+      ...(scoped.caseActionChangePending === true && { caseActionChangePending: true }),
+    };
+  };
+  const viewKey = (view: IConnectorView): string => {
+    const {
+      caseActionTools: _tools,
+      caseActionRevision: _revision,
+      caseActionScopeError: _error,
+      caseActionTransition: _transition,
+      caseActionChangePending: _pending,
+      ...rest
+    } = view;
+    return JSON.stringify(rest);
+  };
+  const applyView = (connector: IConnectorView): void => {
+    advanceView(connector.id);
+    viewObservations.current.set(connector.id, viewKey(connector));
+    setListing((current) =>
+      current === undefined
+        ? current
+        : {
+            ...current,
+            connectors: current.connectors.map((item) =>
+              item.id === connector.id ? withScope(connector, item) : item,
+            ),
+          },
+    );
+  };
+  const replaceConnector = (connector: IConnectorView): void => {
+    displayedScopes.current.set(connector.id, scopeKey(connector));
+    setListing((current) =>
+      current === undefined
+        ? current
+        : {
+            ...current,
+            connectors: current.connectors.map((item) => {
+              if (item.id !== connector.id) return item;
+              return withScope(item, connector);
+            }),
+          },
+    );
+  };
+  const confirmScope = (id: string): void => {
+    setUncertainScopes((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+  };
+  const settleScope = async (
+    id: string,
+    initial: IConnectorView,
+    observedAtStart: number,
+    current: () => boolean,
+    done: (connector: IConnectorView) => void,
+  ): Promise<boolean> => {
+    let candidate = initial;
+    let observed = observedAtStart;
+    for (;;) {
+      const latest = scopeObservations.current.get(id);
+      if (
+        latest !== undefined &&
+        latest.serial !== observed &&
+        latest.key !== scopeKey(candidate)
+      ) {
+        observed = latest.serial;
+        candidate = await readScope(id);
+        continue;
+      }
+      if (!current()) return false;
+      advanceScope(id);
+      replaceConnector(candidate);
+      done(candidate);
+      return true;
     }
-  }, [api]);
-  useEffect(() => {
-    void reload();
-    const timer = setInterval(() => void reload(), REFRESH_MS);
-    return () => clearInterval(timer);
-  }, [reload]);
-  const run = async (work: () => Promise<void>): Promise<void> => {
-    setRefusal(undefined);
+  };
+  const reload = useCallback(async () => {
+    if (listPending.current) return false;
+    listPending.current = true;
+    const request = ++requestNumber.current;
+    const revisions = new Map(scopeRevisions.current);
+    const views = new Map(viewRevisions.current);
+    const inventoryAtStart = inventoryRevision.current;
+    const controller = new AbortController();
+    listAbort.current = controller;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      await work();
+      const next = await Promise.race([
+        api.connectors(controller.signal),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => {
+              reject(new Error('The connector list took too long to load'));
+              controller.abort();
+            },
+            legacyServer.current ? DISCOVERY_TIMEOUT_MS : LIST_TIMEOUT_MS,
+          );
+        }),
+      ]);
+      if (request > appliedRequest.current) {
+        appliedRequest.current = request;
+        const preserve = new Set<string>();
+        const preserveViews = new Set<string>();
+        for (const item of next.connectors) {
+          const view = viewKey(item);
+          if (viewObservations.current.get(item.id) !== view) {
+            viewObservations.current.set(item.id, view);
+            if (pendingViews.current.has(item.id)) advanceView(item.id);
+          }
+          if (
+            views.get(item.id) !== viewRevisions.current.get(item.id) ||
+            pendingViews.current.has(item.id)
+          )
+            preserveViews.add(item.id);
+          else advanceView(item.id);
+          const key = scopeKey(item);
+          const last = scopeObservations.current.get(item.id);
+          if (last?.key !== key) {
+            scopeObservations.current.set(item.id, { key, serial: (last?.serial ?? 0) + 1 });
+          }
+          const pending = scopeRecovery.current.has(item.id) || openingScopes.current.has(item.id);
+          const error =
+            item.caseActionScopeError === true
+              ? `error:${item.caseActionRevision ?? ''}`
+              : undefined;
+          const newError =
+            pending && error !== undefined && pendingErrors.current.get(item.id) !== error;
+          if (
+            revisions.get(item.id) !== scopeRevisions.current.get(item.id) ||
+            (pending && !newError)
+          ) {
+            preserve.add(item.id);
+          } else {
+            if (newError) pendingErrors.current.set(item.id, error);
+            if (!pending && error === undefined) pendingErrors.current.delete(item.id);
+            if (newError)
+              scopeRevisions.current.set(item.id, (scopeRevisions.current.get(item.id) ?? 0) + 1);
+            displayedScopes.current.set(item.id, key);
+          }
+        }
+        const inventoryChanged = inventoryAtStart !== inventoryRevision.current;
+        if (!inventoryChanged) inventoryRevision.current += 1;
+        setListing((current) =>
+          current === undefined
+            ? next
+            : {
+                ...next,
+                connectors: next.connectors
+                  .filter(
+                    (item) =>
+                      !inventoryChanged ||
+                      current.connectors.some((previous) => previous.id === item.id),
+                  )
+                  .map((item) => {
+                    const previous = current.connectors.find(
+                      (candidate) => candidate.id === item.id,
+                    );
+                    if (previous === undefined) return item;
+                    const view = preserveViews.has(item.id) ? previous : item;
+                    return withScope(view, preserve.has(item.id) ? previous : item);
+                  })
+                  .concat(
+                    inventoryChanged
+                      ? current.connectors.filter(
+                          (item) => !next.connectors.some((candidate) => candidate.id === item.id),
+                        )
+                      : [],
+                  ),
+              },
+        );
+        setError(undefined);
+        return true;
+      }
+    } catch (caught) {
+      if (request > appliedRequest.current) {
+        appliedRequest.current = request;
+        setError(errorText(caught));
+      }
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
+      if (listAbort.current === controller) listAbort.current = undefined;
+      listPending.current = false;
+    }
+    return false;
+  }, [api]);
+  const recoverScope = (id: string): Promise<void> => {
+    const recovery = scopeRecovery.current.get(id);
+    if (recovery === undefined) return Promise.resolve();
+    if (recovery.pending !== undefined) return recovery.pending;
+    const started = scopeRevisions.current.get(id);
+    const observed = scopeObservations.current.get(id)?.serial ?? 0;
+    const pending = Promise.resolve()
+      .then(() => recovery.fence())
+      .then(async ({ connector }) => {
+        await settleScope(
+          id,
+          connector,
+          observed,
+          () =>
+            scopeRecovery.current.get(id) === recovery &&
+            scopeRevisions.current.get(id) === started,
+          () => {
+            scopeRecovery.current.delete(id);
+            pendingErrors.current.delete(id);
+            confirmScope(id);
+          },
+        );
+      })
+      .finally(() => {
+        recovery.pending = undefined;
+      });
+    recovery.pending = pending;
+    return pending;
+  };
+  const saveScope = async (
+    id: string,
+    work: () => Promise<{ connector: IConnectorView }>,
+    fence: () => Promise<{ connector: IConnectorView }>,
+  ): Promise<void> => {
+    advanceScope(id);
+    savingScopes.current.set(id, (savingScopes.current.get(id) ?? 0) + 1);
+    const started = scopeRevisions.current.get(id);
+    const observed = scopeObservations.current.get(id)?.serial ?? 0;
+    try {
+      const result = await work();
+      const applied = await settleScope(
+        id,
+        result.connector,
+        observed,
+        () => scopeRevisions.current.get(id) === started,
+        () => {
+          scopeRecovery.current.delete(id);
+          pendingErrors.current.delete(id);
+          confirmScope(id);
+        },
+      );
+      if (!applied) {
+        scopeRecovery.current.set(id, { fence });
+        setUncertainScopes((current) => new Set([...current, id]));
+        void recoverScope(id).catch(() => undefined);
+        return;
+      }
+    } catch (caught) {
+      advanceScope(id);
+      scopeRecovery.current.set(id, { fence });
+      setUncertainScopes((current) => new Set([...current, id]));
+      // A failed request can still arrive later. A conditional fence settles its revision without
+      // changing a newer setting made by another page.
+      void recoverScope(id).catch(() => undefined);
+      throw caught;
+    } finally {
+      const count = (savingScopes.current.get(id) ?? 1) - 1;
+      if (count === 0) savingScopes.current.delete(id);
+      else savingScopes.current.set(id, count);
+    }
+  };
+  useEffect(() => {
+    let active = true;
+    let ready = false;
+    let starting = false;
+    const refreshInventory = async (): Promise<void> => {
+      if (inventoryPending.current) return;
+      inventoryPending.current = true;
+      const started = inventoryRevision.current;
+      try {
+        const result = await scopeRequest((signal) => api.connectorInventory(signal));
+        if (!active || started !== inventoryRevision.current || !Array.isArray(result.connectors))
+          return;
+        inventoryRevision.current += 1;
+        const ids = new Set(result.connectors.map((item) => item.id));
+        setListing((current) =>
+          current === undefined
+            ? result
+            : {
+                callbackPath: result.callbackPath,
+                connectors: [
+                  ...current.connectors.filter((item) => ids.has(item.id)),
+                  ...result.connectors.filter(
+                    (item) => !current.connectors.some((known) => known.id === item.id),
+                  ),
+                ],
+              },
+        );
+      } catch {
+        // A discovery-independent retry follows on the next tick.
+      } finally {
+        inventoryPending.current = false;
+      }
+    };
+    const tick = async (): Promise<void> => {
+      if (!ready) {
+        if (starting) return;
+        starting = true;
+        const observed = new Map(
+          [...scopeObservations.current].map(([id, value]) => [id, value.serial]),
+        );
+        try {
+          const result = await scopeRequest((signal) => api.fenceCaseActionRequests(signal));
+          if (
+            !Array.isArray(result.fenced) ||
+            !result.fenced.every((id) => typeof id === 'string') ||
+            !Array.isArray(result.connectors) ||
+            typeof result.callbackPath !== 'string'
+          ) {
+            throw new Error('Case settings could not be confirmed');
+          }
+          if (!active) return;
+          const conflicts = new Set<string>();
+          for (const connector of result.connectors) {
+            const last = scopeObservations.current.get(connector.id);
+            if (
+              last !== undefined &&
+              last.serial !== (observed.get(connector.id) ?? 0) &&
+              last.key !== scopeKey(connector)
+            ) {
+              conflicts.add(connector.id);
+            } else if (last?.key !== scopeKey(connector)) {
+              scopeObservations.current.set(connector.id, {
+                key: scopeKey(connector),
+                serial: (last?.serial ?? 0) + 1,
+              });
+            }
+            if (!conflicts.has(connector.id)) {
+              displayedScopes.current.set(connector.id, scopeKey(connector));
+            }
+            advanceScope(connector.id);
+          }
+          setListing((current) => ({
+            callbackPath: result.callbackPath,
+            connectors: [
+              ...result.connectors.map((item) =>
+                conflicts.has(item.id)
+                  ? (current?.connectors.find((previous) => previous.id === item.id) ?? item)
+                  : item,
+              ),
+              ...(current?.connectors.filter(
+                (previous) => !result.connectors.some((item) => item.id === previous.id),
+              ) ?? []),
+            ],
+          }));
+          ready = true;
+          setScopeStartError(undefined);
+          setScopeSupported(true);
+          setScopeReady(new Set(result.fenced.filter((id) => !conflicts.has(id))));
+          setInitialFenceDone(true);
+          void reload();
+        } catch (caught) {
+          if (caught instanceof ApiError && caught.status === 404) {
+            ready = true;
+            legacyServer.current = true;
+            if (active) {
+              setScopeSupported(false);
+              setScopeStartError(undefined);
+            }
+          } else if (active) {
+            setScopeStartError(errorText(caught));
+          }
+          if (active) await reload();
+        } finally {
+          starting = false;
+        }
+        return;
+      }
+      if (active && ready) await reload();
+    };
+    void tick();
+    const timer = setInterval(() => {
+      setRetryTick((current) => current + 1);
+      if (active && ready) void refreshInventory();
+      void tick();
+    }, REFRESH_MS);
+    return () => {
+      active = false;
+      listAbort.current?.abort();
+      clearInterval(timer);
+    };
+  }, [api, reload]);
+  useEffect(() => {
+    if (!initialFenceDone || !scopeSupported || listing === undefined) return;
+    for (const item of listing.connectors) {
+      if (
+        viewedAt.current.get(item.id) !== retryTick &&
+        (!viewingConnectors.current.has(item.id) ||
+          viewingConnectors.current.get(item.id) !== (viewRevisions.current.get(item.id) ?? 0))
+      ) {
+        viewedAt.current.set(item.id, retryTick);
+        const generation = viewRevisions.current.get(item.id) ?? 0;
+        viewingConnectors.current.set(item.id, generation);
+        const viewStarted = viewRevisions.current.get(item.id);
+        void scopeRequest((signal) => api.connector(item.id, signal), DISCOVERY_TIMEOUT_MS)
+          .then(({ connector }) => {
+            if (pendingViews.current.has(item.id)) {
+              const key = viewKey(connector);
+              if (viewObservations.current.get(item.id) !== key) {
+                viewObservations.current.set(item.id, key);
+                advanceView(item.id);
+              }
+            } else if (viewStarted === viewRevisions.current.get(item.id)) {
+              applyView(connector);
+            }
+          })
+          .catch(() => undefined)
+          .finally(() => {
+            if (viewingConnectors.current.get(item.id) === generation)
+              viewingConnectors.current.delete(item.id);
+          });
+      }
+      if (
+        scopeReady.has(item.id) ||
+        openingScopes.current.has(item.id) ||
+        openedAt.current.get(item.id) === retryTick
+      )
+        continue;
+      openedAt.current.set(item.id, retryTick);
+      openingScopes.current.add(item.id);
+      const revision = scopeRevisions.current.get(item.id);
+      const observed = scopeObservations.current.get(item.id)?.serial ?? 0;
+      void scopeRequest((signal) => api.openConnectorCaseActions(item.id, signal))
+        .then(async ({ connector }) => {
+          await settleScope(
+            item.id,
+            connector,
+            observed,
+            () => scopeRevisions.current.get(item.id) === revision,
+            () => {
+              pendingErrors.current.delete(item.id);
+              setScopeReady((current) => new Set([...current, item.id]));
+            },
+          );
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          openingScopes.current.delete(item.id);
+        });
+    }
+  }, [api, initialFenceDone, listing, retryTick, scopeReady, scopeSupported]);
+  useEffect(() => {
+    if (!initialFenceDone || !scopeSupported || listing === undefined) return;
+    for (const item of listing.connectors) {
+      if (
+        !scopeReady.has(item.id) ||
+        refreshingScopes.current.has(item.id) ||
+        refreshedAt.current.get(item.id) === retryTick
+      )
+        continue;
+      refreshedAt.current.set(item.id, retryTick);
+      refreshingScopes.current.add(item.id);
+      const revision = scopeRevisions.current.get(item.id);
+      const observed = scopeObservations.current.get(item.id)?.serial ?? 0;
+      void readScope(item.id)
+        .then(async (connector) => {
+          const key = scopeKey(connector);
+          const last = scopeObservations.current.get(item.id);
+          if (last?.key === key && displayedScopes.current.get(item.id) === key) return;
+          const observe = (applied: IConnectorView): void => {
+            const previous = scopeObservations.current.get(item.id);
+            const appliedKey = scopeKey(applied);
+            if (previous?.key !== appliedKey) {
+              scopeObservations.current.set(item.id, {
+                key: appliedKey,
+                serial: (previous?.serial ?? 0) + 1,
+              });
+            }
+          };
+          if (scopeRecovery.current.has(item.id)) {
+            const error =
+              connector.caseActionScopeError === true
+                ? `error:${connector.caseActionRevision ?? ''}`
+                : undefined;
+            if (error !== undefined && pendingErrors.current.get(item.id) !== error)
+              await settleScope(
+                item.id,
+                connector,
+                observed,
+                () =>
+                  scopeRevisions.current.get(item.id) === revision &&
+                  scopeRecovery.current.has(item.id),
+                (applied) => {
+                  if (applied.caseActionScopeError === true)
+                    pendingErrors.current.set(item.id, `error:${applied.caseActionRevision ?? ''}`);
+                  observe(applied);
+                },
+              );
+            return;
+          }
+          await settleScope(
+            item.id,
+            connector,
+            observed,
+            () => scopeRevisions.current.get(item.id) === revision,
+            observe,
+          );
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          refreshingScopes.current.delete(item.id);
+        });
+    }
+  }, [api, initialFenceDone, listing, retryTick, scopeReady, scopeSupported]);
+  const run = async (
+    work: (current: () => boolean) => Promise<void>,
+    id?: string,
+  ): Promise<void> => {
+    setRefusal(undefined);
+    if (id !== undefined) {
+      advanceView(id);
+      pendingViews.current.set(id, (pendingViews.current.get(id) ?? 0) + 1);
+    }
+    const started = id === undefined ? undefined : viewRevisions.current.get(id);
+    inventoryRevision.current += 1;
+    try {
+      await work(() => id === undefined || viewRevisions.current.get(id) === started);
     } catch (caught) {
       setRefusal(errorText(caught));
+    } finally {
+      if (id !== undefined) {
+        if (viewRevisions.current.get(id) === started) advanceView(id);
+        const count = (pendingViews.current.get(id) ?? 1) - 1;
+        if (count === 0) {
+          pendingViews.current.delete(id);
+          setRetryTick((value) => value + 1);
+        } else pendingViews.current.set(id, count);
+      }
+      inventoryRevision.current += 1;
     }
     await reload();
   };
@@ -830,6 +1646,7 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
       actions={!adding && <Button onClick={() => setAdding(true)}>Add a connector</Button>}
     >
       {error !== undefined && <Notice tone="error">{error}</Notice>}
+      {scopeStartError !== undefined && <Notice tone="error">{scopeStartError}</Notice>}
       {refusal !== undefined && <Notice tone="error">{refusal}</Notice>}
       {message !== undefined && <Notice>{message}</Notice>}
       {adding && (
@@ -857,8 +1674,11 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
           <ConnectorCard
             key={connector.id}
             connector={connector}
+            unavailable={uncertainScopes.has(connector.id)}
+            scopeReady={scopeReady.has(connector.id)}
+            scopeSupported={scopeSupported}
             onConnect={(typed) =>
-              void run(async () => {
+              void run(async (current) => {
                 setMessage(undefined);
                 // Only an OAuth sign-in comes back to this page, so only it sends the page's address.
                 const { status } = await api.connectConnector(connector.id, {
@@ -872,17 +1692,41 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
                 if (status.authorizationUrl !== undefined) {
                   window.open(status.authorizationUrl, '_blank', 'noopener,noreferrer');
                 }
-              })
+                if (current())
+                  setListing((listing) =>
+                    listing === undefined
+                      ? listing
+                      : {
+                          ...listing,
+                          connectors: listing.connectors.map((item) =>
+                            item.id === connector.id ? { ...item, status } : item,
+                          ),
+                        },
+                  );
+              }, connector.id)
             }
             onDisconnect={(forget) =>
-              void run(async () => {
+              void run(async (current) => {
                 setMessage(
                   outcomeText(
                     await api.disconnectConnector(connector.id, forget),
                     connector.auth ?? 'oauth',
                   ),
                 );
-              })
+                if (current())
+                  setListing((listing) =>
+                    listing === undefined
+                      ? listing
+                      : {
+                          ...listing,
+                          connectors: listing.connectors.map((item) =>
+                            item.id === connector.id
+                              ? { ...item, status: { state: 'not-connected' }, tools: undefined }
+                              : item,
+                          ),
+                        },
+                  );
+              }, connector.id)
             }
             onRemove={(forget) =>
               void run(async () => {
@@ -892,13 +1736,22 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
                     connector.auth ?? 'oauth',
                   ),
                 );
-              })
+                setListing((current) =>
+                  current === undefined
+                    ? current
+                    : {
+                        ...current,
+                        connectors: current.connectors.filter((item) => item.id !== connector.id),
+                      },
+                );
+              }, connector.id)
             }
             pulledCount={async () => (await api.connectorPulled(connector.id)).count}
             onSync={(everyMinutes) =>
-              void run(async () => {
-                await api.setConnectorSync(connector.id, everyMinutes);
-              })
+              void run(async (current) => {
+                const result = await api.setConnectorSync(connector.id, everyMinutes);
+                if (current()) applyView(result.connector);
+              }, connector.id)
             }
             onRunSync={() =>
               void run(async () => {
@@ -907,17 +1760,118 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
                 setMessage(
                   'Queued. The check starts shortly; its report comes to your Feed if it has something to tell.',
                 );
-              })
+              }, connector.id)
             }
             onSaveAttention={async (text) => {
               // The editor shows the refusal beside its own buttons, so it is not a refusal of the page.
-              await api.setConnectorAttention(connector.id, text);
-              await reload();
+              advanceView(connector.id);
+              pendingViews.current.set(
+                connector.id,
+                (pendingViews.current.get(connector.id) ?? 0) + 1,
+              );
+              const started = viewRevisions.current.get(connector.id);
+              inventoryRevision.current += 1;
+              try {
+                const result = await api.setConnectorAttention(connector.id, text);
+                if (viewRevisions.current.get(connector.id) === started)
+                  applyView(result.connector);
+              } finally {
+                if (viewRevisions.current.get(connector.id) === started) advanceView(connector.id);
+                const count = (pendingViews.current.get(connector.id) ?? 1) - 1;
+                if (count === 0) {
+                  pendingViews.current.delete(connector.id);
+                  setRetryTick((value) => value + 1);
+                } else pendingViews.current.set(connector.id, count);
+                inventoryRevision.current += 1;
+                await reload();
+              }
+            }}
+            onCaseAction={async (tool, allowed) => {
+              await saveScope(
+                connector.id,
+                () =>
+                  scopeRequest(
+                    (signal) =>
+                      api.setConnectorCaseAction(
+                        connector.id,
+                        tool,
+                        allowed,
+                        connector.caseActionRevision!,
+                        signal,
+                      ),
+                    allowed ? DISCOVERY_TIMEOUT_MS : LIST_TIMEOUT_MS,
+                  ),
+                () =>
+                  scopeRequest((signal) =>
+                    api.fenceConnectorCaseActions(
+                      connector.id,
+                      connector.caseActionRevision!,
+                      signal,
+                    ),
+                  ),
+              );
+            }}
+            onResetCaseActions={async () => {
+              await saveScope(
+                connector.id,
+                () =>
+                  scopeRequest((signal) =>
+                    api.resetConnectorCaseActions(
+                      connector.id,
+                      connector.caseActionRevision!,
+                      signal,
+                    ),
+                  ),
+                () =>
+                  scopeRequest((signal) =>
+                    api.fenceConnectorCaseActions(
+                      connector.id,
+                      connector.caseActionRevision!,
+                      signal,
+                    ),
+                  ),
+              );
+            }}
+            onRefreshCaseActions={() => recoverScope(connector.id)}
+            onCancelPendingCaseAction={async () => {
+              const fence = () =>
+                scopeRequest((signal) =>
+                  api.fenceConnectorCaseActions(
+                    connector.id,
+                    connector.caseActionRevision!,
+                    signal,
+                  ),
+                );
+              await saveScope(connector.id, fence, fence);
             }}
             onDecide={(tool, decision) =>
-              void run(async () => {
-                await api.decideConnectorTool(connector.id, tool, decision);
-              })
+              void run(async (current) => {
+                const result = await api.decideConnectorTool(connector.id, tool, decision);
+                if (current()) applyView(result.connector);
+                if (
+                  !openingScopes.current.has(connector.id) &&
+                  !savingScopes.current.has(connector.id) &&
+                  !scopeRecovery.current.has(connector.id)
+                ) {
+                  const started = scopeRevisions.current.get(connector.id);
+                  const observed = scopeObservations.current.get(connector.id)?.serial ?? 0;
+                  try {
+                    const scope = await readScope(connector.id);
+                    await settleScope(
+                      connector.id,
+                      scope,
+                      observed,
+                      () =>
+                        scopeRevisions.current.get(connector.id) === started &&
+                        !savingScopes.current.has(connector.id) &&
+                        !openingScopes.current.has(connector.id),
+                      () => undefined,
+                    );
+                  } catch {
+                    // The independent scope refresh will retry.
+                  }
+                }
+              }, connector.id)
             }
           />
         ))}
