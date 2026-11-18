@@ -4,6 +4,7 @@
  * keep a bounded number of entries, so an agent that runs for years does not grow without limit.
  * A host must serialize reads and writes when multiple processes share this directory.
  */
+import { randomUUID } from 'node:crypto';
 import {
   closeSync,
   existsSync,
@@ -86,32 +87,39 @@ export function createFileGoalStore(directory: string): IGoalStore {
   const feedPath = join(directory, 'feed.json');
   const feedRecoveryPath = join(directory, 'feed-recovery.json');
   const feedCommitPath = join(directory, 'feed-commit-uncertain.json');
-  let failedCommit = false;
-  let knownCommit = false;
+  let failedCommit: string | undefined;
+  let knownCommit: string | undefined;
   const runsPath = (goalId: string): string => {
     if (!GOAL_ID.test(goalId)) throw new Error(`Invalid goal id: ${goalId}`);
     return join(directory, 'runs', `${goalId}.json`);
   };
   const goals = (): Record<string, IGoal> => readJson(goalsPath, {});
-  const restoreFeed = (path: string): void => {
+  const readRecovery = (path: string): { readonly id: string; readonly previous: object } => {
     const recovery = readJson<unknown>(path, undefined);
     if (typeof recovery !== 'object' || recovery === null || Array.isArray(recovery))
       throw new Error('The feed recovery record is invalid');
     const previous = (recovery as { previous?: unknown }).previous;
+    const id = (recovery as { id?: unknown }).id;
     if (typeof previous !== 'object' || previous === null || Array.isArray(previous))
       throw new Error('The feed recovery record is invalid');
-    writeAtomic(feedPath, previous, true);
+    if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/u.test(id))
+      throw new Error('The feed recovery record is invalid');
+    return { id, previous };
+  };
+  const restoreFeed = (path: string): void => {
+    writeAtomic(feedPath, readRecovery(path).previous, true);
     rmSync(path);
     syncDirectory(directory);
   };
   const recoverFeed = (): void => {
     if (existsSync(feedCommitPath)) {
-      if (failedCommit) {
+      const { id } = readRecovery(feedCommitPath);
+      if (failedCommit === id) {
         restoreFeed(feedCommitPath);
-        failedCommit = false;
-      } else if (knownCommit) {
+        failedCommit = undefined;
+      } else if (knownCommit === id) {
         rmSync(feedCommitPath);
-        knownCommit = false;
+        knownCommit = undefined;
       } else {
         throw new Error(
           'The feed commit outcome is uncertain; stop all agents and recover the state folder',
@@ -153,25 +161,30 @@ export function createFileGoalStore(directory: string): IGoalStore {
       const items = boundedFeed(Object.values({ ...previous, [item.id]: item }));
       const next = Object.fromEntries(items.map((entry) => [entry.id, entry]));
       const waitingPost = !Object.hasOwn(previous, item.id) && isWaiting(item);
-      if (waitingPost) writeAtomic(feedRecoveryPath, { previous }, true);
+      const recoveryId = randomUUID();
+      if (waitingPost) writeAtomic(feedRecoveryPath, { id: recoveryId, previous }, true);
       try {
         writeAtomic(feedPath, next, true);
         if (waitingPost) {
           renameSync(feedRecoveryPath, feedCommitPath);
-          failedCommit = true;
+          failedCommit = recoveryId;
           syncDirectory(directory);
-          failedCommit = false;
-          knownCommit = true;
+          failedCommit = undefined;
+          knownCommit = recoveryId;
           try {
             rmSync(feedCommitPath);
-            knownCommit = false;
+            syncDirectory(directory);
+            knownCommit = undefined;
           } catch {
             // A confirmed commit remains closed to other hosts until cleanup succeeds.
           }
         }
       } catch (error) {
         try {
-          if (existsSync(feedRecoveryPath) || (failedCommit && existsSync(feedCommitPath)))
+          if (
+            existsSync(feedRecoveryPath) ||
+            (failedCommit === recoveryId && existsSync(feedCommitPath))
+          )
             recoverFeed();
           else if (JSON.stringify(readJson(feedPath, {})) === JSON.stringify(next))
             writeAtomic(feedPath, previous, true);

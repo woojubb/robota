@@ -111,10 +111,73 @@ describe('the shared feed', () => {
     writeFileSync(join(root, 'goals', 'feed.json'), JSON.stringify({ [approval.id]: approval }));
     writeFileSync(
       join(root, 'goals', 'feed-commit-uncertain.json'),
-      JSON.stringify({ previous: {} }),
+      JSON.stringify({ id: '12345678-1234-1234-1234-123456789abc', previous: {} }),
     );
     await expect(store.listFeed(10)).rejects.toThrow(/commit outcome is uncertain/u);
   });
+
+  it('does not restore another instance’s committed feed using an older failed record', async () => {
+    if (process.platform === 'win32') return;
+    const root = directory();
+    const moduleUrl = new URL('../feed-store.ts', import.meta.url).href;
+    const program = `
+      import fs from 'node:fs';
+      import { syncBuiltinESMExports } from 'node:module';
+      const rename = fs.renameSync, sync = fs.fsyncSync, remove = fs.rmSync;
+      let phase = 0;
+      fs.renameSync = (source, target) => {
+        const result = rename(source, target);
+        if (phase === 0 && String(target).endsWith('/goals/feed-commit-uncertain.json')) phase = 1;
+        return result;
+      };
+      fs.fsyncSync = fd => {
+        if (fs.fstatSync(fd).isDirectory() && phase === 1) { phase = 2; throw new Error('commit sync failed'); }
+        if (fs.fstatSync(fd).isDirectory() && phase === 3) { phase = 4; throw new Error('restore sync failed'); }
+        return sync(fd);
+      };
+      fs.rmSync = (path, options) => {
+        if (String(path).endsWith('/goals/feed-commit-uncertain.json') && phase === 2) {
+          const result = remove(path, options); phase = 3; return result;
+        }
+        if (String(path).endsWith('/goals/feed-commit-uncertain.json') && phase === 4) {
+          phase = 5; throw new Error('cleanup failed');
+        }
+        return remove(path, options);
+      };
+      syncBuiltinESMExports();
+      const { createSharedFeedStore } = await import(${JSON.stringify(moduleUrl)});
+      const first = createSharedFeedStore(${JSON.stringify(root)});
+      const second = createSharedFeedStore(${JSON.stringify(root)});
+      const item = ${JSON.stringify(approval)};
+      let failed = false, blocked = false;
+      try { await first.putFeedItem(item); } catch { failed = true; }
+      await second.putFeedItem({ ...item, id: 'feed-second' });
+      try { await first.listFeed(10); } catch (error) { blocked = String(error).includes('commit outcome is uncertain'); }
+      const file = JSON.parse(fs.readFileSync(${JSON.stringify(join(root, 'goals', 'feed.json'))}, 'utf8'));
+      fs.writeSync(1, JSON.stringify({ failed, blocked, retained: Boolean(file['feed-second']) }));
+    `;
+    const child = spawn(
+      process.execPath,
+      ['--import', 'tsx', '--input-type=module', '-e', program],
+      {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    let output = '';
+    let errors = '';
+    child.stdout!.on('data', (chunk: Buffer) => {
+      output += chunk.toString();
+    });
+    child.stderr!.on('data', (chunk: Buffer) => {
+      errors += chunk.toString();
+    });
+    const code = await new Promise<number | null>((resolve, reject) => {
+      child.once('exit', resolve);
+      child.once('error', reject);
+    });
+    expect(code, errors).toBe(0);
+    expect(JSON.parse(output)).toEqual({ failed: true, blocked: true, retained: true });
+  }, 15_000);
 
   it('does not let a stale item change an approved call or restore pending', async () => {
     const store = createSharedFeedStore(directory());

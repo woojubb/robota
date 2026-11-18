@@ -528,12 +528,27 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
     const markers = transitionPaths(connectorId);
     if (markers.length === 0 && !disconnected) return;
     try {
+      const pairedFailures = new Set(
+        markers
+          .filter(
+            (marker) =>
+              dirname(marker) === fallbackTransitions &&
+              (marker.endsWith('.done') || (disconnected && marker.endsWith('.interrupted'))),
+          )
+          .map((marker) =>
+            join(
+              transitionDirectory,
+              `${basename(marker).replace(/\.(?:done|interrupted)$/u, '')}.active`,
+            ),
+          ),
+      );
       for (const marker of markers) {
         if (marker.endsWith('.done')) continue;
         if (
           disconnected &&
           (marker.endsWith('.interrupted') ||
             abandonedMarkers.has(marker) ||
+            pairedFailures.has(marker) ||
             ownerHasExited(marker))
         )
           continue;
