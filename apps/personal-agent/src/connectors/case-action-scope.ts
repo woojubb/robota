@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -12,8 +13,10 @@ import {
 import { join } from 'node:path';
 
 import { ConnectorRefusedError } from '@robota-sdk/agent-product/personal';
+import { lock } from 'proper-lockfile';
 
 export interface ICaseActionScope {
+  exclusive<T>(work: () => Promise<T>): Promise<T>;
   tools(connectorId: string): Promise<readonly string[]>;
   set(connectorId: string, tool: string, allowed: boolean): Promise<void>;
   clear(connectorId: string): Promise<void>;
@@ -25,6 +28,9 @@ const MAX_TOOL_NAME = 128;
 /** A missing scope grants nothing; an unreadable or malformed scope is never replaced by a guess. */
 export function createCaseActionScope(directory: string): ICaseActionScope {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const lockDirectory = join(directory, '.locks');
+  mkdirSync(lockDirectory, { recursive: true, mode: 0o700 });
+  const lockTarget = join(realpathSync(lockDirectory), 'connector-state');
   const pathOf = (connectorId: string): string => {
     if (!CONNECTOR_ID.test(connectorId)) throw new ConnectorRefusedError('Invalid connector id');
     return join(directory, connectorId);
@@ -78,6 +84,24 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
     }
   };
   return {
+    exclusive: async (work) => {
+      let release: () => Promise<void>;
+      try {
+        release = await lock(lockTarget, {
+          realpath: false,
+          stale: 60_000,
+          update: 10_000,
+          retries: { retries: 100, factor: 1, minTimeout: 50, maxTimeout: 50 },
+        });
+      } catch {
+        throw new ConnectorRefusedError('Connector settings are busy or cannot be locked');
+      }
+      try {
+        return await work();
+      } finally {
+        await release();
+      }
+    },
     tools: async (connectorId) => read(connectorId),
     set: async (connectorId, tool, allowed) => {
       if (!validTool(tool)) throw new ConnectorRefusedError('Invalid tool name');

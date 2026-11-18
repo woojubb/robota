@@ -140,18 +140,15 @@ function authorizationParamsOf(body: Record<string, unknown>): Record<string, st
 /** Answers `connectors/...` requests, or `undefined` for a path that is not one. */
 export function createConnectorsApi(options: IConnectorsApiOptions): TConnectorsApi {
   const { registry, book, sync, wiki, catalog, caseActions } = options;
-  const changes = new Map<string, Promise<void>>();
-  /** Tool decisions and case scope changes must not undo one another when requests overlap. */
-  const change = <T>(id: string, work: () => Promise<T>): Promise<T> => {
-    const result = (changes.get(id) ?? Promise.resolve()).then(work);
+  let changes: Promise<void> = Promise.resolve();
+  /** Connector records and case scopes share one cross-process mutation boundary. */
+  const change = <T>(work: () => Promise<T>): Promise<T> => {
+    const result = changes.then(() => caseActions.exclusive(work));
     const tail = result.then(
       () => undefined,
       () => undefined,
     );
-    changes.set(id, tail);
-    void tail.then(() => {
-      if (changes.get(id) === tail) changes.delete(id);
-    });
+    changes = tail;
     return result;
   };
   const caseScope = async (
@@ -230,26 +227,29 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         if (tokenHeader !== undefined && typeof tokenHeader !== 'string') {
           throw new ConnectorRefusedError('tokenHeader must be a header name');
         }
-        const connector = await book.create({
-          title: text(body, 'title'),
-          kind: text(body, 'kind') as TConnectorKind,
-          protocol: 'mcp',
-          endpoint: text(body, 'endpoint'),
-          ...(auth !== undefined && { auth: auth as TConnectorAuth }),
-          ...(tokenHeader !== undefined && { tokenHeader }),
-          ...((clientId !== undefined && clientId !== '') ||
-          (scopes?.length ?? 0) > 0 ||
-          authorizationParams !== undefined
-            ? {
-                oauth: {
-                  ...(clientId !== undefined && clientId !== '' && { clientId }),
-                  ...(scopes !== undefined && scopes.length > 0 && { scopes: scopes as string[] }),
-                  ...(authorizationParams !== undefined && { authorizationParams }),
-                },
-              }
-            : {}),
+        return change(async () => {
+          const connector = await book.create({
+            title: text(body, 'title'),
+            kind: text(body, 'kind') as TConnectorKind,
+            protocol: 'mcp',
+            endpoint: text(body, 'endpoint'),
+            ...(auth !== undefined && { auth: auth as TConnectorAuth }),
+            ...(tokenHeader !== undefined && { tokenHeader }),
+            ...((clientId !== undefined && clientId !== '') ||
+            (scopes?.length ?? 0) > 0 ||
+            authorizationParams !== undefined
+              ? {
+                  oauth: {
+                    ...(clientId !== undefined && clientId !== '' && { clientId }),
+                    ...(scopes !== undefined &&
+                      scopes.length > 0 && { scopes: scopes as string[] }),
+                    ...(authorizationParams !== undefined && { authorizationParams }),
+                  },
+                }
+              : {}),
+          });
+          return ok({ connector: await show(connector.id) });
         });
-        return ok({ connector: await show(connector.id) });
       }
       return undefined;
     }
@@ -270,8 +270,11 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
     if (action === 'attention' && method === 'PUT') {
       const words = record(request.body)['text'];
       if (typeof words !== 'string') throw new ConnectorRefusedError('text must be a string');
-      await book.setAttention(id, words);
-      return ok({ connector: await show(id) });
+      return change(async () => {
+        if (!(await known(id))) return notFound;
+        await book.setAttention(id, words);
+        return ok({ connector: await show(id) });
+      });
     }
     if (method !== 'POST') return undefined;
     if (action === 'connect') {
@@ -296,16 +299,54 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       });
     }
     if (action === 'disconnect') return leave(id, request.body, () => registry.disconnect(id));
-    if (action === 'remove')
-      return change(id, async () => {
-        const removed = await leave(id, request.body, () => registry.remove(id));
-        try {
-          await caseActions.clear(id);
-          return removed;
-        } catch {
-          return ok({ ...record(removed.body), caseActionScopeCleanupFailed: true });
-        }
-      });
+    if (action === 'remove') {
+      // Taking the access away must not depend on acquiring the settings lock.
+      wantsForgetting(request.body);
+      const disconnected = await registry.disconnect(id);
+      try {
+        return await change(async () => {
+          let didRemove = false;
+          let removed: ILoopbackGuiApiResponse | undefined;
+          try {
+            removed = await leave(id, request.body, async () => {
+              const outcome = await registry.remove(id);
+              didRemove = true;
+              return outcome;
+            });
+          } catch (error) {
+            if (!didRemove) throw error;
+          }
+          let cleanupFailed = false;
+          try {
+            await caseActions.clear(id);
+          } catch {
+            cleanupFailed = true;
+          }
+          if (removed === undefined)
+            return {
+              status: 500,
+              body: {
+                error: 'The connector was removed, but its follow-up cleanup did not finish.',
+                connectorRemoved: true,
+                ...(cleanupFailed && { caseActionScopeCleanupFailed: true }),
+              },
+            };
+          return ok({
+            ...record(removed.body),
+            outcome: disconnected,
+            ...(cleanupFailed && { caseActionScopeCleanupFailed: true }),
+          });
+        });
+      } catch {
+        return {
+          status: 500,
+          body: {
+            error: 'The connector was disconnected, but removal did not finish.',
+            outcome: disconnected,
+          },
+        };
+      }
+    }
     if (action === 'sync') {
       const everyMinutes = record(request.body)['everyMinutes'];
       if (everyMinutes === null) {
@@ -327,7 +368,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       if (decision !== null && (typeof decision !== 'string' || !DECISIONS.includes(decision))) {
         throw new ConnectorRefusedError('decision must be read, write, blocked or null');
       }
-      return change(id, async () => {
+      return change(async () => {
         if (!(await known(id))) return notFound;
         const previous = await book.existing(id);
         if (decision !== 'write' || previous.decisions[tool] === 'blocked') {
@@ -350,7 +391,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       if (record(request.body)['reset'] !== true) {
         throw new ConnectorRefusedError('reset must be true');
       }
-      return change(id, async () => {
+      return change(async () => {
         if (!(await known(id))) return notFound;
         await caseActions.clear(id);
         return ok({ connector: await show(id) });
@@ -360,7 +401,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       const allowed = record(request.body)['allowed'];
       if (typeof allowed !== 'boolean')
         throw new ConnectorRefusedError('allowed must be true or false');
-      return change(id, async () => {
+      return change(async () => {
         if (!(await known(id))) return notFound;
         if (allowed) {
           const view = await registry.view(id);

@@ -16,8 +16,16 @@ import {
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  ConnectorBook,
+  ConnectorSync,
+  createFileConnectorStore,
+} from '@robota-sdk/agent-product/personal';
+
+import { createCaseActionScope } from '../connectors/case-action-scope.js';
+import { createConnectorsApi } from '../connectors/connectors-api.js';
 import { createFixtureWebRoot, startHarness } from './harness.js';
 import { offeredTools, toolResults } from './scripted-model.js';
 import {
@@ -28,6 +36,7 @@ import {
 } from './stand-in-connector.js';
 
 import type { IHarness } from './harness.js';
+import type { IConnectorCatalog } from '../connectors/catalog.js';
 import type {
   IStandInAuthorizationOptions,
   IStandInAuthorizationServer,
@@ -337,6 +346,70 @@ describe('using a connected service', () => {
     );
   });
 
+  it('serializes an in-flight allow and a block across API instances sharing state', async () => {
+    const w = await connected();
+    const registry = w.harness.capabilities.connectors;
+    const second = createConnectorsApi({
+      registry,
+      book: new ConnectorBook({
+        store: createFileConnectorStore(join(w.harness.stateDir, 'connectors')),
+      }),
+      sync: new ConnectorSync(w.harness.capabilities.goals),
+      wiki: w.harness.capabilities.wiki,
+      caseActions: createCaseActionScope(join(w.harness.stateDir, 'case-action-scope')),
+      origins: () => [],
+      catalog: {} as IConnectorCatalog,
+    });
+    let captured: () => void = () => undefined;
+    const seen = new Promise<void>((resolve) => {
+      captured = resolve;
+    });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const original = registry.view.bind(registry);
+    let paused = false;
+    const spy = vi.spyOn(registry, 'view').mockImplementation(async (...args) => {
+      const view = await original(...args);
+      if (!paused && args[0] === w.id) {
+        paused = true;
+        captured();
+        await gate;
+      }
+      return view;
+    });
+    const allow = w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
+      allowed: true,
+    });
+    let block: Promise<unknown> | undefined;
+    try {
+      await seen;
+      let settled = false;
+      block = second({
+        method: 'POST',
+        path: `/connectors/${w.id}/tools/create_note`,
+        segments: ['connectors', w.id, 'tools', 'create_note'],
+        query: new URLSearchParams(),
+        body: { decision: 'blocked' },
+      }).then((value) => {
+        settled = true;
+        return value;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(settled).toBe(false);
+      release();
+      expect((await allow).status).toBe(200);
+      expect(((await block) as { status: number }).status).toBe(200);
+      const view = (await w.call('GET', ['connectors', w.id])).body.connector;
+      expect(view.caseActionTools).toEqual([]);
+    } finally {
+      release();
+      await Promise.allSettled([allow, ...(block === undefined ? [] : [block])]);
+      spy.mockRestore();
+    }
+  });
+
   it('keeps a damaged case scope closed while letting the owner block a tool and reset it', async () => {
     const w = await connected();
     const scope = join(w.harness.stateDir, 'case-action-scope', w.id);
@@ -398,6 +471,27 @@ describe('using a connected service', () => {
     },
   );
 
+  it('clears the case scope when connector removal succeeds but sync cleanup fails', async () => {
+    const w = await connected();
+    expect(
+      (await w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], { allowed: true }))
+        .status,
+    ).toBe(200);
+    const storedScope = join(w.harness.stateDir, 'case-action-scope', w.id);
+    const failure = vi
+      .spyOn(w.harness.capabilities.goals, 'list')
+      .mockRejectedValueOnce(new Error('sync unavailable'));
+    try {
+      const removed = await w.call('POST', ['connectors', w.id, 'remove'], {});
+      expect(removed.status).toBe(500);
+      expect(removed.body.connectorRemoved).toBe(true);
+      expect(existsSync(storedScope)).toBe(false);
+      expect(w.auth.revoked.length).toBeGreaterThan(0);
+    } finally {
+      failure.mockRestore();
+    }
+  });
+
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
     'still removes a connector and revokes its credential when case scope cleanup fails',
     async () => {
@@ -420,6 +514,26 @@ describe('using a connected service', () => {
         expect((await w.call('GET', ['connectors', w.id])).status).toBe(404);
       } finally {
         chmodSync(scopeDirectory, 0o700);
+      }
+    },
+  );
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'disconnects first when the connector settings lock cannot be acquired',
+    async () => {
+      const w = await connected();
+      const locks = join(w.harness.stateDir, 'case-action-scope', '.locks');
+      chmodSync(locks, 0o500);
+      try {
+        const answer = await w.call('POST', ['connectors', w.id, 'remove'], {});
+        expect(answer.status).toBe(500);
+        expect(answer.body.outcome.removed).toBe(true);
+        expect(w.auth.revoked.length).toBeGreaterThan(0);
+        expect((await w.call('GET', ['connectors', w.id])).body.connector.status.state).toBe(
+          'not-connected',
+        );
+      } finally {
+        chmodSync(locks, 0o700);
       }
     },
   );

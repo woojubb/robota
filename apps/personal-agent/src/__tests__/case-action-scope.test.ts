@@ -148,4 +148,41 @@ describe('the owner’s case action scope', () => {
       second.kill();
     }
   }, 30_000);
+
+  it('holds connector setting changes across processes', async () => {
+    const root = directory();
+    const scope = createCaseActionScope(root);
+    const moduleUrl = new URL('../connectors/case-action-scope.ts', import.meta.url).href;
+    const program = `
+      import { createCaseActionScope } from ${JSON.stringify(moduleUrl)};
+      const scope = createCaseActionScope(${JSON.stringify(root)});
+      await scope.exclusive(async () => {
+        process.send({ ready: true });
+        await new Promise((resolve) => process.once('message', resolve));
+      });
+      process.send({ released: true });
+    `;
+    const child = spawn(
+      process.execPath,
+      ['--conditions=source', '--import', 'tsx', '--input-type=module', '-e', program],
+      {
+        stdio: ['ignore', 'ignore', 'inherit', 'ipc'],
+      },
+    );
+    try {
+      await message(child);
+      let entered = false;
+      const waiting = scope.exclusive(async () => {
+        entered = true;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(entered).toBe(false);
+      const released = message(child);
+      child.send!('release');
+      await Promise.all([released, waiting]);
+      expect(entered).toBe(true);
+    } finally {
+      child.kill();
+    }
+  }, 30_000);
 });
