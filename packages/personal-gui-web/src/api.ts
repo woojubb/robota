@@ -484,6 +484,7 @@ export interface IPersonalApi {
     revision: string,
     signal?: AbortSignal,
   ): Promise<ICaseConnectorBinding>;
+  connectorInventory(signal?: AbortSignal): Promise<IConnectorsListing>;
   connectors(): Promise<IConnectorsListing>;
   /** Services to suggest when adding a connector, matching what was typed. */
   connectorCatalog(query: string): Promise<IConnectorCatalogView>;
@@ -646,6 +647,8 @@ export function createPersonalApi(
           signal,
         )
       ).binding,
+    connectorInventory: (signal) =>
+      call('GET', 'connectors/case-actions/summary', undefined, signal),
     connectors: () => call('GET', 'connectors'),
     connectorCatalog: (query) =>
       call('GET', `connectors/catalog?query=${encodeURIComponent(query)}`),

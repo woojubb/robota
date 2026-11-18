@@ -51,7 +51,10 @@ function fakeApi(initial: ICaseConnectorBinding = { revision: 'revision-1' }) {
     caseConnector,
     fenceCaseConnector,
     setCaseConnector,
-    connectors: async () => ({ callbackPath: '/connector-callback', connectors: [MAIL, NOTES] }),
+    connectorInventory: async () => ({
+      callbackPath: '/connector-callback',
+      connectors: [MAIL, NOTES],
+    }),
   } as unknown as IPersonalApi;
   return { api, caseConnector, fenceCaseConnector, setCaseConnector, update, read: () => value };
 }
@@ -80,6 +83,61 @@ describe('the case service choice', () => {
     expect(select().value).toBe('');
   });
 
+  it('does not let an older inventory response overwrite a strict-mode reload', async () => {
+    const fake = fakeApi();
+    let release!: (value: { callbackPath: string; connectors: readonly IConnectorView[] }) => void;
+    const first = new Promise<{ callbackPath: string; connectors: readonly IConnectorView[] }>(
+      (resolve) => {
+        release = resolve;
+      },
+    );
+    let calls = 0;
+    fake.api.connectorInventory = async () =>
+      ++calls === 1 ? first : { callbackPath: '/connector-callback', connectors: [NOTES] };
+    render(
+      <React.StrictMode>
+        <CaseConnector api={fake.api} caseId={THREAD.id} />
+      </React.StrictMode>,
+    );
+    await waitFor(() => expect(select().disabled).toBe(false));
+    expect([...select().options].map((item) => item.value)).toEqual(['', NOTES.id]);
+    await act(async () => {
+      release({ callbackPath: '/connector-callback', connectors: [MAIL] });
+      await first;
+    });
+    expect([...select().options].map((item) => item.value)).toEqual(['', NOTES.id]);
+  });
+
+  it('shows an inventory failure and retries without service discovery', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    const fake = fakeApi();
+    const inventory = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({
+        callbackPath: '/connector-callback',
+        connectors: [MAIL],
+      });
+    fake.api.connectorInventory = inventory;
+    render(<CaseConnector api={fake.api} caseId={THREAD.id} />);
+    await screen.findByText(/The service list could not be loaded/u);
+    expect(select().disabled).toBe(true);
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(select().disabled).toBe(false));
+    expect(inventory).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/The service list could not be loaded/u)).toBeNull();
+  });
+
   it('does not select a connector from case content; saves only the choice the person makes', async () => {
     const fake = fakeApi();
     render(<CaseThread api={fake.api} caseId={THREAD.id} onBack={() => undefined} />);
@@ -101,7 +159,7 @@ describe('the case service choice', () => {
 
   it('removes an existing choice even while the connector list is stalled', async () => {
     const fake = fakeApi({ revision: 'revision-1', connectorId: MAIL.id });
-    fake.api.connectors = () => new Promise(() => undefined);
+    fake.api.connectorInventory = () => new Promise(() => undefined);
     render(<CaseConnector api={fake.api} caseId={THREAD.id} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Remove choice' }));
     await waitFor(() =>
@@ -211,6 +269,36 @@ describe('the case service choice', () => {
     ).toBeTruthy();
     expect(select().value).toBe(MAIL.id);
     expect(fake.setCaseConnector).not.toHaveBeenCalled();
+  });
+
+  it('marks a stale choice unconfirmed and lets the person remove the newer choice', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    const fake = fakeApi();
+    render(<CaseConnector api={fake.api} caseId={THREAD.id} />);
+    await waitFor(() => expect(select().disabled).toBe(false));
+    fake.update(MAIL.id, fake.read().revision);
+    fake.api.caseConnector = async () => {
+      throw new Error('offline');
+    };
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+    });
+    await screen.findByText(/The current choice cannot be confirmed/u);
+    expect(select().disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove choice' }));
+    await screen.findByText('The setting changed');
+    await waitFor(() => expect(select().value).toBe(MAIL.id));
+    expect(fake.read().connectorId).toBe(MAIL.id);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove choice' }));
+    await waitFor(() => expect(fake.read().connectorId).toBeUndefined());
   });
 
   it('lets the person explicitly reset a damaged setting', async () => {
