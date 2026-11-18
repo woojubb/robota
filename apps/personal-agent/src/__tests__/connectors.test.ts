@@ -10,6 +10,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -446,6 +447,43 @@ describe('using a connected service', () => {
     } finally {
       chmodSync(transitions, 0o700);
       release();
+      spy.mockRestore();
+    }
+  });
+
+  it('invalidates earlier authority when a disconnect could not mark its transition', async () => {
+    const w = await connected();
+    const path = ['connectors', w.id, 'case-actions'];
+    const revision = await scopeRevision(w);
+    expect(
+      (await w.call('POST', path, { tool: 'create_note', allowed: true, revision })).status,
+    ).toBe(200);
+    const scope = createCaseActionScope(join(w.harness.stateDir, 'case-action-scope'));
+    const before = scope.snapshot(w.id);
+    const transitions = join(w.harness.stateDir, '.case-action-scope-transitions');
+    const parked = `${transitions}.parked`;
+    const restoreTransitions = (): void => {
+      if (!existsSync(parked)) return;
+      rmSync(transitions, { force: true });
+      renameSync(parked, transitions);
+    };
+    const registry = w.harness.capabilities.connectors;
+    const disconnect = registry.disconnect.bind(registry);
+    const spy = vi.spyOn(registry, 'disconnect').mockImplementation(async (...args) => {
+      expect(statSync(transitions).isFile()).toBe(true);
+      const result = await disconnect(...args);
+      restoreTransitions();
+      return result;
+    });
+    try {
+      renameSync(transitions, parked);
+      writeFileSync(transitions, 'blocked');
+      expect((await w.call('POST', ['connectors', w.id, 'disconnect'], {})).status).toBe(200);
+      const after = scope.snapshot(w.id);
+      expect(after.generation).not.toBe(before.generation);
+      expect(after.revision).not.toBe(before.revision);
+    } finally {
+      restoreTransitions();
       spy.mockRestore();
     }
   });

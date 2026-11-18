@@ -327,7 +327,6 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         .exclusiveConnector(id, () =>
           change(async () => {
             await caseActions.settleDisconnects(id, true);
-            if (transition === undefined) await caseActions.fence(id);
           }),
         )
         .then(
