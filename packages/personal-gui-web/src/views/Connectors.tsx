@@ -541,7 +541,10 @@ function ConnectorCard({
   };
   const tools = connector.tools ?? [];
   return (
-    <li className="rounded-lg border border-border p-3" aria-label={connector.title}>
+    <li
+      className="rounded-lg border border-border p-3"
+      aria-label={`${connector.title} (${connector.id})`}
+    >
       <div className="flex items-baseline gap-2">
         <h2 className="text-[14px] font-semibold">{connector.title}</h2>
         <span className="rounded bg-muted px-1.5 py-0.5 text-[11.5px] text-muted-foreground">
@@ -555,6 +558,7 @@ function ConnectorCard({
         </span>
       </div>
       <p className="break-all text-[12px] text-muted-foreground">{connector.endpoint}</p>
+      <p className="break-all text-[12px] text-muted-foreground">Service ID: {connector.id}</p>
       {status.state === 'failed' &&
         status.reason !== undefined &&
         FAILURE_HELP[status.reason] !== undefined && (

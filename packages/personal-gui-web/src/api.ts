@@ -353,6 +353,13 @@ export interface IConnectorsListing {
   readonly connectors: readonly IConnectorView[];
 }
 
+/** The owner's explicit choice of a service a case may use. */
+export interface ICaseConnectorBinding {
+  readonly revision: string;
+  readonly connectorId?: string;
+  readonly error?: boolean;
+}
+
 export type TRevocation = 'revoked' | 'partial' | 'unsupported' | 'failed' | 'not-attempted';
 
 export interface IDisconnectView {
@@ -473,8 +480,20 @@ export interface IPersonalApi {
     answer: TQuestionAnswer,
   ): Promise<{ item: IFeedItemView; case: ICaseView }>;
   /** Open cases first, then the ones closed last. */
-  cases(): Promise<readonly ICaseView[]>;
-  caseThread(id: string): Promise<ICaseView>;
+  cases(signal?: AbortSignal): Promise<readonly ICaseView[]>;
+  caseThread(id: string, signal?: AbortSignal): Promise<ICaseView>;
+  caseConnector(id: string, signal?: AbortSignal): Promise<ICaseConnectorBinding>;
+  setCaseConnector(
+    id: string,
+    connectorId: string | null,
+    revision: string,
+    signal?: AbortSignal,
+  ): Promise<ICaseConnectorBinding>;
+  fenceCaseConnector(
+    id: string,
+    revision: string,
+    signal?: AbortSignal,
+  ): Promise<ICaseConnectorBinding>;
   connectors(signal?: AbortSignal): Promise<IConnectorsListing>;
   connector(id: string, signal?: AbortSignal): Promise<{ connector: IConnectorView }>;
   connectorInventory(signal?: AbortSignal): Promise<IConnectorsListing>;
@@ -637,9 +656,37 @@ export function createPersonalApi(
     ideaAction: (ideaId, action) => call('POST', `ideas/${id(ideaId)}/${action}`),
     answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
     answerQuestion: (itemId, answer) => call('POST', `feed/${id(itemId)}/answer`, answer),
-    cases: async () => (await call<{ cases: ICaseView[] }>('GET', 'cases')).cases,
-    caseThread: async (caseId) =>
-      (await call<{ case: ICaseView }>('GET', `cases/${id(caseId)}`)).case,
+    cases: async (signal) =>
+      (await call<{ cases: ICaseView[] }>('GET', 'cases', undefined, signal)).cases,
+    caseThread: async (caseId, signal) =>
+      (await call<{ case: ICaseView }>('GET', `cases/${id(caseId)}`, undefined, signal)).case,
+    caseConnector: async (caseId, signal) =>
+      (
+        await call<{ binding: ICaseConnectorBinding }>(
+          'GET',
+          `cases/${id(caseId)}/connector`,
+          undefined,
+          signal,
+        )
+      ).binding,
+    setCaseConnector: async (caseId, connectorId, revision, signal) =>
+      (
+        await call<{ binding: ICaseConnectorBinding }>(
+          'POST',
+          `cases/${id(caseId)}/connector`,
+          { connectorId, revision },
+          signal,
+        )
+      ).binding,
+    fenceCaseConnector: async (caseId, revision, signal) =>
+      (
+        await call<{ binding: ICaseConnectorBinding }>(
+          'POST',
+          `cases/${id(caseId)}/connector`,
+          { fence: true, revision },
+          signal,
+        )
+      ).binding,
     connectors: (signal) => call('GET', 'connectors', undefined, signal),
     connectorCatalog: (query) =>
       call('GET', `connectors/catalog?query=${encodeURIComponent(query)}`),
