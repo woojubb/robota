@@ -370,6 +370,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
                     : { headers: traceHeaders }),
                 },
               ),
+            callOptions.signal,
           );
           if (
             typeof raw === 'object' &&

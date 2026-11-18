@@ -375,7 +375,12 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
                 );
               return callOptions?.admitDispatch === undefined
                 ? send()
-                : withDispatchAdmission(transport, callOptions.admitDispatch, send);
+                : withDispatchAdmission(
+                    transport,
+                    callOptions.admitDispatch,
+                    send,
+                    callOptions.signal,
+                  );
             },
             callOptions?.signal,
             () => new MCPStatelessProtocolError('invalid-tool-result'),

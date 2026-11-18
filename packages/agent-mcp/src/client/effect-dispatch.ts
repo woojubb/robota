@@ -148,7 +148,9 @@ export function withDispatchAdmission<T>(
   transport: object,
   admit: TMCPDispatchAdmission,
   start: () => Promise<T>,
+  signal?: AbortSignal,
 ): Promise<T> {
+  if (signal?.aborted) throw new Error('The tool request was cancelled');
   const guard = admissions.get(transport);
   if (guard === undefined) throw new Error('This transport cannot admit a tool dispatch');
   return guard.run(admit, start);

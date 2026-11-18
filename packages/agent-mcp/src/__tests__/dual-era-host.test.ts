@@ -307,6 +307,27 @@ describe('one client for both protocol eras', () => {
     },
   );
 
+  it('keeps a legacy session usable after an admitted call was already cancelled', async () => {
+    const client = await open(await startHost());
+    await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
+    const abort = new AbortController();
+    abort.abort();
+    await expect(
+      client.callTool(
+        'echo',
+        {},
+        {
+          signal: abort.signal,
+          admitDispatch: async (dispatch) => ({ response: dispatch() }),
+        },
+      ),
+    ).rejects.toThrow(/cancelled/u);
+    expect(await client.callTool('echo', { value: 'still available' })).toMatchObject({
+      content: [{ text: 'echo:still available' }],
+    });
+    expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(1);
+  });
+
   it.each([undefined, '2026-07-28'])(
     'checks admission after delayed authentication and before the request (%s)',
     async (version) => {
