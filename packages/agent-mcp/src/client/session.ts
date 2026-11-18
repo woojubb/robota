@@ -285,6 +285,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
   };
 
   return {
+    supportsDispatchAdmission: true,
     ...(apps ? { apps } : {}),
     identity,
     instructions,

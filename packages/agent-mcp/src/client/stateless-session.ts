@@ -283,6 +283,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       ...(options.apps === true ? ['the UI extension for tool views'] : []),
     ];
     return {
+      supportsDispatchAdmission: true,
       ...(skills === undefined ? {} : { skills }),
       ...(apps ? { apps } : {}),
       identity,

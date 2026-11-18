@@ -92,13 +92,13 @@ describe('MCPConnectionSupervisor — open / reuse / close / listChanged', () =>
   it('passes a dispatch admission to the connected session for that call only', async () => {
     const identity = fixtureIdentity();
     const seen: unknown[] = [];
-    const session = new FakeMcpSession({
+    const session = Object.assign(new FakeMcpSession({
       identity,
       callTool: async (_name, _args, options) => {
         seen.push(options?.admitDispatch);
         return { content: [], isError: false };
       },
-    });
+    }), { supportsDispatchAdmission: true as const });
     const supervisor = new MCPConnectionSupervisor({
       serverId: identity.serverId,
       openSession: async () => session,
@@ -109,6 +109,23 @@ describe('MCPConnectionSupervisor — open / reuse / close / listChanged', () =>
     await supervisor.callTool('ping', {}, { admitDispatch: admit });
     await supervisor.callTool('ping', {});
     expect(seen).toEqual([admit, undefined]);
+  });
+
+  it('refuses admission before calling an older or unsupported session', async () => {
+    const identity = fixtureIdentity();
+    const session = new FakeMcpSession({ identity });
+    const supervisor = new MCPConnectionSupervisor({
+      serverId: identity.serverId,
+      openSession: async () => session,
+      timeouts: fixtureTimeouts(),
+    });
+    const admit = async (dispatch: () => Promise<unknown>) => ({ response: dispatch() });
+    await expect(supervisor.callTool('ping', {}, { admitDispatch: admit })).rejects.toThrow(
+      'This session cannot admit a tool dispatch',
+    );
+    expect(session.callToolCalls).toHaveLength(0);
+    await supervisor.callTool('ping', {});
+    expect(session.callToolCalls).toHaveLength(1);
   });
 
   it('closes the live session on shutdown()', async () => {
