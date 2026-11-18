@@ -203,7 +203,7 @@ unused. In that case the settings stay closed and may need offline recovery:
    sign-in) before restarting. Otherwise a scheduled sync may start before you disconnect.
 2. Set `PERSONAL_AGENT_RECOVERY_STATE_DIR` below to the actual state folder (`--state-dir`, then
    `PERSONAL_AGENT_STATE_DIR`, or `~/.robota/personal` by default), and run the command. It moves all
-   case-request settings, case-service choices, pending choices, case-write and feed-write locks and connection-change
+   case-request settings, case-service choices, pending choices, case-write, goal-write and feed-write locks and connection-change
    markers into a new owner-only folder inside the state folder. It installs a marker that stops older
    agents changing case-request settings, but does not stop them changing connections. It clears
    case-request choices for **all** connectors and cases; it does not remove cases, sign-ins or tokens.
@@ -227,8 +227,8 @@ unused. In that case the settings stay closed and may need offline recovery:
      const oldLock = name.startsWith('.case-action-scope-connector-settings.sqlite');
      const caseLock = name.startsWith('.cases-connector-settings.lock') ||
        name.startsWith('.cases-connector-settings.sqlite');
-     const feedLock = name.startsWith('.feed-write.lock');
-     if (settings || lock || oldLock || caseLock || feedLock)
+     const workLock = name.startsWith('.feed-write.lock') || name.startsWith('.goal-write.lock');
+     if (settings || lock || oldLock || caseLock || workLock)
        fs.renameSync(path.join(state, name), path.join(backup, name));
    }
    for (const name of ['.case-action-scope-connector-settings.sqlite',

@@ -208,6 +208,59 @@ describe('case connector authority', () => {
     }
   });
 
+  it('clears a closed case binding even if updating its feed card fails', async () => {
+    harness = await startHarness();
+    const book = new ConnectorBook({
+      store: createFileConnectorStore(join(harness.stateDir, 'connectors')),
+    });
+    const connector = await book.create({
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'mcp',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'none',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    await harness.capabilities.cases.ask(opened.id, {
+      question: 'Was it you?',
+      options: ['Yes', 'No'],
+    });
+    const path = ['cases', opened.id, 'connector'];
+    const get = await harness.capabilities.api({
+      method: 'GET',
+      path: `/${path.join('/')}`,
+      segments: path,
+      query: new URLSearchParams(),
+      body: undefined,
+    });
+    const revision = (get.body as { binding: { revision: string } }).binding.revision;
+    await harness.capabilities.api({
+      method: 'POST',
+      path: `/${path.join('/')}`,
+      segments: path,
+      query: new URLSearchParams(),
+      body: { connectorId: connector.id, revision },
+    });
+    const withdrawal = vi
+      .spyOn(harness.capabilities.goals, 'withdrawQuestion')
+      .mockRejectedValueOnce(new Error('feed unavailable'));
+    try {
+      await expect(harness.capabilities.cases.close(opened.id, 'Settled.')).rejects.toThrow(
+        'feed unavailable',
+      );
+      expect((await harness.capabilities.cases.get(opened.id))?.state).toBe('closed');
+      const saved: unknown = JSON.parse(
+        readFileSync(
+          join(harness.stateDir, 'case-connector-bindings', `${opened.id}.json`),
+          'utf8',
+        ),
+      );
+      expect(saved).not.toHaveProperty('connectorId');
+    } finally {
+      withdrawal.mockRestore();
+    }
+  });
+
   it('releases both authority locks before waiting for an admitted response', async () => {
     harness = await startHarness();
     const book = new ConnectorBook({

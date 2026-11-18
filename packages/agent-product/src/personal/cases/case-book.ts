@@ -340,6 +340,7 @@ export class CaseBook {
    * withdrawn when the person next answers it.
    */
   close(id: string, resolution: string): Promise<ICase> {
+    let written: ICase | undefined;
     return this.exclusive(async () => {
       const found = await this.requireOpen(id);
       const text = kept(resolution, 'The resolution', RESOLUTION_LIMIT);
@@ -352,17 +353,18 @@ export class CaseBook {
         updatedAt: at,
       };
       await this.store.put(next);
+      written = next;
       if (waiting !== undefined) await this.feed.withdrawQuestion(waiting.feedItemId);
       else if (found.lastAnsweredFeedItemId !== undefined)
         await this.showResolution(found.lastAnsweredFeedItemId, text);
       return next;
-    }).then(async (closed) => {
+    }).finally(async () => {
+      if (written === undefined) return;
       try {
-        await this.onClosed?.(closed);
+        await this.onClosed?.(written);
       } catch {
         // Cleanup cannot undo a case that is already closed.
       }
-      return closed;
     });
   }
 

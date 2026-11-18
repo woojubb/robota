@@ -106,3 +106,78 @@ it.each(['run', 'answer'] as const)(
   },
   20_000,
 );
+
+it('serializes goal recovery with a concurrent schedule change', async () => {
+  const { startHarness } = await import('./harness.js');
+  const first = await startHarness();
+  const second = await startHarness({ stateDir: first.stateDir });
+  const { goals } = first.capabilities;
+  const goal = await goals.create({ title: 'Watch', instructions: 'Check.', everyMinutes: 10 });
+  await goals.startRun(goal.id);
+  await goals.setWaiting(goal.id, true);
+  const store = (
+    goals as unknown as { store: import('@robota-sdk/agent-product/personal').IGoalStore }
+  ).store;
+  const listFeed = store.listFeed.bind(store);
+  let release!: () => void;
+  let reached!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const waiting = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  const spy = vi.spyOn(store, 'listFeed').mockImplementation(async (limit) => {
+    reached();
+    await gate;
+    return listFeed(limit);
+  });
+  const recovering = goals.recoverGoal(goal.id);
+  let change: Promise<unknown> | undefined;
+  try {
+    await waiting;
+    change = second.capabilities.goals.reschedule(goal.id, 60);
+    const early = await Promise.race([
+      change.then(
+        () => true,
+        () => true,
+      ),
+      new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+    ]);
+    expect(early).toBe(false);
+    release();
+    await recovering;
+    await change;
+    expect((await goals.get(goal.id))?.everyMinutes).toBe(60);
+  } finally {
+    release();
+    await Promise.allSettled([recovering, ...(change === undefined ? [] : [change])]);
+    spy.mockRestore();
+    await second.close();
+    await first.close();
+  }
+}, 15_000);
+
+it('starts a shared due goal only once across two agents', async () => {
+  const { startHarness } = await import('./harness.js');
+  const first = await startHarness();
+  const second = await startHarness({ stateDir: first.stateDir });
+  try {
+    const goal = await first.capabilities.goals.create({ title: 'Once', instructions: 'Look.' });
+    first.model.script({ text: 'Done.' });
+    second.model.script({ text: 'Done.' });
+    const counts = await Promise.all([
+      first.capabilities.runner()!.runDue(),
+      second.capabilities.runner()!.runDue(),
+    ]);
+    await Promise.all([
+      first.capabilities.runner()!.settled(),
+      second.capabilities.runner()!.settled(),
+    ]);
+    expect(counts.reduce((sum, count) => sum + count, 0)).toBe(1);
+    expect(await first.capabilities.goals.runs(goal.id)).toHaveLength(1);
+  } finally {
+    await second.close();
+    await first.close();
+  }
+}, 15_000);

@@ -67,6 +67,7 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
       toolArgs: Record<string, unknown>;
     }) => {
       let postedId: string | undefined;
+      const donePreparing = approvals.preparing();
       track(
         (async () => {
           const detail = describeCall(event.toolName, event.toolArgs);
@@ -100,16 +101,18 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
             promptId: event.id,
             recordAnswer: (approve) => book.setApproval(item.id, approve ? 'approved' : 'denied'),
           });
-        })().catch(async () => {
-          if (postedId === undefined && settledEarly.delete(event.id)) return;
-          if (postedId === undefined || approvals.release(postedId)) {
-            approvalFailures.add(key);
-            opened.resolvePermission(event.id, false);
-            settledEarly.delete(event.id);
-            if (postedId !== undefined)
-              await book.setApproval(postedId, 'expired').catch(() => undefined);
-          }
-        }),
+        })()
+          .catch(async () => {
+            if (postedId === undefined && settledEarly.delete(event.id)) return;
+            if (postedId === undefined || approvals.release(postedId)) {
+              approvalFailures.add(key);
+              opened.resolvePermission(event.id, false);
+              settledEarly.delete(event.id);
+              if (postedId !== undefined)
+                await book.setApproval(postedId, 'expired').catch(() => undefined);
+            }
+          })
+          .finally(donePreparing),
       );
     }) as never);
     // A prompt settled by anything but the person's answer can no longer be approved.

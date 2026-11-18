@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { createFileGoalStore, GoalRefusedError } from '@robota-sdk/agent-product/personal';
 
-import { tryDirectoryLock } from './connectors/directory-lock.js';
+import { createSharedLock } from './shared-lock.js';
 
 import type { IFeedItem, IGoalStore } from '@robota-sdk/agent-product/personal';
 
@@ -51,27 +51,13 @@ function checkUpdate(current: IFeedItem | undefined, next: IFeedItem): void {
 
 export function createSharedFeedStore(stateDir: string): IGoalStore {
   const store = createFileGoalStore(join(stateDir, 'goals'));
-  const lockPath = join(realpathSync(stateDir), '.feed-write.lock');
+  const lock = createSharedLock(join(realpathSync(stateDir), '.feed-write.lock'), 'The feed');
   return {
     ...store,
-    putFeedItem: async (item) => {
-      let held: { release(): void } | undefined;
-      for (let attempt = 0; attempt <= 100; attempt += 1) {
-        held = tryDirectoryLock(lockPath);
-        if (held !== undefined) break;
-        if (attempt === 100)
-          throw new GoalRefusedError(
-            'The feed is busy; stop all agents and follow the case-request recovery instructions in the Personal Agent guide',
-          );
-        await new Promise<void>((resolve) => setTimeout(resolve, 50));
-      }
-      if (held === undefined) throw new GoalRefusedError('The feed cannot be locked');
-      try {
+    putFeedItem: (item) =>
+      lock(async () => {
         checkUpdate(await store.getFeedItem(item.id), item);
         await store.putFeedItem(item);
-      } finally {
-        held.release();
-      }
-    },
+      }),
   };
 }

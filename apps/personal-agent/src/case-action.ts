@@ -160,7 +160,13 @@ export function createCaseAction(
           !allowed.has(call.tool)
         )
           throw new ConnectorRefusedError('This case action is outside the approved choice');
-        await port.recordApproval(snapshot, executionId, call, item);
+        try {
+          await port.recordApproval(snapshot, executionId, call, item);
+        } catch {
+          throw new ConnectorRefusedError(
+            'The approval could not be saved; the action was not sent',
+          );
+        }
         const result = await port.call(
           snapshot.connectorId,
           call.tool,

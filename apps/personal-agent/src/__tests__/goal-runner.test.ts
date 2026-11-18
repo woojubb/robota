@@ -119,6 +119,80 @@ describe('connector action approvals', () => {
     }
   });
 
+  it('does not expire a channel approval while its posted card is being registered', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const original = book.post.bind(book);
+    let release!: () => void;
+    let reached!: () => void;
+    let registered!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const ready = new Promise<void>((resolve) => {
+      registered = resolve;
+    });
+    const post = vi.spyOn(book, 'post').mockImplementation(async (item) => {
+      const posted = await original(item);
+      if (item.kind === 'approval') {
+        reached();
+        await gate;
+      }
+      return posted;
+    });
+    const stub = promptingSession();
+    const approvals = createApprovalRegistry(book);
+    approvals.onRegistered(() => registered());
+    const channel = createChannelTurns({ book, approvals, openSession: () => stub.session });
+    const turn = channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Buy it');
+    try {
+      await waiting;
+      const item = (await book.feed())[0]!;
+      await expect(approvals.answer(item.id, true)).rejects.toThrow(/being prepared/u);
+      expect((await book.feedItem(item.id))?.approval?.state).toBe('pending');
+      release();
+      await ready;
+      expect((await approvals.answer(item.id, true)).approval?.state).toBe('approved');
+      expect(await turn).toBe('Bought.');
+    } finally {
+      release();
+      await Promise.allSettled([turn]);
+      post.mockRestore();
+      await channel.stop();
+    }
+  });
+
+  it.each(['failure', 'different detail'] as const)(
+    'never resolves a prompt as approved when its record has a %s',
+    async (scenario) => {
+      const book = new GoalBook({ store: createMemoryGoalStore() });
+      const item = await book.post({
+        kind: 'approval',
+        title: 'Action',
+        body: '',
+        approval: { tool: 'ConnectorAct', detail: 'send to alice', state: 'pending' },
+      });
+      const resolvePermission = vi.fn();
+      const approvals = createApprovalRegistry(book);
+      approvals.register(item, {
+        session: { resolvePermission },
+        promptId: 'prompt',
+        recordAnswer: async () => {
+          if (scenario === 'failure') throw new Error('cannot save');
+          return {
+            ...item,
+            approval: { ...item.approval!, state: 'approved', detail: 'send to bob' },
+          };
+        },
+      });
+      await expect(approvals.answer(item.id, true)).rejects.toThrow();
+      expect(resolvePermission).toHaveBeenCalledWith('prompt', false);
+      expect(resolvePermission).not.toHaveBeenCalledWith('prompt', true);
+    },
+  );
+
   it('drains a channel approval that is still being posted when the channel stops', async () => {
     const book = new GoalBook({ store: createMemoryGoalStore() });
     const original = book.post.bind(book);

@@ -2,6 +2,7 @@
  * The personal capabilities this root composes into its session. Each capability family arrives
  * here as tools plus a lifecycle; the root only lends it a state directory and the live session.
  */
+import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -48,6 +49,7 @@ import { createCaseTurns } from './case-turns.js';
 import { callCaseConnector, captureCaseAction, createCaseAction } from './case-action.js';
 import { createCaseApprovalRecorder } from './case-approval-record.js';
 import { createSharedFeedStore } from './feed-store.js';
+import { createSharedLock } from './shared-lock.js';
 import { createAgentPresence } from './agent-presence.js';
 import { createCaseActionScope } from './connectors/case-action-scope.js';
 import { createChannelTurns } from './channel-turns.js';
@@ -167,8 +169,19 @@ export function createPersonalCapabilities(
   const wiki = new KnowledgeWiki({
     store: createFileKnowledgeStore(join(options.stateDir, 'wiki')),
   });
-  const goals = new GoalBook({ store: createSharedFeedStore(options.stateDir) });
-  if (goals.usesUniqueFeedIds !== true || typeof goals.recoverGoal !== 'function')
+  const goalStore = createSharedFeedStore(options.stateDir);
+  const goals = new GoalBook({
+    store: goalStore,
+    withWriteLock: createSharedLock(
+      join(realpathSync(options.stateDir), '.goal-write.lock'),
+      'Goals',
+    ),
+  });
+  if (
+    goals.usesUniqueFeedIds !== true ||
+    goals.supportsSharedGoalLock !== true ||
+    typeof goals.recoverGoal !== 'function'
+  )
     throw new Error('The product SDK cannot safely coordinate this agent; rebuild the workspace');
   const presence = createAgentPresence(options.stateDir);
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });

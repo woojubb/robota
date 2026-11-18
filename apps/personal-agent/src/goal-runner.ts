@@ -13,6 +13,7 @@
 import {
   CONNECTOR_TOOL_NAMES,
   GOAL_TOOL_NAMES,
+  GoalRefusedError,
   goalRunInstructions,
   parseConnectorArguments,
 } from '@robota-sdk/agent-product/personal';
@@ -153,8 +154,8 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     await book.setWaiting(goalId, approvals.waitingFor(goalId));
   };
 
-  const runGoal = async (goal: IGoal): Promise<void> => {
-    let run: IGoalRun = await book.startRun(goal.id);
+  const runGoal = async (goal: IGoal, initialRun: IGoalRun): Promise<void> => {
+    let run: IGoalRun = initialRun;
     // Writes to the run and the feed happen in order, whatever order the session's events arrive in.
     let chain = Promise.resolve();
     const enqueue = (work: () => Promise<void>): Promise<void> => {
@@ -229,6 +230,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
         });
         return;
       }
+      const donePreparing = approvals.preparing();
       void enqueue(async () => {
         let item: IFeedItem | undefined;
         try {
@@ -284,6 +286,8 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
             if (item !== undefined)
               await book.setApproval(item.id, 'expired').catch(() => undefined);
           }
+        } finally {
+          donePreparing();
         }
       });
     };
@@ -351,8 +355,15 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     let started = 0;
     for (const goal of await book.due()) {
       if (running.has(goal.id)) continue;
+      let run: IGoalRun;
+      try {
+        run = await book.startRun(goal.id, { requireDue: true });
+      } catch (error) {
+        if (error instanceof GoalRefusedError) continue;
+        throw error;
+      }
       started += 1;
-      const task = runGoal(goal)
+      const task = runGoal(goal, run)
         .catch(async (error: unknown) => {
           await book.post({
             kind: 'notice',

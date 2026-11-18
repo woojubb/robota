@@ -207,7 +207,7 @@ describe('the case-scoped connector action', () => {
     expect(f.port.recordApproval).not.toHaveBeenCalled();
     vi.mocked(f.port.recordApproval).mockRejectedValueOnce(new Error('record unavailable'));
     f.action.approved('two', args, receipt(), expected);
-    await expect(f.execute('two')).rejects.toThrow('record unavailable');
+    expect((await f.execute('two')).data).toEqual({ error: expect.stringContaining('not sent') });
     expect(f.sent).toEqual([]);
   });
 });
