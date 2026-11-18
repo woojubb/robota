@@ -147,7 +147,8 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
 - **A session is stateless about liveness by contract.** The SDK has no cancellation
   acknowledgment, so an abort or timeout of an active stdio request closes the direct child rather
   than pretending the in-flight call can be cancelled cleanly; a failed tool call is never replayed
-  by the supervisor.
+  by the supervisor, and a call with host dispatch admission starts its one request only under that
+  admission, which can finish before the response arrives.
 - **An MCP server is never a source of session turns.** No server notification is delivered as an
   event for a host to turn into a turn, whatever experimental capability the server declares: a
   server connection proves nothing about who wrote a message, so a sender named inside one would be
