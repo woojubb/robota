@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { API_WRITE_HEADER, createPersonalApi } from '../api.js';
+import { API_WRITE_HEADER, ApiError, createPersonalApi } from '../api.js';
 import { ConnectorsView } from '../views/Connectors.js';
 
 import type {
@@ -43,11 +43,478 @@ function fakeApi(
   return {
     connectors: async () => listing,
     connectorPulled: async () => ({ count: 0 }),
+    fenceCaseActionRequests: async () => ({
+      fenced: [NOTES.id, 'other', ...connectors.map((connector) => connector.id)],
+      callbackPath: '/connector-callback',
+      connectors,
+    }),
+    openConnectorCaseActions: async () => {
+      throw new Error('not available');
+    },
+    connector: async (id: string) => {
+      const found = connectors.find((item) => item.id === id);
+      if (found === undefined) throw new Error('not available');
+      return { connector: found };
+    },
+    connectorCaseActionScope: async (id: string) => {
+      const found = connectors.find((item) => item.id === id);
+      if (found === undefined) throw new Error('not available');
+      return { connector: found };
+    },
     ...extra,
   } as unknown as IPersonalApi;
 }
 
 describe('the Connectors tab', () => {
+  it('settles older requests before showing settings in a newly opened page', async () => {
+    let finish!: (result: IConnectorsListing & { fenced: readonly string[] }) => void;
+    const fence = new Promise<IConnectorsListing & { fenced: readonly string[] }>((resolve) => {
+      finish = resolve;
+    });
+    const connectors = vi.fn(async () => ({
+      callbackPath: '/connector-callback',
+      connectors: [NOTES],
+    }));
+    render(
+      <ConnectorsView api={fakeApi([], { connectors, fenceCaseActionRequests: () => fence })} />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(connectors).not.toHaveBeenCalled();
+    await act(async () => {
+      finish({ fenced: [NOTES.id], callbackPath: '/connector-callback', connectors: [NOTES] });
+      await fence;
+    });
+    expect(await screen.findByText('Connected')).toBeTruthy();
+  });
+
+  it('keeps case controls hidden when an older server lacks the fence capability', async () => {
+    const connector = { ...NOTES, caseActionTools: [], caseActionRevision: 'revision-1' };
+    render(
+      <ConnectorsView
+        api={fakeApi([connector], {
+          fenceCaseActionRequests: async () => {
+            throw new ApiError(404, 'not found');
+          },
+        })}
+      />,
+    );
+    await screen.findByText('Connected');
+    expect(
+      screen.queryByRole('region', { name: 'Case requests for Notes (connector-notes-1)' }),
+    ).toBeNull();
+  });
+
+  it('allows a healthy connector to be revoked while another connector cannot be fenced', async () => {
+    const healthy = {
+      ...NOTES,
+      caseActionTools: ['create_note'],
+      caseActionRevision: 'revision-1',
+    };
+    const broken: IConnectorView = {
+      ...healthy,
+      id: 'other',
+      title: 'Other',
+      caseActionTools: [],
+      caseActionScopeError: true,
+      caseActionRevision: 'broken:revision',
+    };
+    const fenceCaseActionRequests = async () => ({
+      fenced: [NOTES.id],
+      callbackPath: '/connector-callback',
+      connectors: [healthy, broken],
+    });
+    const set = vi.fn(async () => ({
+      connector: { ...healthy, caseActionTools: [], caseActionRevision: 'revision-2' },
+    }));
+    render(
+      <ConnectorsView
+        api={fakeApi([healthy, broken], { fenceCaseActionRequests, setConnectorCaseAction: set })}
+      />,
+    );
+    const choice = (await screen.findByLabelText(
+      'Allow create_note for case requests on Notes (connector-notes-1)',
+    )) as HTMLInputElement;
+    expect(choice.disabled).toBe(false);
+    fireEvent.click(choice);
+    await waitFor(() =>
+      expect(set).toHaveBeenCalledWith(
+        NOTES.id,
+        'create_note',
+        false,
+        'revision-1',
+        expect.any(AbortSignal),
+      ),
+    );
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Reset case request settings for Other (other)',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+  });
+
+  it('shows and revokes a saved grant without waiting for any connector discovery', async () => {
+    const pending: IConnectorView = {
+      ...NOTES,
+      status: { state: 'checking' },
+      tools: undefined,
+      caseActionTools: ['create_note'],
+      caseActionRevision: 'revision-1',
+    };
+    const never = new Promise<never>(() => undefined);
+    const fenceCaseActionRequests = async () => ({
+      fenced: [NOTES.id],
+      callbackPath: '/connector-callback',
+      connectors: [pending],
+    });
+    const set = vi.fn(async () => ({
+      connector: { ...pending, caseActionTools: [], caseActionRevision: 'revision-2' },
+    }));
+    render(
+      <ConnectorsView
+        api={fakeApi([], {
+          fenceCaseActionRequests,
+          connectors: () => never,
+          connector: () => never,
+          setConnectorCaseAction: set,
+        })}
+      />,
+    );
+    const choice = (await screen.findByLabelText(
+      'Allow create_note for case requests on Notes (connector-notes-1)',
+    )) as HTMLInputElement;
+    expect(choice.checked).toBe(true);
+    fireEvent.click(choice);
+    await waitFor(() =>
+      expect(set).toHaveBeenCalledWith(
+        NOTES.id,
+        'create_note',
+        false,
+        'revision-1',
+        expect.any(AbortSignal),
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByLabelText('Allow create_note for case requests on Notes (connector-notes-1)'),
+      ).toBeNull(),
+    );
+  });
+
+  it('refreshes each scope even while the connector list never returns', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    let current: IConnectorView = {
+      ...NOTES,
+      caseActionTools: ['create_note'],
+      caseActionRevision: 'revision-1',
+    };
+    const never = new Promise<never>(() => undefined);
+    const scope = vi.fn(async () => ({ connector: current }));
+    render(
+      <ConnectorsView
+        api={fakeApi([current], { connectors: () => never, connectorCaseActionScope: scope })}
+      />,
+    );
+    const choice = (await screen.findByLabelText(
+      'Allow create_note for case requests on Notes (connector-notes-1)',
+    )) as HTMLInputElement;
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(choice.checked).toBe(true);
+    current = { ...current, caseActionTools: [], caseActionRevision: 'revision-2' };
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(choice.checked).toBe(false);
+  });
+
+  it('updates the connector inventory while service discovery is stalled', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    const first = { ...NOTES, caseActionTools: [], caseActionRevision: 'revision-1' };
+    const other = { ...first, id: 'other', title: 'Other', status: { state: 'checking' as const } };
+    let items: readonly IConnectorView[] = [first];
+    const never = new Promise<never>(() => undefined);
+    render(
+      <ConnectorsView
+        api={fakeApi([first], {
+          connectors: () => never,
+          connectorInventory: async () => ({
+            callbackPath: '/connector-callback',
+            connectors: items,
+          }),
+          connector: () => never,
+          openConnectorCaseActions: async (id) => ({
+            connector: items.find((item) => item.id === id)!,
+          }),
+        })}
+      />,
+    );
+    await screen.findByText('Notes');
+    items = [first, other];
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+    });
+    await screen.findByText('Other');
+    items = [other];
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.queryByText('Notes')).toBeNull());
+    expect(screen.getByText('Other')).toBeTruthy();
+  });
+
+  it('keeps a newer full inventory when an older summary arrives late', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    const first = { ...NOTES, caseActionTools: [], caseActionRevision: 'revision-1' };
+    const other = { ...first, id: 'other', title: 'Other' };
+    let finishList!: (value: IConnectorsListing) => void;
+    let finishSummary!: (value: IConnectorsListing) => void;
+    const list = new Promise<IConnectorsListing>((resolve) => {
+      finishList = resolve;
+    });
+    const summary = new Promise<IConnectorsListing>((resolve) => {
+      finishSummary = resolve;
+    });
+    render(
+      <ConnectorsView
+        api={fakeApi([first], { connectors: () => list, connectorInventory: () => summary })}
+      />,
+    );
+    await screen.findByText('Notes');
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      finishList({ callbackPath: '/connector-callback', connectors: [first, other] });
+      await list;
+    });
+    await screen.findByText('Other');
+    await act(async () => {
+      finishSummary({ callbackPath: '/connector-callback', connectors: [first] });
+      await summary;
+    });
+    expect(screen.getByText('Other')).toBeTruthy();
+  });
+
+  it('does not restore an old writable tool view after the owner blocks it', async () => {
+    const first = { ...NOTES, caseActionTools: [], caseActionRevision: 'revision-1' };
+    const blocked = {
+      ...first,
+      tools: first.tools!.map((tool) =>
+        tool.name === 'create_note'
+          ? { ...tool, access: 'blocked' as const, decision: 'blocked' as const }
+          : tool,
+      ),
+    };
+    let finish!: (result: { connector: IConnectorView }) => void;
+    const discovery = new Promise<{ connector: IConnectorView }>((resolve) => {
+      finish = resolve;
+    });
+    const never = new Promise<never>(() => undefined);
+    render(
+      <ConnectorsView
+        api={fakeApi([first], {
+          connectors: () => never,
+          connector: vi
+            .fn()
+            .mockImplementationOnce(() => discovery)
+            .mockImplementation(() => never),
+          decideConnectorTool: async () => ({ connector: blocked }),
+        })}
+      />,
+    );
+    const select = (await screen.findByLabelText('What create_note may do')) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'blocked' } });
+    await waitFor(() =>
+      expect((screen.getByLabelText('What create_note may do') as HTMLSelectElement).value).toBe(
+        'blocked',
+      ),
+    );
+    await act(async () => {
+      finish({ connector: first });
+      await discovery;
+    });
+    expect((screen.getByLabelText('What create_note may do') as HTMLSelectElement).value).toBe(
+      'blocked',
+    );
+  });
+
+  it('keeps newer decisions when two changes finish out of order', async () => {
+    const first = { ...NOTES, caseActionTools: [], caseActionRevision: 'revision-1' };
+    const changed = (names: readonly string[]): IConnectorView => ({
+      ...first,
+      tools: first.tools!.map((tool) =>
+        names.includes(tool.name) ? { ...tool, access: 'blocked', decision: 'blocked' } : tool,
+      ),
+    });
+    let finish!: (result: { connector: IConnectorView }) => void;
+    const older = new Promise<{ connector: IConnectorView }>((resolve) => {
+      finish = resolve;
+    });
+    const never = new Promise<never>(() => undefined);
+    render(
+      <ConnectorsView
+        api={fakeApi([first], {
+          connectors: () => never,
+          connector: () => never,
+          decideConnectorTool: async (_id, tool) =>
+            tool === 'search_notes'
+              ? older
+              : { connector: changed(['search_notes', 'create_note']) },
+        })}
+      />,
+    );
+    fireEvent.change(await screen.findByLabelText('What search_notes may do'), {
+      target: { value: 'blocked' },
+    });
+    fireEvent.change(screen.getByLabelText('What create_note may do'), {
+      target: { value: 'blocked' },
+    });
+    await waitFor(() =>
+      expect((screen.getByLabelText('What create_note may do') as HTMLSelectElement).value).toBe(
+        'blocked',
+      ),
+    );
+    await act(async () => {
+      finish({ connector: changed(['search_notes']) });
+      await older;
+    });
+    expect((screen.getByLabelText('What create_note may do') as HTMLSelectElement).value).toBe(
+      'blocked',
+    );
+    expect((screen.getByLabelText('What search_notes may do') as HTMLSelectElement).value).toBe(
+      'blocked',
+    );
+  });
+
+  it('settles a slow connector open after repeated identical polls', async () => {
+    const initial: IConnectorView = {
+      ...NOTES,
+      caseActionTools: [],
+      caseActionRevision: 'revision-1',
+    };
+    let finish!: (result: { connector: IConnectorView }) => void;
+    const opening = new Promise<{ connector: IConnectorView }>((resolve) => {
+      finish = resolve;
+    });
+    const open = vi.fn(() => opening);
+    const connectors = vi.fn(async () => ({
+      callbackPath: '/connector-callback',
+      connectors: [initial],
+    }));
+    const fresh = { ...initial, caseActionRevision: 'revision-2' };
+    const scope = vi.fn(async () => ({ connector: fresh }));
+    const decide = vi.fn(async () => ({ connector: initial }));
+    const api = fakeApi([initial], {
+      fenceCaseActionRequests: async () => ({
+        fenced: [],
+        callbackPath: '/connector-callback',
+        connectors: [initial],
+      }),
+      openConnectorCaseActions: open,
+      connectorCaseActionScope: scope,
+      connectors,
+      decideConnectorTool: decide,
+    });
+    render(<ConnectorsView api={api} />);
+    const choice = (await screen.findByLabelText(
+      'Allow create_note for case requests on Notes (connector-notes-1)',
+    )) as HTMLInputElement;
+    await waitFor(() => expect(open).toHaveBeenCalled());
+    expect(choice.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('What create_note may do'), {
+      target: { value: 'write' },
+    });
+    await waitFor(() => expect(connectors.mock.calls.length).toBeGreaterThan(1));
+    await act(async () => {
+      finish({ connector: fresh });
+      await opening;
+    });
+    await waitFor(() => expect(choice.disabled).toBe(false));
+  });
+
+  it('does not apply an old connector-open response after the owner resets that scope', async () => {
+    const broken: IConnectorView = {
+      ...NOTES,
+      caseActionTools: [],
+      caseActionScopeError: true,
+      caseActionRevision: 'broken:revision',
+    };
+    const repaired: IConnectorView = {
+      ...NOTES,
+      caseActionTools: [],
+      caseActionRevision: 'revision-2',
+    };
+    let finish!: (result: { connector: IConnectorView }) => void;
+    const opening = new Promise<{ connector: IConnectorView }>((resolve) => {
+      finish = resolve;
+    });
+    const open = vi.fn(() => opening);
+    let current = broken;
+    const reset = vi.fn(async () => {
+      current = repaired;
+      return { connector: repaired };
+    });
+    const api = fakeApi([broken], {
+      fenceCaseActionRequests: async () => ({
+        fenced: [],
+        callbackPath: '/connector-callback',
+        connectors: [broken],
+      }),
+      openConnectorCaseActions: open,
+      resetConnectorCaseActions: reset,
+      connectors: async () => ({ callbackPath: '/connector-callback', connectors: [current] }),
+      connectorCaseActionScope: async () => ({ connector: current }),
+    });
+    render(<ConnectorsView api={api} />);
+    await waitFor(() => expect(open).toHaveBeenCalled());
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Reset case request settings for Notes (connector-notes-1)',
+      }),
+    );
+    await waitFor(() => expect(reset).toHaveBeenCalled());
+    await act(async () => {
+      finish({ connector: broken });
+      await opening;
+    });
+    expect(
+      screen.queryByRole('button', {
+        name: 'Reset case request settings for Notes (connector-notes-1)',
+      }),
+    ).toBeNull();
+  });
+
   it('says what to do when nothing is connected', async () => {
     render(<ConnectorsView api={fakeApi([])} />);
     await waitFor(() => expect(screen.getByText(/Nothing connected yet/u)).toBeTruthy());
@@ -93,10 +560,22 @@ describe('the Connectors tab', () => {
     expect(screen.getByText(/approve each action separately/u)).toBeTruthy();
     fireEvent.click(choice);
     await waitFor(() => expect(choice.checked).toBe(true));
-    expect(set).toHaveBeenCalledWith(NOTES.id, 'create_note', true, 'revision-1');
+    expect(set).toHaveBeenCalledWith(
+      NOTES.id,
+      'create_note',
+      true,
+      'revision-1',
+      expect.any(AbortSignal),
+    );
     fireEvent.click(choice);
     await waitFor(() => expect(choice.checked).toBe(false));
-    expect(set).toHaveBeenLastCalledWith(NOTES.id, 'create_note', false, 'revision-1');
+    expect(set).toHaveBeenLastCalledWith(
+      NOTES.id,
+      'create_note',
+      false,
+      'revision-1',
+      expect.any(AbortSignal),
+    );
   });
 
   it('still lets the person revoke a previously allowed tool while the service is disconnected', async () => {
@@ -116,7 +595,13 @@ describe('the Connectors tab', () => {
     expect(choice.disabled).toBe(false);
     fireEvent.click(choice);
     await waitFor(() =>
-      expect(set).toHaveBeenCalledWith(NOTES.id, 'create_note', false, 'revision-1'),
+      expect(set).toHaveBeenCalledWith(
+        NOTES.id,
+        'create_note',
+        false,
+        'revision-1',
+        expect.any(AbortSignal),
+      ),
     );
   });
 
@@ -159,7 +644,13 @@ describe('the Connectors tab', () => {
       ).toBeTruthy();
     fireEvent.click(first);
     await waitFor(() =>
-      expect(set).toHaveBeenCalledWith(NOTES.id, 'send\u200b_note', true, 'revision-1'),
+      expect(set).toHaveBeenCalledWith(
+        NOTES.id,
+        'send\u200b_note',
+        true,
+        'revision-1',
+        expect.any(AbortSignal),
+      ),
     );
   });
 
@@ -224,7 +715,110 @@ describe('the Connectors tab', () => {
     expect(choice.checked).toBe(true);
     fireEvent.click(choice);
     await waitFor(() => expect(choice.checked).toBe(false));
-    expect(set).toHaveBeenLastCalledWith(NOTES.id, 'create_note', false, 'revision-1');
+    expect(set).toHaveBeenLastCalledWith(
+      NOTES.id,
+      'create_note',
+      false,
+      'revision-1',
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('rechecks a delayed mutation response after a poll observes a newer revision', async () => {
+    let current: IConnectorView = {
+      ...NOTES,
+      caseActionTools: ['create_note'],
+      caseActionRevision: 'revision-1',
+    };
+    const initial = current;
+    let finish!: (result: { connector: IConnectorView }) => void;
+    const pending = new Promise<{ connector: IConnectorView }>((resolve) => {
+      finish = resolve;
+    });
+    const set = vi.fn(() => pending);
+    const connectors = vi.fn(async () => ({
+      callbackPath: '/connector-callback',
+      connectors: [current],
+    }));
+    const scope = vi.fn(async () => ({ connector: current }));
+    const decide = vi.fn(async () => ({ connector: current }));
+    render(
+      <ConnectorsView
+        api={fakeApi([initial], {
+          connectors,
+          connectorCaseActionScope: scope,
+          setConnectorCaseAction: set,
+          decideConnectorTool: decide,
+        })}
+      />,
+    );
+    const choice = (await screen.findByLabelText(
+      'Allow create_note for case requests on Notes (connector-notes-1)',
+    )) as HTMLInputElement;
+    fireEvent.click(choice);
+    await waitFor(() => expect(set).toHaveBeenCalled());
+    current = { ...initial, caseActionRevision: 'revision-3' };
+    fireEvent.change(screen.getByLabelText('What create_note may do'), {
+      target: { value: 'write' },
+    });
+    await waitFor(() => expect(connectors.mock.calls.length).toBeGreaterThan(1));
+    await act(async () => {
+      finish({ connector: { ...initial, caseActionTools: [], caseActionRevision: 'revision-2' } });
+      await pending;
+    });
+    await waitFor(() => expect(scope).toHaveBeenCalled());
+    await waitFor(() => expect(choice.disabled).toBe(false));
+    expect(choice.checked).toBe(true);
+  });
+
+  it('eventually shows a newer scope observed by a poll that could not update the card', async () => {
+    const initial: IConnectorView = {
+      ...NOTES,
+      caseActionTools: ['create_note'],
+      caseActionRevision: 'revision-0',
+    };
+    let current = initial;
+    let finishOld!: (listing: IConnectorsListing) => void;
+    const old = new Promise<IConnectorsListing>((resolve) => {
+      finishOld = resolve;
+    });
+    const listing = { callbackPath: '/connector-callback', connectors: [initial] };
+    const connectors = vi
+      .fn()
+      .mockResolvedValueOnce(listing)
+      .mockImplementation(() => old);
+    const scope = vi.fn(async () => ({ connector: current }));
+    const decide = vi.fn(async () => ({ connector: current }));
+    const set = vi.fn(async () => {
+      current = { ...initial, caseActionTools: [], caseActionRevision: 'revision-1' };
+      return { connector: current };
+    });
+    render(
+      <ConnectorsView
+        api={fakeApi([initial], {
+          connectors,
+          connectorCaseActionScope: scope,
+          decideConnectorTool: decide,
+          setConnectorCaseAction: set,
+        })}
+      />,
+    );
+    const choice = (await screen.findByLabelText(
+      'Allow create_note for case requests on Notes (connector-notes-1)',
+    )) as HTMLInputElement;
+    await waitFor(() => expect(connectors).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText('What create_note may do'), {
+      target: { value: 'write' },
+    });
+    await waitFor(() => expect(connectors).toHaveBeenCalledTimes(2));
+    fireEvent.click(choice);
+    await waitFor(() => expect(choice.checked).toBe(false));
+    current = { ...initial, caseActionRevision: 'revision-2' };
+    await act(async () => {
+      finishOld({ ...listing, connectors: [current] });
+      await old;
+    });
+    await waitFor(() => expect(choice.checked).toBe(true), { timeout: 5_000 });
   });
 
   it('keeps an uncertain permission disabled until its pending change is fenced', async () => {
@@ -233,28 +827,86 @@ describe('the Connectors tab', () => {
       caseActionTools: [],
       caseActionRevision: 'revision-1',
     };
-    const set = vi
+    const set = vi.fn().mockRejectedValueOnce(new Error('The reply was lost'));
+    const fenceRequest = vi
       .fn()
-      .mockRejectedValueOnce(new Error('The reply was lost'))
       .mockRejectedValueOnce(new Error('Still offline'))
       .mockResolvedValueOnce({ connector: { ...initial, caseActionRevision: 'revision-2' } });
-    render(<ConnectorsView api={fakeApi([initial], { setConnectorCaseAction: set })} />);
+    render(
+      <ConnectorsView
+        api={fakeApi([initial], {
+          setConnectorCaseAction: set,
+          fenceConnectorCaseActions: fenceRequest,
+        })}
+      />,
+    );
     const choice = (await screen.findByLabelText(
       'Allow create_note for case requests on Notes (connector-notes-1)',
     )) as HTMLInputElement;
     fireEvent.click(choice);
     const secure = await screen.findByRole('button', {
-      name: 'Secure case request settings for Notes (connector-notes-1)',
+      name: 'Settle case request settings for Notes (connector-notes-1)',
     });
-    await waitFor(() => expect(set).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fenceRequest).toHaveBeenCalledTimes(1));
     expect(choice.disabled).toBe(true);
     fireEvent.click(secure);
     await waitFor(() => expect(choice.disabled).toBe(false));
-    expect(set).toHaveBeenNthCalledWith(1, NOTES.id, 'create_note', true, 'revision-1');
-    expect(set).toHaveBeenNthCalledWith(2, NOTES.id, 'create_note', false);
-    expect(set).toHaveBeenNthCalledWith(3, NOTES.id, 'create_note', false);
+    expect(set).toHaveBeenNthCalledWith(
+      1,
+      NOTES.id,
+      'create_note',
+      true,
+      'revision-1',
+      expect.any(AbortSignal),
+    );
+    expect(fenceRequest).toHaveBeenCalledTimes(2);
+    expect(fenceRequest).toHaveBeenCalledWith(NOTES.id, 'revision-1', expect.any(AbortSignal));
     expect(choice.checked).toBe(false);
     expect(choice.disabled).toBe(false);
+  });
+
+  it('fences a stalled allow after the discovery deadline', async () => {
+    vi.useFakeTimers();
+    try {
+      const initial: IConnectorView = {
+        ...NOTES,
+        caseActionTools: [],
+        caseActionRevision: 'revision-1',
+      };
+      const set = vi.fn(
+        (_id: string, _tool: string, _allowed: boolean, _revision: string, _signal?: AbortSignal) =>
+          new Promise<never>(() => undefined),
+      );
+      const fence = vi.fn(async () => ({
+        connector: { ...initial, caseActionRevision: 'revision-2' },
+      }));
+      render(
+        <ConnectorsView
+          api={fakeApi([initial], {
+            setConnectorCaseAction: set,
+            fenceConnectorCaseActions: fence,
+          })}
+        />,
+      );
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      const choice = screen.getByLabelText(
+        'Allow create_note for case requests on Notes (connector-notes-1)',
+      ) as HTMLInputElement;
+      fireEvent.click(choice);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(75_000);
+      });
+      expect(set).toHaveBeenCalledTimes(1);
+      expect((set.mock.calls[0]![4] as AbortSignal).aborted).toBe(true);
+      expect(fence).toHaveBeenCalledWith(NOTES.id, 'revision-1', expect.any(AbortSignal));
+      expect(choice.disabled).toBe(false);
+      expect(choice.checked).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps a secured permission when an older poll returns after the fence', async () => {
@@ -276,21 +928,24 @@ describe('the Connectors tab', () => {
       .fn()
       .mockResolvedValueOnce(listing)
       .mockImplementation(() => old);
-    const set = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('The reply was lost'))
-      .mockImplementationOnce(() => fence);
+    const set = vi.fn().mockRejectedValueOnce(new Error('The reply was lost'));
+    const fenceRequest = vi.fn().mockImplementationOnce(() => fence);
     const decide = vi.fn(async () => ({ connector: initial }));
     render(
       <ConnectorsView
-        api={fakeApi([], { connectors, setConnectorCaseAction: set, decideConnectorTool: decide })}
+        api={fakeApi([], {
+          connectors,
+          setConnectorCaseAction: set,
+          fenceConnectorCaseActions: fenceRequest,
+          decideConnectorTool: decide,
+        })}
       />,
     );
     const choice = (await screen.findByLabelText(
       'Allow create_note for case requests on Notes (connector-notes-1)',
     )) as HTMLInputElement;
     fireEvent.click(choice);
-    await waitFor(() => expect(set).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fenceRequest).toHaveBeenCalledTimes(1));
     fireEvent.change(screen.getByLabelText('What create_note may do'), {
       target: { value: 'write' },
     });
@@ -307,7 +962,55 @@ describe('the Connectors tab', () => {
     expect(choice.checked).toBe(false);
   });
 
-  it('shows a slow list even when the next poll has already started', async () => {
+  it('lets the person reset a scope that becomes unreadable while a change is uncertain', async () => {
+    let current: IConnectorView = {
+      ...NOTES,
+      caseActionTools: [],
+      caseActionRevision: 'revision-1',
+    };
+    const set = vi.fn().mockRejectedValue(new Error('The reply was lost'));
+    const fence = vi.fn().mockRejectedValue(new Error('The scope is unreadable'));
+    const reset = vi.fn(async () => {
+      current = { ...current, caseActionScopeError: false, caseActionRevision: 'revision-2' };
+      return { connector: current };
+    });
+    const decide = vi.fn(async () => ({ connector: current }));
+    const api = fakeApi([], {
+      connectors: async () => ({ callbackPath: '/connector-callback', connectors: [current] }),
+      setConnectorCaseAction: set,
+      fenceConnectorCaseActions: fence,
+      resetConnectorCaseActions: reset,
+      decideConnectorTool: decide,
+    });
+    render(<ConnectorsView api={api} />);
+    fireEvent.click(
+      await screen.findByLabelText(
+        'Allow create_note for case requests on Notes (connector-notes-1)',
+      ),
+    );
+    await waitFor(() => expect(fence).toHaveBeenCalled());
+    current = { ...current, caseActionScopeError: true, caseActionRevision: 'broken:revision' };
+    fireEvent.change(screen.getByLabelText('What create_note may do'), {
+      target: { value: 'write' },
+    });
+    const resetButton = await screen.findByRole('button', {
+      name: 'Reset case request settings for Notes (connector-notes-1)',
+    });
+    expect((resetButton as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(resetButton);
+    await waitFor(() =>
+      expect(reset).toHaveBeenCalledWith(NOTES.id, 'broken:revision', expect.any(AbortSignal)),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', {
+          name: 'Settle case request settings for Notes (connector-notes-1)',
+        }),
+      ).toBeNull(),
+    );
+  });
+
+  it('shows a slow list before starting its next poll', async () => {
     let tick!: () => void;
     vi.spyOn(globalThis, 'setInterval').mockImplementation(((
       callback: () => void,
@@ -325,14 +1028,19 @@ describe('the Connectors tab', () => {
       .mockImplementationOnce(() => first)
       .mockImplementation(() => new Promise(() => undefined));
     render(<ConnectorsView api={fakeApi([], { connectors })} />);
-    await waitFor(() => expect(connectors).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(connectors).toHaveBeenCalledTimes(1);
     act(() => tick());
-    expect(connectors).toHaveBeenCalledTimes(2);
+    expect(connectors).toHaveBeenCalledTimes(1);
     await act(async () => {
       finish({ callbackPath: '/connector-callback', connectors: [NOTES] });
       await first;
     });
     expect(await screen.findByText('Connected')).toBeTruthy();
+    act(() => tick());
+    expect(connectors).toHaveBeenCalledTimes(2);
   });
 
   it('offers an explicit reset when settings cannot be read, including while disconnected', async () => {
@@ -341,7 +1049,7 @@ describe('the Connectors tab', () => {
       status: { state: 'not-connected' },
       tools: undefined,
       caseActionTools: [],
-      caseActionRevision: 'unreadable',
+      caseActionRevision: 'broken:revision',
       caseActionScopeError: true,
     };
     const reset = vi.fn(async () => {
@@ -359,7 +1067,9 @@ describe('the Connectors tab', () => {
         name: 'Reset case request settings for Notes (connector-notes-1)',
       }),
     );
-    await waitFor(() => expect(reset).toHaveBeenCalledWith(NOTES.id, 'unreadable'));
+    await waitFor(() =>
+      expect(reset).toHaveBeenCalledWith(NOTES.id, 'broken:revision', expect.any(AbortSignal)),
+    );
     await screen.findByText('Connect this service to select writable tools.');
   });
 
@@ -890,6 +1600,11 @@ describe('what the agent should ask the person about', () => {
     const api = {
       connectors: async () => ({ callbackPath: '/connector-callback', connectors: [current] }),
       connectorPulled: async () => ({ count: 0 }),
+      fenceCaseActionRequests: async () => ({
+        fenced: [NOTES.id],
+        callbackPath: '/connector-callback',
+        connectors: [current],
+      }),
       goalAction: async () => ({}),
     } as unknown as IPersonalApi;
     render(<ConnectorsView api={api} />);

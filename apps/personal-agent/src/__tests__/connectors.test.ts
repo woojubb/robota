@@ -20,6 +20,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ConnectorBook,
+  ConnectorRefusedError,
   ConnectorSync,
   createFileConnectorStore,
 } from '@robota-sdk/agent-product/personal';
@@ -305,6 +306,10 @@ describe('using a connected service', () => {
     return { ...w, id };
   }
 
+  async function scopeRevision(w: IWorld & { id: string }): Promise<string> {
+    return (await w.call('GET', ['connectors', w.id])).body.connector.caseActionRevision;
+  }
+
   it('allows and revokes exact dot tool names through the authenticated HTTP API', async () => {
     const w = await connected([
       { name: '.', run: () => 'done' },
@@ -348,7 +353,7 @@ describe('using a connected service', () => {
     const w = await connected();
     const path = ['connectors', w.id, 'case-actions'];
     const old = (await w.call('GET', ['connectors', w.id])).body.connector.caseActionRevision;
-    const fence = await w.call('POST', path, { tool: 'create_note', allowed: false });
+    const fence = await w.call('POST', path, { fence: old });
     expect(fence.status).toBe(200);
     expect(
       (await w.call('POST', path, { tool: 'create_note', allowed: true, revision: old })).status,
@@ -367,14 +372,150 @@ describe('using a connected service', () => {
     ]);
   });
 
+  it('fences old requests when a new page opens and preserves a newer owner choice', async () => {
+    const w = await connected();
+    const path = ['connectors', w.id, 'case-actions'];
+    const beforePage = await scopeRevision(w);
+    expect((await w.call('POST', ['connectors', 'case-actions', 'fence'], {})).status).toBe(200);
+    expect(
+      (await w.call('POST', path, { tool: 'create_note', allowed: true, revision: beforePage }))
+        .status,
+    ).toBe(400);
+    const afterPage = await scopeRevision(w);
+    const enabled = await w.call('POST', path, {
+      tool: 'create_note',
+      allowed: true,
+      revision: afterPage,
+    });
+    expect(enabled.status).toBe(200);
+    const recovery = await w.call('POST', path, { fence: afterPage });
+    expect(recovery.status).toBe(200);
+    expect(recovery.body.connector.caseActionTools).toEqual(['create_note']);
+    expect(recovery.body.connector.caseActionRevision).toBe(
+      enabled.body.connector.caseActionRevision,
+    );
+  });
+
+  it('lists and revokes saved case grants without waiting for connector discovery', async () => {
+    const w = await connected();
+    const path = ['connectors', w.id, 'case-actions'];
+    const enabled = await w.call('POST', path, {
+      tool: 'create_note',
+      allowed: true,
+      revision: await scopeRevision(w),
+    });
+    expect(enabled.status).toBe(200);
+    const spy = vi
+      .spyOn(w.harness.capabilities.connectors, 'view')
+      .mockImplementation(() => new Promise(() => undefined));
+    try {
+      const open = w.call('POST', ['connectors', 'case-actions', 'fence'], {});
+      const opened = await Promise.race([
+        open,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 500)),
+      ]);
+      expect(opened).not.toBeNull();
+      const summary = opened!.body.connectors.find((item: { id: string }) => item.id === w.id);
+      expect(summary.caseActionTools).toEqual(['create_note']);
+      const inventory = await w.call('GET', ['connectors', 'case-actions', 'summary']);
+      expect(
+        inventory.body.connectors.find((item: { id: string }) => item.id === w.id),
+      ).toMatchObject({
+        caseActionTools: ['create_note'],
+        caseActionRevision: summary.caseActionRevision,
+        status: { state: 'checking' },
+      });
+      const revoke = w.call('POST', path, {
+        tool: 'create_note',
+        allowed: false,
+        revision: summary.caseActionRevision,
+      });
+      const revoked = await Promise.race([
+        revoke,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 500)),
+      ]);
+      expect(revoked).not.toBeNull();
+      expect(revoked!.body.connector.caseActionTools).toEqual([]);
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it.each(['initialize', 'fence'] as const)(
+    'does not claim a readable scope is fenced when %s fails',
+    async (failure) => {
+      const w = await connected();
+      const scope = createCaseActionScope(join(w.harness.stateDir, 'case-action-scope'));
+      vi.spyOn(scope, failure).mockRejectedValue(
+        new ConnectorRefusedError('simulated storage failure'),
+      );
+      const api = createConnectorsApi({
+        registry: w.harness.capabilities.connectors,
+        book: new ConnectorBook({
+          store: createFileConnectorStore(join(w.harness.stateDir, 'connectors')),
+        }),
+        sync: new ConnectorSync(w.harness.capabilities.goals),
+        wiki: w.harness.capabilities.wiki,
+        caseActions: scope,
+        origins: () => [],
+        catalog: {} as IConnectorCatalog,
+      });
+      const response = await api({
+        method: 'POST',
+        path: '/connectors/case-actions/fence',
+        segments: ['connectors', 'case-actions', 'fence'],
+        query: new URLSearchParams(),
+        body: {},
+      });
+      expect(response?.status).toBe(200);
+      expect(response?.body).toMatchObject({ fenced: [] });
+    },
+  );
+
+  it('never lets a recovery for an old damaged scope reset a later damaged scope', async () => {
+    const w = await connected();
+    const path = ['connectors', w.id, 'case-actions'];
+    const file = join(w.harness.stateDir, 'case-action-scope', w.id, 'scope.json');
+    writeFileSync(file, '{bad');
+    const first = await scopeRevision(w);
+    const repaired = await w.call('POST', path, { reset: true, revision: first });
+    expect(repaired.status).toBe(200);
+    const granted = await w.call('POST', path, {
+      tool: 'create_note',
+      allowed: true,
+      revision: repaired.body.connector.caseActionRevision,
+    });
+    expect(granted.status).toBe(200);
+    const lateFence = await w.call('POST', path, { fence: first });
+    expect(lateFence.body.connector.caseActionTools).toEqual(['create_note']);
+    writeFileSync(file, '{bad');
+    const second = await scopeRevision(w);
+    expect(second).not.toBe(first);
+    expect((await w.call('POST', path, { reset: true, revision: first })).status).toBe(400);
+    expect((await w.call('POST', path, { fence: first })).body.connector.caseActionRevision).toBe(
+      second,
+    );
+  });
+
   it('lets the owner allow only named writable tools for case requests', async () => {
     const w = await connected();
     const path = (tool: string) => ['connectors', w.id, 'case-actions', tool];
+    const initialRevision = await scopeRevision(w);
     expect((await w.call('GET', ['connectors', w.id])).body.connector.caseActionTools).toEqual([]);
-    expect((await w.call('POST', path('search_notes'), { allowed: true })).status).toBe(400);
-    expect((await w.call('POST', path('missing'), { allowed: true })).status).toBe(400);
+    expect(
+      (await w.call('POST', path('search_notes'), { allowed: true, revision: initialRevision }))
+        .status,
+    ).toBe(400);
+    expect(
+      (await w.call('POST', path('missing'), { allowed: true, revision: initialRevision })).status,
+    ).toBe(400);
+    expect((await w.call('POST', path('create_note'), { allowed: true })).status).toBe(400);
     expect((await w.call('POST', path('create_note'), { allowed: 'yes' })).status).toBe(400);
-    const enabled = await w.call('POST', path('create_note'), { allowed: true });
+    const enabled = await w.call('POST', path('create_note'), {
+      allowed: true,
+      revision: initialRevision,
+    });
     expect(enabled.status).toBe(200);
     expect(enabled.body.connector.caseActionTools).toEqual(['create_note']);
     expect((await w.call('GET', ['connectors'])).body.connectors[0].caseActionTools).toEqual([
@@ -384,13 +525,30 @@ describe('using a connected service', () => {
       decision: 'blocked',
     });
     expect(blocked.body.connector.caseActionTools).toEqual([]);
-    expect((await w.call('POST', path('create_note'), { allowed: true })).status).toBe(400);
+    expect(
+      (
+        await w.call('POST', path('create_note'), {
+          allowed: true,
+          revision: blocked.body.connector.caseActionRevision,
+        })
+      ).status,
+    ).toBe(400);
     await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], { decision: null });
     expect((await w.call('GET', ['connectors', w.id])).body.connector.caseActionTools).toEqual([]);
-    const disabled = await w.call('POST', path('create_note'), { allowed: false });
+    const disabled = await w.call('POST', path('create_note'), {
+      allowed: false,
+      revision: await scopeRevision(w),
+    });
     expect(disabled.status).toBe(200);
     expect(disabled.body.connector.caseActionTools).toEqual([]);
-    expect((await w.call('POST', path('create_note'), { allowed: true })).status).toBe(200);
+    expect(
+      (
+        await w.call('POST', path('create_note'), {
+          allowed: true,
+          revision: disabled.body.connector.caseActionRevision,
+        })
+      ).status,
+    ).toBe(200);
     const storedScope = join(w.harness.stateDir, 'case-action-scope', w.id);
     expect(existsSync(storedScope)).toBe(true);
     expect((await w.call('POST', ['connectors', w.id, 'remove'], {})).status).toBe(200);
@@ -401,8 +559,12 @@ describe('using a connected service', () => {
 
   it('does not restore case authority when an allow and a block arrive together', async () => {
     const w = await connected();
+    const revision = await scopeRevision(w);
     const [allowed, blocked] = await Promise.all([
-      w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], { allowed: true }),
+      w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
+        allowed: true,
+        revision,
+      }),
       w.call('POST', ['connectors', w.id, 'tools', 'create_note'], { decision: 'blocked' }),
     ]);
     expect([200, 400]).toContain(allowed.status);
@@ -469,9 +631,9 @@ describe('using a connected service', () => {
           });
         block =
           intervention === 'disable'
-            ? call('case-actions', 'create_note', { allowed: false })
+            ? call('case-actions', 'create_note', { allowed: false, revision })
             : intervention === 'reset'
-              ? call('case-actions', undefined, { reset: true })
+              ? call('case-actions', undefined, { reset: true, revision })
               : call('tools', 'create_note', { decision: 'blocked' });
         expect(((await block) as { status: number }).status).toBe(200);
         if (intervention === 'block then write') {
@@ -494,6 +656,7 @@ describe('using a connected service', () => {
     const calendar = await w.add('Calendar', 'calendar', CALENDAR_HOST);
     await w.consent((await w.connect(calendar)).authorizationUrl);
     await w.waitForState(calendar, 'connected');
+    const revision = await scopeRevision(w);
     const registry = w.harness.capabilities.connectors;
     const original = registry.view.bind(registry);
     let captured: () => void = () => undefined;
@@ -516,6 +679,7 @@ describe('using a connected service', () => {
     });
     const allow = w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
       allowed: true,
+      revision,
     });
     let block: ReturnType<IWorld['call']> | undefined;
     try {
@@ -540,6 +704,7 @@ describe('using a connected service', () => {
 
   it('rejects an allow admitted before a reset even when its connector lookup was delayed', async () => {
     const w = await connected();
+    const revision = await scopeRevision(w);
     const book = new ConnectorBook({
       store: createFileConnectorStore(join(w.harness.stateDir, 'connectors')),
     });
@@ -576,13 +741,14 @@ describe('using a connected service', () => {
       path: `/connectors/${w.id}/case-actions/create_note`,
       segments: ['connectors', w.id, 'case-actions', 'create_note'],
       query: new URLSearchParams(),
-      body: { allowed: true },
+      body: { allowed: true, revision },
     });
     const rejected = expect(allow).rejects.toThrow(/changed/u);
     try {
       await seen;
       expect(
-        (await w.call('POST', ['connectors', w.id, 'case-actions'], { reset: true })).status,
+        (await w.call('POST', ['connectors', w.id, 'case-actions'], { reset: true, revision }))
+          .status,
       ).toBe(200);
       release();
       await rejected;
@@ -604,7 +770,7 @@ describe('using a connected service', () => {
     expect(damaged.status).toBe(200);
     expect(damaged.body.connector.caseActionTools).toEqual([]);
     expect(damaged.body.connector.caseActionScopeError).toBe(true);
-    expect(damaged.body.connector.caseActionRevision).toBe('unreadable');
+    expect(damaged.body.connector.caseActionRevision).toMatch(/^broken:/u);
     const blocked = await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], {
       decision: 'blocked',
     });
@@ -616,7 +782,7 @@ describe('using a connected service', () => {
     ).toBe(400);
     const reset = await w.call('POST', ['connectors', w.id, 'case-actions'], {
       reset: true,
-      revision: 'unreadable',
+      revision: damaged.body.connector.caseActionRevision,
     });
     expect(reset.status).toBe(200);
     expect(reset.body.connector.caseActionScopeError).toBeUndefined();
@@ -625,13 +791,14 @@ describe('using a connected service', () => {
       (
         await w.call('POST', ['connectors', w.id, 'case-actions'], {
           reset: true,
-          revision: 'unreadable',
+          revision: damaged.body.connector.caseActionRevision,
         })
       ).status,
     ).toBe(400);
     expect(
-      reset.body.connector.tools.find((tool: { name: string }) => tool.name === 'create_note')
-        .access,
+      (await w.call('GET', ['connectors', w.id])).body.connector.tools.find(
+        (tool: { name: string }) => tool.name === 'create_note',
+      ).access,
     ).toBe('blocked');
   });
 
@@ -666,10 +833,12 @@ describe('using a connected service', () => {
     async () => {
       const w = await connected();
       const toolPath = ['connectors', w.id, 'tools', 'create_note'];
+      const revision = await scopeRevision(w);
       expect(
         (
           await w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
             allowed: true,
+            revision,
           })
         ).status,
       ).toBe(200);
@@ -696,9 +865,14 @@ describe('using a connected service', () => {
 
   it('clears the case scope when connector removal succeeds but sync cleanup fails', async () => {
     const w = await connected();
+    const revision = await scopeRevision(w);
     expect(
-      (await w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], { allowed: true }))
-        .status,
+      (
+        await w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
+          allowed: true,
+          revision,
+        })
+      ).status,
     ).toBe(200);
     const storedScope = join(w.harness.stateDir, 'case-action-scope', w.id);
     const failure = vi
@@ -719,10 +893,12 @@ describe('using a connected service', () => {
     'still removes a connector and revokes its credential when case scope cleanup fails',
     async () => {
       const w = await connected();
+      const revision = await scopeRevision(w);
       expect(
         (
           await w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
             allowed: true,
+            revision,
           })
         ).status,
       ).toBe(200);

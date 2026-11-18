@@ -17,13 +17,16 @@ import { basename, dirname, join } from 'node:path';
 import { ConnectorRefusedError } from '@robota-sdk/agent-product/personal';
 import Database from 'better-sqlite3';
 
-export const UNREADABLE_SCOPE_REVISION = 'unreadable';
-
 export interface ICaseActionScope {
   exclusive<T>(work: () => Promise<T>): Promise<T>;
+  /** Hold `exclusive` while using this result to authorize an action. */
   tools(connectorId: string): Promise<readonly string[]>;
   /** Read the allowed tools and their shared revision as one snapshot. */
   snapshot(connectorId: string): { readonly revision: string; readonly tools: readonly string[] };
+  /** Issue a stable recovery revision while this connector's scope is unreadable. Caller holds the lock. */
+  errorRevision(connectorId: string): string;
+  /** Fence a revision without changing a newer setting. Caller holds the lock. */
+  fence(connectorId: string, expected?: string): Promise<void>;
   /** Establish an empty scope only when none exists; caller holds the settings lock. */
   initialize(connectorId: string): Promise<void>;
   /** Captured synchronously before a request yields to another settings change. */
@@ -104,12 +107,33 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
   // The transaction holds an OS file lock even when a shared volume has different mount paths.
   const canonical = realpathSync(directory);
   const lockPath = join(dirname(canonical), `.${basename(canonical)}-connector-settings.sqlite`);
+  const recoveryDirectory = join(dirname(canonical), `.${basename(canonical)}-recovery`);
   const pathOf = (connectorId: string): string => {
     if (!CONNECTOR_ID.test(connectorId)) throw new ConnectorRefusedError('Invalid connector id');
     return join(directory, connectorId);
   };
   const validTool = (tool: unknown): tool is string =>
     typeof tool === 'string' && tool.length > 0 && tool.length <= MAX_TOOL_NAME;
+  const recoveryPath = (connectorId: string): string => {
+    pathOf(connectorId);
+    return join(recoveryDirectory, connectorId);
+  };
+  const clearRecovery = (connectorId: string): void => {
+    try {
+      rmSync(recoveryPath(connectorId), { force: true });
+    } catch {
+      throw new ConnectorRefusedError('The case action recovery setting could not be saved');
+    }
+  };
+  const hasRecovery = (connectorId: string): boolean => {
+    try {
+      statSync(recoveryPath(connectorId));
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw new ConnectorRefusedError('The case action recovery setting cannot be read');
+    }
+  };
   const read = (connectorId: string): IScopeState => {
     const path = pathOf(connectorId);
     try {
@@ -160,6 +184,71 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       }
     }
   };
+  const authorized = (connectorId: string): IScopeState => {
+    if (hasRecovery(connectorId)) {
+      throw new ConnectorRefusedError('The case action settings require recovery');
+    }
+    const current = read(connectorId);
+    if (hasRecovery(connectorId)) {
+      throw new ConnectorRefusedError('The case action settings require recovery');
+    }
+    return current;
+  };
+  const isBroken = (connectorId: string): boolean => {
+    try {
+      read(connectorId);
+      return false;
+    } catch (error) {
+      if (!(error instanceof ConnectorRefusedError)) throw error;
+      return true;
+    }
+  };
+  const errorRevision = (connectorId: string): string => {
+    if (!isBroken(connectorId)) {
+      throw new ConnectorRefusedError('Case action settings changed; try again');
+    }
+    try {
+      mkdirSync(recoveryDirectory, { recursive: true, mode: 0o700 });
+      const path = recoveryPath(connectorId);
+      try {
+        const token = readFileSync(path, 'utf8').trim();
+        if (VERSION.test(token)) return `broken:${token}`;
+      } catch {
+        /* A fresh token also invalidates any recovery that could not be read. */
+      }
+      const token = randomUUID();
+      const temporary = `${path}.${token}.tmp`;
+      try {
+        writeFileSync(temporary, `${token}\n`, { mode: 0o600 });
+        renameSync(temporary, path);
+      } finally {
+        rmSync(temporary, { force: true });
+      }
+      return `broken:${token}`;
+    } catch {
+      throw new ConnectorRefusedError('The case action recovery setting cannot be read');
+    }
+  };
+  const reset = async (connectorId: string, expected?: string): Promise<void> => {
+    if (expected?.startsWith('broken:') === true) {
+      if (errorRevision(connectorId) !== expected) {
+        throw new ConnectorRefusedError('Case action settings changed; try again');
+      }
+    } else if (expected !== undefined && authorized(connectorId).revision !== expected) {
+      throw new ConnectorRefusedError('Case action settings changed; try again');
+    }
+    write(connectorId, { revision: randomUUID(), tools: [] });
+    // Keep authority closed by the marker until the replacement is durable.
+    clearRecovery(connectorId);
+    const path = pathOf(connectorId);
+    try {
+      for (const file of readdirSync(path)) {
+        if (file !== 'scope.json') rmSync(join(path, file), { recursive: true, force: true });
+      }
+    } catch {
+      throw new ConnectorRefusedError('The case action settings could not be reset');
+    }
+  };
   return {
     exclusive: async (work) => {
       let held: ILockDatabase | undefined;
@@ -192,16 +281,40 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
         }
       }
     },
-    tools: async (connectorId) => read(connectorId).tools,
-    snapshot: (connectorId) => read(connectorId),
+    tools: async (connectorId) => authorized(connectorId).tools,
+    snapshot: (connectorId) => authorized(connectorId),
+    errorRevision,
+    fence: async (connectorId, expected) => {
+      if (expected?.startsWith('broken:') === true) {
+        if (isBroken(connectorId) && errorRevision(connectorId) === expected) {
+          await reset(connectorId, expected);
+        }
+        return;
+      }
+      const current = read(connectorId);
+      if (hasRecovery(connectorId)) {
+        write(connectorId, { ...current, revision: randomUUID() });
+        clearRecovery(connectorId);
+        return;
+      }
+      if (current.revision === '0' || (expected !== undefined && expected !== current.revision))
+        return;
+      clearRecovery(connectorId);
+      write(connectorId, { ...current, revision: randomUUID() });
+    },
     initialize: async (connectorId) => {
-      if (read(connectorId).revision === '0') {
+      const current = read(connectorId);
+      if (current.revision === '0') {
         write(connectorId, { revision: randomUUID(), tools: [] });
+        clearRecovery(connectorId);
+      } else if (hasRecovery(connectorId)) {
+        write(connectorId, { ...current, revision: randomUUID() });
+        clearRecovery(connectorId);
       }
     },
     version: (connectorId, tool) => {
       if (!validTool(tool)) throw new ConnectorRefusedError('Invalid tool name');
-      const current = read(connectorId);
+      const current = authorized(connectorId);
       if (current.revision === '0') {
         throw new ConnectorRefusedError('Open the connector settings before allowing case actions');
       }
@@ -209,7 +322,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
     },
     set: async (connectorId, tool, allowed, expected) => {
       if (!validTool(tool)) throw new ConnectorRefusedError('Invalid tool name');
-      const current = read(connectorId);
+      const current = authorized(connectorId);
       if (allowed && current.revision === '0') {
         throw new ConnectorRefusedError('Open the connector settings before allowing case actions');
       }
@@ -226,34 +339,12 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       write(connectorId, next);
       return allowed ? next.revision : undefined;
     },
-    reset: async (connectorId, expected) => {
-      if (expected === UNREADABLE_SCOPE_REVISION) {
-        let readable = true;
-        try {
-          read(connectorId);
-        } catch (error) {
-          if (!(error instanceof ConnectorRefusedError)) throw error;
-          readable = false;
-        }
-        if (readable) throw new ConnectorRefusedError('Case action settings changed; try again');
-      } else if (expected !== undefined && read(connectorId).revision !== expected) {
-        throw new ConnectorRefusedError('Case action settings changed; try again');
-      }
-      // Replace the whole authority in one rename. A failed write leaves the old file intact.
-      write(connectorId, { revision: randomUUID(), tools: [] });
-      const path = pathOf(connectorId);
-      try {
-        for (const file of readdirSync(path)) {
-          if (file !== 'scope.json') rmSync(join(path, file), { recursive: true, force: true });
-        }
-      } catch {
-        throw new ConnectorRefusedError('The case action settings could not be reset');
-      }
-    },
+    reset,
     clear: async (connectorId) => {
       try {
         if (!statSync(directory).isDirectory()) throw new Error('not a directory');
         rmSync(pathOf(connectorId), { recursive: true, force: true });
+        clearRecovery(connectorId);
       } catch {
         throw new ConnectorRefusedError('The case action settings could not be cleared');
       }

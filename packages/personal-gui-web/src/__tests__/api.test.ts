@@ -52,7 +52,8 @@ describe('personal API client', () => {
     await api.setConnectorCaseAction('service/a', 'send/message', true, 'revision-1');
     await api.setConnectorCaseAction('service/a', 'send/message', false, 'revision-2');
     await api.resetConnectorCaseActions('service/a', 'revision-3');
-    await api.setConnectorCaseAction('service/a', 'send/message', false);
+    await api.fenceConnectorCaseActions('service/a', 'revision-3');
+    await api.fenceCaseActionRequests();
     expect(calls.map((call) => [call.init?.method, call.url, call.init?.body])).toEqual([
       [
         'POST',
@@ -69,11 +70,8 @@ describe('personal API client', () => {
         'api/connectors/service%2Fa/case-actions',
         JSON.stringify({ reset: true, revision: 'revision-3' }),
       ],
-      [
-        'POST',
-        'api/connectors/service%2Fa/case-actions',
-        JSON.stringify({ tool: 'send/message', allowed: false }),
-      ],
+      ['POST', 'api/connectors/service%2Fa/case-actions', JSON.stringify({ fence: 'revision-3' })],
+      ['POST', 'api/connectors/case-actions/fence', JSON.stringify({})],
     ]);
     for (const call of calls)
       expect(call.init?.headers).toEqual({
