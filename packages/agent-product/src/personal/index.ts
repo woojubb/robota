@@ -196,6 +196,7 @@ export {
   CONNECTOR_INSTRUCTIONS,
   CONNECTOR_TOOL_NAMES,
   createConnectorTools,
+  parseConnectorArguments,
 } from './connectors/tools.js';
 export {
   connectorReference,

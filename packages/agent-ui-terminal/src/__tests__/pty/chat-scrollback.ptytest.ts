@@ -36,6 +36,8 @@ import type { IPtySession } from './pty-driver.js';
  * loaded runner is where it does not. The colon appears only in the committed block.
  */
 const COMMITTED_HELP_HEADING = /Available commands:/;
+const HELP_THEN_PROMPT = new RegExp(`${COMMITTED_HELP_HEADING.source}[\\s\\S]*Type a message`);
+const HELP_THEN_IDLE = new RegExp(`${COMMITTED_HELP_HEADING.source}[\\s\\S]*Idle`);
 
 /** Wait budgets: one `waitFor`, and a whole case, on a loaded CI runner. */
 const PROMPT_WAIT_MS = 30_000;
@@ -67,9 +69,11 @@ describe('chat-window scrollback layout (real binary)', () => {
       await session.waitFor(/Idle/);
 
       // /help commits a long command list (> 16 rows) to history → Ink <Static> → scrollback.
+      const beforeHelp = session.outputOffset();
       await session.sendKeys('/help');
       await session.pressEnter();
-      await session.waitFor(COMMITTED_HELP_HEADING, COMMANDS_WAIT_MS);
+      await session.waitForSince(beforeHelp, HELP_THEN_PROMPT, COMMANDS_WAIT_MS);
+      await session.waitForSince(beforeHelp, HELP_THEN_IDLE, COMMANDS_WAIT_MS);
 
       const snap = session.snapshot();
 
@@ -102,16 +106,17 @@ describe('chat-window scrollback layout (real binary)', () => {
 
       await session.waitFor(/Type a message or \/help/, PROMPT_WAIT_MS);
 
+      const beforeHelp = session.outputOffset();
       await session.sendKeys('/help');
       await session.pressEnter();
-      await session.waitFor(/Available commands|\/exit/i, COMMANDS_WAIT_MS);
+      await session.waitForSince(beforeHelp, HELP_THEN_PROMPT, COMMANDS_WAIT_MS);
 
       // No alternate-screen switch at ANY point in the run — the mode must not buy a tidy frame at
       // the price of the terminal's own scrollback.
       expect(session.raw()).not.toContain('\x1b[?1049h');
 
-      const snap = session.snapshot();
-      const committedIdx = snap.search(/Available commands|\/exit/i);
+      const snap = session.snapshotSince(beforeHelp);
+      const committedIdx = snap.search(COMMITTED_HELP_HEADING);
       expect(committedIdx).toBeGreaterThanOrEqual(0);
 
       // The input stays pinned below the committed history — asserted without the banner or `Idle`,

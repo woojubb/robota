@@ -2,7 +2,8 @@ import { GoalBook, createMemoryGoalStore } from '@robota-sdk/agent-product/perso
 import { describe, expect, it } from 'vitest';
 
 import { createApprovalRegistry } from '../approvals.js';
-import { createGoalRunner } from '../goal-runner.js';
+import { createChannelTurns } from '../channel-turns.js';
+import { createGoalRunner, describeCall } from '../goal-runner.js';
 
 import type { TRunSession } from '../goal-runner.js';
 
@@ -12,7 +13,12 @@ type THandler = (event: never) => void;
  * A session that raises one permission prompt when it runs, then waits until that prompt is settled
  * (answered, refused by a backstop, or aborted) before it ends its turn, as a real session does.
  */
-function promptingSession() {
+function promptingSession(
+  request: { toolName: string; toolArgs: Record<string, unknown> } = {
+    toolName: 'BrowserSubmit',
+    toolArgs: { method: 'POST', url: 'https://shop.example/buy' },
+  },
+) {
   const handlers = new Map<string, Set<THandler>>();
   const emit = (event: string, payload: unknown): void => {
     for (const handler of handlers.get(event) ?? []) (handler as (value: unknown) => void)(payload);
@@ -34,8 +40,7 @@ function promptingSession() {
       queueMicrotask(() =>
         emit('permission_request', {
           id: 'prompt-1',
-          toolName: 'BrowserSubmit',
-          toolArgs: { method: 'POST', url: 'https://shop.example/buy' },
+          ...request,
         }),
       );
       return {
@@ -49,6 +54,235 @@ function promptingSession() {
   };
   return { session: session as unknown as TRunSession, backstop: () => resolve(false) };
 }
+
+async function firstFeedItem(book: GoalBook) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const item = (await book.feed()).find(
+      (entry) => entry.kind === 'notice' || entry.kind === 'approval',
+    );
+    if (item !== undefined) return item;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('no feed item');
+}
+
+describe('connector action approvals', () => {
+  const oversized = {
+    toolName: 'ConnectorAct',
+    toolArgs: {
+      connector: 'mail',
+      tool: 'send',
+      argumentsJson: JSON.stringify({ body: 'x'.repeat(400), to: 'recipient@example.invalid' }),
+    },
+  };
+
+  it('shows the complete short call even if an extra URL is present', () => {
+    const detail = describeCall('ConnectorAct', {
+      connector: 'mail',
+      tool: 'send',
+      argumentsJson: '{"to":"recipient@example.invalid"}',
+      url: 'https://misleading.example',
+    });
+    expect(detail).toContain('recipient@example.invalid');
+    expect(detail).toContain('ConnectorAct');
+    expect(describeCall('ConnectorAct', { text: 'before\u202eafter' })).not.toContain('\u202e');
+  });
+
+  it('shows the effective connector arguments after JSON escapes are decoded', () => {
+    const recipient = 'recipient@example.invalid';
+    const escaped = [...recipient]
+      .map((char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`)
+      .join('');
+    const detail = describeCall('ConnectorAct', {
+      connector: 'mail',
+      tool: 'send',
+      argumentsJson: `{"to":"${escaped}","body":"before\\u202eafter"}`,
+    });
+    expect(detail).toContain(recipient);
+    expect(detail).not.toContain('\u202e');
+    expect(detail).toContain('202e');
+    expect(describeCall('ConnectorAct', { argumentsJson: '[]' })).toBeUndefined();
+    expect(describeCall('ConnectorAct', { argumentsJson: '{bad json' })).toBeUndefined();
+  });
+
+  it('refuses an effective call that exceeds the display limit after invisible characters are made explicit', () => {
+    expect(
+      describeCall('ConnectorAct', {
+        connector: 'mail',
+        tool: 'send',
+        argumentsJson: JSON.stringify({ body: '\u202e'.repeat(35) }),
+      }),
+    ).toBeUndefined();
+  });
+
+  it('shows a complete connector action and waits for the person to approve it', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession({
+      toolName: 'ConnectorAct',
+      toolArgs: {
+        connector: 'mail',
+        tool: 'send',
+        argumentsJson: '{"to":"recipient@example.invalid"}',
+      },
+    });
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    const goal = await book.create({ title: 'Send', instructions: 'Send a message' });
+    try {
+      await runner.runDue();
+      const approval = await pendingApproval(book);
+      expect(approval.approval?.detail).toContain('recipient@example.invalid');
+      expect(approval.approval?.detail).toContain('"connector":"mail"');
+      await runner.answer(approval.id, true);
+      await runner.settled();
+      expect((await book.runs(goal.id))[0]?.report).toBe('Bought.');
+    } finally {
+      await runner.stop();
+    }
+  });
+
+  it('refuses a goal action whose complete details cannot be shown', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession(oversized);
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    const goal = await book.create({ title: 'Send', instructions: 'Send a message' });
+    try {
+      await runner.runDue();
+      const item = await firstFeedItem(book);
+      expect(item.kind).toBe('notice');
+      expect(item.body).toMatch(/too long|cannot be shown/u);
+      await runner.settled();
+      expect((await book.runs(goal.id))[0]?.report).toBe('Not bought.');
+      expect((await book.runs(goal.id))[0]?.actions).toContainEqual(
+        expect.objectContaining({ outcome: 'denied' }),
+      );
+      expect((await book.feed()).some((entry) => entry.approval?.state === 'pending')).toBe(false);
+    } finally {
+      await runner.stop();
+    }
+  });
+
+  it('refuses a channel action whose complete details cannot be shown', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession(oversized);
+    const channel = createChannelTurns({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    try {
+      const turn = channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Send it');
+      const item = await firstFeedItem(book);
+      expect(item.kind).toBe('notice');
+      expect(item.body).toMatch(/too long|cannot be shown/u);
+      await expect(turn).resolves.toBe('Not bought.');
+      expect((await book.feed()).some((entry) => entry.approval?.state === 'pending')).toBe(false);
+    } finally {
+      await channel.stop();
+    }
+  });
+
+  it('waits for a refused channel action notice before shutdown completes', async () => {
+    const store = createMemoryGoalStore();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let entered: () => void = () => undefined;
+    const writing = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const book = new GoalBook({
+      store: {
+        ...store,
+        putFeedItem: async (item) => {
+          entered();
+          await gate;
+          await store.putFeedItem(item);
+        },
+      },
+    });
+    const stub = promptingSession(oversized);
+    const channel = createChannelTurns({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    try {
+      await expect(
+        channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Send it'),
+      ).resolves.toBe('Not bought.');
+      await writing;
+      let stopped = false;
+      const stopping = channel.stop().then(() => {
+        stopped = true;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(stopped).toBe(false);
+      release();
+      await stopping;
+      expect((await book.feed()).some((item) => item.kind === 'notice')).toBe(true);
+    } finally {
+      release();
+      await channel.stop();
+    }
+  });
+
+  it('does not start a channel turn after shutdown begins', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession(oversized);
+    let opened = 0;
+    const channel = createChannelTurns({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => {
+        opened += 1;
+        return stub.session;
+      },
+    });
+    const stopping = channel.stop();
+    await expect(
+      channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Send it'),
+    ).rejects.toThrow(/stopp/iu);
+    await stopping;
+    expect(opened).toBe(0);
+    expect(await book.feed()).toEqual([]);
+  });
+
+  it('does not start a queued channel turn after shutdown begins', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession();
+    let submitted = 0;
+    const channel = createChannelTurns({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => ({
+        ...stub.session,
+        submit: async (...args) => {
+          submitted += 1;
+          return stub.session.submit(...args);
+        },
+      }),
+    });
+    const key = { channel: 'test', conversationId: 'owner' };
+    const first = channel.runTurn(key, 'First');
+    await pendingApproval(book);
+    const second = channel.runTurn(key, 'Second');
+    const rejected = expect(second).rejects.toThrow(/stopp/iu);
+    const stopping = channel.stop();
+    await first;
+    await rejected;
+    await stopping;
+    expect(submitted).toBe(1);
+  });
+});
 
 async function pendingApproval(book: GoalBook) {
   for (let attempt = 0; attempt < 50; attempt += 1) {

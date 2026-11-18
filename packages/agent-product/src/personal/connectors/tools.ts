@@ -70,7 +70,7 @@ const MAX_ARGUMENT_TEXT = 100_000;
  * The arguments of a remote tool arrive as JSON text: a tool's own input is whatever its service
  * declared, and the schema a model is offered carries only what every provider can enforce.
  */
-function parseArguments(text: string | undefined): Record<string, unknown> {
+export function parseConnectorArguments(text: string | undefined): Record<string, unknown> {
   if (text === undefined || text.trim() === '') return {};
   if (text.length > MAX_ARGUMENT_TEXT) throw new ConnectorRefusedError('argumentsJson is too long');
   let value: unknown;
@@ -137,7 +137,7 @@ export function createConnectorTools(registry: ConnectorRegistry): FunctionTool[
           const result = await registry.read(
             connector,
             tool,
-            parseArguments(argumentsJson),
+            parseConnectorArguments(argumentsJson),
             context?.signal,
           );
           return render(view.connector.title, tool, result);
@@ -153,7 +153,7 @@ export function createConnectorTools(registry: ConnectorRegistry): FunctionTool[
           const result = await registry.act(
             connector,
             tool,
-            parseArguments(argumentsJson),
+            parseConnectorArguments(argumentsJson),
             context?.signal,
           );
           return render(view.connector.title, tool, result);
