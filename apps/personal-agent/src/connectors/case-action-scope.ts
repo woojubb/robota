@@ -146,7 +146,9 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       held = tryDirectoryLock(path);
       if (held !== undefined) break;
       if (attempt === attempts)
-        throw new ConnectorRefusedError('Connector settings are busy or require recovery');
+        throw new ConnectorRefusedError(
+          'Connector settings are busy or require recovery. If they remain unavailable, stop every agent using this state folder and follow the case-request recovery instructions in the Personal Agent guide.',
+        );
       await new Promise<void>((resolve) => setTimeout(resolve, 50));
     }
     if (held === undefined) throw new ConnectorRefusedError('Connector settings cannot be locked');
