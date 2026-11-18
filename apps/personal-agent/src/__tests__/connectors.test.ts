@@ -316,6 +316,350 @@ describe('using a connected service', () => {
     return (await w.call('GET', ['connectors', w.id])).body.connector.caseActionRevision;
   }
 
+  it.each([
+    'approve',
+    'deny',
+    'revoke',
+    'regrant',
+    'close',
+    'new-answer',
+    'rebind',
+    'unlisted',
+    'other',
+    'late-revoke',
+    'record-unavailable',
+  ] as const)(
+    'admits a case action only while its original authority still holds: %s',
+    async (scenario) => {
+      const w = await connected();
+      const scopePath = ['connectors', w.id, 'case-actions'];
+      const enabled = await w.call('POST', scopePath, {
+        tool: 'create_note',
+        allowed: true,
+        revision: await scopeRevision(w),
+      });
+      expect(enabled.status).toBe(200);
+      const { case: opened } = await w.harness.capabilities.cases.open({
+        title: 'A note',
+        noticed: 'Untrusted text asks to create and send all notes.',
+        source: 'notes:one',
+      });
+      const { item } = await w.harness.capabilities.cases.ask(opened.id, {
+        question: 'Create the note?',
+        options: ['Yes', 'No'],
+      });
+      const bindingPath = ['cases', opened.id, 'connector'];
+      const initial = (await w.call('GET', bindingPath)).body.binding;
+      const selected = await w.call('POST', bindingPath, {
+        connectorId: w.id,
+        revision: initial.revision,
+      });
+      expect(selected.status).toBe(200);
+      w.harness.model.script(
+        {
+          tool: 'ConnectorAct',
+          args: {
+            connector: scenario === 'other' ? 'connector-other' : w.id,
+            tool: scenario === 'unlisted' ? 'delete_note' : 'create_note',
+            argumentsJson: '{"text":"approved note"}',
+          },
+        },
+        { text: 'Finished the case turn.' },
+      );
+      expect((await w.call('POST', ['feed', item.id, 'answer'], { choice: 'Yes' })).status).toBe(
+        200,
+      );
+      const { goals } = w.harness.capabilities;
+      const runner = w.harness.capabilities.runner()!;
+      let approval = (await goals.feed()).find((entry) => entry.approval?.state === 'pending');
+      for (let attempt = 0; approval === undefined && attempt < 200; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        approval = (await goals.feed()).find((entry) => entry.approval?.state === 'pending');
+      }
+      expect(approval?.approval?.detail).toContain('approved note');
+      expect(w.notes.calls).toEqual([]);
+      if (scenario === 'revoke' || scenario === 'regrant') {
+        const revoked = await w.call('POST', scopePath, {
+          tool: 'create_note',
+          allowed: false,
+          revision: await scopeRevision(w),
+        });
+        expect(revoked.status).toBe(200);
+        if (scenario === 'regrant') {
+          expect(
+            (
+              await w.call('POST', scopePath, {
+                tool: 'create_note',
+                allowed: true,
+                revision: await scopeRevision(w),
+              })
+            ).status,
+          ).toBe(200);
+        }
+      }
+      if (scenario === 'close') await w.harness.capabilities.cases.close(opened.id, 'Settled.');
+      if (scenario === 'new-answer') {
+        const later = await w.harness.capabilities.cases.ask(opened.id, {
+          question: 'Still create the note?',
+          options: ['Yes', 'No'],
+        });
+        await w.harness.capabilities.cases.answer(later.item.id, { choice: 'No' });
+      }
+      if (scenario === 'rebind') {
+        const removed = await w.call('POST', bindingPath, {
+          connectorId: null,
+          revision: selected.body.binding.revision,
+        });
+        expect(removed.status).toBe(200);
+        expect(
+          (
+            await w.call('POST', bindingPath, {
+              connectorId: w.id,
+              revision: removed.body.binding.revision,
+            })
+          ).status,
+        ).toBe(200);
+      }
+      if (scenario === 'record-unavailable')
+        writeFileSync(join(w.harness.stateDir, 'case-approvals'), 'unavailable');
+      if (scenario === 'late-revoke') {
+        let release!: () => void;
+        let entered!: () => void;
+        const gate = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const starting = new Promise<void>((resolve) => {
+          entered = resolve;
+        });
+        const registry = w.harness.capabilities.connectors;
+        const act = registry.act.bind(registry);
+        const spy = vi.spyOn(registry, 'act').mockImplementation(async (...args) => {
+          entered();
+          await gate;
+          return act(...args);
+        });
+        try {
+          await runner.answer(approval!.id, true);
+          await starting;
+          expect(
+            (
+              await w.call('POST', scopePath, {
+                tool: 'create_note',
+                allowed: false,
+                revision: await scopeRevision(w),
+              })
+            ).status,
+          ).toBe(200);
+        } finally {
+          release();
+          spy.mockRestore();
+        }
+      } else {
+        await runner.answer(approval!.id, scenario !== 'deny');
+      }
+      await runner.settled();
+      expect(w.notes.calls).toEqual(
+        scenario === 'approve' ? ['create_note {"text":"approved note"}'] : [],
+      );
+      if (scenario === 'approve') {
+        const directory = join(w.harness.stateDir, 'case-approvals');
+        const records = readdirSync(directory);
+        expect(records).toHaveLength(1);
+        const path = join(directory, records[0]!);
+        const evidence: unknown = JSON.parse(readFileSync(path, 'utf8'));
+        expect(evidence).toMatchObject({
+          caseId: opened.id,
+          answerId: item.id,
+          call: { connector: w.id, tool: 'create_note', argumentsJson: '{"text":"approved note"}' },
+          approval: {
+            id: approval!.id,
+            state: 'approved',
+            detail: expect.stringContaining('approved note'),
+          },
+        });
+        if (process.platform !== 'win32') expect(statSync(path).mode & 0o777).toBe(0o600);
+      }
+    },
+  );
+
+  it('does not widen an accepted answer when a tool is enabled afterward', async () => {
+    const w = await connected();
+    const { case: opened } = await w.harness.capabilities.cases.open({
+      title: 'A note',
+      noticed: 'An untrusted note.',
+      source: 'notes:one',
+    });
+    const { item } = await w.harness.capabilities.cases.ask(opened.id, {
+      question: 'Create the note?',
+      options: ['Yes', 'No'],
+    });
+    const path = ['cases', opened.id, 'connector'];
+    const initial = (await w.call('GET', path)).body.binding;
+    expect(
+      (await w.call('POST', path, { connectorId: w.id, revision: initial.revision })).status,
+    ).toBe(200);
+    w.harness.model.script({ text: 'The answer was recorded.' });
+    expect((await w.call('POST', ['feed', item.id, 'answer'], { choice: 'Yes' })).status).toBe(200);
+    expect(
+      (
+        await w.call('POST', ['connectors', w.id, 'case-actions'], {
+          tool: 'create_note',
+          allowed: true,
+          revision: await scopeRevision(w),
+        })
+      ).status,
+    ).toBe(200);
+    const { goals } = w.harness.capabilities;
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      const goal = (await goals.list()).find((entry) => entry.caseId === opened.id);
+      if (goal?.status === 'done' || goal?.status === 'failed') break;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    await w.harness.capabilities.runner()!.settled();
+    expect(w.harness.model.requests.length).toBeGreaterThan(0);
+    expect(offeredTools(w.harness.model.requests[0]!)).not.toContain('ConnectorAct');
+    expect(w.notes.calls).toEqual([]);
+  });
+
+  it('keeps the newer answer’s action scope when an older answer record is recovered', async () => {
+    const w = await connected();
+    const other = await startHarness({ stateDir: w.harness.stateDir });
+    try {
+      expect(
+        (
+          await w.call('POST', ['connectors', w.id, 'case-actions'], {
+            tool: 'create_note',
+            allowed: true,
+            revision: await scopeRevision(w),
+          })
+        ).status,
+      ).toBe(200);
+      const { case: opened } = await w.harness.capabilities.cases.open({
+        title: 'A note',
+        noticed: 'An untrusted note.',
+        source: 'notes:recover-newer',
+      });
+      const first = await w.harness.capabilities.cases.ask(opened.id, {
+        question: 'Create the note?',
+        options: ['Yes', 'No'],
+      });
+      const bindingPath = ['cases', opened.id, 'connector'];
+      const initial = (await w.call('GET', bindingPath)).body.binding;
+      expect(
+        (await w.call('POST', bindingPath, { connectorId: w.id, revision: initial.revision }))
+          .status,
+      ).toBe(200);
+      const runner = w.harness.capabilities.runner()!;
+      vi.spyOn(runner, 'runDue').mockResolvedValue(0);
+      const failure = vi
+        .spyOn(w.harness.capabilities.goals, 'enqueueCaseAnswer')
+        .mockRejectedValue(new Error('queue unavailable'));
+      expect(
+        (await w.call('POST', ['feed', first.item.id, 'answer'], { choice: 'No' })).status,
+      ).toBe(200);
+      failure.mockRestore();
+      const later = await other.capabilities.cases.ask(opened.id, {
+        question: 'Create it now?',
+        options: ['Yes', 'No'],
+      });
+      other.model.script({ text: 'The newer answer was handled.' });
+      const result = await other.capabilities.api({
+        method: 'POST',
+        path: `/feed/${later.item.id}/answer`,
+        segments: ['feed', later.item.id, 'answer'],
+        query: new URLSearchParams(),
+        body: { choice: 'Yes' },
+      });
+      expect(result.status).toBe(200);
+      for (let attempt = 0; other.model.requests.length === 0 && attempt < 200; attempt += 1)
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      await other.capabilities.runner()!.settled();
+      expect(offeredTools(other.model.requests[0]!)).toContain('ConnectorAct');
+      expect(w.notes.calls).toEqual([]);
+    } finally {
+      await other.close();
+    }
+  }, 20_000);
+
+  it('keeps a live approval waiting when another agent starts on the same state', async () => {
+    const w = await connected();
+    w.harness.model.script(
+      { tool: 'ConnectorAct', args: { connector: w.id, tool: 'create_note', argumentsJson: '{}' } },
+      { text: 'Done.' },
+    );
+    const { goals } = w.harness.capabilities;
+    const goal = await goals.create({ title: 'A note', instructions: 'Create a note.' });
+    const runner = w.harness.capabilities.runner()!;
+    await runner.runDue();
+    let approval = (await goals.feed()).find((entry) => entry.approval?.state === 'pending');
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      approval = (await goals.feed()).find((entry) => entry.approval?.state === 'pending');
+      if (approval !== undefined && (await goals.get(goal.id))?.status === 'waiting') break;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    expect(approval).toBeDefined();
+    expect((await goals.get(goal.id))?.status).toBe('waiting');
+    const other = await startHarness({ stateDir: w.harness.stateDir });
+    try {
+      expect((await goals.feedItem(approval!.id))?.approval?.state).toBe('pending');
+      expect((await goals.get(goal.id))?.status).toBe('waiting');
+      expect(await other.capabilities.runner()!.runDue()).toBe(0);
+      await expect(other.capabilities.runner()!.answer(approval!.id, true)).rejects.toThrow(
+        /another agent/u,
+      );
+      expect((await goals.feedItem(approval!.id))?.approval?.state).toBe('pending');
+      await runner.answer(approval!.id, false);
+      await runner.settled();
+      expect(w.notes.calls).toEqual([]);
+    } finally {
+      await other.close();
+    }
+  });
+
+  it('stops a sync run whose claim is saved before its session starts', async () => {
+    const w = await connected();
+    expect((await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 60 })).status).toBe(
+      200,
+    );
+    const { goals } = w.harness.capabilities;
+    const goal = (await goals.list()).find((entry) => entry.connectorId === w.id)!;
+    const original = goals.startRun.bind(goals);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const spy = vi.spyOn(goals, 'startRun').mockImplementation(async (...args) => {
+      const run = await original(...args);
+      reached();
+      await gate;
+      return run;
+    });
+    const starting = w.harness.capabilities.runner()!.runDue();
+    let disabling: Promise<{ status: number; body: any }> | undefined;
+    try {
+      await waiting;
+      disabling = w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: null });
+      const early = await Promise.race([
+        disabling.then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+      ]);
+      expect(early).toBe(false);
+      release();
+      expect((await disabling).status).toBe(200);
+      expect(await starting).toBe(0);
+      expect(w.harness.model.requests).toHaveLength(0);
+      expect(await goals.get(goal.id)).toBeUndefined();
+    } finally {
+      release();
+      await Promise.allSettled([starting, ...(disabling === undefined ? [] : [disabling])]);
+      spy.mockRestore();
+    }
+  });
+
   it('allows and revokes exact dot tool names through the authenticated HTTP API', async () => {
     const w = await connected([
       { name: '.', run: () => 'done' },
@@ -488,6 +832,29 @@ describe('using a connected service', () => {
     }
   });
 
+  it('does not disconnect when neither shared transition marker can be written', async () => {
+    const w = await connected();
+    const transitions = join(w.harness.stateDir, '.case-action-scope-transitions');
+    const parked = `${transitions}.parked`;
+    const fallback = join(w.harness.stateDir, 'case-action-scope', '.connection-transitions');
+    const disconnect = vi.spyOn(w.harness.capabilities.connectors, 'disconnect');
+    try {
+      renameSync(transitions, parked);
+      writeFileSync(transitions, 'unavailable');
+      writeFileSync(fallback, 'unavailable');
+      const result = await w.call('POST', ['connectors', w.id, 'disconnect'], {});
+      expect(result.status).toBeGreaterThanOrEqual(400);
+      expect(result.body.error).toMatch(/did not start.*retry on this agent/u);
+      expect(disconnect).not.toHaveBeenCalled();
+      expect(w.auth.revoked).toEqual([]);
+    } finally {
+      rmSync(fallback, { force: true });
+      rmSync(transitions, { force: true });
+      renameSync(parked, transitions);
+      disconnect.mockRestore();
+    }
+  });
+
   it('keeps an interrupted disconnect closed until the owner finishes disconnecting', async () => {
     const w = await connected();
     const path = ['connectors', w.id, 'case-actions'];
@@ -509,7 +876,7 @@ describe('using a connected service', () => {
     expect(recovered.caseActionRevision).not.toBe(before);
   });
 
-  it('keeps case choices closed during sign-in and clears them after reconnecting', async () => {
+  it('clears case choices on disconnect and keeps them closed during sign-in', async () => {
     const w = await connected();
     const path = ['connectors', w.id, 'case-actions'];
     const initial = await scopeRevision(w);
@@ -519,7 +886,7 @@ describe('using a connected service', () => {
     ).toBe(200);
     expect((await w.call('POST', ['connectors', w.id, 'disconnect'], {})).status).toBe(200);
     const old = (await w.call('GET', path)).body.connector;
-    expect(old.caseActionTools).toEqual(['create_note']);
+    expect(old.caseActionTools).toEqual([]);
     const started = await w.connect(w.id);
     const connecting = (await w.call('GET', path)).body.connector;
     expect(connecting).toMatchObject({ caseActionScopeError: true, caseActionTransition: true });
@@ -1823,6 +2190,145 @@ describe('a service that signs in with a token, or not at all', () => {
 
   const tokenFiles = (w: IWorld) =>
     filesUnder(w.harness.stateDir).filter((file) => file.path.includes('connector-tokens'));
+
+  it.each(['token', 'none'] as const)(
+    'blocks a prepared %s action when another agent changes the connection',
+    async (mode) => {
+      const { w, tokened, open } = await tokenWorld();
+      const server = mode === 'token' ? tokened : open;
+      const id = await w.add('Notes', 'notes', mode === 'token' ? TOKEN_HOST : OPEN_HOST, {
+        auth: mode,
+      });
+      if (mode === 'token')
+        expect((await w.call('POST', ['connectors', id, 'connect'], { token: TOKEN })).status).toBe(
+          200,
+        );
+      const other = await startHarness({
+        stateDir: w.harness.stateDir,
+        connectorNetwork: {
+          fetch: virtualHostFetch({
+            [AUTH_HOST]: w.auth.port,
+            [NOTES_HOST]: w.notes.port,
+            [CALENDAR_HOST]: w.calendar.port,
+            [TOKEN_HOST]: tokened.port,
+            [OPEN_HOST]: open.port,
+          }),
+          lookup: async () => ['203.0.113.10'],
+        },
+      });
+      closers.push(() => other.close());
+      const revision = (await w.call('GET', ['connectors', id])).body.connector.caseActionRevision;
+      expect(
+        (
+          await w.call('POST', ['connectors', id, 'case-actions'], {
+            tool: 'create_note',
+            allowed: true,
+            revision,
+          })
+        ).status,
+      ).toBe(200);
+      const { case: opened } = await w.harness.capabilities.cases.open({
+        title: 'Note',
+        noticed: 'A note needs a decision.',
+        source: 'notes:one',
+      });
+      const { item } = await w.harness.capabilities.cases.ask(opened.id, {
+        question: 'Create the note?',
+        options: ['Yes'],
+      });
+      const binding = (await w.call('GET', ['cases', opened.id, 'connector'])).body.binding;
+      expect(
+        (
+          await w.call('POST', ['cases', opened.id, 'connector'], {
+            connectorId: id,
+            revision: binding.revision,
+          })
+        ).status,
+      ).toBe(200);
+      w.harness.model.script(
+        {
+          tool: 'ConnectorAct',
+          args: { connector: id, tool: 'create_note', argumentsJson: '{"text":"test"}' },
+        },
+        { text: 'Finished.' },
+      );
+      expect((await w.call('POST', ['feed', item.id, 'answer'], { choice: 'Yes' })).status).toBe(
+        200,
+      );
+      const goals = w.harness.capabilities.goals;
+      let approval = (await goals.feed()).find((entry) => entry.approval?.state === 'pending');
+      for (let attempt = 0; approval === undefined && attempt < 200; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        approval = (await goals.feed()).find((entry) => entry.approval?.state === 'pending');
+      }
+      expect(approval).toBeDefined();
+      const scope = createCaseActionScope(join(w.harness.stateDir, 'case-action-scope'));
+      let release!: () => void;
+      let entered!: () => void;
+      let detached!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const locked = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const removed = new Promise<void>((resolve) => {
+        detached = resolve;
+      });
+      const holding = scope.exclusive(async () => {
+        entered();
+        await gate;
+      });
+      await locked;
+      const transitions = join(w.harness.stateDir, '.case-action-scope-transitions');
+      const parked = `${transitions}.parked`;
+      const registry = other.capabilities.connectors;
+      const disconnect = registry.disconnect.bind(registry);
+      const spy = vi.spyOn(registry, 'disconnect').mockImplementation(async (...args) => {
+        const result = await disconnect(...args);
+        detached();
+        return result;
+      });
+      let stopping: Promise<unknown> | undefined;
+      try {
+        mkdirSync(transitions, { recursive: true });
+        renameSync(transitions, parked);
+        writeFileSync(transitions, 'unavailable');
+        await w.harness.capabilities.runner()!.answer(approval!.id, true);
+        const segments = ['connectors', id, mode === 'token' ? 'disconnect' : 'remove'];
+        stopping = other.capabilities.api({
+          method: 'POST',
+          path: `/${segments.join('/')}`,
+          segments,
+          query: new URLSearchParams(),
+          body: {},
+        });
+        await removed;
+        const partial = (await stopping) as { status: number };
+        expect(partial.status).toBe(500);
+        rmSync(transitions);
+        renameSync(parked, transitions);
+        release();
+        await holding;
+        await w.harness.capabilities.runner()!.settled();
+        expect(server.calls).toEqual([]);
+        try {
+          expect(scope.snapshot(id).tools).toEqual([]);
+        } catch (error) {
+          expect(String(error)).toMatch(/disconnecting/u);
+        }
+      } finally {
+        release();
+        if (existsSync(parked)) {
+          rmSync(transitions, { force: true });
+          renameSync(parked, transitions);
+        }
+        await Promise.allSettled([holding, ...(stopping === undefined ? [] : [stopping])]);
+        spy.mockRestore();
+      }
+    },
+    20_000,
+  );
 
   it('takes a typed token, keeps it only in the owner-only token directory, and lists the tools', async () => {
     const { w, tokened } = await tokenWorld();

@@ -36,8 +36,9 @@ import { createCaseActionScope } from '../connectors/case-action-scope.js';
 import { offeredTools, toolResults } from './scripted-model.js';
 import { createFixtureWebRoot, startHarness } from './harness.js';
 
-import type { IAskInput, ICase } from '@robota-sdk/agent-product/personal';
+import type { IAskInput, ICase, ICaseStore } from '@robota-sdk/agent-product/personal';
 import type { IPersonalApiOptions } from '../personal-api.js';
+import type { ICaseActionSnapshot } from '../case-action.js';
 import type { IHarness } from './harness.js';
 
 const dirs: string[] = [];
@@ -97,6 +98,210 @@ const SIGN_IN = {
 };
 
 describe('case connector authority', () => {
+  it('serializes competing answers before either instance reads the case', async () => {
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const { item } = await harness.capabilities.cases.ask(opened.id, {
+      question: 'Was it you?',
+      options: ['Yes', 'No'],
+    });
+    const store = (other.capabilities.cases as unknown as { store: ICaseStore }).store;
+    const get = store.get.bind(store);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const spy = vi.spyOn(store, 'get').mockImplementation(async (id) => {
+      const found = await get(id);
+      reached();
+      await gate;
+      return found;
+    });
+    const first = other.capabilities.cases.answer(item.id, { choice: 'No' });
+    let second: Promise<unknown> | undefined;
+    try {
+      await waiting;
+      second = harness.capabilities.cases.answer(item.id, { choice: 'Yes' });
+      const early = await Promise.race([
+        second.then(
+          () => true,
+          () => true,
+        ),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+      ]);
+      expect(early).toBe(false);
+      release();
+      await first;
+      await expect(second).rejects.toThrow(/already answered/u);
+      expect((await harness.capabilities.cases.get(opened.id))?.history.at(-1)).toMatchObject({
+        kind: 'answered',
+        text: 'No',
+      });
+      expect((await harness.capabilities.goals.feedItem(item.id))?.question?.answer?.choice).toBe(
+        'No',
+      );
+    } finally {
+      release();
+      await Promise.allSettled([first, ...(second === undefined ? [] : [second])]);
+      spy.mockRestore();
+      await other.close();
+    }
+  });
+
+  it('keeps another answer from withdrawing a card between the case and feed writes', async () => {
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const { item } = await harness.capabilities.cases.ask(opened.id, {
+      question: 'Was it you?',
+      options: ['Yes', 'No'],
+    });
+    const goals = harness.capabilities.goals;
+    const answerQuestion = goals.answerQuestion.bind(goals);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const spy = vi.spyOn(goals, 'answerQuestion').mockImplementation(async (...args) => {
+      reached();
+      await gate;
+      return answerQuestion(...args);
+    });
+    const accepted = harness.capabilities.cases.answer(item.id, { choice: 'Yes' });
+    let competing: Promise<unknown> | undefined;
+    try {
+      await waiting;
+      competing = other.capabilities.cases.answer(item.id, { choice: 'No' });
+      const early = await Promise.race([
+        competing.then(
+          () => true,
+          () => true,
+        ),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+      ]);
+      expect(early).toBe(false);
+      release();
+      await accepted;
+      await expect(competing).rejects.toThrow(/already answered/u);
+      expect((await harness.capabilities.cases.get(opened.id))?.history.at(-1)).toMatchObject({
+        kind: 'answered',
+        text: 'Yes',
+      });
+      expect((await goals.feedItem(item.id))?.question).toMatchObject({
+        state: 'answered',
+        answer: { choice: 'Yes' },
+      });
+    } finally {
+      release();
+      await Promise.allSettled([accepted, ...(competing === undefined ? [] : [competing])]);
+      spy.mockRestore();
+      await other.close();
+    }
+  });
+
+  it('clears a closed case binding even if updating its feed card fails', async () => {
+    harness = await startHarness();
+    const book = new ConnectorBook({
+      store: createFileConnectorStore(join(harness.stateDir, 'connectors')),
+    });
+    const connector = await book.create({
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'mcp',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'none',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    await harness.capabilities.cases.ask(opened.id, {
+      question: 'Was it you?',
+      options: ['Yes', 'No'],
+    });
+    const path = ['cases', opened.id, 'connector'];
+    const get = await harness.capabilities.api({
+      method: 'GET',
+      path: `/${path.join('/')}`,
+      segments: path,
+      query: new URLSearchParams(),
+      body: undefined,
+    });
+    const revision = (get.body as { binding: { revision: string } }).binding.revision;
+    await harness.capabilities.api({
+      method: 'POST',
+      path: `/${path.join('/')}`,
+      segments: path,
+      query: new URLSearchParams(),
+      body: { connectorId: connector.id, revision },
+    });
+    const withdrawal = vi
+      .spyOn(harness.capabilities.goals, 'withdrawQuestion')
+      .mockRejectedValueOnce(new Error('feed unavailable'));
+    try {
+      await expect(harness.capabilities.cases.close(opened.id, 'Settled.')).rejects.toThrow(
+        'feed unavailable',
+      );
+      expect((await harness.capabilities.cases.get(opened.id))?.state).toBe('closed');
+      const saved: unknown = JSON.parse(
+        readFileSync(
+          join(harness.stateDir, 'case-connector-bindings', `${opened.id}.json`),
+          'utf8',
+        ),
+      );
+      expect(saved).not.toHaveProperty('connectorId');
+    } finally {
+      withdrawal.mockRestore();
+    }
+  });
+
+  it('releases both authority locks before waiting for an admitted response', async () => {
+    harness = await startHarness();
+    const book = new ConnectorBook({
+      store: createFileConnectorStore(join(harness.stateDir, 'connectors')),
+    });
+    const connector = await book.create({
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'mcp',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'none',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const scope = createCaseActionScope(join(harness.stateDir, 'case-action-scope'));
+    const bindings = createCaseConnectorBindings({
+      directory: join(harness.stateDir, 'case-connector-bindings'),
+      cases: harness.capabilities.cases,
+      connectors: book,
+      scope,
+      writes: createCaseActionScope(join(harness.stateDir, 'cases')),
+    });
+    const initial = (await bindings.get(opened.id))!;
+    await bindings.set(opened.id, connector.id, initial.revision);
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    try {
+      const admitted = await bindings.withAuthority(opened.id, (state) => {
+        expect(state?.binding.connectorId).toBe(connector.id);
+        return { value: response };
+      });
+      expect(admitted.value).toBe(response);
+      await scope.exclusive(() => scope.reset(connector.id));
+      await harness.capabilities.cases.close(opened.id, 'Settled.');
+      expect(await bindings.authoritySnapshot(opened.id)).toBeUndefined();
+    } finally {
+      finish();
+    }
+  });
+
   it('preserves authority across passive fences but replaces it after an owner revokes and reselects', async () => {
     harness = await startHarness();
     const book = new ConnectorBook({
@@ -674,7 +879,7 @@ describe('the person chooses a case connector', () => {
     expect((await api.get(path)).body.binding.connectorId).toBeUndefined();
   }, 15_000);
 
-  it('does not restore a closed case from another instance’s stale note', async () => {
+  it('orders a delayed note before closure and refuses notes after closure', async () => {
     harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
     const api = await client(harness);
     const connector = await api.send('POST', 'connectors', {
@@ -710,19 +915,31 @@ describe('the person chooses a case connector', () => {
       return result;
     });
     const bindingDir = join(harness.stateDir, 'case-connector-bindings');
+    let closing: Promise<ICase> | undefined;
     try {
       const note = other.capabilities.cases.note(opened.id, 'A delayed note.');
       await paused;
       chmodSync(bindingDir, 0o000);
-      await harness.capabilities.cases.close(opened.id, 'Settled.');
-      chmodSync(bindingDir, 0o700);
+      closing = harness.capabilities.cases.close(opened.id, 'Settled.');
+      const early = await Promise.race([
+        closing.then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+      ]);
+      expect(early).toBe(false);
       release();
-      await expect(note).rejects.toThrow(/closed/u);
+      await note;
+      await closing;
+      chmodSync(bindingDir, 0o700);
+      spy.mockRestore();
+      await expect(other.capabilities.cases.note(opened.id, 'Too late.')).rejects.toThrow(
+        /closed/u,
+      );
       expect((await api.get(path)).body.binding.connectorId).toBeUndefined();
       expect((await harness.capabilities.cases.get(opened.id))?.state).toBe('closed');
     } finally {
       chmodSync(bindingDir, 0o700);
       release();
+      if (closing !== undefined) await closing.catch(() => undefined);
       spy.mockRestore();
       await other.close();
     }
@@ -936,13 +1153,17 @@ describe('answering a question over the personal API', () => {
 });
 
 describe('the seam an answer leaves for what continues the case', () => {
-  function apiWith(onCaseAnswered: (answered: ICase) => void) {
+  function apiWith(
+    onCaseAnswered: (answered: ICase, snapshot?: ICaseActionSnapshot) => void,
+    captureCaseAction?: IPersonalApiOptions['captureCaseAction'],
+  ) {
     const goals = new GoalBook({ store: createMemoryGoalStore() });
     const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
     const api = createPersonalApi({
       goals,
       cases,
       onCaseAnswered,
+      captureCaseAction,
     } as unknown as IPersonalApiOptions);
     const answer = (id: string, body: unknown) =>
       api({
@@ -977,6 +1198,57 @@ describe('the seam an answer leaves for what continues the case', () => {
     const { case: opened } = await cases.open(SIGN_IN);
     const { item } = await cases.ask(opened.id, { question: 'Sure?', options: ['Yes'] });
     expect((await answer(item.id, { choice: 'Yes' })).status).toBe(200);
+    expect((await cases.get(opened.id))?.history.at(-1)?.kind).toBe('answered');
+  });
+
+  it('captures authority before accepting the answer and passes it only for that answer', async () => {
+    const seen: (ICaseActionSnapshot | undefined)[] = [];
+    let capturedWhileWaiting = false;
+    const { cases, answer } = apiWith(
+      (_answered, snapshot) => seen.push(snapshot),
+      async (caseId, feedItemId) => {
+        capturedWhileWaiting = (await cases.get(caseId))?.question?.feedItemId === feedItemId;
+        return {
+          caseId,
+          feedItemId,
+          connectorId: 'connector-mail',
+          bindingGeneration: 'binding',
+          scopeGeneration: 'scope',
+          tools: ['send'],
+        };
+      },
+    );
+    const { case: opened } = await cases.open(SIGN_IN);
+    const { item } = await cases.ask(opened.id, { question: 'Sure?', options: ['Yes'] });
+    expect((await answer(item.id, { choice: 'Yes' })).status).toBe(200);
+    expect(capturedWhileWaiting).toBe(true);
+    expect(seen).toEqual([expect.objectContaining({ caseId: opened.id, feedItemId: item.id })]);
+  });
+
+  it('records the answer without authority if its capture is unavailable or too slow', async () => {
+    const seen: (ICaseActionSnapshot | undefined)[] = [];
+    let finish!: (snapshot: ICaseActionSnapshot) => void;
+    const late = new Promise<ICaseActionSnapshot>((resolve) => {
+      finish = resolve;
+    });
+    const { cases, answer } = apiWith(
+      (_answered, snapshot) => seen.push(snapshot),
+      async () => late,
+    );
+    const { case: opened } = await cases.open(SIGN_IN);
+    const { item } = await cases.ask(opened.id, { question: 'Sure?', options: ['Yes'] });
+    expect((await answer(item.id, { choice: 'Yes' })).status).toBe(200);
+    expect(seen).toEqual([undefined]);
+    finish({
+      caseId: opened.id,
+      feedItemId: item.id,
+      connectorId: 'connector-mail',
+      bindingGeneration: 'later',
+      scopeGeneration: 'later',
+      tools: ['send'],
+    });
+    await Promise.resolve();
+    expect(seen).toEqual([undefined]);
     expect((await cases.get(opened.id))?.history.at(-1)?.kind).toBe('answered');
   });
 });

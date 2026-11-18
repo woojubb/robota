@@ -249,8 +249,8 @@ export function CaseConnector({
     <section aria-label="Service for this case" className="rounded-lg border border-border p-3">
       <h3 className="text-[13px] font-semibold">Service for this case</h3>
       <p className="mt-1 text-[12.5px] text-muted-foreground">
-        Choose a service yourself. When case actions are available, they can request only tools you
-        allow for that service, and each action still needs your approval.
+        Choose a service yourself. For case requests, your agent may use only tools you allow for
+        that service. You approve each action separately.
       </p>
       {problem !== undefined && (
         <p role="alert" className="mt-1 text-destructive">

@@ -259,8 +259,8 @@ function CaseActions({
     >
       <h3 className="text-[13px] font-semibold">Case requests</h3>
       <p className="text-[12px] text-muted-foreground">
-        When case actions are available, a case can ask to use the selected tools. You must approve
-        each action separately. Reconnecting clears these choices; select them again after sign-in.
+        A case you connect to this service can request these tools after your next answer. You must
+        approve each action separately. Reconnecting clears these choices; select them again after sign-in.
       </p>
       {!ready && connector.caseActionChangePending !== true && (
         <p className="mt-1 text-[12.5px] text-destructive">

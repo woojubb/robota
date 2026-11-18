@@ -51,8 +51,16 @@ function neverAsked(found: ICase): boolean {
   );
 }
 
-export function createCaseTools(book: CaseBook): FunctionTool[] {
+export function createCaseTools(
+  book: CaseBook,
+  scope?: { readonly caseId: string; readonly answerId: string },
+): FunctionTool[] {
   registerProfiles();
+  const forCase = (id: string): { readonly answerId: string } | undefined => {
+    if (scope === undefined) return undefined;
+    if (id !== scope.caseId) throw new CaseRefusedError('This turn can only change its own case');
+    return { answerId: scope.answerId };
+  };
   return [
     createZodFunctionTool(
       CASE_TOOL_NAMES.open,
@@ -65,6 +73,7 @@ export function createCaseTools(book: CaseBook): FunctionTool[] {
       }),
       async ({ title, noticed, source, connector }) =>
         guarded(async () => {
+          if (scope !== undefined) throw new CaseRefusedError('This turn cannot open another case');
           const { case: found, existing } = await book.open({
             title,
             noticed,
@@ -86,7 +95,8 @@ export function createCaseTools(book: CaseBook): FunctionTool[] {
       CASE_TOOL_NAMES.note,
       'Add a short note to an open case: what you found out, or what you checked.',
       z.object({ id: z.string().min(1), text: z.string().min(1) }),
-      async ({ id, text }) => guarded(async () => ({ noted: (await book.note(id, text)).id })),
+      async ({ id, text }) =>
+        guarded(async () => ({ noted: (await book.note(id, text, forCase(id))).id })),
     ),
     createZodFunctionTool(
       CASE_TOOL_NAMES.ask,
@@ -100,12 +110,16 @@ export function createCaseTools(book: CaseBook): FunctionTool[] {
       }),
       async ({ id, question, options, allowReply, urgency }) =>
         guarded(async () => {
-          const { case: found, item } = await book.ask(id, {
-            question,
-            ...(options !== undefined && { options }),
-            ...(allowReply !== undefined && { allowsReply: allowReply }),
-            ...(urgency !== undefined && { urgency }),
-          });
+          const { case: found, item } = await book.ask(
+            id,
+            {
+              question,
+              ...(options !== undefined && { options }),
+              ...(allowReply !== undefined && { allowsReply: allowReply }),
+              ...(urgency !== undefined && { urgency }),
+            },
+            forCase(id),
+          );
           return { asked: found.id, feedItem: item.id };
         }),
     ),
@@ -114,7 +128,7 @@ export function createCaseTools(book: CaseBook): FunctionTool[] {
       'Close a case that is settled, with a one-line resolution. A question still waiting is withdrawn.',
       z.object({ id: z.string().min(1), resolution: z.string().min(1) }),
       async ({ id, resolution }) =>
-        guarded(async () => ({ closed: (await book.close(id, resolution)).id })),
+        guarded(async () => ({ closed: (await book.close(id, resolution, forCase(id))).id })),
     ),
   ];
 }

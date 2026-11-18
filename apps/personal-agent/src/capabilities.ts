@@ -2,12 +2,14 @@
  * The personal capabilities this root composes into its session. Each capability family arrives
  * here as tools plus a lifecycle; the root only lends it a state directory and the live session.
  */
+import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
   BROWSER_INSTRUCTIONS,
   BrowserOutbox,
   CASE_INSTRUCTIONS,
+  CONNECTOR_TOOL_NAMES,
   CONNECTOR_INSTRUCTIONS,
   CaseBook,
   CaseRefusedError,
@@ -32,7 +34,6 @@ import {
   createFileCaseStore,
   createFileConnectorStore,
   createFileDeliveryStores,
-  createFileGoalStore,
   createFileIdeaStore,
   createFileKnowledgeStore,
   createFileSpaceStore,
@@ -44,7 +45,16 @@ import {
 
 import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playwright-browser.js';
 import { createApprovalRegistry } from './approvals.js';
+import { createApprovalCancellations } from './approval-cancellations.js';
 import { createCaseTurns } from './case-turns.js';
+import type { ICaseTurns } from './case-turns.js';
+import { createCaseAnswerOutbox } from './case-answer-outbox.js';
+import { callCaseConnector, captureCaseAction, createCaseAction } from './case-action.js';
+import type { ICaseActionSnapshot } from './case-action.js';
+import { createCaseApprovalRecorder } from './case-approval-record.js';
+import { createSharedFeedStore } from './feed-store.js';
+import { createSharedLock } from './shared-lock.js';
+import { createAgentPresence } from './agent-presence.js';
 import { createCaseActionScope } from './connectors/case-action-scope.js';
 import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
@@ -55,6 +65,7 @@ import { createConnectorsApi } from './connectors/connectors-api.js';
 import { createMcpConnectorProtocol } from './connectors/mcp-protocol.js';
 import { createSyncRuns } from './connectors/sync-runs.js';
 import { createCaseConnectorBindings } from './case-connector-binding.js';
+import type { IApprovalRegistry } from './approvals.js';
 import type { ICaseConnectorBindings } from './case-connector-binding.js';
 import { createLayoutBook } from './layout.js';
 import { createNotificationTransport } from './notification-transport.js';
@@ -163,7 +174,39 @@ export function createPersonalCapabilities(
   const wiki = new KnowledgeWiki({
     store: createFileKnowledgeStore(join(options.stateDir, 'wiki')),
   });
-  const goals = new GoalBook({ store: createFileGoalStore(join(options.stateDir, 'goals')) });
+  const goalStore = createSharedFeedStore(options.stateDir);
+  const supportsDurableApprovals = process.platform !== 'win32';
+  let answerOutbox: ReturnType<typeof createCaseAnswerOutbox> | undefined;
+  let goals: GoalBook;
+  goals = new GoalBook({
+    store: goalStore,
+    withWriteLock: createSharedLock(
+      join(realpathSync(options.stateDir), '.goal-write.lock'),
+      'Goals',
+    ),
+    withRemoveLock: async (id, work) => {
+      const goal = await goals.get(id);
+      if (goal?.caseId !== undefined && answerOutbox !== undefined)
+        return answerOutbox.stopCase(goal.caseId, work);
+      return work();
+    },
+  });
+  if (
+    (supportsDurableApprovals && goalStore.durableFeedWrites !== true) ||
+    goals.usesUniqueFeedIds !== true ||
+    goals.supportsSharedGoalLock !== true ||
+    goals.supportsCaseAnswerQueue !== true ||
+    goals.supportsCaseInterruptionRecovery !== true ||
+    goals.supportsCaseRunOwnership !== true ||
+    goals.supportsCaseReportRecovery !== true ||
+    goals.supportsCaseRunIdentityRecovery !== true ||
+    goals.supportsCoordinatedRemoval !== true ||
+    typeof goals.adoptCaseAnswer !== 'function' ||
+    typeof goals.recoverGoal !== 'function' ||
+    typeof goals.cancelApproval !== 'function'
+  )
+    throw new Error('The product SDK cannot safely coordinate this agent; rebuild the workspace');
+  const presence = createAgentPresence(options.stateDir);
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
   const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
@@ -217,7 +260,24 @@ export function createPersonalCapabilities(
   });
   let guiOrigins: readonly string[] = [];
   let channelTurns: IChannelTurns | undefined;
-  const approvals = createApprovalRegistry(goals);
+  const cancellations = supportsDurableApprovals
+    ? createApprovalCancellations(options.stateDir)
+    : undefined;
+  let approvals: IApprovalRegistry;
+  approvals = createApprovalRegistry(
+    goals,
+    presence.others,
+    async (item) => {
+      const recovered = await presence.whenAlone(async () => {
+        await approvals.restore();
+        if (item.goalId !== undefined && runner?.isRunning(item.goalId) === true)
+          throw new Error('This approval is still being prepared; try again');
+        if (item.goalId !== undefined) await goals.recoverGoal(item.goalId);
+      });
+      if (!recovered) throw new Error('This approval is waiting in another agent; answer it there');
+    },
+    cancellations,
+  );
   const channels = createChannelHub({
     runTurn: async (key, text) => {
       if (channelTurns === undefined) throw new Error('The agent is not running yet');
@@ -299,36 +359,73 @@ export function createPersonalCapabilities(
   const caseStore = createFileCaseStore(join(options.stateDir, 'cases'));
   // Case writes must not resurrect a closed case even when connector settings are unavailable.
   const caseWrites = createCaseActionScope(join(options.stateDir, 'cases'));
+  let caseTurns: ICaseTurns;
+  answerOutbox = createCaseAnswerOutbox({
+    stateDir: options.stateDir,
+    cases: caseStore,
+    goals,
+    ownerId: presence.id,
+    withCaseLock: (work) => caseWrites.exclusive(work),
+    deliver: async (answered, ownerId) => {
+      await caseTurns.onAnswered(answered, ownerId);
+    },
+  });
   const cases = new CaseBook({
+    withWriteLock: (work) => caseWrites.exclusive(work),
     store: {
       ...caseStore,
       put: async (item) => {
-        const save = () =>
-          caseWrites.exclusive(async () => {
-            const existing = await caseStore.get(item.id);
-            if (item.state === 'open' && existing?.state === 'closed')
-              throw new CaseRefusedError('This case is closed');
-            if (item.state === 'open' && existing === undefined && item.history.length !== 1)
-              throw new CaseRefusedError('This case no longer exists');
-            await caseStore.put(item);
-          });
-        if (item.state !== 'closed') return save();
-        await save();
-        try {
-          await caseActions.exclusive(async () => {
-            // Failure to clean a setting must not prevent closing the case; closed cases do not expose it.
-            await caseBindings?.closeLocked(item.id).catch(() => undefined);
-          });
-        } catch (error) {
-          if (!(error instanceof ConnectorRefusedError)) throw error;
-          // Even an unavailable settings lock cannot prevent the person's case from closing.
-        }
+        const existing = await caseStore.get(item.id);
+        if (existing?.state === 'closed') throw new CaseRefusedError('This case is closed');
+        if (existing === undefined && (item.state !== 'open' || item.history.length !== 1))
+          throw new CaseRefusedError('This case no longer exists');
+        if (
+          existing !== undefined &&
+          (item.history.length !== existing.history.length + 1 ||
+            JSON.stringify(item.history.slice(0, -1)) !== JSON.stringify(existing.history) ||
+            (item.history.at(-1)?.kind === 'answered' &&
+              existing.question?.feedItemId !== item.lastAnsweredFeedItemId))
+        )
+          throw new CaseRefusedError('This case changed; try again');
+        await caseStore.put(item);
       },
     },
+    onClosed: async (item) => {
+      try {
+        await caseActions.exclusive(async () => {
+          // Failure to clean a setting must not prevent closing the case; closed cases do not expose it.
+          await caseBindings?.closeLocked(item.id).catch(() => undefined);
+        });
+      } catch (error) {
+        if (!(error instanceof ConnectorRefusedError)) throw error;
+        // Even an unavailable settings lock cannot prevent the person's case from closing.
+      }
+    },
     feed: goals,
+    ...(answerOutbox !== undefined && {
+      answerHooks: {
+        before: async (feedItemId) => {
+          if (answerOutbox.has(feedItemId))
+            throw new CaseRefusedError('This answer is waiting for recovery; try again');
+        },
+        prepare: answerOutbox.prepare,
+        persistCase: answerOutbox.persistCase,
+        committed: async (event, context) => {
+          caseTurns.remember(event.after, context as ICaseActionSnapshot | undefined);
+          await caseTurns.onAnswered(event.after);
+          answerOutbox.complete(event.after.id, event.item.id);
+        },
+      },
+    }),
     // Not waited for, and it cannot fail the ask: the question is in the feed already.
     onAsked: (event) => delivery.onAsked(event),
   });
+  if (
+    cases.supportsSharedWriteLock !== true ||
+    cases.supportsCaseAnswerHooks !== true ||
+    cases.supportsAnswerScopedWrites !== true
+  )
+    throw new Error('The product SDK cannot safely coordinate cases; rebuild the workspace');
   caseBindings = createCaseConnectorBindings({
     directory: join(options.stateDir, 'case-connector-bindings'),
     cases,
@@ -336,6 +433,7 @@ export function createPersonalCapabilities(
     scope: caseActions,
     writes: caseWrites,
   });
+  const bindings = caseBindings;
   const syncRuns = createSyncRuns({
     book: connectorBook,
     registry: connectors,
@@ -343,7 +441,49 @@ export function createPersonalCapabilities(
     wiki,
     cases,
   });
-  const caseTurns = createCaseTurns({ goals, cases });
+  const connectorTools = createConnectorTools(connectors);
+  const recordCaseApproval = createCaseApprovalRecorder(join(options.stateDir, 'case-approvals'));
+  const actionSchema = connectorTools.find(
+    (tool) => tool.getName() === CONNECTOR_TOOL_NAMES.act,
+  )!.schema;
+  caseTurns = createCaseTurns({
+    goals,
+    cases,
+    ownerId: presence.id,
+    ...(supportsDurableApprovals && {
+      makeAction: (snapshot: ICaseActionSnapshot) =>
+        createCaseAction(snapshot, actionSchema, {
+          recordApproval: recordCaseApproval,
+          call: (connector, tool, args, admission, signal) =>
+            callCaseConnector(connectors, connector, tool, args, admission, signal),
+          dispatch: async (chosen, tool, send) => {
+            const result = await bindings.withAuthority(chosen.caseId, (state) =>
+              caseActions.withDispatch(chosen.connectorId, () => {
+                if (
+                  state === undefined ||
+                  state.case.lastAnsweredFeedItemId !== chosen.feedItemId ||
+                  state.case.question !== undefined ||
+                  answerOutbox?.has(chosen.feedItemId, chosen.caseId) === true ||
+                  state.binding.connectorId !== chosen.connectorId ||
+                  state.binding.generation !== chosen.bindingGeneration
+                )
+                  throw new ConnectorRefusedError('The case connector choice changed');
+                const scope = caseActions.snapshot(chosen.connectorId);
+                if (
+                  scope.generation !== chosen.scopeGeneration ||
+                  !scope.tools.includes(tool) ||
+                  (Object.hasOwn(state.connector.decisions, tool) &&
+                    state.connector.decisions[tool] !== 'write')
+                )
+                  throw new ConnectorRefusedError('The case action scope changed');
+                return { value: send() };
+              }),
+            );
+            return { response: result.value };
+          },
+        }),
+    }),
+  });
   let deliveryTimer: ReturnType<typeof setInterval> | undefined;
   // Watched, so the person can see what the agent's browser does and stop it.
   const watchedBrowser = watchBrowser(
@@ -356,6 +496,52 @@ export function createPersonalCapabilities(
     }),
   );
   const browser = watchedBrowser.port;
+  let shuttingDown = false;
+  let attached = false;
+  const pendingWork = new Set<Promise<unknown>>();
+  const track = <T>(task: Promise<T>): Promise<T> => {
+    pendingWork.add(task);
+    void task.then(
+      () => pendingWork.delete(task),
+      () => pendingWork.delete(task),
+    );
+    return task;
+  };
+  const trackApi =
+    (api: TPersonalApi): TPersonalApi =>
+    (request) => {
+      if (shuttingDown)
+        return Promise.resolve({ status: 503, body: { error: 'The agent is stopping' } });
+      const isCaseAnswer =
+        request.method === 'POST' &&
+        request.segments[0] === 'feed' &&
+        request.segments[2] === 'answer';
+      if (isCaseAnswer && !attached)
+        return Promise.resolve({ status: 503, body: { error: 'The agent is still starting' } });
+      const task = api(request);
+      return isCaseAnswer ? track(task) : task;
+    };
+  const cleanStoppedOwners = async (): Promise<void> => {
+    await caseWrites.exclusive(async () => {
+      const owners = presence.stoppedOwners();
+      const pending = new Set(
+        (await goals.list()).flatMap((goal) =>
+          [goal.pendingCaseAnswer?.ownerId, goal.activeCaseRun?.ownerId].filter(
+            (owner): owner is string => owner !== undefined,
+          ),
+        ),
+      );
+      for (const owner of owners) {
+        if (!pending.has(owner) && answerOutbox?.hasOwner(owner) !== true) {
+          try {
+            presence.forgetStopped(owner);
+          } catch {
+            /* Leave it for a later cleanup. */
+          }
+        }
+      }
+    });
+  };
   return {
     tools: [
       ...createWikiTools(wiki),
@@ -363,7 +549,7 @@ export function createPersonalCapabilities(
       ...createGoalTools(goals),
       ...createCaseTools(cases),
       ...createIdeaTools(ideas),
-      ...createConnectorTools(connectors),
+      ...connectorTools,
       createConnectorKeepTool({ book: connectorBook, wiki }),
     ],
     instructions: [
@@ -388,57 +574,81 @@ export function createPersonalCapabilities(
     landing: { path: CONSENT_CALLBACK_PATH, handle: (query) => consent.land(query) },
     channels,
     runner: () => runner,
-    api: createPersonalApi({
-      wiki,
-      goals,
-      cases,
-      caseBindings,
-      delivery,
-      notificationAddress,
-      notifications,
-      push: createPushApi({ vapid: pushVapid, subscriptions: pushSubscriptions }),
-      // The answer is recorded already; the agent's turn on the case starts behind it and may fail without
-      // touching it.
-      onCaseAnswered: (answered) => {
-        void caseTurns
-          .onAnswered(answered)
-          .then(() => runner?.runDue())
-          .catch(() => undefined);
-      },
-      ideas,
-      spaces,
-      sideChats,
-      layout,
-      browser: watchedBrowser,
-      interruptWork: () => {
-        runner?.interrupt();
-        channelTurns?.interrupt();
-      },
-      runner: () => runner,
-      stateDir: options.stateDir,
-      environment: options.environment,
-      browserAvailable: () => findChromiumExecutable(options.environment) !== undefined,
-      connectors: createConnectorsApi({
-        registry: connectors,
-        book: connectorBook,
-        caseActions,
-        sync: connectorSync,
+    api: trackApi(
+      createPersonalApi({
         wiki,
-        origins: () => guiOrigins,
-        catalog: createConnectorCatalog({
-          stateDir: options.stateDir,
-          ...(options.connectorRegistryUrl !== undefined && {
-            registryUrl: options.connectorRegistryUrl,
+        goals,
+        cases,
+        caseBindings,
+        delivery,
+        notificationAddress,
+        notifications,
+        push: createPushApi({ vapid: pushVapid, subscriptions: pushSubscriptions }),
+        // The answer is recorded already; the agent's turn on the case starts behind it and may fail without
+        // touching it.
+        captureCaseAction: (caseId, feedItemId) =>
+          captureCaseAction(caseId, feedItemId, {
+            binding: (id) => bindings.authoritySnapshot(id),
+            scope: (id) => caseActions.exclusive(async () => caseActions.snapshot(id)),
           }),
-          ...(options.connectorNetwork?.fetch !== undefined && {
-            fetch: options.connectorNetwork.fetch,
+        ...(answerOutbox !== undefined && {
+          recoverCaseAnswer: async (feedItemId) => {
+            let recovered: readonly import('@robota-sdk/agent-product/personal').ICase[];
+            try {
+              recovered = await answerOutbox.recover(feedItemId);
+            } catch {
+              throw new CaseRefusedError(
+                'This answer needs manual recovery. Stop all agents and follow the Personal Agent guide.',
+              );
+            }
+            if (recovered.length === 0) return undefined;
+            void runner?.runDue().catch(() => undefined);
+            return recovered[0];
+          },
+        }),
+        onCaseAnswered: () => {
+          void runner?.runDue().catch(() => undefined);
+        },
+        ideas,
+        spaces,
+        sideChats,
+        layout,
+        browser: watchedBrowser,
+        interruptWork: () => {
+          runner?.interrupt();
+          channelTurns?.interrupt();
+        },
+        runner: () => runner,
+        stateDir: options.stateDir,
+        environment: options.environment,
+        browserAvailable: () => findChromiumExecutable(options.environment) !== undefined,
+        connectors: createConnectorsApi({
+          registry: connectors,
+          book: connectorBook,
+          caseActions,
+          sync: connectorSync,
+          wiki,
+          origins: () => guiOrigins,
+          catalog: createConnectorCatalog({
+            stateDir: options.stateDir,
+            ...(options.connectorRegistryUrl !== undefined && {
+              registryUrl: options.connectorRegistryUrl,
+            }),
+            ...(options.connectorNetwork?.fetch !== undefined && {
+              fetch: options.connectorNetwork.fetch,
+            }),
           }),
         }),
       }),
-    }),
+    ),
     attach: async (agent, attachOptions) => {
       guiOrigins = attachOptions?.guiOrigins ?? [];
-      await goals.recover();
+      let recoveredAnswers = false;
+      await presence.enter(async () => {
+        await approvals.restore();
+        await goals.recover();
+      });
+      recoveredAnswers = answerOutbox !== undefined && (await answerOutbox.recover()).length > 0;
       channelTurns = createChannelTurns({
         book: goals,
         approvals,
@@ -447,6 +657,18 @@ export function createPersonalCapabilities(
       runner = createGoalRunner({
         book: goals,
         approvals,
+        ownerId: presence.id,
+        mayStart: (goal) => {
+          if (goal.activeCaseRun !== undefined) return false;
+          const answerId = goal.pendingCaseAnswer?.feedItemId ?? goal.lastCaseAnswerId;
+          if (goal.caseId === undefined || answerId === undefined || answerOutbox === undefined)
+            return true;
+          try {
+            return !answerOutbox.has(answerId, goal.caseId);
+          } catch {
+            return false;
+          }
+        },
         onReport: (goal, report, { quiet }) => {
           // A quiet run is kept in the goal's history only, so it is not pushed either: pushing it would
           // let the runs the agent starts on its own reach the person outside their limits. A run that is
@@ -456,24 +678,78 @@ export function createPersonalCapabilities(
           if (goal.caseId === undefined) return;
           // An answer that came while a case turn ran started nothing: give it its turn. The goal still
           // counts as running until its run is over, so what is due runs once it has ended.
-          void caseTurns
-            .ended(goal)
-            .then(async (again) => {
-              if (!again) return;
-              await runner?.settled(goal.id);
-              await runner?.runDue();
-            })
-            .catch(() => undefined);
+          void track(
+            caseTurns
+              .ended(goal)
+              .then(async (again) => {
+                if (!again) return;
+                await runner?.settled(goal.id);
+                await runner?.runDue();
+              })
+              .catch(() => undefined),
+          );
         },
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
+        beforeRunDue: async (isRunning, recover) => {
+          await answerOutbox?.recover();
+          for (const goal of await goals.list()) {
+            const runOwner = goal.activeCaseRun?.ownerId;
+            if (
+              runOwner !== undefined &&
+              ((runOwner === presence.id && !isRunning(goal.id)) || presence.ownerExited(runOwner))
+            ) {
+              try {
+                await goals.recoverCaseOwner(
+                  goal.id,
+                  runOwner,
+                  presence.id,
+                  goal.activeCaseRun!.runId,
+                );
+              } catch {
+                // Keep this run closed while other goals continue.
+              }
+            }
+            const owner = goal.pendingCaseAnswer?.ownerId;
+            if (owner !== undefined && presence.ownerExited(owner))
+              await goals.adoptCaseAnswer(goal.id, owner, presence.id);
+          }
+          await presence.whenAlone(async () => {
+            await approvals.restore();
+            for (const goal of await goals.list()) {
+              if (!isRunning(goal.id)) {
+                if (goal.activeCaseRun !== undefined) {
+                  try {
+                    await recover(goal.id, () =>
+                      goals.recoverCaseOwner(
+                        goal.id,
+                        goal.activeCaseRun!.ownerId,
+                        presence.id,
+                        goal.activeCaseRun!.runId,
+                      ),
+                    );
+                  } catch {
+                    // An unreadable run stays closed while other goals continue.
+                  }
+                  continue;
+                }
+                await recover(goal.id, () =>
+                  goals.recoverGoal(goal.id, { adoptOwner: presence.id }),
+                );
+              }
+            }
+          });
+          await cleanStoppedOwners().catch(() => undefined);
+        },
         // A sync run reads one connector and adds to the library; a case turn reads and keeps the case.
         // Each has only the tools to do that.
-        shape: (goal) => (goal.caseId !== undefined ? caseTurns.shape(goal) : syncRuns.shape(goal)),
+        shape: (goal, run) =>
+          goal.caseId !== undefined ? caseTurns.shape(goal, run) : syncRuns.shape(goal),
         // A sync that is reachable, read cleanly and added nothing has nothing to tell the person; a case
         // turn that left a note, a question or its closing on the case has told them already.
         quiet: (goal) => (goal.caseId !== undefined ? caseTurns.quiet(goal) : syncRuns.quiet(goal)),
       });
+      if (recoveredAnswers) void runner.runDue().catch(() => undefined);
       // The daily digest goes out from here: once now, for a digest that came due while the agent was
       // off, and then every minute. A failure waits for the next minute; the question is in the feed.
       const deliveryTickMs = options.deliveryTickMs ?? DEFAULT_DELIVERY_TICK_MS;
@@ -485,14 +761,27 @@ export function createPersonalCapabilities(
         deliveryTimer = setInterval(tick, deliveryTickMs);
         deliveryTimer.unref();
       }
+      attached = true;
     },
     dispose: async () => {
+      shuttingDown = true;
       clearInterval(deliveryTimer);
-      await runner?.stop();
-      await channelTurns?.stop();
-      for (const channel of channels.channels()) await channels.disconnect(channel.id);
-      await connectors.close();
-      await browser.close();
+      const stopping = Promise.allSettled([
+        approvals.shutdown(),
+        runner?.stop(),
+        channelTurns?.stop(),
+      ]);
+      while (pendingWork.size > 0) await Promise.allSettled([...pendingWork]);
+      const stopped = await stopping;
+      const closed = await Promise.allSettled([
+        ...channels.channels().map((channel) => channels.disconnect(channel.id)),
+        connectors.close(),
+        browser.close(),
+      ]);
+      const failure = [...stopped, ...closed].find((result) => result.status === 'rejected');
+      if (failure?.status === 'rejected') throw failure.reason;
+      presence.close(true);
+      await cleanStoppedOwners().catch(() => undefined);
     },
   };
 }

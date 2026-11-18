@@ -4,13 +4,21 @@
  * The first group runs the whole agent against a scripted model; the second group runs the pieces
  * with stand-in sessions, to see what a session is opened with and how a turn is reported.
  */
+import { spawn } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { FunctionTool } from '@robota-sdk/agent-core';
 
 import {
   CaseBook,
   GoalBook,
   caseTurnPrompt,
   caseTurnTools,
+  CONNECTOR_TOOL_NAMES,
+  createConnectorTools,
   createMemoryCaseStore,
   createMemoryGoalStore,
 } from '@robota-sdk/agent-product/personal';
@@ -21,7 +29,7 @@ import { createGoalRunner } from '../goal-runner.js';
 import { offeredTools } from './scripted-model.js';
 import { startHarness } from './harness.js';
 
-import type { ICase, IGoal } from '@robota-sdk/agent-product/personal';
+import type { ConnectorRegistry, ICase, IGoal } from '@robota-sdk/agent-product/personal';
 import type { IExtraSessionOptions, TPersonalSession } from '../agent.js';
 import type { TRunSession } from '../goal-runner.js';
 import type { IHarness } from './harness.js';
@@ -97,6 +105,507 @@ const systemOf = (started: IHarness, request = 0): string =>
   );
 
 describe('the agent takes a turn on a case once its question is answered', () => {
+  it('recovers an answer when saving its feed card fails', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    try {
+      const { opened, item } = await asked(harness);
+      const { cases, goals } = harness.capabilities;
+      const failure = vi
+        .spyOn(goals, 'answerQuestion')
+        .mockRejectedValueOnce(new Error('feed unavailable'));
+      await expect(answer(harness, item.id, 'No')).rejects.toThrow('feed unavailable');
+      expect((await cases.get(opened.id))?.lastAnsweredFeedItemId).toBe(item.id);
+      expect((await goals.feedItem(item.id))?.question?.state).toBe('open');
+      failure.mockRestore();
+      other.model.script({ text: 'The answer was recovered.' });
+      expect((await answer(other, item.id, 'No')).status).toBe(200);
+      expect(await other.capabilities.runner()!.runDue()).toBe(0);
+      harness.model.script({ text: 'The answer belongs to its original owner.' });
+      expect(await harness.capabilities.runner()!.runDue()).toBe(1);
+      const goal = await turnEnded(harness, opened.id, 1);
+      expect((await goals.feedItem(item.id))?.question?.state).toBe('answered');
+      expect(existsSync(join(harness.stateDir, 'case-answer-outbox', opened.id))).toBe(false);
+      expect((await goals.list()).filter((entry) => entry.caseId === opened.id)).toHaveLength(1);
+      expect(await goals.runs(goal.id)).toHaveLength(1);
+      expect(other.model.requests).toHaveLength(0);
+    } finally {
+      await other.close();
+    }
+  });
+
+  it('reports a conflict when a retry differs from the answer that was already saved', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    const { goals } = harness.capabilities;
+    vi.spyOn(goals, 'answerQuestion').mockRejectedValueOnce(new Error('feed unavailable'));
+    await expect(answer(harness, item.id, 'Yes, it was me')).rejects.toThrow('feed unavailable');
+    harness.model.script({ text: 'The earlier answer was recovered.' });
+    const retried = await answer(harness, item.id, 'No');
+    expect(retried.status).toBe(409);
+    expect(retried.body).toEqual({ error: expect.stringMatching(/earlier answer was saved/u) });
+    expect((await goals.feedItem(item.id))?.question?.answer?.choice).toBe('Yes, it was me');
+    await turnEnded(harness, opened.id, 1);
+  });
+
+  it('keeps a live answer owner when another agent recovers its queue', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    try {
+      const { opened, item } = await asked(harness);
+      const { goals } = harness.capabilities;
+      const firstRunner = harness.capabilities.runner()!;
+      const scheduled = vi.spyOn(firstRunner, 'runDue').mockResolvedValue(0);
+      const failure = vi
+        .spyOn(goals, 'enqueueCaseAnswer')
+        .mockRejectedValue(new Error('queue unavailable'));
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      failure.mockRestore();
+      expect(await other.capabilities.runner()!.runDue()).toBe(0);
+      scheduled.mockRestore();
+      harness.model.script({ text: 'The owner handled its answer.' });
+      expect(await firstRunner.runDue()).toBe(1);
+      await turnEnded(harness, opened.id, 1);
+      expect(other.model.requests).toHaveLength(0);
+    } finally {
+      await other.close();
+    }
+  });
+
+  it.each(['note', 'close'] as const)(
+    'does not invent an answer when the case write failed before a later %s',
+    async (change) => {
+      if (process.platform === 'win32') return;
+      harness = await startHarness();
+      const { opened, item } = await asked(harness);
+      const { cases, goals } = harness.capabilities;
+      const store = (
+        cases as unknown as { store: import('@robota-sdk/agent-product/personal').ICaseStore }
+      ).store;
+      const failure = vi.spyOn(store, 'put').mockRejectedValueOnce(new Error('case unavailable'));
+      await expect(answer(harness, item.id, 'No')).rejects.toThrow('case unavailable');
+      failure.mockRestore();
+      if (change === 'note') await cases.note(opened.id, 'A later note.');
+      else await cases.close(opened.id, 'Closed before an answer.');
+      await harness.capabilities.runner()!.runDue();
+      const found = (await cases.get(opened.id))!;
+      expect(found.history.some((event) => event.kind === 'answered')).toBe(false);
+      expect((await goals.feedItem(item.id))?.question?.state).toBe(
+        change === 'note' ? 'open' : 'withdrawn',
+      );
+      expect(await goals.list()).toEqual([]);
+      if (change === 'note')
+        expect(found.notes.map((note) => note.text)).toContain('A later note.');
+    },
+  );
+
+  it('preserves later notes while recovering an accepted answer', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    let closed = false;
+    try {
+      const { opened, item } = await asked(harness);
+      const { goals, cases } = harness.capabilities;
+      const failure = vi
+        .spyOn(goals, 'enqueueCaseAnswer')
+        .mockRejectedValue(new Error('queue unavailable'));
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      await other.capabilities.cases.note(opened.id, 'A later note from another agent.');
+      failure.mockRestore();
+      await other.close();
+      closed = true;
+      harness.model.script({ text: 'The answer and later note were recovered.' });
+      await harness.capabilities.runner()!.runDue();
+      const goal = await turnEnded(harness, opened.id, 1);
+      expect((await cases.get(opened.id))?.notes.map((note) => note.text)).toContain(
+        'A later note from another agent.',
+      );
+      expect(await goals.runs(goal.id)).toHaveLength(1);
+      expect(offeredTools(harness.model.requests[0]!)).not.toContain(CONNECTOR_TOOL_NAMES.act);
+    } finally {
+      if (!closed) await other.close();
+    }
+  });
+
+  it('keeps a later closing when recovering a case answer whose feed write failed', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    const { cases, goals } = harness.capabilities;
+    vi.spyOn(goals, 'answerQuestion').mockRejectedValueOnce(new Error('feed unavailable'));
+    await expect(answer(harness, item.id, 'No')).rejects.toThrow('feed unavailable');
+    await cases.close(opened.id, 'The person settled it another way.');
+    await harness.capabilities.runner()!.runDue();
+    await turnEnded(harness, opened.id, 1);
+    expect((await cases.get(opened.id))?.state).toBe('closed');
+    expect((await goals.feedItem(item.id))?.question).toEqual(
+      expect.objectContaining({
+        state: 'answered',
+        resolution: 'The person settled it another way.',
+      }),
+    );
+    expect(offeredTools(harness.model.requests[0]!)).not.toContain(CONNECTOR_TOOL_NAMES.act);
+  });
+
+  it('recovers an answered card if the preceding case write was lost', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    const { cases, goals } = harness.capabilities;
+    const before = (await cases.get(opened.id))!;
+    const runner = harness.capabilities.runner()!;
+    const schedule = vi.spyOn(runner, 'runDue').mockResolvedValue(0);
+    const queue = vi
+      .spyOn(goals, 'enqueueCaseAnswer')
+      .mockRejectedValue(new Error('queue unavailable'));
+    expect((await answer(harness, item.id, 'No')).status).toBe(200);
+    const path = join(harness.stateDir, 'cases', 'cases.json');
+    const file = JSON.parse(readFileSync(path, 'utf8')) as Record<string, ICase>;
+    file[opened.id] = before;
+    writeFileSync(path, JSON.stringify(file));
+    queue.mockRestore();
+    schedule.mockRestore();
+    harness.model.script({ text: 'The answer was recovered after storage rolled back.' });
+    await runner.runDue();
+    await turnEnded(harness, opened.id, 1);
+    expect((await cases.get(opened.id))?.lastAnsweredFeedItemId).toBe(item.id);
+    expect((await goals.feedItem(item.id))?.question?.answer?.choice).toBe('No');
+  });
+
+  it('does not recreate a stopped case goal from an unfinished answer record', async () => {
+    if (process.platform === 'win32') return;
+    const root = mkdtempSync(join(tmpdir(), 'personal-answer-stop-'));
+    try {
+      harness = await startHarness({ stateDir: root });
+      const { opened, item } = await asked(harness);
+      const { goals } = harness.capabilities;
+      const runner = harness.capabilities.runner()!;
+      vi.spyOn(runner, 'runDue').mockResolvedValue(0);
+      const enqueue = goals.enqueueCaseAnswer.bind(goals);
+      vi.spyOn(goals, 'enqueueCaseAnswer').mockImplementationOnce(async (input) => {
+        await enqueue(input);
+        throw new Error('interrupted after enqueue');
+      });
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+      const stopped = await harness.capabilities.api({
+        method: 'POST',
+        path: `/goals/${goal.id}/stop`,
+        segments: ['goals', goal.id, 'stop'],
+        query: new URLSearchParams(),
+        body: {},
+      });
+      expect(stopped.status).toBe(200);
+      expect(await goals.list()).toEqual([]);
+      await harness.close();
+      harness = await startHarness({ stateDir: root });
+      expect(await harness.capabilities.runner()!.runDue()).toBe(0);
+      expect(await harness.capabilities.goals.list()).toEqual([]);
+      expect(harness.model.requests).toHaveLength(0);
+    } finally {
+      await harness?.close();
+      harness = undefined;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('resumes a case answer read-only when shutdown interrupts its running turn', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'personal-answer-interrupted-'));
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    let closing: Promise<void> | undefined;
+    try {
+      harness = await startHarness({ stateDir: root });
+      const { opened, item } = await asked(harness);
+      const goals = harness.capabilities.goals;
+      harness.model.script(async () => {
+        reached();
+        await gate;
+        return { text: 'Too late.' };
+      });
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      await waiting;
+      const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+      closing = harness.close();
+      release();
+      await closing;
+      closing = undefined;
+      expect((await goals.runs(goal.id))[0]?.outcome).toBe('interrupted');
+      harness = await startHarness({ stateDir: root });
+      harness.model.script({ text: 'The interrupted answer was reconsidered.' });
+      expect(await harness.capabilities.runner()!.runDue()).toBe(1);
+      await harness.capabilities.runner()!.settled();
+      expect((await harness.capabilities.goals.runs(goal.id)).map((run) => run.outcome)).toEqual(
+        expect.arrayContaining(['interrupted', 'done']),
+      );
+      expect(offeredTools(harness.model.requests[0]!)).not.toContain(CONNECTOR_TOOL_NAMES.act);
+    } finally {
+      release();
+      if (closing !== undefined) await closing;
+      else await harness?.close();
+      harness = undefined;
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it('does not repeat a completed case turn when shutdown waits for its records', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'personal-answer-completed-'));
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    let closing: Promise<void> | undefined;
+    try {
+      harness = await startHarness({ stateDir: root });
+      const { opened, item } = await asked(harness);
+      const goals = harness.capabilities.goals;
+      const record = goals.recordAction.bind(goals);
+      vi.spyOn(goals, 'recordAction').mockImplementation(async (...args) => {
+        const saved = await record(...args);
+        reached();
+        await gate;
+        return saved;
+      });
+      harness.model.script(
+        { tool: 'CaseNote', args: { id: opened.id, text: 'The answer was noted.' } },
+        { text: 'Done.' },
+      );
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      await waiting;
+      await until(async () => harness!.model.requests.length >= 2, 'the model to finish');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+      closing = harness.close();
+      release();
+      await closing;
+      closing = undefined;
+      expect((await goals.runs(goal.id))[0]?.outcome).toBe('done');
+      harness = await startHarness({ stateDir: root });
+      expect(await harness.capabilities.runner()!.runDue()).toBe(0);
+      expect(
+        (await harness.capabilities.cases.get(opened.id))?.notes.filter(
+          (note) => note.text === 'The answer was noted.',
+        ),
+      ).toHaveLength(1);
+    } finally {
+      release();
+      if (closing !== undefined) await closing;
+      else await harness?.close();
+      harness = undefined;
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it('retries a completed case report on its live owner while another agent remains active', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    try {
+      const { opened, item } = await asked(harness);
+      const goals = harness.capabilities.goals;
+      harness.model.script(async () => {
+        reached();
+        await gate;
+        return { text: 'Nothing else is needed.' };
+      });
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      await waiting;
+      const store = (
+        goals as unknown as { store: import('@robota-sdk/agent-product/personal').IGoalStore }
+      ).store;
+      const put = store.putFeedItem.bind(store);
+      vi.spyOn(store, 'putFeedItem').mockImplementationOnce(async (value, options) => {
+        if (value.kind === 'report') throw new Error('report unavailable');
+        return put(value, options);
+      });
+      release();
+      await harness.capabilities.runner()!.settled();
+      const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+      expect((await goals.get(goal.id))?.activeCaseRun).toBeDefined();
+      expect(await harness.capabilities.runner()!.runDue()).toBe(0);
+      expect((await goals.get(goal.id))?.status).toBe('done');
+      expect(
+        (await goals.feed()).filter((entry) => entry.goalId === goal.id && entry.kind === 'report'),
+      ).toHaveLength(1);
+      expect(other.model.requests).toHaveLength(0);
+    } finally {
+      release();
+      await other.close();
+    }
+  }, 20_000);
+
+  it('isolates a damaged answer record from other goals and a restart', async () => {
+    if (process.platform === 'win32') return;
+    const root = mkdtempSync(join(tmpdir(), 'personal-answer-damaged-'));
+    try {
+      harness = await startHarness({ stateDir: root });
+      const { opened, item } = await asked(harness);
+      const { goals } = harness.capabilities;
+      const runner = harness.capabilities.runner()!;
+      const schedule = vi.spyOn(runner, 'runDue').mockResolvedValue(0);
+      const enqueue = goals.enqueueCaseAnswer.bind(goals);
+      vi.spyOn(goals, 'enqueueCaseAnswer').mockImplementationOnce(async (input) => {
+        await enqueue(input);
+        throw new Error('interrupted after enqueue');
+      });
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      writeFileSync(join(root, 'case-answer-outbox', opened.id, `${item.id}.json`), '{damaged');
+      const other = await goals.create({
+        title: 'Other work',
+        instructions: 'Do something unrelated.',
+      });
+      schedule.mockRestore();
+      harness.model.script({ text: 'The unrelated goal finished.' });
+      expect(await runner.runDue()).toBe(1);
+      await runner.settled();
+      expect((await goals.get(other.id))?.status).toBe('done');
+      const blocked = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+      expect(await goals.runs(blocked.id)).toEqual([]);
+      const retry = await answer(harness, item.id, 'No');
+      expect(retry.status).toBe(400);
+      expect(retry.body).toEqual({ error: expect.stringMatching(/manual recovery/u) });
+      await harness.close();
+      harness = await startHarness({ stateDir: root });
+      expect(await harness.capabilities.runner()!.runDue()).toBe(0);
+      expect(await harness.capabilities.goals.runs(blocked.id)).toEqual([]);
+    } finally {
+      await harness?.close();
+      harness = undefined;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not let an unrelated damaged record block stopping a case goal', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    const { goals } = harness.capabilities;
+    vi.spyOn(harness.capabilities.runner()!, 'runDue').mockResolvedValue(0);
+    expect((await answer(harness, item.id, 'No')).status).toBe(200);
+    const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+    const unrelated = join(harness.stateDir, 'case-answer-outbox', 'case-abcdef');
+    mkdirSync(unrelated, { recursive: true });
+    writeFileSync(join(unrelated, 'feed-abcd.json'), '{damaged');
+    const stopped = await harness.capabilities.api({
+      method: 'POST',
+      path: `/goals/${goal.id}/stop`,
+      segments: ['goals', goal.id, 'stop'],
+      query: new URLSearchParams(),
+      body: {},
+    });
+    expect(stopped.status).toBe(200);
+    expect(await goals.get(goal.id)).toBeUndefined();
+  });
+
+  it('refuses a recovery record whose saved answer differs from the case history', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    const { cases, goals } = harness.capabilities;
+    vi.spyOn(goals, 'answerQuestion').mockRejectedValueOnce(new Error('feed unavailable'));
+    await expect(answer(harness, item.id, 'Yes, it was me')).rejects.toThrow('feed unavailable');
+    const path = join(harness.stateDir, 'case-answer-outbox', opened.id, `${item.id}.json`);
+    const record = JSON.parse(readFileSync(path, 'utf8')) as { answer: { choice: string } };
+    record.answer.choice = 'No';
+    writeFileSync(path, JSON.stringify(record));
+    expect(await harness.capabilities.runner()!.runDue()).toBe(0);
+    expect((await goals.feedItem(item.id))?.question?.state).toBe('open');
+    expect((await cases.get(opened.id))?.history.at(-1)?.text).toBe('Yes, it was me');
+    const retry = await answer(harness, item.id, 'No');
+    expect(retry.status).toBe(400);
+    expect(retry.body).toEqual({ error: expect.stringMatching(/manual recovery/u) });
+  });
+
+  it.each(['feed', 'queue'] as const)(
+    'recovers one read-only turn after the answer owner exits during %s',
+    async (phase) => {
+      if (process.platform === 'win32') return;
+      const root = mkdtempSync(join(tmpdir(), 'personal-answer-process-'));
+      const harnessUrl = new URL('./harness.ts', import.meta.url).href;
+      const program = `
+        import fs from 'node:fs';
+        const { startHarness } = await import(${JSON.stringify(harnessUrl)});
+        const h = await startHarness({ stateDir: ${JSON.stringify(root)} });
+        const { cases, goals } = h.capabilities;
+        const { case: opened } = await cases.open(${JSON.stringify(SIGN_IN)});
+        const { item } = await cases.ask(opened.id, ${JSON.stringify(QUESTION)});
+        const stall = async () => {
+          fs.writeSync(1, 'READY:' + JSON.stringify({ caseId: opened.id, feedId: item.id }) + '\\n');
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);
+        };
+        if (${JSON.stringify(phase)} === 'feed') goals.answerQuestion = stall;
+        else goals.enqueueCaseAnswer = stall;
+        await h.capabilities.api({ method: 'POST', path: '/feed/' + item.id + '/answer',
+          segments: ['feed', item.id, 'answer'], query: new URLSearchParams(), body: { choice: 'No' } });
+      `;
+      const child = spawn(
+        process.execPath,
+        ['--import', 'tsx', '--input-type=module', '-e', program],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      );
+      const ended = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+      let errors = '';
+      child.stderr!.on('data', (chunk: Buffer) => {
+        errors += chunk.toString();
+      });
+      try {
+        const ids = await new Promise<{ caseId: string; feedId: string }>((resolve, reject) => {
+          let output = '';
+          child.stdout!.on('data', (chunk: Buffer) => {
+            output += chunk.toString();
+            const match = /READY:(\{[^\n]+\})/u.exec(output);
+            if (match !== null) resolve(JSON.parse(match[1]!));
+          });
+          child.once('exit', () =>
+            reject(new Error(`answer owner exited before the checkpoint: ${errors}`)),
+          );
+          child.once('error', reject);
+        });
+        child.kill('SIGKILL');
+        await ended;
+        harness = await startHarness({ stateDir: root });
+        const goal = await turnEnded(harness, ids.caseId, 1);
+        const { cases, goals } = harness.capabilities;
+        expect((await cases.get(ids.caseId))?.lastAnsweredFeedItemId).toBe(ids.feedId);
+        expect((await goals.feedItem(ids.feedId))?.question?.state).toBe('answered');
+        expect((await goals.list()).filter((entry) => entry.caseId === ids.caseId)).toHaveLength(1);
+        expect(await goals.runs(goal.id)).toHaveLength(1);
+        expect(offeredTools(harness.model.requests[0]!)).not.toContain(CONNECTOR_TOOL_NAMES.act);
+      } finally {
+        child.kill('SIGKILL');
+        await ended;
+        await harness?.close();
+        harness = undefined;
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+    20_000,
+  );
+
   it('runs read-only with only the tools to look and keep the case, then notes and asks a follow-up', async () => {
     harness = await startHarness();
     const { opened, item } = await asked(harness);
@@ -497,7 +1006,7 @@ describe('the agent takes a turn on a case once its question is answered', () =>
     harness = await startHarness();
     const { opened, item } = await asked(harness);
     const create = vi
-      .spyOn(harness.capabilities.goals, 'create')
+      .spyOn(harness.capabilities.goals, 'enqueueCaseAnswer')
       .mockRejectedValue(new Error('the goal could not be written'));
     const response = await answer(harness, item.id, 'No');
     expect(response.status).toBe(200);
@@ -559,6 +1068,305 @@ async function pieces() {
 }
 
 describe('how a case turn is started and run', () => {
+  it('does not claim a newer answer before its owner queues it', async () => {
+    const goals = new GoalBook({ store: createMemoryGoalStore() });
+    const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
+    const first = createCaseTurns({ goals, cases, ownerId: 'first' });
+    const second = createCaseTurns({ goals, cases, ownerId: 'second' });
+    const { case: opened } = await cases.open(SIGN_IN);
+    const initial = await cases.ask(opened.id, QUESTION);
+    const answer1 = (await cases.answer(initial.item.id, { choice: 'No' })).case;
+    await first.onAnswered(answer1);
+    const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+    const run = await goals.startRun(goal.id, { ownerId: 'first' });
+    await first.shape(goal, run);
+    const later = await cases.ask(opened.id, { question: 'One more?', options: ['Yes'] });
+    const answer2 = (await cases.answer(later.item.id, { choice: 'Yes' })).case;
+    await goals.finishRun(run, 'done', 'Finished.');
+    expect(await first.ended(goal)).toBe(false);
+    expect((await goals.get(goal.id))?.pendingCaseAnswer).toBeUndefined();
+    await second.onAnswered(answer2);
+    expect((await goals.get(goal.id))?.pendingCaseAnswer).toEqual({
+      feedItemId: later.item.id,
+      ownerId: 'second',
+    });
+  });
+
+  it('prevents an older turn from changing a case after a newer answer', async () => {
+    const goals = new GoalBook({ store: createMemoryGoalStore() });
+    const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
+    const first = createCaseTurns({ goals, cases, ownerId: 'first' });
+    const tool = createConnectorTools({} as ConnectorRegistry).find(
+      (candidate) => candidate.getName() === CONNECTOR_TOOL_NAMES.act,
+    )!;
+    const second = createCaseTurns({
+      goals,
+      cases,
+      ownerId: 'second',
+      makeAction: () => ({ tool, approved: () => undefined }),
+    });
+    const { case: opened } = await cases.open(SIGN_IN);
+    const initial = await cases.ask(opened.id, QUESTION);
+    const answer1 = (await cases.answer(initial.item.id, { choice: 'Yes, it was me' })).case;
+    await first.onAnswered(answer1);
+    const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+    const run1 = await goals.startRun(goal.id, { ownerId: 'first' });
+    const openedShape = (await first.shape(goal, run1))!;
+    const later = await cases.ask(opened.id, { question: 'Still sure?', options: ['Yes', 'No'] });
+    const answer2 = (await cases.answer(later.item.id, { choice: 'No' })).case;
+    second.remember(answer2, {
+      caseId: opened.id,
+      feedItemId: later.item.id,
+      connectorId: 'connector-mail',
+      bindingGeneration: 'binding',
+      scopeGeneration: 'scope',
+      tools: ['send'],
+    });
+    await second.onAnswered(answer2);
+    for (const [name, args] of [
+      ['CaseNote', { id: opened.id, text: 'Stale note' }],
+      ['CaseAsk', { id: opened.id, question: 'Stale question?' }],
+      ['CaseClose', { id: opened.id, resolution: 'Stale closing' }],
+    ] as const) {
+      const scoped = openedShape.caseTools!.find((candidate) => candidate.getName() === name)!;
+      const result = await scoped.execute(args, { toolName: name, parameters: {} });
+      expect(JSON.parse(result.data as string)).toEqual({
+        error: expect.stringMatching(/case changed/u),
+      });
+    }
+    expect((await first.shape(goal, run1))?.onlyTools).toEqual([]);
+    await goals.finishRun(run1, 'done', 'The case moved on.');
+    const current = (await goals.get(goal.id))!;
+    const run2 = await goals.startRun(goal.id, { ownerId: 'second' });
+    expect((await second.shape(current, run2))?.onlyTools).toContain(CONNECTOR_TOOL_NAMES.act);
+    expect((await cases.get(opened.id))?.state).toBe('open');
+  });
+
+  it('keeps an answer with the agent that captured its authority', async () => {
+    const store = createMemoryGoalStore();
+    const firstGoals = new GoalBook({ store });
+    const secondGoals = new GoalBook({ store });
+    const cases = new CaseBook({ store: createMemoryCaseStore(), feed: firstGoals });
+    const tool = createConnectorTools({} as ConnectorRegistry).find(
+      (candidate) => candidate.getName() === CONNECTOR_TOOL_NAMES.act,
+    )!;
+    const firstTurns = createCaseTurns({
+      goals: firstGoals,
+      cases,
+      ownerId: 'first',
+      makeAction: () => ({ tool, approved: () => undefined }),
+    });
+    const secondTurns = createCaseTurns({
+      goals: secondGoals,
+      cases,
+      ownerId: 'second',
+      makeAction: () => ({ tool, approved: () => undefined }),
+    });
+    const firstSessions = stubSessions();
+    const secondSessions = stubSessions();
+    const first = createGoalRunner({
+      book: firstGoals,
+      approvals: createApprovalRegistry(firstGoals),
+      ownerId: 'first',
+      openSession: firstSessions.openSession,
+      shape: firstTurns.shape,
+    });
+    const second = createGoalRunner({
+      book: secondGoals,
+      approvals: createApprovalRegistry(secondGoals),
+      ownerId: 'second',
+      openSession: secondSessions.openSession,
+      shape: secondTurns.shape,
+    });
+    const { case: opened } = await cases.open(SIGN_IN);
+    const { item } = await cases.ask(opened.id, QUESTION);
+    const answered = (await cases.answer(item.id, { choice: 'No' })).case;
+    firstTurns.remember(answered, {
+      caseId: opened.id,
+      feedItemId: item.id,
+      connectorId: 'connector-mail',
+      bindingGeneration: 'binding',
+      scopeGeneration: 'scope',
+      tools: ['send'],
+    });
+    try {
+      await firstTurns.onAnswered(answered);
+      expect(await second.runDue()).toBe(0);
+      expect(await first.runDue()).toBe(1);
+      await first.settled();
+      expect(firstSessions.opened[0]?.onlyTools).toContain(CONNECTOR_TOOL_NAMES.act);
+      expect(secondSessions.opened).toEqual([]);
+    } finally {
+      await first.stop();
+      await second.stop();
+    }
+  });
+
+  it('adopts an abandoned answer without recreating its authority', async () => {
+    const store = createMemoryGoalStore();
+    const goals = new GoalBook({ store });
+    const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
+    const first = createCaseTurns({ goals, cases, ownerId: 'first' });
+    const sessions = stubSessions();
+    const second = createCaseTurns({ goals, cases, ownerId: 'second' });
+    const runner = createGoalRunner({
+      book: goals,
+      approvals: createApprovalRegistry(goals),
+      ownerId: 'second',
+      openSession: sessions.openSession,
+      shape: second.shape,
+    });
+    const { case: opened } = await cases.open(SIGN_IN);
+    const { item } = await cases.ask(opened.id, QUESTION);
+    const answered = (await cases.answer(item.id, { choice: 'No' })).case;
+    try {
+      await first.onAnswered(answered);
+      const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+      expect(await runner.runDue()).toBe(0);
+      await goals.recoverGoal(goal.id, { adoptOwner: 'second' });
+      expect(await runner.runDue()).toBe(1);
+      await runner.settled();
+      expect(sessions.opened[0]?.onlyTools).toEqual(caseTurnTools());
+    } finally {
+      await runner.stop();
+    }
+  });
+
+  it('uses only the matching answer snapshot once, and a restarted turn stays read-only', async () => {
+    const goals = new GoalBook({ store: createMemoryGoalStore() });
+    const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
+    const tool = createConnectorTools({} as ConnectorRegistry).find(
+      (candidate) => candidate.getName() === CONNECTOR_TOOL_NAMES.act,
+    )!;
+    const turns = createCaseTurns({
+      goals,
+      cases,
+      makeAction: () => ({ tool, approved: () => undefined }),
+    });
+    const { case: opened } = await cases.open(SIGN_IN);
+    const { item } = await cases.ask(opened.id, QUESTION);
+    const answered = (await cases.answer(item.id, { choice: 'No' })).case;
+    const snapshot = {
+      caseId: opened.id,
+      feedItemId: item.id,
+      connectorId: 'connector-mail',
+      bindingGeneration: 'binding',
+      scopeGeneration: 'scope',
+      tools: ['send'],
+    };
+    turns.remember(answered, { ...snapshot, feedItemId: 'different-answer' });
+    await turns.onAnswered(answered);
+    const goal = (await goals.list()).find((candidate) => candidate.caseId === opened.id)!;
+    expect((await turns.shape(goal))?.onlyTools).toEqual(caseTurnTools());
+    turns.remember(answered, snapshot);
+    const acting = await turns.shape(goal);
+    expect(acting?.onlyTools).toContain(CONNECTOR_TOOL_NAMES.act);
+    expect(acting?.instructions).toContain('Each call waits for the person to approve');
+    expect((await turns.shape(goal))?.onlyTools).toEqual(caseTurnTools());
+    const restarted = createCaseTurns({
+      goals,
+      cases,
+      makeAction: () => ({ tool, approved: () => undefined }),
+    });
+    expect((await restarted.shape(goal))?.onlyTools).toEqual(caseTurnTools());
+  });
+
+  it('keeps the case action replacement inside its session and still asks for approval', async () => {
+    harness = await startHarness();
+    const original = harness.capabilities.tools.find(
+      (tool) => tool.getName() === CONNECTOR_TOOL_NAMES.act,
+    )!;
+    let executions = 0;
+    let bodyExecution: string | undefined;
+    let promptExecution: string | undefined;
+    const replacement = new FunctionTool(original.schema, async (_args, context) => {
+      executions += 1;
+      bodyExecution = context?.executionId;
+      return 'The case action ran.';
+    });
+    const scoped = harness.local.agent.openSession({
+      sessionName: 'Case fixture',
+      instructions: 'Continue.',
+      permissionMode: 'acceptEdits',
+      onlyTools: [CONNECTOR_TOOL_NAMES.act],
+      caseAction: replacement,
+    });
+    const ordinary = harness.local.agent.openSession({
+      sessionName: 'Ordinary fixture',
+      instructions: 'Continue.',
+      permissionMode: 'acceptEdits',
+      onlyTools: [CONNECTOR_TOOL_NAMES.act],
+    });
+    let prompts = 0;
+    const approve =
+      (session: TPersonalSession) => (event: { id: string; executionId?: string }) => {
+        prompts += 1;
+        if (session === scoped) promptExecution = event.executionId;
+        session.resolvePermission(event.id, true);
+      };
+    scoped.on('permission_request', approve(scoped) as never);
+    ordinary.on('permission_request', approve(ordinary) as never);
+    try {
+      const script = () =>
+        harness!.model.script(
+          {
+            tool: CONNECTOR_TOOL_NAMES.act,
+            args: { connector: 'connector-missing', tool: 'write' },
+          },
+          { text: 'Done.' },
+        );
+      script();
+      await (
+        await scoped.submit('Continue.')
+      ).completed;
+      expect(executions).toBe(1);
+      expect(promptExecution).toBeDefined();
+      expect(bodyExecution).toBe(promptExecution);
+      script();
+      await (
+        await ordinary.submit('Continue.')
+      ).completed;
+      expect(executions).toBe(1);
+      expect(prompts).toBe(2);
+    } finally {
+      await scoped.shutdown();
+      await ordinary.shutdown();
+    }
+  });
+
+  it('opens only an explicitly shaped case run with its scoped action replacement', async () => {
+    const goals = new GoalBook({ store: createMemoryGoalStore() });
+    const sessions = stubSessions();
+    const action = createConnectorTools({} as ConnectorRegistry).find(
+      (tool) => tool.getName() === CONNECTOR_TOOL_NAMES.act,
+    )!;
+    const goal = await goals.create({
+      title: 'Case',
+      instructions: 'Continue.',
+      readOnly: true,
+      caseId: 'case-fixture',
+    });
+    const runner = createGoalRunner({
+      book: goals,
+      approvals: createApprovalRegistry(goals),
+      openSession: sessions.openSession,
+      shape: async () => ({
+        instructions: 'Case context.',
+        onlyTools: [CONNECTOR_TOOL_NAMES.act],
+        caseAction: { tool: action, approved: () => undefined },
+      }),
+    });
+    expect(await runner.runDue()).toBe(1);
+    await runner.settled();
+    expect(sessions.opened[0]).toMatchObject({
+      permissionMode: 'acceptEdits',
+      onlyTools: [CONNECTOR_TOOL_NAMES.act],
+      caseAction: action,
+    });
+    expect(sessions.opened[0]!.instructions).not.toContain('This goal is read-only');
+    expect((await goals.get(goal.id))?.readOnly).toBe(true);
+  });
+
   it('opens its session in plan mode with exactly the case turn tools, and no goal tools', async () => {
     const { turns, runner, sessions, answered, caseGoals } = await pieces();
     const found = await answered();
@@ -651,7 +1459,8 @@ describe('how a case turn is started and run', () => {
     run = await goals.startRun(goal!.id);
     await turns.shape(goal!);
     const { item } = await cases.ask(found.id, { question: 'One more thing?', options: ['Yes'] });
-    await cases.answer(item.id, { choice: 'Yes' });
+    const next = (await cases.answer(item.id, { choice: 'Yes' })).case;
+    await turns.onAnswered(next);
     await goals.finishRun(run, 'failed', 'The run failed.');
     expect(await turns.ended(goal!)).toBe(true);
     expect((await goals.get(goal!.id))?.status).toBe('active');

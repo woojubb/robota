@@ -361,6 +361,46 @@ describe('the connector registry', () => {
     expect(protocol.events.filter((event) => event.startsWith('call'))).toHaveLength(0);
   });
 
+  it('refuses a guarded action before calling a protocol without dispatch admission', async () => {
+    const { registry, protocol, connector } = await setup();
+    expect(registry.forwardsDispatchAdmission).toBe(true);
+    const admit = async (send: () => Promise<unknown>) => ({ response: send() });
+    await expect(registry.act(connector.id, 'send', {}, undefined, admit)).rejects.toThrow(
+      /cannot admit/u,
+    );
+    expect(protocol.events.filter((event) => event.startsWith('call'))).toEqual([]);
+  });
+
+  it('passes a guarded action to a protocol that admits at dispatch', async () => {
+    const book = new ConnectorBook({ store: createMemoryConnectorStore() });
+    const fake = fakeProtocol();
+    const protocol: IConnectorProtocol = {
+      ...fake,
+      admitsToolDispatch: true,
+      call: async (_connector, tool, args, options) => {
+        if (options?.admitDispatch === undefined) throw new Error('Missing admission');
+        const admitted = await options.admitDispatch(
+          async () => {
+            fake.events.push(`call ${tool}`);
+          },
+          { tool, argumentsJson: JSON.stringify(args) },
+        );
+        await admitted.response;
+        return fake.reply;
+      },
+    };
+    const registry = new ConnectorRegistry({ book, protocols: [protocol] });
+    const connector = await book.create({
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'fake',
+      endpoint: ENDPOINT,
+    });
+    const admit = async (send: () => Promise<unknown>) => ({ response: send() });
+    await registry.act(connector.id, 'send', {}, undefined, admit);
+    expect(fake.events).toContain('call send');
+  });
+
   it('applies a new decision at once, without waiting for the tool list to expire', async () => {
     const { registry, connector } = await setup();
     await registry.view(connector.id);
