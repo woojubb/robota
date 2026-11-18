@@ -83,24 +83,26 @@ async function sampleUntil(
 }
 
 function visibleAt(growths: IGrowth[], text: string): number {
-  let output = '';
-  for (const growth of growths) {
-    output += growth.bytes;
-    if (visible(output).includes(text)) return growth.at;
+  const output = growths.map((growth) => growth.bytes).join('');
+  let position = visible(output).indexOf(text);
+  if (position < 0) throw new Error(`PTY did not emit ${JSON.stringify(text)}`);
+  for (const escape of output.matchAll(ESCAPES)) {
+    if (escape.index > position) break;
+    position += escape[0].length;
   }
-  throw new Error(`PTY did not emit ${JSON.stringify(text)}`);
+  let seen = 0;
+  for (const growth of growths) {
+    seen += growth.bytes.length;
+    if (position < seen) return growth.at;
+  }
+  throw new Error(`PTY could not locate ${JSON.stringify(text)}`);
 }
 
 /** The mount-time prompt-start must precede the answer. */
 function expectMarksOrderedWithTheTurn(raw: string): void {
-  const marks = [...raw.matchAll(OSC_133)].map((match) => ({
-    code: match[0],
-    at: match.index ?? 0,
-  }));
-  const answerAt = raw.indexOf('REPLAYED_ANSWER_42');
-  const promptStarts = marks.filter((mark) => mark.code.includes('133;A'));
-  expect(promptStarts.length).toBeGreaterThanOrEqual(1);
-  expect(promptStarts[0]?.at).toBeLessThan(answerAt);
+  const promptStart = raw.indexOf('\x1b]133;A\x07');
+  expect(promptStart).toBeGreaterThanOrEqual(0);
+  expect(promptStart).toBeLessThan(raw.indexOf(ANSWER));
 }
 
 interface ITurnTiming {
@@ -193,6 +195,12 @@ describe('the pre-write park through the real binary', () => {
       expect(timing.answerAt - timing.echoAt).toBeGreaterThanOrEqual(PARK_MS - SLACK_MS);
       expect(answerWindow(fragmented.raw())).toBeDefined();
       expectMarksOrderedWithTheTurn(session.raw());
+      const splitAnswer = [
+        { at: 900, bytes: '\x1b[?202' },
+        { at: 1000, bytes: `6hhello ${ANSWER.slice(0, 12)}` },
+        { at: 2050, bytes: ANSWER.slice(12) },
+      ];
+      expect(visibleAt(splitAnswer, ANSWER)).toBe(1000);
       const incomplete = `${OPEN_WINDOW}${ANSWER} Type a message`;
       await expect(sampleUntil({ raw: () => incomplete }, 0, 25, true)).rejects.toThrow(
         'complete window',
@@ -211,26 +219,17 @@ describe('the pre-write park through the real binary', () => {
     CASE_TIMEOUT_MS,
   );
 
-  it(
-    'with the interval 0 no delay is injected',
-    async () => {
-      session = spawnScenario(projectDir, 'zero');
-      await settled(session);
-      const timing = await typeAndSubmit(session);
-      expect(timing.answerAt - timing.echoAt).toBeLessThan(PARK_MS - SLACK_MS);
-    },
-    CASE_TIMEOUT_MS,
-  );
-
-  it(
-    'with the mode off the park is absent — no interval, bordered UI as before',
-    async () => {
-      session = spawnScenario(projectDir, 'off');
-      await settled(session);
-      const timing = await typeAndSubmit(session);
-      expect(timing.answerAt - timing.echoAt).toBeLessThan(PARK_MS - SLACK_MS);
-      expect(session.snapshot()).toMatch(/[│─╭╮╰╯┌┐└┘]/u);
-    },
-    CASE_TIMEOUT_MS,
-  );
+  for (const mode of ['zero', 'off'] as const) {
+    it(
+      `with ${mode} the park is absent`,
+      async () => {
+        session = spawnScenario(projectDir, mode);
+        await settled(session);
+        const timing = await typeAndSubmit(session);
+        expect(timing.answerAt - timing.echoAt).toBeLessThan(PARK_MS - SLACK_MS);
+        if (mode === 'off') expect(session.snapshot()).toMatch(/[│─╭╮╰╯┌┐└┘]/u);
+      },
+      CASE_TIMEOUT_MS,
+    );
+  }
 });
