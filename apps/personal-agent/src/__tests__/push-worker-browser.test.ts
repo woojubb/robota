@@ -93,17 +93,15 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
 
         // The registration stays independent of the page's random session path.
         await page.evaluate(async () => {
-          await navigator.serviceWorker.register('/push-worker.js', {
+          const registration = await navigator.serviceWorker.register('/push-worker.js', {
             scope: '/__robota_personal_push__/',
           });
+          Object.assign(window, { testPushRegistration: registration });
         });
         await page.waitForFunction(
-          async () => {
-            const worker = await navigator.serviceWorker.getRegistration(
-              '/__robota_personal_push__/',
-            );
-            return worker?.active?.state === 'activated';
-          },
+          () =>
+            (window as Window & { testPushRegistration?: ServiceWorkerRegistration })
+              .testPushRegistration?.active?.state === 'activated',
           undefined,
           { timeout: 15_000 },
         );
