@@ -13,6 +13,7 @@
 import { openStatelessSession } from './stateless-session.js';
 import {
   buildDeclaredCapabilities,
+  compileToolOutputSchema,
   createMcpClient,
   DEFAULT_CLIENT_INFO,
   isRequestTimeout,
@@ -30,6 +31,7 @@ import { discoverAll } from './discovery.js';
 import { createElicitationHandler, MCPElicitationCalls } from './elicitation.js';
 import { MCPStdioError } from './stdio-error.js';
 import { outboundTraceHeaders } from './trace-propagation.js';
+import { withDispatchAdmission } from './effect-dispatch.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
 
 import type { IMCPDiscovery, IMCPServerIdentity } from '../catalog/types.js';
@@ -54,6 +56,8 @@ export type {
   IMCPSessionTimeouts,
   IMCPToolCallOptions,
   IMCPToolCallResult,
+  IMCPDispatchRequest,
+  TMCPDispatchAdmission,
   TMCPListChangedListener,
 } from './session-types.js';
 
@@ -268,7 +272,10 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     throw new MCPStdioError('early-exit');
   };
 
-  const maskStdioFailure = async (error: unknown, signal: AbortSignal | undefined): Promise<never> => {
+  const maskStdioFailure = async (
+    error: unknown,
+    signal: AbortSignal | undefined,
+  ): Promise<never> => {
     if (signal?.aborted || isRequestTimeout(error)) {
       await closeSession();
       throw new MCPStdioError('cancelled');
@@ -346,9 +353,40 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
         );
       const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
       try {
+        if (callOptions?.admitDispatch !== undefined) {
+          const validateOutput = compileToolOutputSchema(outputSchema);
+          const raw = await withDispatchAdmission(
+            options.transport,
+            callOptions.admitDispatch,
+            () =>
+              client.request(
+                { method: 'tools/call', params: { name, arguments: args } },
+                {
+                  timeout: callOptions.timeoutMs,
+                  signal: callOptions.signal,
+                  allowInputRequired: true,
+                  ...(traceHeaders === undefined || Object.keys(traceHeaders).length === 0
+                    ? {}
+                    : { headers: traceHeaders }),
+                },
+              ),
+            callOptions.signal,
+          );
+          if (
+            typeof raw === 'object' &&
+            raw !== null &&
+            'resultType' in raw &&
+            raw.resultType === 'input_required'
+          )
+            throw new Error('The admitted tool call requires additional input');
+          const result = toToolCallResult(raw);
+          await validateOutput?.(result);
+          return result;
+        }
         return toToolCallResult(await call());
       } catch (error) {
-        if (sensitiveTransport(options.transport)) return maskStdioFailure(error, callOptions?.signal);
+        if (sensitiveTransport(options.transport))
+          return maskStdioFailure(error, callOptions?.signal);
         throw error;
       } finally {
         leave();
@@ -368,7 +406,8 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
           ),
         );
       } catch (error) {
-        if (sensitiveTransport(options.transport)) return maskStdioFailure(error, readOptions?.signal);
+        if (sensitiveTransport(options.transport))
+          return maskStdioFailure(error, readOptions?.signal);
         throw error;
       }
     },
