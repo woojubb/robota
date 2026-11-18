@@ -297,12 +297,15 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
     }
     if (action === 'disconnect') return leave(id, request.body, () => registry.disconnect(id));
     if (action === 'remove')
-      return change(id, () =>
-        leave(id, request.body, async () => {
+      return change(id, async () => {
+        const removed = await leave(id, request.body, () => registry.remove(id));
+        try {
           await caseActions.clear(id);
-          return registry.remove(id);
-        }),
-      );
+          return removed;
+        } catch {
+          return ok({ ...record(removed.body), caseActionScopeCleanupFailed: true });
+        }
+      });
     if (action === 'sync') {
       const everyMinutes = record(request.body)['everyMinutes'];
       if (everyMinutes === null) {
@@ -326,7 +329,8 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       }
       return change(id, async () => {
         if (!(await known(id))) return notFound;
-        if (decision !== 'write') {
+        const previous = await book.existing(id);
+        if (decision !== 'write' || previous.decisions[tool] === 'blocked') {
           try {
             await caseActions.set(id, tool, false);
           } catch (error) {

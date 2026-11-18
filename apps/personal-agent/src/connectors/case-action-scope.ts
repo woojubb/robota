@@ -1,6 +1,14 @@
 /** Owner-selected connector tools a case may propose, kept separately from service content. */
-import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
 import { ConnectorRefusedError } from '@robota-sdk/agent-product/personal';
@@ -12,7 +20,6 @@ export interface ICaseActionScope {
 }
 
 const CONNECTOR_ID = /^connector-[a-z0-9-]{1,60}$/u;
-const MAX_TOOLS = 200;
 const MAX_TOOL_NAME = 128;
 
 /** A missing scope grants nothing; an unreadable or malformed scope is never replaced by a guess. */
@@ -20,36 +27,55 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const pathOf = (connectorId: string): string => {
     if (!CONNECTOR_ID.test(connectorId)) throw new ConnectorRefusedError('Invalid connector id');
-    return join(directory, `${connectorId}.json`);
+    return join(directory, connectorId);
   };
   const validTool = (tool: unknown): tool is string =>
     typeof tool === 'string' && tool.length > 0 && tool.length <= MAX_TOOL_NAME;
+  const nameOf = (tool: string): string =>
+    `${createHash('sha256').update(tool).digest('hex')}.json`;
   const read = (connectorId: string): string[] => {
     const path = pathOf(connectorId);
-    if (!existsSync(path)) return [];
-    let value: unknown;
     try {
-      value = JSON.parse(readFileSync(path, 'utf8'));
+      // The base directory is created at startup. Losing access to it is not an empty scope.
+      if (!statSync(directory).isDirectory()) throw new Error('not a directory');
+      let files: string[];
+      try {
+        files = readdirSync(path);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          if (!statSync(directory).isDirectory()) throw new Error('not a directory');
+          return [];
+        }
+        throw error;
+      }
+      const tools: string[] = [];
+      for (const file of files) {
+        // A crash can leave an unfinished temporary file, which grants nothing.
+        if (file.startsWith('.') && file.endsWith('.tmp')) continue;
+        let contents: string;
+        try {
+          contents = readFileSync(join(path, file), 'utf8');
+        } catch (error) {
+          // Another process may have revoked this one after the directory was read.
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+          throw error;
+        }
+        const value: unknown = JSON.parse(contents);
+        if (
+          typeof value !== 'object' ||
+          value === null ||
+          Array.isArray(value) ||
+          !validTool((value as Record<string, unknown>)['tool'])
+        )
+          throw new Error('invalid tool');
+        const tool = (value as { tool: string }).tool;
+        if (file !== nameOf(tool)) throw new Error('invalid tool file');
+        tools.push(tool);
+      }
+      return tools.sort();
     } catch {
       throw new ConnectorRefusedError('The case action settings cannot be read');
     }
-    if (
-      typeof value !== 'object' ||
-      value === null ||
-      Array.isArray(value) ||
-      !Array.isArray((value as Record<string, unknown>)['tools'])
-    ) {
-      throw new ConnectorRefusedError('The case action settings are invalid');
-    }
-    const tools: unknown[] = (value as { tools: unknown[] }).tools;
-    if (
-      tools.length > MAX_TOOLS ||
-      !tools.every(validTool) ||
-      new Set(tools).size !== tools.length
-    ) {
-      throw new ConnectorRefusedError('The case action settings are invalid');
-    }
-    return tools as string[];
   };
   return {
     tools: async (connectorId) => read(connectorId),
@@ -58,22 +84,36 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       const path = pathOf(connectorId);
       const current = read(connectorId);
       if (current.includes(tool) === allowed) return;
-      const next = new Set(current);
-      if (allowed) next.add(tool);
-      else next.delete(tool);
-      if (next.size > MAX_TOOLS) throw new ConnectorRefusedError('Too many case action tools');
-      const temporary = `${path}.${randomUUID()}.tmp`;
+      const target = join(path, nameOf(tool));
+      const temporary = join(path, `.${randomUUID()}.tmp`);
       try {
-        writeFileSync(temporary, `${JSON.stringify({ tools: [...next].sort() })}\n`, {
-          mode: 0o600,
-        });
-        renameSync(temporary, path);
+        if (allowed) {
+          mkdirSync(path, { recursive: true, mode: 0o700 });
+          writeFileSync(temporary, `${JSON.stringify({ tool })}\n`, { mode: 0o600 });
+          renameSync(temporary, target);
+        } else {
+          rmSync(target, { force: true });
+        }
+      } catch {
+        throw new ConnectorRefusedError('The case action settings could not be saved');
       } finally {
-        rmSync(temporary, { force: true });
+        if (allowed) {
+          try {
+            rmSync(temporary, { force: true });
+          } catch {
+            // An unfinished temporary file is never an active permission.
+          }
+        }
       }
     },
     clear: async (connectorId) => {
-      rmSync(pathOf(connectorId), { force: true });
+      // Check the base first: an inaccessible directory is not successful cleanup.
+      try {
+        if (!statSync(directory).isDirectory()) throw new Error('not a directory');
+        rmSync(pathOf(connectorId), { recursive: true, force: true });
+      } catch {
+        throw new ConnectorRefusedError('The case action settings could not be cleared');
+      }
     },
   };
 }
