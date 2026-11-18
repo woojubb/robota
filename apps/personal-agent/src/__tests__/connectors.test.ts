@@ -4,12 +4,28 @@
  * everything but the owner-only credential files, and disconnecting revokes. A mail, a calendar and
  * a notes service differ here only in the tools the stand-in is given.
  */
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  ConnectorBook,
+  ConnectorSync,
+  createFileConnectorStore,
+} from '@robota-sdk/agent-product/personal';
+
+import { createCaseActionScope } from '../connectors/case-action-scope.js';
+import { createConnectorsApi } from '../connectors/connectors-api.js';
 import { createFixtureWebRoot, startHarness } from './harness.js';
 import { offeredTools, toolResults } from './scripted-model.js';
 import {
@@ -20,6 +36,7 @@ import {
 } from './stand-in-connector.js';
 
 import type { IHarness } from './harness.js';
+import type { IConnectorCatalog } from '../connectors/catalog.js';
 import type {
   IStandInAuthorizationOptions,
   IStandInAuthorizationServer,
@@ -283,6 +300,395 @@ describe('using a connected service', () => {
     await w.waitForState(id, 'connected');
     return { ...w, id };
   }
+
+  it('lets the owner allow only named writable tools for case requests', async () => {
+    const w = await connected();
+    const path = (tool: string) => ['connectors', w.id, 'case-actions', tool];
+    expect((await w.call('GET', ['connectors', w.id])).body.connector.caseActionTools).toEqual([]);
+    expect((await w.call('POST', path('search_notes'), { allowed: true })).status).toBe(400);
+    expect((await w.call('POST', path('missing'), { allowed: true })).status).toBe(400);
+    expect((await w.call('POST', path('create_note'), { allowed: 'yes' })).status).toBe(400);
+    const enabled = await w.call('POST', path('create_note'), { allowed: true });
+    expect(enabled.status).toBe(200);
+    expect(enabled.body.connector.caseActionTools).toEqual(['create_note']);
+    expect((await w.call('GET', ['connectors'])).body.connectors[0].caseActionTools).toEqual([
+      'create_note',
+    ]);
+    const blocked = await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], {
+      decision: 'blocked',
+    });
+    expect(blocked.body.connector.caseActionTools).toEqual([]);
+    expect((await w.call('POST', path('create_note'), { allowed: true })).status).toBe(400);
+    await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], { decision: null });
+    expect((await w.call('GET', ['connectors', w.id])).body.connector.caseActionTools).toEqual([]);
+    const disabled = await w.call('POST', path('create_note'), { allowed: false });
+    expect(disabled.status).toBe(200);
+    expect(disabled.body.connector.caseActionTools).toEqual([]);
+    expect((await w.call('POST', path('create_note'), { allowed: true })).status).toBe(200);
+    const storedScope = join(w.harness.stateDir, 'case-action-scope', w.id);
+    expect(existsSync(storedScope)).toBe(true);
+    expect((await w.call('POST', ['connectors', w.id, 'remove'], {})).status).toBe(200);
+    expect(existsSync(storedScope)).toBe(false);
+    expect((await w.call('POST', path('create_note'), { allowed: true })).status).toBe(404);
+    expect(existsSync(storedScope)).toBe(false);
+  });
+
+  it('does not restore case authority when an allow and a block arrive together', async () => {
+    const w = await connected();
+    const [allowed, blocked] = await Promise.all([
+      w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], { allowed: true }),
+      w.call('POST', ['connectors', w.id, 'tools', 'create_note'], { decision: 'blocked' }),
+    ]);
+    expect([200, 400]).toContain(allowed.status);
+    expect(blocked.status).toBe(200);
+    const view = (await w.call('GET', ['connectors', w.id])).body.connector;
+    expect(view.caseActionTools).toEqual([]);
+    expect(view.tools.find((tool: { name: string }) => tool.name === 'create_note').access).toBe(
+      'blocked',
+    );
+  });
+
+  it.each(['disable', 'reset', 'block then write'] as const)(
+    'rejects an older allow after %s from another API instance',
+    async (intervention) => {
+      const w = await connected();
+      const registry = w.harness.capabilities.connectors;
+      const second = createConnectorsApi({
+        registry,
+        book: new ConnectorBook({
+          store: createFileConnectorStore(join(w.harness.stateDir, 'connectors')),
+        }),
+        sync: new ConnectorSync(w.harness.capabilities.goals),
+        wiki: w.harness.capabilities.wiki,
+        caseActions: createCaseActionScope(join(w.harness.stateDir, 'case-action-scope')),
+        origins: () => [],
+        catalog: {} as IConnectorCatalog,
+      });
+      let captured: () => void = () => undefined;
+      const seen = new Promise<void>((resolve) => {
+        captured = resolve;
+      });
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const original = registry.view.bind(registry);
+      let paused = false;
+      const spy = vi.spyOn(registry, 'view').mockImplementation(async (...args) => {
+        const view = await original(...args);
+        if (!paused && args[0] === w.id) {
+          paused = true;
+          captured();
+          await gate;
+        }
+        return view;
+      });
+      const allow = w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
+        allowed: true,
+      });
+      let block: Promise<unknown> | undefined;
+      try {
+        await seen;
+        const call = (action: string, tool: string | undefined, body: unknown) =>
+          second({
+            method: 'POST',
+            path: `/connectors/${w.id}/${action}${tool === undefined ? '' : `/${tool}`}`,
+            segments: ['connectors', w.id, action, ...(tool === undefined ? [] : [tool])],
+            query: new URLSearchParams(),
+            body,
+          });
+        block =
+          intervention === 'disable'
+            ? call('case-actions', 'create_note', { allowed: false })
+            : intervention === 'reset'
+              ? call('case-actions', undefined, { reset: true })
+              : call('tools', 'create_note', { decision: 'blocked' });
+        expect(((await block) as { status: number }).status).toBe(200);
+        if (intervention === 'block then write') {
+          expect((await call('tools', 'create_note', { decision: 'write' }))?.status).toBe(200);
+        }
+        release();
+        expect((await allow).status).toBe(400);
+        const view = (await w.call('GET', ['connectors', w.id])).body.connector;
+        expect(view.caseActionTools).toEqual([]);
+      } finally {
+        release();
+        await Promise.allSettled([allow, ...(block === undefined ? [] : [block])]);
+        spy.mockRestore();
+      }
+    },
+  );
+
+  it('does not delay blocking another connector while discovery is stalled', async () => {
+    const w = await connected();
+    const calendar = await w.add('Calendar', 'calendar', CALENDAR_HOST);
+    await w.consent((await w.connect(calendar)).authorizationUrl);
+    await w.waitForState(calendar, 'connected');
+    const registry = w.harness.capabilities.connectors;
+    const original = registry.view.bind(registry);
+    let captured: () => void = () => undefined;
+    const seen = new Promise<void>((resolve) => {
+      captured = resolve;
+    });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let paused = false;
+    const spy = vi.spyOn(registry, 'view').mockImplementation(async (...args) => {
+      const view = await original(...args);
+      if (!paused && args[0] === w.id) {
+        paused = true;
+        captured();
+        await gate;
+      }
+      return view;
+    });
+    const allow = w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
+      allowed: true,
+    });
+    let block: ReturnType<IWorld['call']> | undefined;
+    try {
+      await seen;
+      block = w.call('POST', ['connectors', calendar, 'tools', 'add_event'], {
+        decision: 'blocked',
+      });
+      const completed = await Promise.race([
+        block.then(() => true),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500)),
+      ]);
+      expect(completed).toBe(true);
+      expect((await block).status).toBe(200);
+      release();
+      expect((await allow).status).toBe(200);
+    } finally {
+      release();
+      await Promise.allSettled([allow, ...(block === undefined ? [] : [block])]);
+      spy.mockRestore();
+    }
+  });
+
+  it('rejects an allow admitted before a reset even when its connector lookup was delayed', async () => {
+    const w = await connected();
+    const book = new ConnectorBook({
+      store: createFileConnectorStore(join(w.harness.stateDir, 'connectors')),
+    });
+    const second = createConnectorsApi({
+      registry: w.harness.capabilities.connectors,
+      book,
+      sync: new ConnectorSync(w.harness.capabilities.goals),
+      wiki: w.harness.capabilities.wiki,
+      caseActions: createCaseActionScope(join(w.harness.stateDir, 'case-action-scope')),
+      origins: () => [],
+      catalog: {} as IConnectorCatalog,
+    });
+    let captured: () => void = () => undefined;
+    const seen = new Promise<void>((resolve) => {
+      captured = resolve;
+    });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const original = book.get.bind(book);
+    let paused = false;
+    const spy = vi.spyOn(book, 'get').mockImplementation(async (id) => {
+      const found = await original(id);
+      if (!paused && id === w.id) {
+        paused = true;
+        captured();
+        await gate;
+      }
+      return found;
+    });
+    const allow = second({
+      method: 'POST',
+      path: `/connectors/${w.id}/case-actions/create_note`,
+      segments: ['connectors', w.id, 'case-actions', 'create_note'],
+      query: new URLSearchParams(),
+      body: { allowed: true },
+    });
+    const rejected = expect(allow).rejects.toThrow(/changed/u);
+    try {
+      await seen;
+      expect(
+        (await w.call('POST', ['connectors', w.id, 'case-actions'], { reset: true })).status,
+      ).toBe(200);
+      release();
+      await rejected;
+      expect((await w.call('GET', ['connectors', w.id])).body.connector.caseActionTools).toEqual(
+        [],
+      );
+    } finally {
+      release();
+      await Promise.allSettled([allow]);
+      spy.mockRestore();
+    }
+  });
+
+  it('keeps a damaged case scope closed while letting the owner block a tool and reset it', async () => {
+    const w = await connected();
+    const scope = join(w.harness.stateDir, 'case-action-scope', w.id);
+    writeFileSync(join(scope, 'scope.json'), '{"tool":7}');
+    const damaged = await w.call('GET', ['connectors', w.id]);
+    expect(damaged.status).toBe(200);
+    expect(damaged.body.connector.caseActionTools).toEqual([]);
+    expect(damaged.body.connector.caseActionScopeError).toBe(true);
+    const blocked = await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], {
+      decision: 'blocked',
+    });
+    expect(blocked.status).toBe(200);
+    expect(blocked.body.connector.caseActionScopeError).toBe(true);
+    expect(
+      (await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], { decision: 'write' }))
+        .status,
+    ).toBe(400);
+    const reset = await w.call('POST', ['connectors', w.id, 'case-actions'], { reset: true });
+    expect(reset.status).toBe(200);
+    expect(reset.body.connector.caseActionScopeError).toBeUndefined();
+    expect(reset.body.connector.caseActionTools).toEqual([]);
+    expect(
+      reset.body.connector.tools.find((tool: { name: string }) => tool.name === 'create_note')
+        .access,
+    ).toBe('blocked');
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'lets the owner block a tool when the case scope directory is inaccessible',
+    async () => {
+      const w = await connected();
+      const decision = ['connectors', w.id, 'tools', 'create_note'];
+      expect((await w.call('POST', decision, { decision: 'write' })).status).toBe(200);
+      const directory = join(w.harness.stateDir, 'case-action-scope');
+      chmodSync(directory, 0o000);
+      try {
+        const blocked = await w.call('POST', decision, { decision: 'blocked' });
+        expect(blocked.status).toBe(200);
+        expect(blocked.body.connector.caseActionScopeError).toBe(true);
+        expect(
+          blocked.body.connector.tools.find((tool: { name: string }) => tool.name === 'create_note')
+            .access,
+        ).toBe('blocked');
+      } finally {
+        chmodSync(directory, 0o700);
+      }
+      const view = (await w.call('GET', ['connectors', w.id])).body.connector;
+      expect(view.tools.find((tool: { name: string }) => tool.name === 'create_note').access).toBe(
+        'blocked',
+      );
+    },
+  );
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'does not restore a case grant when revocation could not be saved',
+    async () => {
+      const w = await connected();
+      const toolPath = ['connectors', w.id, 'tools', 'create_note'];
+      expect(
+        (
+          await w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
+            allowed: true,
+          })
+        ).status,
+      ).toBe(200);
+      const scopeDirectory = join(w.harness.stateDir, 'case-action-scope', w.id);
+      chmodSync(scopeDirectory, 0o500);
+      try {
+        const blocked = await w.call('POST', toolPath, { decision: 'blocked' });
+        expect(blocked.status).toBe(200);
+        expect(blocked.body.connector.caseActionTools).toEqual(['create_note']);
+        const enabled = await w.call('POST', toolPath, { decision: 'write' });
+        expect(enabled.status).toBe(400);
+        const view = (await w.call('GET', ['connectors', w.id])).body.connector;
+        expect(
+          view.tools.find((tool: { name: string }) => tool.name === 'create_note').access,
+        ).toBe('blocked');
+      } finally {
+        chmodSync(scopeDirectory, 0o700);
+      }
+      const recovered = await w.call('POST', toolPath, { decision: 'write' });
+      expect(recovered.status).toBe(200);
+      expect(recovered.body.connector.caseActionTools).toEqual([]);
+    },
+  );
+
+  it('clears the case scope when connector removal succeeds but sync cleanup fails', async () => {
+    const w = await connected();
+    expect(
+      (await w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], { allowed: true }))
+        .status,
+    ).toBe(200);
+    const storedScope = join(w.harness.stateDir, 'case-action-scope', w.id);
+    const failure = vi
+      .spyOn(w.harness.capabilities.goals, 'list')
+      .mockRejectedValueOnce(new Error('sync unavailable'));
+    try {
+      const removed = await w.call('POST', ['connectors', w.id, 'remove'], {});
+      expect(removed.status).toBe(500);
+      expect(removed.body.connectorRemoved).toBe(true);
+      expect(existsSync(storedScope)).toBe(false);
+      expect(w.auth.revoked.length).toBeGreaterThan(0);
+    } finally {
+      failure.mockRestore();
+    }
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'still removes a connector and revokes its credential when case scope cleanup fails',
+    async () => {
+      const w = await connected();
+      expect(
+        (
+          await w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
+            allowed: true,
+          })
+        ).status,
+      ).toBe(200);
+      const scopeDirectory = join(w.harness.stateDir, 'case-action-scope');
+      chmodSync(scopeDirectory, 0o500);
+      try {
+        const removed = await w.call('POST', ['connectors', w.id, 'remove'], {});
+        expect(removed.status).toBe(500);
+        expect(removed.body.outcome.removed).toBe(true);
+        expect(removed.body.caseActionScopeCleanupFailed).toBe(true);
+        expect(removed.body.error).toContain(`case-action-scope/${w.id}`);
+        expect(w.auth.revoked.length).toBeGreaterThan(0);
+        expect((await w.call('GET', ['connectors', w.id])).status).toBe(404);
+      } finally {
+        chmodSync(scopeDirectory, 0o700);
+      }
+    },
+  );
+
+  it('disconnects first when the connector settings lock cannot be acquired', async () => {
+    const w = await connected();
+    const scope = createCaseActionScope(join(w.harness.stateDir, 'case-action-scope'));
+    let release = (): void => undefined;
+    let entered = (): void => undefined;
+    const acquired = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const holding = scope.exclusive(async () => {
+      entered();
+      await wait;
+    });
+    await acquired;
+    try {
+      const answer = await w.call('POST', ['connectors', w.id, 'remove'], {});
+      expect(answer.status).toBe(500);
+      expect(answer.body.outcome.removed).toBe(true);
+      expect(w.auth.revoked.length).toBeGreaterThan(0);
+    } finally {
+      release();
+      await holding;
+    }
+    expect((await w.call('GET', ['connectors', w.id])).body.connector.status.state).toBe(
+      'not-connected',
+    );
+  });
 
   it('reads on its own and hands the content to the model as data', async () => {
     const w = await connected();

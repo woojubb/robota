@@ -28,6 +28,7 @@
     "@robota-sdk/agent-tools": "workspace:^",
     "@robota-sdk/agent-transport": "workspace:^",
     "@robota-sdk/personal-gui-web": "workspace:^",
+    "better-sqlite3": "12.11.1",
     "hono": "^4.12.32",
     "openai": "^6.0.0",
     "playwright": "^1.49.1",
@@ -36,6 +37,7 @@
     "ws": "^8.21.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "7.6.13",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
     "vitest": "^3.2.6"
