@@ -351,6 +351,9 @@ type TMCPAttemptOutcome =
   | { readonly ok: false; readonly error: MCPSupervisorError };
 
 export class MCPConnectionSupervisor {
+  /** This supervisor forwards per-call dispatch admission to its session. */
+  readonly forwardsDispatchAdmission = true as const;
+
   private state: TMCPConnectionState = { kind: 'idle' };
   private readonly backoff: IMCPBackoffPolicy;
   private readonly clock: IMCPSupervisorClock;

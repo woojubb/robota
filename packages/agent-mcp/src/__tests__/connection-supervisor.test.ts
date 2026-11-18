@@ -105,6 +105,7 @@ describe('MCPConnectionSupervisor — open / reuse / close / listChanged', () =>
       timeouts: fixtureTimeouts(),
     });
     const admit = async (dispatch: () => Promise<unknown>) => ({ response: dispatch() });
+    expect(supervisor.forwardsDispatchAdmission).toBe(true);
     await supervisor.callTool('ping', {}, { admitDispatch: admit });
     await supervisor.callTool('ping', {});
     expect(seen).toEqual([admit, undefined]);
