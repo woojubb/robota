@@ -30,6 +30,10 @@ export interface ICaseActionSnapshot {
 
 export interface ICaseActionScope {
   exclusive<T>(work: () => Promise<T>): Promise<T>;
+  /** Try once without waiting, so a caller can acquire multiple locks without holding one while waiting. */
+  tryExclusive<T>(
+    work: () => Promise<T>,
+  ): Promise<{ readonly acquired: false } | { readonly acquired: true; readonly value: T }>;
   /** Serialize an owner block while case settings remain closed for offline migration. */
   exclusiveBlock<T>(work: () => Promise<T>): Promise<T>;
   /** Serialize a connection check and its completion for one connector without blocking others. */
@@ -506,6 +510,16 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
   };
   return {
     exclusive: (work) => lock(lockPath, 100, work),
+    tryExclusive: async (work) => {
+      ensureLegacyGuard();
+      const held = tryDirectoryLock(lockPath);
+      if (held === undefined) return { acquired: false };
+      try {
+        return { acquired: true, value: await work() };
+      } finally {
+        held.release();
+      }
+    },
     exclusiveBlock: (work) => lock(lockPath, 100, work, false),
     exclusiveConnector: (connectorId, work) => {
       pathOf(connectorId);
