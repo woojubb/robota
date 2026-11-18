@@ -78,7 +78,12 @@ import { createPersonalApi } from './personal-api.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { TEgressLookup } from '@robota-sdk/agent-core/node';
-import type { IBrowserPort, IChannelHub, IDeliverySink } from '@robota-sdk/agent-product/personal';
+import type {
+  IBrowserPort,
+  ICase,
+  IChannelHub,
+  IDeliverySink,
+} from '@robota-sdk/agent-product/personal';
 import type { ILoopbackGuiServerOptions } from '@robota-sdk/agent-local-host';
 import type { IChannelTurns } from './channel-turns.js';
 import type { IPersonalAgent } from './agent.js';
@@ -499,6 +504,17 @@ export function createPersonalCapabilities(
   let shuttingDown = false;
   let attached = false;
   const pendingWork = new Set<Promise<unknown>>();
+  const unqueuedAnswers = new Map<string, ICase>();
+  const retryUnqueuedAnswers = async (): Promise<void> => {
+    for (const [id, answered] of unqueuedAnswers) {
+      try {
+        await caseTurns.onAnswered(answered);
+        if (unqueuedAnswers.get(id) === answered) unqueuedAnswers.delete(id);
+      } catch {
+        // Retain this answer for a later attempt while the agent remains running.
+      }
+    }
+  };
   const track = <T>(task: Promise<T>): Promise<T> => {
     pendingWork.add(task);
     void task.then(
@@ -612,9 +628,11 @@ export function createPersonalCapabilities(
             return;
           }
           caseTurns.remember(answered, snapshot);
+          if (answered.lastAnsweredFeedItemId !== undefined)
+            unqueuedAnswers.set(answered.lastAnsweredFeedItemId, answered);
           void track(
-            caseTurns
-              .onAnswered(answered)
+            retryUnqueuedAnswers()
+              .then(() => retryUnqueuedAnswers())
               .then(() => runner?.runDue())
               .catch(() => undefined),
           );
@@ -701,6 +719,7 @@ export function createPersonalCapabilities(
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
         beforeRunDue: async (isRunning, recover) => {
+          if (answerOutbox === undefined) await retryUnqueuedAnswers();
           await answerOutbox?.recover();
           for (const goal of await goals.list()) {
             const runOwner = goal.activeCaseRun?.ownerId;
