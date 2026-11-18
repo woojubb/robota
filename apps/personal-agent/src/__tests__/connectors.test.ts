@@ -4,7 +4,7 @@
  * everything but the owner-only credential files, and disconnecting revokes. A mail, a calendar and
  * a notes service differ here only in the tools the stand-in is given.
  */
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 
@@ -307,6 +307,11 @@ describe('using a connected service', () => {
     const disabled = await w.call('POST', path('create_note'), { allowed: false });
     expect(disabled.status).toBe(200);
     expect(disabled.body.connector.caseActionTools).toEqual([]);
+    expect((await w.call('POST', path('create_note'), { allowed: true })).status).toBe(200);
+    const storedScope = join(w.harness.stateDir, 'case-action-scope', `${w.id}.json`);
+    expect(existsSync(storedScope)).toBe(true);
+    expect((await w.call('POST', ['connectors', w.id, 'remove'], {})).status).toBe(200);
+    expect(existsSync(storedScope)).toBe(false);
   });
 
   it('does not restore case authority when an allow and a block arrive together', async () => {
