@@ -11,9 +11,9 @@
  */
 
 import { openStatelessSession } from './stateless-session.js';
-import { fromJsonSchema } from '@modelcontextprotocol/client';
 import {
   buildDeclaredCapabilities,
+  compileToolOutputSchema,
   createMcpClient,
   DEFAULT_CLIENT_INFO,
   isRequestTimeout,
@@ -56,6 +56,7 @@ export type {
   IMCPSessionTimeouts,
   IMCPToolCallOptions,
   IMCPToolCallResult,
+  IMCPDispatchRequest,
   TMCPDispatchAdmission,
   TMCPListChangedListener,
 } from './session-types.js';
@@ -353,15 +354,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
       const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
       try {
         if (callOptions?.admitDispatch !== undefined) {
-          let outputValidator: ReturnType<typeof fromJsonSchema> | undefined;
-          try {
-            outputValidator =
-              outputSchema === undefined
-                ? undefined
-                : fromJsonSchema(outputSchema as NonNullable<Tool['outputSchema']>);
-          } catch {
-            throw new Error('The tool has an invalid output schema');
-          }
+          const validateOutput = compileToolOutputSchema(outputSchema);
           const raw = await withDispatchAdmission(
             options.transport,
             callOptions.admitDispatch,
@@ -386,15 +379,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
           )
             throw new Error('The admitted tool call requires additional input');
           const result = toToolCallResult(raw);
-          if (outputValidator !== undefined && !result.isError) {
-            if (result.structuredContent === undefined)
-              throw new Error(
-                'The tool result has no structured content required by its output schema',
-              );
-            const checked = await outputValidator['~standard'].validate(result.structuredContent);
-            if (checked.issues !== undefined)
-              throw new Error('The tool result does not match its output schema');
-          }
+          await validateOutput?.(result);
           return result;
         }
         return toToolCallResult(await call());

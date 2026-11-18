@@ -216,50 +216,57 @@ describe('one client for both protocol eras', () => {
     },
   );
 
-  it('validates a legacy admitted result against its declared output schema', async () => {
-    const typed = {
-      ...tool,
-      name: 'typed',
-      outputSchema: { type: 'object', properties: { n: { type: 'number' } }, required: ['n'] },
-    } as Tool;
-    const client = await open(
-      await startHost([typed], async () => ({
-        content: [{ type: 'text', text: 'typed' }],
-        structuredContent: { n: 'wrong' },
-      })),
-    );
-    await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
-    await expect(
-      client.callTool(
-        'typed',
-        {},
-        {
-          admitDispatch: async (dispatch) => ({ response: dispatch() }),
-        },
-      ),
-    ).rejects.toThrow(/output schema/u);
-    expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(1);
-  });
+  it.each([undefined, '2026-07-28'])(
+    'validates an admitted result against its declared output schema (%s)',
+    async (version) => {
+      const typed = {
+        ...tool,
+        name: 'typed',
+        outputSchema: { type: 'object', properties: { n: { type: 'number' } }, required: ['n'] },
+      } as Tool;
+      const client = await open(
+        await startHost([typed], async () => ({
+          content: [{ type: 'text', text: 'typed' }],
+          structuredContent: { n: 'wrong' },
+        })),
+        version,
+      );
+      await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
+      await expect(
+        client.callTool(
+          'typed',
+          {},
+          {
+            admitDispatch: async (dispatch) => ({ response: dispatch() }),
+          },
+        ),
+      ).rejects.toThrow(/output schema/u);
+      expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(1);
+    },
+  );
 
-  it('refuses an invalid output schema before an admitted legacy call reaches the service', async () => {
-    const typed = {
-      ...tool,
-      name: 'typed',
-      outputSchema: { type: 'object', properties: { text: { type: 'string', pattern: '[' } } },
-    } as Tool;
-    const client = await open(await startHost([typed]));
-    await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
-    await expect(
-      client.callTool(
-        'typed',
-        {},
-        {
-          admitDispatch: async (dispatch) => ({ response: dispatch() }),
-        },
-      ),
-    ).rejects.toThrow(/invalid output schema/u);
-    expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(0);
-  });
+  it.each([undefined, '2026-07-28'])(
+    'refuses an invalid output schema before an admitted call reaches the service (%s)',
+    async (version) => {
+      const typed = {
+        ...tool,
+        name: 'typed',
+        outputSchema: { type: 'object', properties: { text: { type: 'string', pattern: '[' } } },
+      } as Tool;
+      const client = await open(await startHost([typed]), version);
+      await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
+      await expect(
+        client.callTool(
+          'typed',
+          {},
+          {
+            admitDispatch: async (dispatch) => ({ response: dispatch() }),
+          },
+        ),
+      ).rejects.toThrow(/invalid output schema/u);
+      expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(0);
+    },
+  );
 
   it.each([undefined, '2026-07-28'])(
     'does not send an admitted call cancelled while it waits (%s)',
@@ -343,6 +350,55 @@ describe('one client for both protocol eras', () => {
         allowed = false;
         release();
         await expect(call).rejects.toThrow(/authority revoked/u);
+        expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(0);
+      } finally {
+        release();
+      }
+    },
+  );
+
+  it.each([undefined, '2026-07-28'])(
+    'shows admission the immutable input actually sent by the client (%s)',
+    async (version) => {
+      let pause = false;
+      let release!: () => void;
+      let reached!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const waiting = new Promise<void>((resolve) => {
+        reached = resolve;
+      });
+      const authenticator = {
+        authorize: async () => {
+          if (pause) {
+            reached();
+            await gate;
+          }
+          return { authorization: 'Bearer fixture' };
+        },
+        onRejected: async () => 'fail' as const,
+      };
+      const client = await open(await startHost(), version, {
+        authentication: { serverId: 'fixture', securityIdentity: 'fixture', authenticator },
+      });
+      await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
+      const args = { value: 'forbidden' };
+      let seen: unknown;
+      pause = true;
+      const call = client.callTool('echo', args, {
+        admitDispatch: async (dispatch, request) => {
+          seen = request;
+          if (request.argumentsJson.includes('forbidden')) throw new Error('refused input');
+          return { response: dispatch() };
+        },
+      });
+      try {
+        await waiting;
+        args.value = 'allowed';
+        release();
+        await expect(call).rejects.toThrow(/refused input/u);
+        expect(seen).toEqual({ tool: 'echo', argumentsJson: '{"value":"forbidden"}' });
         expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(0);
       } finally {
         release();

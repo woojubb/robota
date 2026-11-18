@@ -21,6 +21,7 @@ import {
 } from './stateless-result.js';
 import {
   buildDeclaredCapabilities,
+  compileToolOutputSchema,
   createMcpClient,
   DEFAULT_CLIENT_INFO,
   isRequestTimeout,
@@ -35,6 +36,7 @@ import { withDispatchAdmission } from './effect-dispatch.js';
 import { lastHttpAnswerOf } from './transport.js';
 
 import type { Client, Result, Transport } from '@modelcontextprotocol/client';
+import type { IUniversalObjectValue } from '@robota-sdk/agent-core';
 import type { IMCPSkillRequestOptions } from '../skills/types.js';
 import type { IMCPOpenSessionOptions, IMCPSession } from './session-types.js';
 
@@ -206,6 +208,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       ...(serverInfo === undefined ? { serverInfoProvided: false as const } : {}),
     };
     const instructions = client.getInstructions();
+    let outputSchemas: ReadonlyMap<string, IUniversalObjectValue> = new Map();
     /**
      * Every request after discovery passes here. A result the surface cannot act on, a deadline or an
      * abort leaves effects uncertain: the carrier closes, and nothing is ever replayed on a new one.
@@ -319,7 +322,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       ],
       discover: async (discoverOptions) => {
         try {
-          return await discoverAll(
+          const result = await discoverAll(
             {
               request: (request, requestOptions) =>
                 invoke(() => client.request(request, requestOptions), requestOptions.signal),
@@ -330,6 +333,12 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
             discoverOptions,
             apps,
           );
+          outputSchemas = new Map(
+            result.tools.items.flatMap((tool) =>
+              tool.outputSchema === undefined ? [] : [[tool.name, tool.outputSchema] as const],
+            ),
+          );
+          return result;
         } catch (error) {
           if (sensitive) throw new MCPStdioError('send');
           throw error;
@@ -338,6 +347,10 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       async callTool(name, args, callOptions) {
         if (!declaredCapabilities.tools)
           throw new Error('Stateless MCP server did not declare tools');
+        const validateOutput =
+          callOptions?.admitDispatch === undefined
+            ? undefined
+            : compileToolOutputSchema(outputSchemas.get(name));
         // The call's own request carries them, and no other: they are this call's per-request headers.
         const traceHeaders =
           callOptions?.outboundTraceContext === undefined
@@ -374,7 +387,9 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
             result.resultType === 'input_required'
           )
             throw new MCPStatelessProtocolError('input_required');
-          return toToolCallResult(result);
+          const normalized = toToolCallResult(result);
+          await validateOutput?.(normalized);
+          return normalized;
         };
         const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
         try {

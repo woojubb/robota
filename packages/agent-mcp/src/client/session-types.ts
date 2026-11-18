@@ -48,7 +48,14 @@ export interface IMCPToolCallOptions {
 
 export type TMCPDispatchAdmission = (
   dispatch: () => Promise<unknown>,
+  request: IMCPDispatchRequest,
 ) => Promise<{ readonly response: Promise<unknown> }>;
+
+/** The effective tool input extracted from the exact request body, as immutable text. */
+export interface IMCPDispatchRequest {
+  readonly tool: string;
+  readonly argumentsJson: string;
+}
 
 export interface IMCPToolCallResult {
   readonly content: readonly IUniversalObjectValue[];

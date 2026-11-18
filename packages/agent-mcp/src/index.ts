@@ -220,6 +220,7 @@ export {
   type IMCPSession,
   type IMCPSessionTimeouts,
   type IMCPToolCallOptions,
+  type IMCPDispatchRequest,
   type TMCPDispatchAdmission,
   type IMCPToolCallResult,
   type TMCPListChangedListener,
