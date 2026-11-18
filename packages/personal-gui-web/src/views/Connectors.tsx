@@ -1428,11 +1428,15 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
         const viewStarted = viewRevisions.current.get(item.id);
         void scopeRequest((signal) => api.connector(item.id, signal), DISCOVERY_TIMEOUT_MS)
           .then(({ connector }) => {
-            if (
-              viewStarted === viewRevisions.current.get(item.id) &&
-              !pendingViews.current.has(item.id)
-            )
+            if (pendingViews.current.has(item.id)) {
+              const key = viewKey(connector);
+              if (viewObservations.current.get(item.id) !== key) {
+                viewObservations.current.set(item.id, key);
+                advanceView(item.id);
+              }
+            } else if (viewStarted === viewRevisions.current.get(item.id)) {
               applyView(connector);
+            }
           })
           .catch(() => undefined)
           .finally(() => {

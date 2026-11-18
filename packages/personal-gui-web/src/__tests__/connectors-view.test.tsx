@@ -369,6 +369,69 @@ describe('the Connectors tab', () => {
     );
   });
 
+  it('rechecks a pending decision after an individual view observes a newer change', async () => {
+    const first = { ...NOTES, caseActionTools: [], caseActionRevision: 'revision-1' };
+    const changed = (names: readonly string[]): IConnectorView => ({
+      ...first,
+      tools: first.tools!.map((tool) =>
+        names.includes(tool.name) ? { ...tool, access: 'blocked', decision: 'blocked' } : tool,
+      ),
+    });
+    let finishOld!: (result: { connector: IConnectorView }) => void;
+    let finishObserved!: (result: { connector: IConnectorView }) => void;
+    let finishFresh!: (result: { connector: IConnectorView }) => void;
+    const old = new Promise<{ connector: IConnectorView }>((resolve) => {
+      finishOld = resolve;
+    });
+    const observed = new Promise<{ connector: IConnectorView }>((resolve) => {
+      finishObserved = resolve;
+    });
+    const fresh = new Promise<{ connector: IConnectorView }>((resolve) => {
+      finishFresh = resolve;
+    });
+    const never = new Promise<never>(() => undefined);
+    const connector = vi
+      .fn()
+      .mockImplementationOnce(() => observed)
+      .mockImplementationOnce(() => fresh)
+      .mockImplementation(() => never);
+    render(
+      <ConnectorsView
+        api={fakeApi([first], {
+          connectors: () => never,
+          connector,
+          decideConnectorTool: () => old,
+        })}
+      />,
+    );
+    await screen.findByLabelText('What search_notes may do');
+    await waitFor(() => expect(connector).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText('What search_notes may do'), {
+      target: { value: 'blocked' },
+    });
+    await act(async () => {
+      finishObserved({ connector: changed(['create_note']) });
+      await observed;
+    });
+    await act(async () => {
+      finishOld({ connector: changed(['search_notes']) });
+      await old;
+    });
+    expect((screen.getByLabelText('What search_notes may do') as HTMLSelectElement).value).toBe(
+      'default',
+    );
+    await waitFor(() => expect(connector.mock.calls.length).toBeGreaterThan(1));
+    await act(async () => {
+      finishFresh({ connector: changed(['search_notes', 'create_note']) });
+      await fresh;
+    });
+    await waitFor(() =>
+      expect((screen.getByLabelText('What create_note may do') as HTMLSelectElement).value).toBe(
+        'blocked',
+      ),
+    );
+  });
+
   it('keeps newer decisions when two changes finish out of order', async () => {
     const first = { ...NOTES, caseActionTools: [], caseActionRevision: 'revision-1' };
     const changed = (names: readonly string[]): IConnectorView => ({
