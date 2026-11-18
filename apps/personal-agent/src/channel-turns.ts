@@ -36,6 +36,8 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
   const notices = new Set<Promise<void>>();
   /** Turns run one at a time per conversation, in the order their messages arrived. */
   const queues = new Map<string, Promise<unknown>>();
+  let stopped = false;
+  let stopping: Promise<void> | undefined;
 
   const sessionFor = (channel: string, conversationId: string): TChannelSession => {
     const key = `${channel}\u0000${conversationId}`;
@@ -109,9 +111,11 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
 
   return {
     runTurn(key, text) {
+      if (stopped) return Promise.reject(new Error('Channel turns are stopping'));
       const session = sessionFor(key.channel, key.conversationId);
       const queueKey = `${key.channel}\u0000${key.conversationId}`;
       const turn = (queues.get(queueKey) ?? Promise.resolve()).then(async () => {
+        if (stopped) throw new Error('Channel turns are stopping');
         const handle = await session.submit(text);
         const result = await handle.completed;
         return result.response.trim() === '' ? '(no reply)' : result.response.trim();
@@ -125,11 +129,17 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
     interrupt() {
       for (const session of sessions.values()) session.abort();
     },
-    async stop() {
+    stop() {
+      if (stopping !== undefined) return stopping;
+      stopped = true;
       for (const session of sessions.values()) session.abort();
-      await Promise.allSettled([...sessions.values()].map((session) => session.shutdown()));
-      await Promise.allSettled([...notices]);
-      sessions.clear();
+      stopping = (async () => {
+        await Promise.allSettled([...sessions.values()].map((session) => session.shutdown()));
+        await Promise.allSettled([...queues.values()]);
+        await Promise.allSettled([...notices]);
+        sessions.clear();
+      })();
+      return stopping;
     },
   };
 }

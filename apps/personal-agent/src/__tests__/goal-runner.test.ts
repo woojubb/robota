@@ -234,6 +234,54 @@ describe('connector action approvals', () => {
       await channel.stop();
     }
   });
+
+  it('does not start a channel turn after shutdown begins', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession(oversized);
+    let opened = 0;
+    const channel = createChannelTurns({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => {
+        opened += 1;
+        return stub.session;
+      },
+    });
+    const stopping = channel.stop();
+    await expect(
+      channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Send it'),
+    ).rejects.toThrow(/stopp/iu);
+    await stopping;
+    expect(opened).toBe(0);
+    expect(await book.feed()).toEqual([]);
+  });
+
+  it('does not start a queued channel turn after shutdown begins', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession();
+    let submitted = 0;
+    const channel = createChannelTurns({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => ({
+        ...stub.session,
+        submit: async (...args) => {
+          submitted += 1;
+          return stub.session.submit(...args);
+        },
+      }),
+    });
+    const key = { channel: 'test', conversationId: 'owner' };
+    const first = channel.runTurn(key, 'First');
+    await pendingApproval(book);
+    const second = channel.runTurn(key, 'Second');
+    const rejected = expect(second).rejects.toThrow(/stopp/iu);
+    const stopping = channel.stop();
+    await first;
+    await rejected;
+    await stopping;
+    expect(submitted).toBe(1);
+  });
 });
 
 async function pendingApproval(book: GoalBook) {
