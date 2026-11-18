@@ -64,6 +64,9 @@ export function classifyTool(connector: IConnector, tool: IConnectorToolInfo): T
 }
 
 export class ConnectorRegistry {
+  /** This registry forwards guarded actions only to protocols that admit dispatch. */
+  readonly forwardsDispatchAdmission = true as const;
+
   private readonly book: ConnectorBook;
   private readonly protocols: ReadonlyMap<string, IConnectorProtocol>;
   private readonly cacheMs: number;

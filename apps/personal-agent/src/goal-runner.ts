@@ -42,10 +42,22 @@ export interface IApprovedConnectorCall {
   readonly argumentsJson: string;
 }
 
+export interface IExpectedCaseApproval {
+  readonly id: string;
+  readonly goalId: string;
+  readonly runId: string;
+  readonly detail: string;
+}
+
 export interface ICaseAction {
   readonly tool: IToolWithEventService;
   /** Bind the displayed call to its execution and the durable approval record. */
-  approved(executionId: string, call: IApprovedConnectorCall, recorded: Promise<IFeedItem>): void;
+  approved(
+    executionId: string,
+    call: IApprovedConnectorCall,
+    recorded: Promise<IFeedItem>,
+    expected: IExpectedCaseApproval,
+  ): void;
 }
 
 export interface IGoalRunnerOptions {
@@ -248,7 +260,12 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
               return answered;
             });
             if (approve && caseCall !== undefined && executionId !== undefined)
-              shape?.caseAction?.approved(executionId, caseCall, recorded);
+              shape?.caseAction?.approved(executionId, caseCall, recorded, {
+                id: item.id,
+                goalId: goal.id,
+                runId: run.id,
+                detail,
+              });
             return recorded;
           },
         });

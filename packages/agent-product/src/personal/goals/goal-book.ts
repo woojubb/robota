@@ -66,7 +66,8 @@ export class GoalBook {
 
   private mint(prefix: string): string {
     this.sequence += 1;
-    return `${prefix}${this.now().getTime().toString(36)}${this.sequence.toString(36)}`;
+    const order = (this.sequence % 36 ** 6).toString(36).padStart(6, '0');
+    return `${prefix}${order}${crypto.randomUUID().replaceAll('-', '')}`;
   }
 
   private async require(id: string): Promise<IGoal> {

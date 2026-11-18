@@ -33,7 +33,6 @@ import {
   createFileCaseStore,
   createFileConnectorStore,
   createFileDeliveryStores,
-  createFileGoalStore,
   createFileIdeaStore,
   createFileKnowledgeStore,
   createFileSpaceStore,
@@ -46,7 +45,10 @@ import {
 import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playwright-browser.js';
 import { createApprovalRegistry } from './approvals.js';
 import { createCaseTurns } from './case-turns.js';
-import { captureCaseAction, createCaseAction } from './case-action.js';
+import { callCaseConnector, captureCaseAction, createCaseAction } from './case-action.js';
+import { createCaseApprovalRecorder } from './case-approval-record.js';
+import { createSharedFeedStore } from './feed-store.js';
+import { createAgentPresence } from './agent-presence.js';
 import { createCaseActionScope } from './connectors/case-action-scope.js';
 import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
@@ -165,7 +167,8 @@ export function createPersonalCapabilities(
   const wiki = new KnowledgeWiki({
     store: createFileKnowledgeStore(join(options.stateDir, 'wiki')),
   });
-  const goals = new GoalBook({ store: createFileGoalStore(join(options.stateDir, 'goals')) });
+  const goals = new GoalBook({ store: createSharedFeedStore(options.stateDir) });
+  const presence = createAgentPresence(options.stateDir);
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
   const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
@@ -219,7 +222,7 @@ export function createPersonalCapabilities(
   });
   let guiOrigins: readonly string[] = [];
   let channelTurns: IChannelTurns | undefined;
-  const approvals = createApprovalRegistry(goals);
+  const approvals = createApprovalRegistry(goals, presence.others);
   const channels = createChannelHub({
     runTurn: async (key, text) => {
       if (channelTurns === undefined) throw new Error('The agent is not running yet');
@@ -308,10 +311,17 @@ export function createPersonalCapabilities(
         const save = () =>
           caseWrites.exclusive(async () => {
             const existing = await caseStore.get(item.id);
-            if (item.state === 'open' && existing?.state === 'closed')
-              throw new CaseRefusedError('This case is closed');
-            if (item.state === 'open' && existing === undefined && item.history.length !== 1)
+            if (existing?.state === 'closed') throw new CaseRefusedError('This case is closed');
+            if (existing === undefined && (item.state !== 'open' || item.history.length !== 1))
               throw new CaseRefusedError('This case no longer exists');
+            if (
+              existing !== undefined &&
+              (item.history.length !== existing.history.length + 1 ||
+                JSON.stringify(item.history.slice(0, -1)) !== JSON.stringify(existing.history) ||
+                (item.history.at(-1)?.kind === 'answered' &&
+                  existing.question?.feedItemId !== item.lastAnsweredFeedItemId))
+            )
+              throw new CaseRefusedError('This case changed; try again');
             await caseStore.put(item);
           });
         if (item.state !== 'closed') return save();
@@ -347,15 +357,18 @@ export function createPersonalCapabilities(
     cases,
   });
   const connectorTools = createConnectorTools(connectors);
-  const actionSchema = connectorTools.find((tool) => tool.getName() === CONNECTOR_TOOL_NAMES.act)!
-    .schema;
+  const recordCaseApproval = createCaseApprovalRecorder(join(options.stateDir, 'case-approvals'));
+  const actionSchema = connectorTools.find(
+    (tool) => tool.getName() === CONNECTOR_TOOL_NAMES.act,
+  )!.schema;
   const caseTurns = createCaseTurns({
     goals,
     cases,
     makeAction: (snapshot) =>
       createCaseAction(snapshot, actionSchema, {
+        recordApproval: recordCaseApproval,
         call: (connector, tool, args, admission, signal) =>
-          connectors.act(connector, tool, args, signal, admission),
+          callCaseConnector(connectors, connector, tool, args, admission, signal),
         dispatch: async (chosen, tool, send) => {
           const result = await bindings.withAuthority(chosen.caseId, (state) => {
             if (
@@ -478,7 +491,7 @@ export function createPersonalCapabilities(
     }),
     attach: async (agent, attachOptions) => {
       guiOrigins = attachOptions?.guiOrigins ?? [];
-      await goals.recover();
+      await presence.enter(() => goals.recover());
       channelTurns = createChannelTurns({
         book: goals,
         approvals,
@@ -527,12 +540,16 @@ export function createPersonalCapabilities(
       }
     },
     dispose: async () => {
-      clearInterval(deliveryTimer);
-      await runner?.stop();
-      await channelTurns?.stop();
-      for (const channel of channels.channels()) await channels.disconnect(channel.id);
-      await connectors.close();
-      await browser.close();
+      try {
+        clearInterval(deliveryTimer);
+        await runner?.stop();
+        await channelTurns?.stop();
+        for (const channel of channels.channels()) await channels.disconnect(channel.id);
+        await connectors.close();
+        await browser.close();
+      } finally {
+        presence.close();
+      }
     },
   };
 }

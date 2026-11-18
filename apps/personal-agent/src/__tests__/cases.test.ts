@@ -36,7 +36,7 @@ import { createCaseActionScope } from '../connectors/case-action-scope.js';
 import { offeredTools, toolResults } from './scripted-model.js';
 import { createFixtureWebRoot, startHarness } from './harness.js';
 
-import type { IAskInput, ICase } from '@robota-sdk/agent-product/personal';
+import type { IAskInput, ICase, ICaseStore } from '@robota-sdk/agent-product/personal';
 import type { IPersonalApiOptions } from '../personal-api.js';
 import type { ICaseActionSnapshot } from '../case-action.js';
 import type { IHarness } from './harness.js';
@@ -98,14 +98,62 @@ const SIGN_IN = {
 };
 
 describe('case connector authority', () => {
+  it('does not let a stale answer overwrite another instance’s accepted answer', async () => {
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const { item } = await harness.capabilities.cases.ask(opened.id, {
+      question: 'Was it you?',
+      options: ['Yes', 'No'],
+    });
+    const store = (other.capabilities.cases as unknown as { store: ICaseStore }).store;
+    const get = store.get.bind(store);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const spy = vi.spyOn(store, 'get').mockImplementation(async (id) => {
+      const found = await get(id);
+      reached();
+      await gate;
+      return found;
+    });
+    const stale = other.capabilities.cases.answer(item.id, { choice: 'No' });
+    try {
+      await waiting;
+      await harness.capabilities.cases.answer(item.id, { choice: 'Yes' });
+      release();
+      await expect(stale).rejects.toThrow(/changed/u);
+      expect((await harness.capabilities.cases.get(opened.id))?.history.at(-1)).toMatchObject({
+        kind: 'answered',
+        text: 'Yes',
+      });
+      expect((await harness.capabilities.goals.feedItem(item.id))?.question?.answer?.choice).toBe(
+        'Yes',
+      );
+    } finally {
+      release();
+      await Promise.allSettled([stale]);
+      spy.mockRestore();
+      await other.close();
+    }
+  });
+
   it('releases both authority locks before waiting for an admitted response', async () => {
     harness = await startHarness();
     const book = new ConnectorBook({
       store: createFileConnectorStore(join(harness.stateDir, 'connectors')),
     });
     const connector = await book.create({
-      title: 'Notes', kind: 'notes', protocol: 'mcp',
-      endpoint: 'https://notes.example/mcp', auth: 'none',
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'mcp',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'none',
     });
     const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
     const scope = createCaseActionScope(join(harness.stateDir, 'case-action-scope'));
@@ -119,7 +167,9 @@ describe('case connector authority', () => {
     const initial = (await bindings.get(opened.id))!;
     await bindings.set(opened.id, connector.id, initial.revision);
     let finish!: () => void;
-    const response = new Promise<void>((resolve) => { finish = resolve; });
+    const response = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
     try {
       const admitted = await bindings.withAuthority(opened.id, (state) => {
         expect(state?.binding.connectorId).toBe(connector.id);

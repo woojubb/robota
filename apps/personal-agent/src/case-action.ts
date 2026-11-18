@@ -3,8 +3,13 @@ import { FunctionTool } from '@robota-sdk/agent-core';
 import { ConnectorRefusedError, parseConnectorArguments } from '@robota-sdk/agent-product/personal';
 
 import type { IToolSchema, TToolParameters } from '@robota-sdk/agent-core';
-import type { IConnectorCallResult, IFeedItem } from '@robota-sdk/agent-product/personal';
-import type { IApprovedConnectorCall, ICaseAction } from './goal-runner.js';
+import type {
+  ConnectorRegistry,
+  IConnectorCallResult,
+  IFeedItem,
+  TConnectorDispatchAdmission,
+} from '@robota-sdk/agent-product/personal';
+import type { IApprovedConnectorCall, ICaseAction, IExpectedCaseApproval } from './goal-runner.js';
 
 export interface ICaseActionSnapshot {
   readonly caseId: string;
@@ -49,23 +54,20 @@ export async function captureCaseAction(
   }
 }
 
-export interface ICaseDispatchRequest {
-  readonly tool: string;
-  readonly argumentsJson: string;
-}
-
-export type TCaseDispatchAdmission = (
-  dispatch: () => Promise<unknown>,
-  request: ICaseDispatchRequest,
-) => Promise<{ readonly response: Promise<unknown> }>;
-
 export interface ICaseActionPort {
+  /** Persist immutable approval evidence independently of the shared feed. */
+  recordApproval(
+    snapshot: ICaseActionSnapshot,
+    executionId: string,
+    call: IApprovedConnectorCall,
+    item: IFeedItem,
+  ): Promise<void>;
   /** Start a connector call whose actual network handoff requires the supplied admission. */
   call(
     connector: string,
     tool: string,
     args: Readonly<Record<string, unknown>>,
-    admission: TCaseDispatchAdmission,
+    admission: TConnectorDispatchAdmission,
     signal?: AbortSignal,
   ): Promise<IConnectorCallResult>;
   /** Recheck the case, binding, scope and connection and start the handoff while protected. */
@@ -76,9 +78,24 @@ export interface ICaseActionPort {
   ): Promise<{ readonly response: Promise<unknown> }>;
 }
 
+/** An older registry ignores unknown arguments; never ask it to perform a guarded action. */
+export function callCaseConnector(
+  registry: ConnectorRegistry,
+  connector: string,
+  tool: string,
+  args: Readonly<Record<string, unknown>>,
+  admission: TConnectorDispatchAdmission,
+  signal?: AbortSignal,
+): Promise<IConnectorCallResult> {
+  if (registry.forwardsDispatchAdmission !== true)
+    throw new ConnectorRefusedError('This connector registry cannot admit an action');
+  return registry.act(connector, tool, args, signal, admission);
+}
+
 interface IApproved {
   readonly call: IApprovedConnectorCall;
   readonly recorded: Promise<IFeedItem>;
+  readonly expected: IExpectedCaseApproval;
 }
 
 function effective(args: TToolParameters): IApprovedConnectorCall {
@@ -104,13 +121,13 @@ export function createCaseAction(
   const used = new Set<string>();
   const allowed = new Set(snapshot.tools);
   return {
-    approved: (executionId, call, recorded) => {
+    approved: (executionId, call, recorded, expected) => {
       if (used.has(executionId) || grants.has(executionId)) {
         grants.delete(executionId);
         used.add(executionId);
         return;
       }
-      grants.set(executionId, { call: { ...call }, recorded });
+      grants.set(executionId, { call: { ...call }, recorded, expected: { ...expected } });
     },
     tool: new FunctionTool(schema, async (args, context) => {
       try {
@@ -120,8 +137,20 @@ export function createCaseAction(
         const grant = grants.get(executionId);
         grants.delete(executionId);
         used.add(executionId);
-        if (grant === undefined || (await grant.recorded).approval?.state !== 'approved')
+        if (grant === undefined)
           throw new ConnectorRefusedError('This case action has no recorded approval');
+        const item = await grant.recorded;
+        if (
+          item.id !== grant.expected.id ||
+          item.goalId !== grant.expected.goalId ||
+          item.runId !== grant.expected.runId ||
+          item.approval?.state !== 'approved' ||
+          item.approval.tool !== 'ConnectorAct' ||
+          item.approval.detail !== grant.expected.detail
+        )
+          throw new ConnectorRefusedError(
+            'The recorded approval differs from the displayed action',
+          );
         const call = effective(args);
         if (
           call.connector !== snapshot.connectorId ||
@@ -131,6 +160,7 @@ export function createCaseAction(
           !allowed.has(call.tool)
         )
           throw new ConnectorRefusedError('This case action is outside the approved choice');
+        await port.recordApproval(snapshot, executionId, call, item);
         const result = await port.call(
           snapshot.connectorId,
           call.tool,

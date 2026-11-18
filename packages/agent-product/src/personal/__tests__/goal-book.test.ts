@@ -33,6 +33,24 @@ function clock(start = Date.UTC(2026, 10, 14, 9, 0, 0)) {
   return { now: () => new Date(now), advance: (minutes: number) => (now += minutes * 60_000) };
 }
 
+it('assigns distinct approval ids to separate books at the same instant', async () => {
+  const { store, dir } = fileStore();
+  const now = clock().now;
+  const first = new GoalBook({ store, now });
+  const second = new GoalBook({ store: createFileGoalStore(dir), now });
+  const entry = (detail: string) => ({
+    kind: 'approval' as const,
+    title: 'Case',
+    body: '',
+    approval: { tool: 'ConnectorAct', detail, state: 'pending' as const },
+  });
+  const alice = await first.post(entry('alice'));
+  const bob = await second.post(entry('bob'));
+  expect(alice.id).not.toBe(bob.id);
+  expect((await first.feedItem(alice.id))?.approval?.detail).toBe('alice');
+  expect((await second.feedItem(bob.id))?.approval?.detail).toBe('bob');
+});
+
 describe.each([
   ['memory', () => createMemoryGoalStore()],
   ['file', () => fileStore().store],

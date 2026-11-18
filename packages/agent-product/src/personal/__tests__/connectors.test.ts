@@ -363,6 +363,7 @@ describe('the connector registry', () => {
 
   it('refuses a guarded action before calling a protocol without dispatch admission', async () => {
     const { registry, protocol, connector } = await setup();
+    expect(registry.forwardsDispatchAdmission).toBe(true);
     const admit = async (send: () => Promise<unknown>) => ({ response: send() });
     await expect(registry.act(connector.id, 'send', {}, undefined, admit)).rejects.toThrow(
       /cannot admit/u,
@@ -390,7 +391,10 @@ describe('the connector registry', () => {
     };
     const registry = new ConnectorRegistry({ book, protocols: [protocol] });
     const connector = await book.create({
-      title: 'Notes', kind: 'notes', protocol: 'fake', endpoint: ENDPOINT,
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'fake',
+      endpoint: ENDPOINT,
     });
     const admit = async (send: () => Promise<unknown>) => ({ response: send() });
     await registry.act(connector.id, 'send', {}, undefined, admit);

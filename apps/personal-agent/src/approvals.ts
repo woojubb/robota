@@ -28,7 +28,10 @@ export interface IApprovalRegistry {
   onRegistered(listener: (item: IFeedItem) => void): void;
 }
 
-export function createApprovalRegistry(book: GoalBook): IApprovalRegistry {
+export function createApprovalRegistry(
+  book: GoalBook,
+  otherAgents: () => boolean = () => false,
+): IApprovalRegistry {
   const pending = new Map<string, IPendingApproval>();
   const listeners: ((item: IFeedItem) => void)[] = [];
   return {
@@ -48,7 +51,11 @@ export function createApprovalRegistry(book: GoalBook): IApprovalRegistry {
       const waiting = pending.get(feedId);
       if (waiting === undefined) {
         const item = await book.feedItem(feedId);
-        if (item?.approval?.state === 'pending') return book.setApproval(feedId, 'expired');
+        if (item?.approval?.state === 'pending') {
+          if (otherAgents())
+            throw new Error('This approval is waiting in another agent; answer it there');
+          return book.setApproval(feedId, 'expired');
+        }
         throw new Error('This approval is no longer waiting');
       }
       pending.delete(feedId);
