@@ -4,6 +4,7 @@
  */
 import {
   ConnectorRefusedError,
+  classifyTool,
   countPulled,
   defaultAttention,
   forgetPulled,
@@ -12,6 +13,7 @@ import {
 import { CONSENT_CALLBACK_PATH } from './consent.js';
 
 import type { IConnectorCatalog } from './catalog.js';
+import type { ICaseActionScope } from './case-action-scope.js';
 
 import type { ILoopbackGuiApiRequest, ILoopbackGuiApiResponse } from '@robota-sdk/agent-local-host';
 import type {
@@ -37,6 +39,7 @@ export interface IConnectorsApiOptions {
   readonly origins: () => readonly string[];
   /** The services the add form can suggest. */
   readonly catalog: IConnectorCatalog;
+  readonly caseActions: ICaseActionScope;
 }
 
 export type TConnectorsApi = (
@@ -60,7 +63,11 @@ function text(body: Record<string, unknown>, key: string): string {
   return value;
 }
 
-function present(view: IConnectorView, sync?: IConnectorSyncStatus): Record<string, unknown> {
+function present(
+  view: IConnectorView,
+  caseScope: { readonly tools: readonly string[]; readonly error?: true },
+  sync?: IConnectorSyncStatus,
+): Record<string, unknown> {
   const { connector, status, tools } = view;
   return {
     id: connector.id,
@@ -74,6 +81,8 @@ function present(view: IConnectorView, sync?: IConnectorSyncStatus): Record<stri
     // The person's own words about what to be asked, when they wrote some, and what applies without them.
     ...(connector.attention !== undefined && { attention: connector.attention }),
     defaultAttention: defaultAttention(connector.kind),
+    caseActionTools: caseScope.tools,
+    ...(caseScope.error === true && { caseActionScopeError: true }),
     status,
     ...(sync !== undefined && { sync }),
     ...(tools !== undefined && {
@@ -131,10 +140,37 @@ function authorizationParamsOf(body: Record<string, unknown>): Record<string, st
 
 /** Answers `connectors/...` requests, or `undefined` for a path that is not one. */
 export function createConnectorsApi(options: IConnectorsApiOptions): TConnectorsApi {
-  const { registry, book, sync, wiki, catalog } = options;
+  const { registry, book, sync, wiki, catalog, caseActions } = options;
+  let changes: Promise<void> = Promise.resolve();
+  /** Connector records and case scopes share one cross-process mutation boundary. */
+  const change = <T>(work: () => Promise<T>): Promise<T> => {
+    const result = changes.then(() => caseActions.exclusive(work));
+    const tail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    changes = tail;
+    return result;
+  };
+  const caseScope = async (
+    id: string,
+  ): Promise<{ readonly tools: readonly string[]; readonly error?: true }> => {
+    try {
+      const tools = await change(async () => {
+        // A stale page request must not recreate settings after the connector was removed.
+        if ((await book.get(id)) === undefined) return undefined;
+        await caseActions.initialize(id);
+        return caseActions.tools(id);
+      });
+      return tools === undefined ? { tools: [], error: true } : { tools };
+    } catch (error) {
+      if (!(error instanceof ConnectorRefusedError)) throw error;
+      return { tools: [], error: true };
+    }
+  };
   /** A connector as the page shows it, with how its sync stands. */
   const show = async (id: string, refresh = false): Promise<Record<string, unknown>> =>
-    present(await registry.view(id, { refresh }), await sync.status(id));
+    present(await registry.view(id, { refresh }), await caseScope(id), await sync.status(id));
   /** Whether the person asked to forget what was pulled; a request with no body asks for nothing. */
   const wantsForgetting = (body: unknown): boolean =>
     body !== undefined && record(body)['forgetPulled'] === true;
@@ -160,6 +196,28 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
     const [area, id, action, tool] = request.segments;
     if (area !== 'connectors') return undefined;
     const { method } = request;
+    // Capture before the first await: a later reset must invalidate even a request whose connector
+    // lookup or service discovery has not finished yet.
+    let capturedVersion:
+      | { readonly ok: true; readonly value: ReturnType<ICaseActionScope['version']> }
+      | { readonly ok: false; readonly error: unknown }
+      | undefined;
+    if (
+      id !== undefined &&
+      method === 'POST' &&
+      action === 'case-actions' &&
+      tool !== undefined &&
+      typeof request.body === 'object' &&
+      request.body !== null &&
+      !Array.isArray(request.body) &&
+      (request.body as Record<string, unknown>)['allowed'] === true
+    ) {
+      try {
+        capturedVersion = { ok: true, value: caseActions.version(id, tool) };
+      } catch (error) {
+        capturedVersion = { ok: false, error };
+      }
+    }
 
     if (id === undefined) {
       if (method === 'GET') {
@@ -167,7 +225,11 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
           callbackPath: CONSENT_CALLBACK_PATH,
           connectors: await Promise.all(
             (await registry.list()).map(async (view) =>
-              present(view, await sync.status(view.connector.id)),
+              present(
+                view,
+                await caseScope(view.connector.id),
+                await sync.status(view.connector.id),
+              ),
             ),
           ),
         });
@@ -194,25 +256,28 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         if (tokenHeader !== undefined && typeof tokenHeader !== 'string') {
           throw new ConnectorRefusedError('tokenHeader must be a header name');
         }
-        const connector = await book.create({
-          title: text(body, 'title'),
-          kind: text(body, 'kind') as TConnectorKind,
-          protocol: 'mcp',
-          endpoint: text(body, 'endpoint'),
-          ...(auth !== undefined && { auth: auth as TConnectorAuth }),
-          ...(tokenHeader !== undefined && { tokenHeader }),
-          ...((clientId !== undefined && clientId !== '') ||
-          (scopes?.length ?? 0) > 0 ||
-          authorizationParams !== undefined
-            ? {
-                oauth: {
-                  ...(clientId !== undefined && clientId !== '' && { clientId }),
-                  ...(scopes !== undefined && scopes.length > 0 && { scopes: scopes as string[] }),
-                  ...(authorizationParams !== undefined && { authorizationParams }),
-                },
-              }
-            : {}),
-        });
+        const connector = await change(() =>
+          book.create({
+            title: text(body, 'title'),
+            kind: text(body, 'kind') as TConnectorKind,
+            protocol: 'mcp',
+            endpoint: text(body, 'endpoint'),
+            ...(auth !== undefined && { auth: auth as TConnectorAuth }),
+            ...(tokenHeader !== undefined && { tokenHeader }),
+            ...((clientId !== undefined && clientId !== '') ||
+            (scopes?.length ?? 0) > 0 ||
+            authorizationParams !== undefined
+              ? {
+                  oauth: {
+                    ...(clientId !== undefined && clientId !== '' && { clientId }),
+                    ...(scopes !== undefined &&
+                      scopes.length > 0 && { scopes: scopes as string[] }),
+                    ...(authorizationParams !== undefined && { authorizationParams }),
+                  },
+                }
+              : {}),
+          }),
+        );
         return ok({ connector: await show(connector.id) });
       }
       return undefined;
@@ -234,8 +299,12 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
     if (action === 'attention' && method === 'PUT') {
       const words = record(request.body)['text'];
       if (typeof words !== 'string') throw new ConnectorRefusedError('text must be a string');
-      await book.setAttention(id, words);
-      return ok({ connector: await show(id) });
+      const changed = await change(async () => {
+        if (!(await known(id))) return false;
+        await book.setAttention(id, words);
+        return true;
+      });
+      return changed ? ok({ connector: await show(id) }) : notFound;
     }
     if (method !== 'POST') return undefined;
     if (action === 'connect') {
@@ -260,7 +329,54 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       });
     }
     if (action === 'disconnect') return leave(id, request.body, () => registry.disconnect(id));
-    if (action === 'remove') return leave(id, request.body, () => registry.remove(id));
+    if (action === 'remove') {
+      // Taking the access away must not depend on acquiring the settings lock.
+      const forget = wantsForgetting(request.body);
+      const disconnected = await registry.disconnect(id);
+      try {
+        await registry.remove(id);
+      } catch {
+        return {
+          status: 500,
+          body: {
+            error: 'The connector was disconnected, but removal did not finish.',
+            outcome: disconnected,
+          },
+        };
+      }
+      let cleanupFailed = false;
+      try {
+        await change(() => caseActions.clear(id));
+      } catch {
+        cleanupFailed = true;
+      }
+      let followupFailed = false;
+      let forgotten: number | undefined;
+      try {
+        await sync.disable(id);
+        if (forget) forgotten = await forgetPulled(wiki, id);
+      } catch {
+        followupFailed = true;
+      }
+      if (cleanupFailed || followupFailed) {
+        const cleanupAdvice = cleanupFailed
+          ? ` Its case-action settings could not be cleared. Restore write access to the agent state directory and remove case-action-scope/${id}.`
+          : '';
+        const description = followupFailed
+          ? 'The connector was removed, but its sync or library cleanup did not finish.'
+          : 'The connector was removed.';
+        return {
+          status: 500,
+          body: {
+            error: `${description}${cleanupAdvice}`,
+            connectorRemoved: true,
+            outcome: disconnected,
+            ...(cleanupFailed && { caseActionScopeCleanupFailed: true }),
+          },
+        };
+      }
+      return ok({ outcome: disconnected, ...(forgotten !== undefined && { forgotten }) });
+    }
     if (action === 'sync') {
       const everyMinutes = record(request.body)['everyMinutes'];
       if (everyMinutes === null) {
@@ -282,8 +398,73 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       if (decision !== null && (typeof decision !== 'string' || !DECISIONS.includes(decision))) {
         throw new ConnectorRefusedError('decision must be read, write, blocked or null');
       }
-      await registry.decide(id, tool, decision === null ? undefined : (decision as TToolDecision));
-      return ok({ connector: await show(id) });
+      const changed = await change(async () => {
+        if (!(await known(id))) return false;
+        const previous = await book.existing(id);
+        if (decision !== 'write' || previous.decisions[tool] === 'blocked') {
+          try {
+            await caseActions.set(id, tool, false);
+          } catch (error) {
+            // A broken scope must never prevent the person from blocking the tool itself.
+            if (decision !== 'blocked') throw error;
+          }
+        }
+        await registry.decide(
+          id,
+          tool,
+          decision === null ? undefined : (decision as TToolDecision),
+        );
+        return true;
+      });
+      return changed ? ok({ connector: await show(id) }) : notFound;
+    }
+    if (action === 'case-actions' && tool === undefined) {
+      if (record(request.body)['reset'] !== true) {
+        throw new ConnectorRefusedError('reset must be true');
+      }
+      const changed = await change(async () => {
+        if (!(await known(id))) return false;
+        await caseActions.reset(id);
+        return true;
+      });
+      return changed ? ok({ connector: await show(id) }) : notFound;
+    }
+    if (action === 'case-actions' && tool !== undefined) {
+      const allowed = record(request.body)['allowed'];
+      if (typeof allowed !== 'boolean')
+        throw new ConnectorRefusedError('allowed must be true or false');
+      const captured = allowed ? capturedVersion : undefined;
+      if (allowed && captured === undefined)
+        throw new ConnectorRefusedError('Case action settings changed; try again');
+      if (captured !== undefined && !captured.ok) throw captured.error;
+      const version = captured?.value;
+      const view = allowed ? await registry.view(id) : undefined;
+      const candidate = view?.tools?.find((item) => item.name === tool);
+      if (allowed && (view?.status.state !== 'connected' || candidate === undefined)) {
+        throw new ConnectorRefusedError('Choose a connected writable tool for case requests');
+      }
+      const changed = await change(async () => {
+        const current = await book.get(id);
+        if (current === undefined) return false;
+        if (version !== undefined) {
+          const latest = caseActions.version(id, tool);
+          if (version !== latest) {
+            throw new ConnectorRefusedError('Case action settings changed; try again');
+          }
+        }
+        if (allowed && (candidate === undefined || classifyTool(current, candidate) !== 'write')) {
+          throw new ConnectorRefusedError('Choose a connected writable tool for case requests');
+        }
+        const savedVersion = await caseActions.set(id, tool, allowed, version);
+        if (version !== undefined) {
+          const latest = caseActions.version(id, tool);
+          if (savedVersion !== latest) {
+            throw new ConnectorRefusedError('Case action settings changed; try again');
+          }
+        }
+        return true;
+      });
+      return changed ? ok({ connector: await show(id) }) : notFound;
     }
     return undefined;
   };
