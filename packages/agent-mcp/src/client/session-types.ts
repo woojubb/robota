@@ -77,6 +77,8 @@ export interface IMCPReadResourceResult {
 export type TMCPListChangedListener = (domain: TMCPCapabilityDomain) => void;
 
 export interface IMCPSession {
+  /** A guarded tool call is refused unless the transport admits its final handoff. */
+  readonly supportsDispatchAdmission?: true;
   readonly skills?: IMCPSkillsSession;
   /**
    * True only when MCP Apps was negotiated: the host opted in, the server declared the UI extension
