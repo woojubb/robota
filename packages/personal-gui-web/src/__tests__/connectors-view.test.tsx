@@ -106,6 +106,56 @@ describe('the Connectors tab', () => {
     ).toBeNull();
   });
 
+  it('keeps offline migration instructions visible when the connector list reloads', async () => {
+    const reason =
+      'Connector settings need offline migration. Stop every agent using this state folder and follow the case-request recovery instructions in the Personal Agent guide.';
+    const connectors = vi.fn(async () => ({
+      callbackPath: '/connector-callback',
+      connectors: [{ ...NOTES, caseActionTools: [], caseActionScopeError: true }],
+    }));
+    render(
+      <ConnectorsView
+        api={fakeApi([], {
+          connectors,
+          fenceCaseActionRequests: async () => {
+            throw new ApiError(400, reason);
+          },
+        })}
+      />,
+    );
+    await waitFor(() => expect(connectors).toHaveBeenCalled());
+    expect(await screen.findByText(reason)).toBeTruthy();
+    expect(screen.getByText('Connected')).toBeTruthy();
+  });
+
+  it('offers to finish an interrupted disconnect without service discovery', async () => {
+    const connector: IConnectorView = {
+      ...NOTES,
+      status: { state: 'checking' },
+      tools: undefined,
+      caseActionTools: [],
+      caseActionScopeError: true,
+      caseActionTransition: true,
+    };
+    const never = new Promise<never>(() => undefined);
+    const disconnect = vi.fn(async () => ({
+      outcome: { removed: true, revocation: 'revoked' as const },
+    }));
+    render(
+      <ConnectorsView
+        api={fakeApi([connector], {
+          connectors: () => never,
+          connector: () => never,
+          disconnectConnector: disconnect,
+        })}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Finish disconnecting Notes (connector-notes-1)' }),
+    );
+    await waitFor(() => expect(disconnect).toHaveBeenCalledWith(NOTES.id, false));
+  });
+
   it('allows a healthy connector to be revoked while another connector cannot be fenced', async () => {
     const healthy = {
       ...NOTES,
@@ -154,6 +204,193 @@ describe('the Connectors tab', () => {
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(false);
+  });
+
+  it('lets a different page revoke a displayed choice while an allow is being confirmed', async () => {
+    const connector: IConnectorView = {
+      ...NOTES,
+      caseActionTools: ['create_note'],
+      caseActionRevision: 'revision-1',
+      caseActionChangePending: true,
+    };
+    const never = new Promise<never>(() => undefined);
+    const revoke = vi.fn(async () => ({
+      connector: {
+        ...connector,
+        caseActionTools: [],
+        caseActionRevision: 'revision-2',
+        caseActionChangePending: false,
+      },
+    }));
+    render(
+      <ConnectorsView
+        api={fakeApi([connector], {
+          fenceCaseActionRequests: async () => ({
+            fenced: [],
+            callbackPath: '/connector-callback',
+            connectors: [connector],
+          }),
+          connectors: () => never,
+          connector: () => never,
+          openConnectorCaseActions: () => never,
+          setConnectorCaseAction: revoke,
+        })}
+      />,
+    );
+    const choice = (await screen.findByLabelText(
+      'Allow create_note for case requests on Notes (connector-notes-1)',
+    )) as HTMLInputElement;
+    expect(choice.checked).toBe(true);
+    expect(choice.disabled).toBe(false);
+    fireEvent.click(choice);
+    await waitFor(() =>
+      expect(revoke).toHaveBeenCalledWith(
+        NOTES.id,
+        'create_note',
+        false,
+        'revision-1',
+        expect.any(AbortSignal),
+      ),
+    );
+  });
+
+  it('lets the owner cancel an interrupted pending choice', async () => {
+    const connector: IConnectorView = {
+      ...NOTES,
+      caseActionTools: [],
+      caseActionRevision: 'revision-1',
+      caseActionChangePending: true,
+    };
+    const never = new Promise<never>(() => undefined);
+    const fence = vi.fn(async () => ({
+      connector: { ...connector, caseActionChangePending: false, caseActionRevision: 'revision-2' },
+    }));
+    render(
+      <ConnectorsView
+        api={fakeApi([connector], {
+          fenceCaseActionRequests: async () => ({
+            fenced: [],
+            callbackPath: '/connector-callback',
+            connectors: [connector],
+          }),
+          connectors: () => never,
+          connector: () => never,
+          openConnectorCaseActions: () => never,
+          fenceConnectorCaseActions: fence,
+        })}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Cancel pending choice for Notes (connector-notes-1)',
+      }),
+    );
+    await waitFor(() =>
+      expect(fence).toHaveBeenCalledWith(NOTES.id, 'revision-1', expect.any(AbortSignal)),
+    );
+  });
+
+  it('lets this page revoke an existing choice while another allow is pending', async () => {
+    const connector: IConnectorView = {
+      ...NOTES,
+      tools: [...NOTES.tools!, { name: 'send_note', access: 'write' }],
+      caseActionTools: ['create_note'],
+      caseActionRevision: 'revision-1',
+    };
+    let rejectAllow!: (error: Error) => void;
+    const pending = new Promise<{ connector: IConnectorView }>((_, reject) => {
+      rejectAllow = reject;
+    });
+    const revoked = { ...connector, caseActionTools: [], caseActionRevision: 'revision-2' };
+    const set = vi.fn(async (_id: string, _tool: string, allowed: boolean) =>
+      allowed ? pending : { connector: revoked },
+    );
+    render(
+      <ConnectorsView
+        api={fakeApi([connector], {
+          setConnectorCaseAction: set,
+          fenceConnectorCaseActions: async () => ({ connector: revoked }),
+        })}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByLabelText(
+        'Allow send_note for case requests on Notes (connector-notes-1)',
+      ),
+    );
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+    const existing = screen.getByLabelText(
+      'Allow create_note for case requests on Notes (connector-notes-1)',
+    ) as HTMLInputElement;
+    expect(existing.disabled).toBe(false);
+    fireEvent.click(existing);
+    await waitFor(() =>
+      expect(set).toHaveBeenCalledWith(
+        NOTES.id,
+        'create_note',
+        false,
+        'revision-1',
+        expect.any(AbortSignal),
+      ),
+    );
+    await act(async () => {
+      rejectAllow(new Error('Case action settings changed'));
+      await pending.catch(() => undefined);
+    });
+  });
+
+  it('lets this page cancel its own pending allow after a scope refresh', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    let current: IConnectorView = {
+      ...NOTES,
+      caseActionTools: [],
+      caseActionRevision: 'revision-1',
+    };
+    const never = new Promise<never>(() => undefined);
+    const scope = vi.fn(async () => ({ connector: current }));
+    const set = vi.fn(() => never);
+    const fence = vi.fn(async () => {
+      current = { ...current, caseActionChangePending: false, caseActionRevision: 'revision-2' };
+      return { connector: current };
+    });
+    render(
+      <ConnectorsView
+        api={fakeApi([current], {
+          connectors: () => never,
+          connectorCaseActionScope: scope,
+          setConnectorCaseAction: set,
+          fenceConnectorCaseActions: fence,
+        })}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByLabelText(
+        'Allow create_note for case requests on Notes (connector-notes-1)',
+      ),
+    );
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(scope).toHaveBeenCalled());
+    current = { ...current, caseActionChangePending: true };
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const cancel = (await screen.findByRole('button', {
+      name: 'Cancel pending choice for Notes (connector-notes-1)',
+    })) as HTMLButtonElement;
+    expect(cancel.disabled).toBe(false);
+    fireEvent.click(cancel);
+    await waitFor(() =>
+      expect(fence).toHaveBeenCalledWith(NOTES.id, 'revision-1', expect.any(AbortSignal)),
+    );
   });
 
   it('shows and revokes a saved grant without waiting for any connector discovery', async () => {
@@ -1407,7 +1644,8 @@ describe('the Connectors tab', () => {
   });
 
   it('shows the owner how to handle a partial removal', async () => {
-    const reason = `The connector was removed. Its case-action settings could not be cleared. Restore write access to the agent state directory and remove case-action-scope/${NOTES.id}.`;
+    const reason =
+      'The connector was removed. Its case-action settings could not be cleared. Stop every agent using this state directory and follow the case-request recovery instructions in the Personal Agent guide.';
     const remove = vi.fn(async () => {
       throw new Error(reason);
     });

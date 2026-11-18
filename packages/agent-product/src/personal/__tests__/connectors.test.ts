@@ -308,6 +308,13 @@ describe('sorting a tool into reading and writing', () => {
 });
 
 describe('the connector registry', () => {
+  it('reads connection status without discovering tools', async () => {
+    const { registry, protocol, connector } = await setup();
+    protocol.failTools = true;
+    expect(await registry.status(connector.id)).toEqual({ state: 'connected' });
+    expect(protocol.events).not.toContain('tools');
+    expect((await registry.view(connector.id)).status.state).toBe('failed');
+  });
   it('shows each connector with its state and, once connected, its sorted tools', async () => {
     const { registry, protocol, connector } = await setup();
     const [connected] = await registry.list();

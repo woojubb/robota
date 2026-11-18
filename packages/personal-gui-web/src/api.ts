@@ -317,6 +317,10 @@ export interface IConnectorView {
   readonly caseActionRevision?: string;
   /** The saved setting could not be read and case requests cannot use it. */
   readonly caseActionScopeError?: boolean;
+  /** A connector disconnect must finish before case settings can be used. */
+  readonly caseActionTransition?: boolean;
+  /** A new allow is being confirmed; the previous choices remain available for revocation. */
+  readonly caseActionChangePending?: boolean;
 }
 
 /** A service the add form suggests: values to fill in, never a connection. */

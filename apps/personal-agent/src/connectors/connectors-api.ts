@@ -10,6 +10,7 @@ import {
   forgetPulled,
 } from '@robota-sdk/agent-product/personal';
 
+import { CaseActionMigrationError } from './case-action-scope.js';
 import { CONSENT_CALLBACK_PATH } from './consent.js';
 
 import type { IConnectorCatalog } from './catalog.js';
@@ -70,6 +71,8 @@ function present(
     readonly tools: readonly string[];
     readonly revision?: string;
     readonly error?: true;
+    readonly transition?: true;
+    readonly pending?: true;
   },
   sync?: IConnectorSyncStatus,
 ): Record<string, unknown> {
@@ -89,6 +92,8 @@ function present(
     caseActionTools: caseScope.tools,
     ...(caseScope.revision !== undefined && { caseActionRevision: caseScope.revision }),
     ...(caseScope.error === true && { caseActionScopeError: true }),
+    ...(caseScope.transition === true && { caseActionTransition: true }),
+    ...(caseScope.pending === true && { caseActionChangePending: true }),
     status,
     ...(sync !== undefined && { sync }),
     ...(tools !== undefined && {
@@ -106,7 +111,13 @@ function present(
 /** Connector identity and case settings without waiting for a service to answer. */
 function presentPending(
   connector: IConnector,
-  scope: { readonly tools: readonly string[]; readonly revision?: string; readonly error?: true },
+  scope: {
+    readonly tools: readonly string[];
+    readonly revision?: string;
+    readonly error?: true;
+    readonly transition?: true;
+    readonly pending?: true;
+  },
 ): Record<string, unknown> {
   return {
     id: connector.id,
@@ -121,6 +132,8 @@ function presentPending(
     caseActionTools: scope.tools,
     ...(scope.revision !== undefined && { caseActionRevision: scope.revision }),
     ...(scope.error === true && { caseActionScopeError: true }),
+    ...(scope.transition === true && { caseActionTransition: true }),
+    ...(scope.pending === true && { caseActionChangePending: true }),
     status: { state: 'checking' },
   };
 }
@@ -186,6 +199,8 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
     readonly tools: readonly string[];
     readonly revision?: string;
     readonly error?: true;
+    readonly transition?: true;
+    readonly pending?: true;
   }> => {
     try {
       return await change(async () => {
@@ -197,6 +212,9 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         } catch (error) {
           if (!(error instanceof ConnectorRefusedError)) throw error;
           try {
+            if (caseActions.transitioning(id)) return { tools: [], error: true, transition: true };
+            const pending = caseActions.pendingSnapshot(id);
+            if (pending !== undefined) return { ...pending, pending: true };
             return { tools: [], revision: caseActions.errorRevision(id), error: true };
           } catch (recoveryError) {
             if (!(recoveryError instanceof ConnectorRefusedError)) throw recoveryError;
@@ -218,6 +236,107 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
   /** Whether the person asked to forget what was pulled; a request with no body asks for nothing. */
   const wantsForgetting = (body: unknown): boolean =>
     body !== undefined && record(body)['forgetPulled'] === true;
+  const connecting = new Map<string, Set<Promise<void>>>();
+  const finishConnection = async (
+    id: string,
+    transition: ReturnType<ICaseActionScope['beginDisconnect']>,
+    initial: Awaited<ReturnType<typeof registry.signIn>>,
+  ): Promise<void> => {
+    let completed = false;
+    try {
+      let status = initial;
+      const deadline = Date.now() + 10 * 60_000;
+      while (status.state === 'connecting') {
+        if (Date.now() >= deadline) throw new ConnectorRefusedError('The sign-in was interrupted');
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, 250);
+          timer.unref();
+        });
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        try {
+          status = await Promise.race([
+            registry.status(id),
+            new Promise<never>((_, reject) => {
+              timeout = setTimeout(
+                () => reject(new ConnectorRefusedError('The sign-in could not be confirmed')),
+                75_000,
+              );
+              timeout.unref();
+            }),
+          ]);
+        } finally {
+          if (timeout !== undefined) clearTimeout(timeout);
+        }
+      }
+      // Keep the transition visible until after the credential has settled and old scope is gone.
+      await change(() => caseActions.reset(id));
+      transition.complete();
+      completed = true;
+    } finally {
+      if (completed) {
+        transition.release();
+        await change(() => caseActions.settleDisconnects(id)).catch(() => undefined);
+      }
+    }
+  };
+  const disconnect = async (
+    id: string,
+  ): Promise<{
+    outcome: Awaited<ReturnType<typeof registry.disconnect>>;
+    secured: Promise<boolean>;
+  }> => {
+    let transition: ReturnType<ICaseActionScope['beginDisconnect']> | undefined;
+    try {
+      transition = caseActions.beginDisconnect(id);
+    } catch {
+      // Credential removal and sync shutdown still proceed if the guard cannot be written.
+    }
+    let outcome: Awaited<ReturnType<typeof registry.disconnect>>;
+    let released = true;
+    try {
+      outcome = await registry.disconnect(id);
+      try {
+        transition?.complete();
+      } catch {
+        // An interrupted marker stays closed until this disconnect is completed again.
+      }
+    } finally {
+      try {
+        transition?.release();
+      } catch {
+        released = false;
+      }
+    }
+    const secured = (async () => {
+      const pending = [...(connecting.get(id) ?? [])];
+      if (pending.length > 0) {
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const ended = await Promise.race([
+            Promise.all(pending).then(() => true),
+            new Promise<false>((resolve) => {
+              timeout = setTimeout(() => resolve(false), 2_000);
+            }),
+          ]);
+          if (!ended) return false;
+        } finally {
+          if (timeout !== undefined) clearTimeout(timeout);
+        }
+      }
+      return caseActions
+        .exclusiveConnector(id, () =>
+          change(async () => {
+            await caseActions.settleDisconnects(id, true);
+            if (transition === undefined) await caseActions.fence(id);
+          }),
+        )
+        .then(
+          () => released,
+          () => false,
+        );
+    })();
+    return { outcome, secured };
+  };
   /**
    * Take the access away first, so nothing in progress can hold it up, then stop the sync (ending a
    * run that is still going) and, when asked, forget what the connector put in the library, which
@@ -226,12 +345,30 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
   const leave = async (
     id: string,
     body: unknown,
-    take: () => Promise<unknown>,
+    take: () => ReturnType<typeof disconnect>,
   ): Promise<ILoopbackGuiApiResponse> => {
     const forget = wantsForgetting(body);
-    const outcome = await take();
+    let result: Awaited<ReturnType<typeof disconnect>>;
+    try {
+      result = await take();
+    } catch (error) {
+      await sync.disable(id);
+      if (forget) await forgetPulled(wiki, id);
+      throw error;
+    }
+    const { outcome, secured } = result;
     await sync.disable(id);
-    return ok({ outcome, ...(forget && { forgotten: await forgetPulled(wiki, id) }) });
+    const forgotten = forget ? await forgetPulled(wiki, id) : undefined;
+    if (!(await secured))
+      return {
+        status: 500,
+        body: {
+          error: 'The connector was disconnected, but its case settings could not be secured.',
+          outcome,
+          ...(forgotten !== undefined && { forgotten }),
+        },
+      };
+    return ok({ outcome, ...(forgotten !== undefined && { forgotten }) });
   };
   const known = async (id: string): Promise<boolean> => (await book.get(id)) !== undefined;
   const notFound: ILoopbackGuiApiResponse = { status: 404, body: { error: 'no such connector' } };
@@ -365,6 +502,8 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
             readonly tools: readonly string[];
             readonly revision?: string;
             readonly error?: true;
+            readonly transition?: true;
+            readonly pending?: true;
           };
           try {
             await caseActions.initialize(connector.id);
@@ -374,7 +513,15 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
           } catch (error) {
             if (!(error instanceof ConnectorRefusedError)) throw error;
             try {
-              scope = { tools: [], revision: caseActions.errorRevision(connector.id), error: true };
+              if (caseActions.transitioning(connector.id)) {
+                scope = { tools: [], error: true, transition: true };
+              } else {
+                const pending = caseActions.pendingSnapshot(connector.id);
+                scope =
+                  pending !== undefined
+                    ? { ...pending, pending: true }
+                    : { tools: [], revision: caseActions.errorRevision(connector.id), error: true };
+              }
             } catch (recoveryError) {
               if (!(recoveryError instanceof ConnectorRefusedError)) throw recoveryError;
               scope = { tools: [], error: true };
@@ -420,19 +567,55 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
           throw new ConnectorRefusedError('the agent is not reached at that origin');
         }
       }
-      return ok({
-        status: await registry.signIn(id, {
-          ...(normalized !== undefined && { origin: normalized }),
-          ...(clientSecret !== undefined && { clientSecret }),
-          ...(token !== undefined && { token }),
-        }),
+      const current = await book.existing(id);
+      const auth = current.auth ?? 'oauth';
+      if (auth === 'none') throw new ConnectorRefusedError('This service needs no sign-in');
+      if (auth === 'token' && token === undefined)
+        throw new ConnectorRefusedError('Type the token for this service');
+      if (auth === 'token' && clientSecret !== undefined)
+        throw new ConnectorRefusedError('A client secret belongs to an OAuth sign-in');
+      if (auth === 'oauth' && token !== undefined)
+        throw new ConnectorRefusedError('This service signs in with OAuth, not a token');
+      if (auth === 'oauth' && normalized === undefined)
+        throw new ConnectorRefusedError('A sign-in needs the address of this page');
+      if (clientSecret !== undefined && current.oauth?.clientId === undefined)
+        throw new ConnectorRefusedError('A client secret goes with the client id you registered');
+      // A reconnect can represent a different account. Keep case authority closed until the
+      // credential has settled, and require the owner to choose case tools again afterward.
+      const transition = caseActions.beginDisconnect(id);
+      // On failure, leave the transition in place: sign-in may still be completing.
+      await change(() => caseActions.reset(id));
+      const status = await registry.signIn(id, {
+        ...(normalized !== undefined && { origin: normalized }),
+        ...(clientSecret !== undefined && { clientSecret }),
+        ...(token !== undefined && { token }),
       });
+      if (status.state === 'connecting') {
+        const tasks = connecting.get(id) ?? new Set<Promise<void>>();
+        connecting.set(id, tasks);
+        const task = finishConnection(id, transition, status)
+          .catch(() => undefined)
+          .finally(() => {
+            tasks.delete(task);
+            if (tasks.size === 0) connecting.delete(id);
+          });
+        tasks.add(task);
+      } else await finishConnection(id, transition, status);
+      return ok({ status });
     }
-    if (action === 'disconnect') return leave(id, request.body, () => registry.disconnect(id));
+    if (action === 'disconnect') return leave(id, request.body, () => disconnect(id));
     if (action === 'remove') {
       // Taking the access away must not depend on acquiring the settings lock.
       const forget = wantsForgetting(request.body);
-      const disconnected = await registry.disconnect(id);
+      let detached: Awaited<ReturnType<typeof disconnect>>;
+      try {
+        detached = await disconnect(id);
+      } catch (error) {
+        await sync.disable(id);
+        if (forget) await forgetPulled(wiki, id);
+        throw error;
+      }
+      const { outcome: disconnected, secured } = detached;
       try {
         await registry.remove(id);
       } catch {
@@ -444,7 +627,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
           },
         };
       }
-      let cleanupFailed = false;
+      let cleanupFailed = !(await secured);
       try {
         await change(() => caseActions.clear(id));
       } catch {
@@ -460,7 +643,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       }
       if (cleanupFailed || followupFailed) {
         const cleanupAdvice = cleanupFailed
-          ? ` Its case-action settings could not be cleared. Restore write access to the agent state directory and remove case-action-scope/${id}.`
+          ? ' Its case-action settings could not be cleared. Stop every agent using this state directory and follow the case-request recovery instructions in the Personal Agent guide.'
           : '';
         const description = followupFailed
           ? 'The connector was removed, but its sync or library cleanup did not finish.'
@@ -498,24 +681,34 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       if (decision !== null && (typeof decision !== 'string' || !DECISIONS.includes(decision))) {
         throw new ConnectorRefusedError('decision must be read, write, blocked or null');
       }
-      const changed = await change(async () => {
-        if (!(await known(id))) return false;
-        const previous = await book.existing(id);
-        if (decision !== 'write' || previous.decisions[tool] === 'blocked') {
-          try {
-            await caseActions.set(id, tool, false);
-          } catch (error) {
-            // A broken scope must never prevent the person from blocking the tool itself.
-            if (decision !== 'blocked') throw error;
+      let changed: boolean;
+      try {
+        changed = await change(async () => {
+          if (!(await known(id))) return false;
+          const previous = await book.existing(id);
+          if (decision !== 'write' || previous.decisions[tool] === 'blocked') {
+            try {
+              await caseActions.set(id, tool, false);
+            } catch (error) {
+              // A broken scope must never prevent the person from blocking the tool itself.
+              if (decision !== 'blocked') throw error;
+            }
           }
-        }
-        await registry.decide(
-          id,
-          tool,
-          decision === null ? undefined : (decision as TToolDecision),
-        );
-        return true;
-      });
+          await registry.decide(
+            id,
+            tool,
+            decision === null ? undefined : (decision as TToolDecision),
+          );
+          return true;
+        });
+      } catch (error) {
+        if (decision !== 'blocked' || !(error instanceof CaseActionMigrationError)) throw error;
+        changed = await caseActions.exclusiveBlock(async () => {
+          if (!(await known(id))) return false;
+          await registry.decide(id, tool, 'blocked');
+          return true;
+        });
+      }
       return changed ? ok({ connector: await show(id) }) : notFound;
     }
     if (action === 'case-actions' && caseTool === undefined && body?.['open'] === true) {
@@ -586,10 +779,11 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       if (allowed && (view?.status.state !== 'connected' || candidate === undefined)) {
         throw new ConnectorRefusedError('Choose a connected writable tool for case requests');
       }
+      let staged: ReturnType<ICaseActionScope['stageAllow']> | undefined;
       const changed = await change(async () => {
         const current = await book.get(id);
         if (current === undefined) return false;
-        if (version !== undefined) {
+        if (allowed) {
           const latest = caseActions.version(id, caseTool);
           if (version !== latest) {
             throw new ConnectorRefusedError('Case action settings changed; try again');
@@ -598,15 +792,49 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         if (allowed && (candidate === undefined || classifyTool(current, candidate) !== 'write')) {
           throw new ConnectorRefusedError('Choose a connected writable tool for case requests');
         }
-        const savedVersion = await caseActions.set(id, caseTool, allowed, version);
-        if (allowed && version !== undefined) {
-          const latest = caseActions.version(id, caseTool);
-          if (savedVersion !== latest) {
-            throw new ConnectorRefusedError('Case action settings changed; try again');
-          }
-        }
+        if (allowed) staged = caseActions.stageAllow(id, caseTool, version);
+        else await caseActions.set(id, caseTool, false, version);
         return true;
       });
+      if (changed && staged !== undefined) {
+        const revision = staged;
+        try {
+          await caseActions.exclusiveConnector(id, async () => {
+            let connected = false;
+            let timeout: ReturnType<typeof setTimeout> | undefined;
+            try {
+              const state = await Promise.race([
+                registry.status(id),
+                new Promise<never>((_, reject) => {
+                  timeout = setTimeout(
+                    () => reject(new Error('Connection check timed out')),
+                    10_000,
+                  );
+                  timeout.unref();
+                }),
+              ]);
+              connected = state.state === 'connected';
+            } catch {
+              // An unconfirmed connection cannot grant authority.
+            } finally {
+              if (timeout !== undefined) clearTimeout(timeout);
+            }
+            await change(async () => {
+              if (!(await known(id))) throw new ConnectorRefusedError('No such connector');
+              caseActions.finishAllow(id, revision, connected);
+            });
+          });
+        } catch (error) {
+          await change(async () => {
+            try {
+              caseActions.finishAllow(id, revision, false);
+            } catch {
+              /* It was already settled or remains closed. */
+            }
+          }).catch(() => undefined);
+          throw error;
+        }
+      }
       return changed ? ok({ connector: await showScope(id) }) : notFound;
     }
     return undefined;

@@ -10,6 +10,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -157,7 +158,11 @@ async function world(
   const waitForState: IWorld['waitForState'] = async (id, state) => {
     for (let attempt = 0; attempt < 100; attempt += 1) {
       const view = (await call('GET', ['connectors', id])).body.connector;
-      if (view.status.state === state) return view;
+      if (
+        view.status.state === state &&
+        (state !== 'connected' || view.caseActionScopeError !== true)
+      )
+        return view;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     throw new Error(`the connector never reached ${state}`);
@@ -372,6 +377,130 @@ describe('using a connected service', () => {
     ]);
   });
 
+  it('does not save an allow when disconnect finishes after discovery', async () => {
+    const w = await connected();
+    const path = ['connectors', w.id, 'case-actions'];
+    const revision = await scopeRevision(w);
+    const registry = w.harness.capabilities.connectors;
+    const original = registry.view.bind(registry);
+    let release!: () => void;
+    let observed!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const discovered = new Promise<void>((resolve) => {
+      observed = resolve;
+    });
+    const spy = vi.spyOn(registry, 'view').mockImplementation(async (...args) => {
+      const view = await original(...args);
+      observed();
+      await gate;
+      return view;
+    });
+    try {
+      const allow = w.call('POST', path, { tool: 'create_note', allowed: true, revision });
+      await discovered;
+      expect((await w.call('POST', ['connectors', w.id, 'disconnect'], {})).status).toBe(200);
+      release();
+      expect((await allow).status).toBe(400);
+      expect((await w.call('GET', path)).body.connector.caseActionTools).toEqual([]);
+    } finally {
+      release();
+      spy.mockRestore();
+    }
+  });
+
+  it('refuses a delayed allow after disconnect even when the transition directory is unwritable', async () => {
+    if (process.platform === 'win32') return;
+    const w = await connected();
+    const path = ['connectors', w.id, 'case-actions'];
+    const revision = await scopeRevision(w);
+    const transitions = join(w.harness.stateDir, '.case-action-scope-transitions');
+    const registry = w.harness.capabilities.connectors;
+    const original = registry.view.bind(registry);
+    let release!: () => void;
+    let observed!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const discovered = new Promise<void>((resolve) => {
+      observed = resolve;
+    });
+    const spy = vi.spyOn(registry, 'view').mockImplementation(async (...args) => {
+      const view = await original(...args);
+      observed();
+      await gate;
+      return view;
+    });
+    try {
+      const allow = w.call('POST', path, { tool: 'create_note', allowed: true, revision });
+      await discovered;
+      chmodSync(transitions, 0o500);
+      const disconnected = await w.call('POST', ['connectors', w.id, 'disconnect'], {});
+      expect(disconnected.status).toBe(500);
+      expect(w.auth.revoked.length).toBeGreaterThan(0);
+      chmodSync(transitions, 0o700);
+      release();
+      expect((await allow).status).toBe(400);
+      expect((await w.call('GET', path)).body.connector.caseActionTools).toEqual([]);
+    } finally {
+      chmodSync(transitions, 0o700);
+      release();
+      spy.mockRestore();
+    }
+  });
+
+  it('keeps an interrupted disconnect closed until the owner finishes disconnecting', async () => {
+    const w = await connected();
+    const path = ['connectors', w.id, 'case-actions'];
+    const before = await scopeRevision(w);
+    const scope = createCaseActionScope(join(w.harness.stateDir, 'case-action-scope'));
+    const interrupted = scope.beginDisconnect(w.id);
+    interrupted.release();
+    const blocked = await w.call('GET', path);
+    expect(blocked.body.connector).toMatchObject({
+      caseActionScopeError: true,
+      caseActionTransition: true,
+    });
+    expect(
+      (await w.call('POST', path, { tool: 'create_note', allowed: true, revision: before })).status,
+    ).toBe(400);
+    expect((await w.call('POST', ['connectors', w.id, 'disconnect'], {})).status).toBe(200);
+    const recovered = (await w.call('GET', path)).body.connector;
+    expect(recovered.caseActionScopeError).toBeUndefined();
+    expect(recovered.caseActionRevision).not.toBe(before);
+  });
+
+  it('keeps case choices closed during sign-in and clears them after reconnecting', async () => {
+    const w = await connected();
+    const path = ['connectors', w.id, 'case-actions'];
+    const initial = await scopeRevision(w);
+    expect(
+      (await w.call('POST', path, { tool: 'create_note', allowed: true, revision: initial }))
+        .status,
+    ).toBe(200);
+    expect((await w.call('POST', ['connectors', w.id, 'disconnect'], {})).status).toBe(200);
+    const old = (await w.call('GET', path)).body.connector;
+    expect(old.caseActionTools).toEqual(['create_note']);
+    const started = await w.connect(w.id);
+    const connecting = (await w.call('GET', path)).body.connector;
+    expect(connecting).toMatchObject({ caseActionScopeError: true, caseActionTransition: true });
+    expect(
+      (
+        await w.call('POST', path, {
+          tool: 'create_note',
+          allowed: true,
+          revision: old.caseActionRevision,
+        })
+      ).status,
+    ).toBe(400);
+    await w.consent(started.authorizationUrl);
+    await w.waitForState(w.id, 'connected');
+    const recovered = (await w.call('GET', path)).body.connector;
+    expect(recovered.caseActionTools).toEqual([]);
+    expect(recovered.caseActionRevision).not.toBe(old.caseActionRevision);
+  });
+
   it('fences old requests when a new page opens and preserves a newer owner choice', async () => {
     const w = await connected();
     const path = ['connectors', w.id, 'case-actions'];
@@ -394,6 +523,33 @@ describe('using a connected service', () => {
     expect(recovery.body.connector.caseActionRevision).toBe(
       enabled.body.connector.caseActionRevision,
     );
+  });
+
+  it('explains legacy migration and still lets the owner block a tool', async () => {
+    const w = await connected();
+    const legacy = join(w.harness.stateDir, '.case-action-scope-connector-settings.sqlite');
+    const scope = join(w.harness.stateDir, 'case-action-scope', w.id, 'scope.json');
+    const originalScope = readFileSync(scope, 'utf8');
+    rmSync(legacy, { recursive: true });
+    writeFileSync(legacy, 'legacy lock');
+
+    const fence = await w.call('POST', ['connectors', 'case-actions', 'fence'], {});
+    expect(fence.status).toBe(400);
+    expect(JSON.stringify(fence.body)).toContain('Stop every agent');
+    const blocked = await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], {
+      decision: 'blocked',
+    });
+    expect(blocked.status).toBe(200);
+    expect(blocked.body.connector.caseActionScopeError).toBe(true);
+    expect(
+      blocked.body.connector.tools.find((tool: { name: string }) => tool.name === 'create_note')
+        .access,
+    ).toBe('blocked');
+    expect(readFileSync(scope, 'utf8')).toBe(originalScope);
+    expect(
+      (await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], { decision: 'write' }))
+        .status,
+    ).toBe(400);
   });
 
   it('lists and revokes saved case grants without waiting for connector discovery', async () => {
@@ -702,6 +858,107 @@ describe('using a connected service', () => {
     }
   });
 
+  it('does not hold other connector settings while confirming a staged allow', async () => {
+    const w = await connected();
+    const calendar = await w.add('Calendar', 'calendar', CALENDAR_HOST);
+    await w.consent((await w.connect(calendar)).authorizationUrl);
+    await w.waitForState(calendar, 'connected');
+    const revision = await scopeRevision(w);
+    const registry = w.harness.capabilities.connectors;
+    const original = registry.status.bind(registry);
+    let release!: () => void;
+    let observed!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const reached = new Promise<void>((resolve) => {
+      observed = resolve;
+    });
+    const spy = vi.spyOn(registry, 'status').mockImplementation(async (id) => {
+      const status = await original(id);
+      if (id === w.id) {
+        observed();
+        await gate;
+      }
+      return status;
+    });
+    try {
+      const allow = w.call('POST', ['connectors', w.id, 'case-actions'], {
+        tool: 'create_note',
+        allowed: true,
+        revision,
+      });
+      await reached;
+      expect(
+        (await w.call('GET', ['connectors', w.id, 'case-actions'])).body.connector,
+      ).toMatchObject({
+        caseActionChangePending: true,
+        caseActionRevision: revision,
+        caseActionTools: [],
+      });
+      const block = w.call('POST', ['connectors', calendar, 'tools', 'add_event'], {
+        decision: 'blocked',
+      });
+      const completed = await Promise.race([
+        block.then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 500)),
+      ]);
+      expect(completed).toBe(true);
+      expect((await block).status).toBe(200);
+      release();
+      expect((await allow).status).toBe(200);
+    } finally {
+      release();
+      spy.mockRestore();
+    }
+  });
+
+  it('lets a displayed revocation cancel a different in-flight allow', async () => {
+    const w = await connected();
+    const path = ['connectors', w.id, 'case-actions'];
+    const stale = await scopeRevision(w);
+    const enabled = await w.call('POST', path, {
+      tool: 'create_note',
+      allowed: true,
+      revision: stale,
+    });
+    expect(enabled.status).toBe(200);
+    const revision = enabled.body.connector.caseActionRevision;
+    const registry = w.harness.capabilities.connectors;
+    const original = registry.status.bind(registry);
+    let release!: () => void;
+    let observed!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const reached = new Promise<void>((resolve) => {
+      observed = resolve;
+    });
+    const spy = vi.spyOn(registry, 'status').mockImplementation(async (id) => {
+      const status = await original(id);
+      observed();
+      await gate;
+      return status;
+    });
+    try {
+      const allow = w.call('POST', path, { tool: 'delete_note', allowed: true, revision });
+      await reached;
+      expect(
+        (await w.call('POST', path, { tool: 'create_note', allowed: false, revision: stale }))
+          .status,
+      ).toBe(400);
+      const revoke = await w.call('POST', path, { tool: 'create_note', allowed: false, revision });
+      expect(revoke.status).toBe(200);
+      expect(revoke.body.connector.caseActionTools).toEqual([]);
+      release();
+      expect((await allow).status).toBe(400);
+      expect((await w.call('GET', path)).body.connector.caseActionTools).toEqual([]);
+    } finally {
+      release();
+      spy.mockRestore();
+    }
+  });
+
   it('rejects an allow admitted before a reset even when its connector lookup was delayed', async () => {
     const w = await connected();
     const revision = await scopeRevision(w);
@@ -909,7 +1166,8 @@ describe('using a connected service', () => {
         expect(removed.status).toBe(500);
         expect(removed.body.outcome.removed).toBe(true);
         expect(removed.body.caseActionScopeCleanupFailed).toBe(true);
-        expect(removed.body.error).toContain(`case-action-scope/${w.id}`);
+        expect(removed.body.error).toContain('Stop every agent');
+        expect(removed.body.error).toContain('case-request recovery instructions');
         expect(w.auth.revoked.length).toBeGreaterThan(0);
         expect((await w.call('GET', ['connectors', w.id])).status).toBe(404);
       } finally {
@@ -1987,6 +2245,28 @@ describe('keeping a connector in sync', () => {
     // The sync is off with the connection.
     expect(await w.harness.capabilities.goals.list()).toEqual([]);
     expect((await w.call('GET', ['connectors', w.id])).body.connector.sync).toBeUndefined();
+  });
+
+  it('stops sync and forgets requested data even when case settings cannot be fenced', async () => {
+    const w = await connectedWorld();
+    await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 60 });
+    w.harness.model.script(syncScript(w.id));
+    await runSync(w);
+    const scope = createCaseActionScope(join(w.harness.stateDir, 'case-action-scope'));
+    const blocked = scope.beginDisconnect(w.id);
+    try {
+      const answer = await w.call('POST', ['connectors', w.id, 'disconnect'], {
+        forgetPulled: true,
+      });
+      expect(answer.status).toBe(500);
+      expect(answer.body.error).toMatch(/disconnected.*settings/u);
+      expect(answer.body.forgotten).toBe(1);
+      expect(w.auth.revoked.length).toBeGreaterThan(0);
+      expect(await w.harness.capabilities.goals.list()).toEqual([]);
+      expect((await w.call('GET', ['connectors', w.id, 'pulled'])).body.count).toBe(0);
+    } finally {
+      blocked.release();
+    }
   });
 
   it('keeps what was pulled when the person disconnects without asking to forget it', async () => {

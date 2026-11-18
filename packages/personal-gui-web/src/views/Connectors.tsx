@@ -200,6 +200,8 @@ function CaseActions({
   onChange,
   onReset,
   onRefresh,
+  onFinishDisconnect,
+  onCancelPending,
 }: {
   readonly connector: IConnectorView;
   readonly unavailable: boolean;
@@ -208,9 +210,11 @@ function CaseActions({
   readonly onChange: (tool: string, allowed: boolean) => Promise<void>;
   readonly onReset: () => Promise<void>;
   readonly onRefresh: () => Promise<void>;
+  readonly onFinishDisconnect: () => void;
+  readonly onCancelPending: () => Promise<void>;
 }): React.ReactElement | null {
   const [saving, setSaving] = useState(false);
-  const inFlight = useRef(false);
+  const inFlight = useRef(new Map<symbol, 'allow' | 'revoke' | 'cancel' | 'other'>());
   const [refusal, setRefusal] = useState<string | undefined>(undefined);
   if (
     !supported ||
@@ -223,9 +227,20 @@ function CaseActions({
   const allowed = connector.caseActionTools;
   const writable = (connector.tools ?? []).filter((tool) => tool.access === 'write');
   const names = [...new Set([...writable.map((tool) => tool.name), ...allowed])];
-  const change = async (work: () => Promise<void>): Promise<void> => {
-    if (inFlight.current) return;
-    inFlight.current = true;
+  const change = async (
+    work: () => Promise<void>,
+    kind: 'allow' | 'revoke' | 'cancel' | 'other',
+  ): Promise<void> => {
+    if (
+      inFlight.current.size > 0 &&
+      !(
+        (kind === 'revoke' || kind === 'cancel') &&
+        [...inFlight.current.values()].every((entry) => entry === 'allow')
+      )
+    )
+      return;
+    const token = Symbol();
+    inFlight.current.set(token, kind);
     setSaving(true);
     setRefusal(undefined);
     try {
@@ -233,8 +248,8 @@ function CaseActions({
     } catch (caught) {
       setRefusal(errorText(caught));
     } finally {
-      inFlight.current = false;
-      setSaving(false);
+      inFlight.current.delete(token);
+      setSaving(inFlight.current.size > 0);
     }
   };
   return (
@@ -245,9 +260,9 @@ function CaseActions({
       <h3 className="text-[13px] font-semibold">Case requests</h3>
       <p className="text-[12px] text-muted-foreground">
         When case actions are available, a case can ask to use the selected tools. You must approve
-        each action separately.
+        each action separately. Reconnecting clears these choices; select them again after sign-in.
       </p>
-      {!ready && (
+      {!ready && connector.caseActionChangePending !== true && (
         <p className="mt-1 text-[12.5px] text-destructive">
           Case settings are not confirmed yet. Reset any unreadable settings and wait for this page
           to reconnect.
@@ -261,14 +276,41 @@ function CaseActions({
           <Button
             disabled={saving}
             label={`Settle case request settings for ${identity}`}
-            onClick={() => void change(onRefresh)}
+            onClick={() => void change(onRefresh, 'other')}
           >
             Settle settings
           </Button>
         </div>
       )}
+      {connector.caseActionChangePending === true && (
+        <div className="mt-1">
+          <p className="text-[12.5px] text-muted-foreground">
+            A new choice is being confirmed. You can remove an existing choice or cancel the pending
+            change.
+          </p>
+          <Button
+            disabled={saving && ![...inFlight.current.values()].every((entry) => entry === 'allow')}
+            label={`Cancel pending choice for ${identity}`}
+            onClick={() => void change(onCancelPending, 'cancel')}
+          >
+            Cancel pending choice
+          </Button>
+        </div>
+      )}
       {connector.caseActionScopeError === true ? (
         <div className="mt-2">
+          {connector.caseActionTransition === true && (
+            <div>
+              <p className="text-[12.5px] text-destructive">
+                A connection change has not finished. If it was interrupted, disconnect again before
+                using case settings. If this still fails, stop every agent using the state folder
+                and follow the case-request recovery instructions in the Personal Agent guide.
+              </p>
+              <Button label={`Finish disconnecting ${identity}`} onClick={onFinishDisconnect}>
+                Finish disconnect
+              </Button>
+            </div>
+          )}
           <p className="text-[12.5px] text-destructive">
             These settings could not be confirmed. Resetting removes all allowed tools for this
             connector.
@@ -276,7 +318,7 @@ function CaseActions({
           <Button
             disabled={saving || connector.caseActionRevision === undefined}
             label={`Reset case request settings for ${identity}`}
-            onClick={() => void change(onReset)}
+            onClick={() => void change(onReset, 'other')}
           >
             Reset case request settings
           </Button>
@@ -296,6 +338,10 @@ function CaseActions({
             const label = visibleToolName(name);
             const mayAllow =
               connector.status.state === 'connected' && writable.some((tool) => tool.name === name);
+            const mayInterrupt =
+              checked &&
+              saving &&
+              [...inFlight.current.values()].every((entry) => entry === 'allow');
             return (
               <li key={name}>
                 <label className="flex items-center gap-2 text-[12.5px]">
@@ -303,8 +349,16 @@ function CaseActions({
                     type="checkbox"
                     aria-label={`Allow ${label} for case requests on ${identity}`}
                     checked={checked}
-                    disabled={saving || unavailable || !ready || (!checked && !mayAllow)}
-                    onChange={(event) => void change(() => onChange(name, event.target.checked))}
+                    disabled={
+                      (saving && !mayInterrupt) ||
+                      unavailable ||
+                      (!ready && !(connector.caseActionChangePending === true && checked)) ||
+                      (!checked && (!mayAllow || connector.caseActionChangePending === true))
+                    }
+                    onChange={(event) => {
+                      const next = event.target.checked;
+                      void change(() => onChange(name, next), next ? 'allow' : 'revoke');
+                    }}
                   />
                   <span className="break-all font-mono">{label}</span>
                   {!mayAllow && (
@@ -432,6 +486,7 @@ function ConnectorCard({
   onCaseAction,
   onResetCaseActions,
   onRefreshCaseActions,
+  onCancelPendingCaseAction,
   unavailable,
   scopeReady,
   scopeSupported,
@@ -448,6 +503,7 @@ function ConnectorCard({
   readonly onCaseAction: (tool: string, allowed: boolean) => Promise<void>;
   readonly onResetCaseActions: () => Promise<void>;
   readonly onRefreshCaseActions: () => Promise<void>;
+  readonly onCancelPendingCaseAction: () => Promise<void>;
   readonly unavailable: boolean;
   readonly scopeReady: boolean;
   readonly scopeSupported: boolean;
@@ -561,6 +617,8 @@ function ConnectorCard({
         onChange={onCaseAction}
         onReset={onResetCaseActions}
         onRefresh={onRefreshCaseActions}
+        onFinishDisconnect={() => onDisconnect(false)}
+        onCancelPending={onCancelPendingCaseAction}
       />
       {status.state === 'connected' && (
         <section aria-label="Keep up to date" className="mt-3 border-t border-border pt-2">
@@ -983,6 +1041,7 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
   // Why the list could not be loaded (cleared by the next load that works) and why the person's last
   // action was refused (kept until they act again, so a refusal is not wiped by the reload after it).
   const [error, setError] = useState<string | undefined>(undefined);
+  const [scopeStartError, setScopeStartError] = useState<string | undefined>(undefined);
   const [refusal, setRefusal] = useState<string | undefined>(undefined);
   const [message, setMessage] = useState<string | undefined>(undefined);
   const [adding, setAdding] = useState(false);
@@ -1006,7 +1065,7 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
   const openingScopes = useRef(new Set<string>());
   const viewingConnectors = useRef(new Map<string, number>());
   const refreshingScopes = useRef(new Set<string>());
-  const savingScopes = useRef(new Set<string>());
+  const savingScopes = useRef(new Map<string, number>());
   const viewedAt = useRef(new Map<string, number>());
   const openedAt = useRef(new Map<string, number>());
   const refreshedAt = useRef(new Map<string, number>());
@@ -1022,7 +1081,7 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
   );
   const [uncertainScopes, setUncertainScopes] = useState<ReadonlySet<string>>(new Set());
   const scopeKey = (connector: IConnectorView): string =>
-    `${connector.caseActionRevision ?? ''}:${connector.caseActionScopeError === true}`;
+    `${connector.caseActionRevision ?? ''}:${connector.caseActionScopeError === true}:${connector.caseActionTransition === true}:${connector.caseActionChangePending === true}`;
   const readScope = async (id: string): Promise<IConnectorView> => {
     return (await scopeRequest((signal) => api.connectorCaseActionScope(id, signal))).connector;
   };
@@ -1037,6 +1096,8 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
       caseActionTools: _tools,
       caseActionRevision: _revision,
       caseActionScopeError: _error,
+      caseActionTransition: _transition,
+      caseActionChangePending: _pending,
       ...rest
     } = view;
     return {
@@ -1046,6 +1107,8 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
         caseActionRevision: scoped.caseActionRevision,
       }),
       ...(scoped.caseActionScopeError === true && { caseActionScopeError: true }),
+      ...(scoped.caseActionTransition === true && { caseActionTransition: true }),
+      ...(scoped.caseActionChangePending === true && { caseActionChangePending: true }),
     };
   };
   const viewKey = (view: IConnectorView): string => {
@@ -1053,6 +1116,8 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
       caseActionTools: _tools,
       caseActionRevision: _revision,
       caseActionScopeError: _error,
+      caseActionTransition: _transition,
+      caseActionChangePending: _pending,
       ...rest
     } = view;
     return JSON.stringify(rest);
@@ -1263,7 +1328,7 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
     fence: () => Promise<{ connector: IConnectorView }>,
   ): Promise<void> => {
     advanceScope(id);
-    savingScopes.current.add(id);
+    savingScopes.current.set(id, (savingScopes.current.get(id) ?? 0) + 1);
     const started = scopeRevisions.current.get(id);
     const observed = scopeObservations.current.get(id)?.serial ?? 0;
     try {
@@ -1294,7 +1359,9 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
       void recoverScope(id).catch(() => undefined);
       throw caught;
     } finally {
-      savingScopes.current.delete(id);
+      const count = (savingScopes.current.get(id) ?? 1) - 1;
+      if (count === 0) savingScopes.current.delete(id);
+      else savingScopes.current.set(id, count);
     }
   };
   useEffect(() => {
@@ -1382,6 +1449,7 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
             ],
           }));
           ready = true;
+          setScopeStartError(undefined);
           setScopeSupported(true);
           setScopeReady(new Set(result.fenced.filter((id) => !conflicts.has(id))));
           setInitialFenceDone(true);
@@ -1390,9 +1458,12 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
           if (caught instanceof ApiError && caught.status === 404) {
             ready = true;
             legacyServer.current = true;
-            if (active) setScopeSupported(false);
+            if (active) {
+              setScopeSupported(false);
+              setScopeStartError(undefined);
+            }
           } else if (active) {
-            setError(errorText(caught));
+            setScopeStartError(errorText(caught));
           }
           if (active) await reload();
         } finally {
@@ -1571,6 +1642,7 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
       actions={!adding && <Button onClick={() => setAdding(true)}>Add a connector</Button>}
     >
       {error !== undefined && <Notice tone="error">{error}</Notice>}
+      {scopeStartError !== undefined && <Notice tone="error">{scopeStartError}</Notice>}
       {refusal !== undefined && <Notice tone="error">{refusal}</Notice>}
       {message !== undefined && <Notice>{message}</Notice>}
       {adding && (
@@ -1757,6 +1829,17 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
               );
             }}
             onRefreshCaseActions={() => recoverScope(connector.id)}
+            onCancelPendingCaseAction={async () => {
+              const fence = () =>
+                scopeRequest((signal) =>
+                  api.fenceConnectorCaseActions(
+                    connector.id,
+                    connector.caseActionRevision!,
+                    signal,
+                  ),
+                );
+              await saveScope(connector.id, fence, fence);
+            }}
             onDecide={(tool, decision) =>
               void run(async (current) => {
                 const result = await api.decideConnectorTool(connector.id, tool, decision);
