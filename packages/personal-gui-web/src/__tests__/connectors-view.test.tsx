@@ -64,6 +64,113 @@ describe('the Connectors tab', () => {
     expect(within(writes).getByText('create_note')).toBeTruthy();
     expect(within(blocked).getByText('delete_note')).toBeTruthy();
     expect(within(writes).getByText(/waits for your approval, every time/u)).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Case requests for Notes' })).toBeNull();
+  });
+
+  it('lets the person select only writable tools for case requests and remove them again', async () => {
+    let current: IConnectorView = { ...NOTES, caseActionTools: [] };
+    const set = vi.fn(async (_id: string, tool: string, allowed: boolean) => {
+      current = { ...current, caseActionTools: allowed ? [tool] : [] };
+      return { connector: current };
+    });
+    const api = fakeApi([], {
+      connectors: async () => ({ callbackPath: '/connector-callback', connectors: [current] }),
+      setConnectorCaseAction: set,
+    });
+    render(<ConnectorsView api={api} />);
+    const choice = (await screen.findByLabelText(
+      'Allow create_note for case requests on Notes',
+    )) as HTMLInputElement;
+    expect(choice.checked).toBe(false);
+    expect(screen.queryByLabelText(/Allow search_notes for case requests/u)).toBeNull();
+    expect(screen.queryByLabelText(/Allow delete_note for case requests/u)).toBeNull();
+    expect(screen.getByText(/approve each action separately/u)).toBeTruthy();
+    fireEvent.click(choice);
+    await waitFor(() => expect(choice.checked).toBe(true));
+    expect(set).toHaveBeenCalledWith(NOTES.id, 'create_note', true);
+    fireEvent.click(choice);
+    await waitFor(() => expect(choice.checked).toBe(false));
+    expect(set).toHaveBeenLastCalledWith(NOTES.id, 'create_note', false);
+  });
+
+  it('still lets the person revoke a previously allowed tool while the service is disconnected', async () => {
+    const idle: IConnectorView = {
+      ...NOTES,
+      status: { state: 'not-connected' },
+      tools: undefined,
+      caseActionTools: ['create_note'],
+    };
+    const set = vi.fn(async () => ({ connector: idle }));
+    render(<ConnectorsView api={fakeApi([idle], { setConnectorCaseAction: set })} />);
+    const choice = (await screen.findByLabelText(
+      'Allow create_note for case requests on Notes',
+    )) as HTMLInputElement;
+    expect(choice.checked).toBe(true);
+    expect(choice.disabled).toBe(false);
+    fireEvent.click(choice);
+    await waitFor(() => expect(set).toHaveBeenCalledWith(NOTES.id, 'create_note', false));
+  });
+
+  it('makes invisible characters and literal backslashes visible in tool names', async () => {
+    const unusual: IConnectorView = {
+      ...NOTES,
+      caseActionTools: [],
+      tools: [
+        { name: 'send\u200b_note', access: 'write' },
+        { name: 'send\\u{200b}_note', access: 'write' },
+      ],
+    };
+    const set = vi.fn(async () => ({ connector: unusual }));
+    render(<ConnectorsView api={fakeApi([unusual], { setConnectorCaseAction: set })} />);
+    const first = await screen.findByLabelText(
+      'Allow send\\u{200b}_note for case requests on Notes',
+    );
+    expect(
+      screen.getByLabelText('Allow send\\\\u{200b}_note for case requests on Notes'),
+    ).toBeTruthy();
+    fireEvent.click(first);
+    await waitFor(() => expect(set).toHaveBeenCalledWith(NOTES.id, 'send\u200b_note', true));
+  });
+
+  it('shows a refused change and leaves the saved setting visible', async () => {
+    const set = vi.fn(async () => {
+      throw new Error('Settings changed; try again');
+    });
+    render(
+      <ConnectorsView
+        api={fakeApi([{ ...NOTES, caseActionTools: [] }], { setConnectorCaseAction: set })}
+      />,
+    );
+    const choice = (await screen.findByLabelText(
+      'Allow create_note for case requests on Notes',
+    )) as HTMLInputElement;
+    fireEvent.click(choice);
+    await screen.findByRole('alert');
+    expect(screen.getByRole('alert').textContent).toContain('Settings changed; try again');
+    expect(choice.checked).toBe(false);
+  });
+
+  it('offers an explicit reset when settings cannot be read, including while disconnected', async () => {
+    let current: IConnectorView = {
+      ...NOTES,
+      status: { state: 'not-connected' },
+      tools: undefined,
+      caseActionTools: [],
+      caseActionScopeError: true,
+    };
+    const reset = vi.fn(async () => {
+      current = { ...current, caseActionScopeError: false };
+      return { connector: current };
+    });
+    const api = fakeApi([], {
+      connectors: async () => ({ callbackPath: '/connector-callback', connectors: [current] }),
+      resetConnectorCaseActions: reset,
+    });
+    render(<ConnectorsView api={api} />);
+    expect(await screen.findByText(/Resetting removes all allowed tools/u)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset case request settings' }));
+    await waitFor(() => expect(reset).toHaveBeenCalledWith(NOTES.id));
+    await screen.findByText('Connect this service to select writable tools.');
   });
 
   it('records the person’s decision about a tool, and returns it to the service’s claim with null', async () => {

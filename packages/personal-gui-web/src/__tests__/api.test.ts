@@ -47,6 +47,31 @@ describe('personal API client', () => {
     ]);
   });
 
+  it('saves and resets case-request settings as explicit owner writes', async () => {
+    const { api, calls } = recorder({ status: 200, body: { connector: {} } });
+    await api.setConnectorCaseAction('service/a', 'send/message', true);
+    await api.setConnectorCaseAction('service/a', 'send/message', false);
+    await api.resetConnectorCaseActions('service/a');
+    expect(calls.map((call) => [call.init?.method, call.url, call.init?.body])).toEqual([
+      [
+        'POST',
+        'api/connectors/service%2Fa/case-actions/send%2Fmessage',
+        JSON.stringify({ allowed: true }),
+      ],
+      [
+        'POST',
+        'api/connectors/service%2Fa/case-actions/send%2Fmessage',
+        JSON.stringify({ allowed: false }),
+      ],
+      ['POST', 'api/connectors/service%2Fa/case-actions', JSON.stringify({ reset: true })],
+    ]);
+    for (const call of calls)
+      expect(call.init?.headers).toEqual({
+        'content-type': 'application/json',
+        [API_WRITE_HEADER]: '1',
+      });
+  });
+
   it('answers a question by its feed item, with the choice or the reply as the body', async () => {
     const { api, calls } = recorder({ status: 200, body: { item: {}, case: {} } });
     await api.answerQuestion('feed-a/b', { choice: 'No' });

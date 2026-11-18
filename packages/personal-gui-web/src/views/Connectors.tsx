@@ -160,6 +160,104 @@ function ToolGroup({
   );
 }
 
+/** Keep distinct tool names distinct when a service uses invisible characters or backslashes. */
+function visibleToolName(name: string): string {
+  return name.replace(/[\\\p{Cc}\p{Cf}]/gu, (character) =>
+    character === '\\' ? '\\\\' : `\\u{${character.codePointAt(0)!.toString(16)}}`,
+  );
+}
+
+function CaseActions({
+  connector,
+  onChange,
+  onReset,
+}: {
+  readonly connector: IConnectorView;
+  readonly onChange: (tool: string, allowed: boolean) => Promise<void>;
+  readonly onReset: () => Promise<void>;
+}): React.ReactElement | null {
+  const [saving, setSaving] = useState(false);
+  const [refusal, setRefusal] = useState<string | undefined>(undefined);
+  if (connector.caseActionTools === undefined) return null;
+
+  const allowed = connector.caseActionTools;
+  const writable = (connector.tools ?? []).filter((tool) => tool.access === 'write');
+  const names = [...new Set([...writable.map((tool) => tool.name), ...allowed])];
+  const change = async (work: () => Promise<void>): Promise<void> => {
+    setSaving(true);
+    setRefusal(undefined);
+    try {
+      await work();
+    } catch (caught) {
+      setRefusal(errorText(caught));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <section
+      aria-label={`Case requests for ${connector.title}`}
+      className="mt-3 border-t border-border pt-2"
+    >
+      <h3 className="text-[13px] font-semibold">Case requests</h3>
+      <p className="text-[12px] text-muted-foreground">
+        When case actions are available, a case can ask to use the selected tools. You must approve
+        each action separately.
+      </p>
+      {connector.caseActionScopeError === true ? (
+        <div className="mt-2">
+          <p className="text-[12.5px] text-destructive">
+            These settings could not be read, so case requests cannot use them. Resetting removes
+            all allowed tools for this connector.
+          </p>
+          <Button disabled={saving} onClick={() => void change(onReset)}>
+            Reset case request settings
+          </Button>
+        </div>
+      ) : names.length === 0 ? (
+        <p className="mt-1 text-[12px] text-muted-foreground">
+          {connector.status.state === 'connected'
+            ? 'There are no writable tools to select.'
+            : 'Connect this service to select writable tools.'}
+        </p>
+      ) : (
+        <ul className="mt-1 space-y-1">
+          {names.map((name) => {
+            const checked = allowed.includes(name);
+            const label = visibleToolName(name);
+            const mayAllow =
+              connector.status.state === 'connected' && writable.some((tool) => tool.name === name);
+            return (
+              <li key={name}>
+                <label className="flex items-center gap-2 text-[12.5px]">
+                  <input
+                    type="checkbox"
+                    aria-label={`Allow ${label} for case requests on ${connector.title}`}
+                    checked={checked}
+                    disabled={saving || (!checked && !mayAllow)}
+                    onChange={(event) => void change(() => onChange(name, event.target.checked))}
+                  />
+                  <span className="break-all font-mono">{label}</span>
+                  {!mayAllow && (
+                    <span className="text-muted-foreground">
+                      — unavailable; you can remove access
+                    </span>
+                  )}
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {refusal !== undefined && (
+        <p role="alert" className="mt-1 text-[12.5px] text-destructive">
+          {refusal}
+        </p>
+      )}
+    </section>
+  );
+}
+
 /** The longest text the agent keeps as what to ask about; it refuses a longer one, this only stops typing. */
 const ATTENTION_MAX = 600;
 
@@ -262,6 +360,8 @@ function ConnectorCard({
   onSync,
   onRunSync,
   onSaveAttention,
+  onCaseAction,
+  onResetCaseActions,
   pulledCount,
 }: {
   readonly connector: IConnectorView;
@@ -272,6 +372,8 @@ function ConnectorCard({
   readonly onSync: (everyMinutes: number | null) => void;
   readonly onRunSync: () => void;
   readonly onSaveAttention: (text: string) => Promise<void>;
+  readonly onCaseAction: (tool: string, allowed: boolean) => Promise<void>;
+  readonly onResetCaseActions: () => Promise<void>;
   /** How many library claims this connector put there. */
   readonly pulledCount: () => Promise<number>;
 }): React.ReactElement {
@@ -373,6 +475,7 @@ function ConnectorCard({
           />
         </>
       )}
+      <CaseActions connector={connector} onChange={onCaseAction} onReset={onResetCaseActions} />
       {status.state === 'connected' && (
         <section aria-label="Keep up to date" className="mt-3 border-t border-border pt-2">
           <div className="flex items-center gap-2">
@@ -908,6 +1011,14 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
             onSaveAttention={async (text) => {
               // The editor shows the refusal beside its own buttons, so it is not a refusal of the page.
               await api.setConnectorAttention(connector.id, text);
+              await reload();
+            }}
+            onCaseAction={async (tool, allowed) => {
+              await api.setConnectorCaseAction(connector.id, tool, allowed);
+              await reload();
+            }}
+            onResetCaseActions={async () => {
+              await api.resetConnectorCaseActions(connector.id);
               await reload();
             }}
             onDecide={(tool, decision) =>

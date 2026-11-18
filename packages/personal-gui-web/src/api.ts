@@ -311,6 +311,10 @@ export interface IConnectorView {
   /** Present while the connector is kept in sync. */
   readonly sync?: IConnectorSyncView;
   readonly tools?: readonly IConnectorToolView[];
+  /** Tools the person has allowed case requests to propose; absent on older servers. */
+  readonly caseActionTools?: readonly string[];
+  /** The saved setting could not be read and case requests cannot use it. */
+  readonly caseActionScopeError?: boolean;
 }
 
 /** A service the add form suggests: values to fill in, never a connection. */
@@ -504,6 +508,12 @@ export interface IPersonalApi {
     tool: string,
     decision: TToolAccess | null,
   ): Promise<{ connector: IConnectorView }>;
+  setConnectorCaseAction(
+    id: string,
+    tool: string,
+    allowed: boolean,
+  ): Promise<{ connector: IConnectorView }>;
+  resetConnectorCaseActions(id: string): Promise<{ connector: IConnectorView }>;
   saveProvider(provider: IProviderSettings): Promise<{ saved: true; restartRequired: boolean }>;
 }
 
@@ -615,5 +625,9 @@ export function createPersonalApi(
       call('PUT', `connectors/${id(connectorId)}/attention`, { text }),
     decideConnectorTool: (connectorId, tool, decision) =>
       call('POST', `connectors/${id(connectorId)}/tools/${id(tool)}`, { decision }),
+    setConnectorCaseAction: (connectorId, tool, allowed) =>
+      call('POST', `connectors/${id(connectorId)}/case-actions/${id(tool)}`, { allowed }),
+    resetConnectorCaseActions: (connectorId) =>
+      call('POST', `connectors/${id(connectorId)}/case-actions`, { reset: true }),
   };
 }
