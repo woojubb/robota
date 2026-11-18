@@ -22,6 +22,7 @@ function sandbox(): Record<string, string> {
   return {
     PATH: process.env['PATH'] ?? '',
     HOME: home,
+    PRODUCT_USER_STATE_DIR: join(home, 'product-state'),
     PERSONAL_AGENT_STATE_DIR: join(home, 'state'),
     SCRIPTED_KEY: 'scripted-key',
     NO_PROXY: '127.0.0.1',

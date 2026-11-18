@@ -1,7 +1,7 @@
 /**
  * The push part of the personal API: the page asks for the public key it subscribes with, tells the
- * agent which browser subscribed, and says when it stops. Every answer is a count: a browser's push
- * address and keys, and the signing key's private half, are never in one.
+ * agent which browser subscribed, and says when it stops. Status answers contain a count and, when
+ * asked about one browser, whether it is kept; they never repeat a push address or its keys.
  */
 import { DeliveryRefusedError } from '@robota-sdk/agent-product/personal';
 
@@ -28,6 +28,14 @@ export function createPushApi(options: IPushApiOptions): TPushApi {
     const [area, collection, extra] = segments;
     if (area !== 'push' || extra !== undefined) return undefined;
     if (collection === undefined && method === 'GET') return ok(status());
+    if (collection === 'status' && method === 'POST') {
+      if (typeof body !== 'object' || body === null || Array.isArray(body))
+        throw new DeliveryRefusedError('Name the browser to check');
+      return ok({
+        ...status(),
+        current: subscriptions.has((body as Record<string, unknown>)['endpoint']),
+      });
+    }
     if (collection === 'key' && method === 'GET') return ok({ publicKey: vapid.keys().publicKey });
     if (collection === 'subscribe' && method === 'POST') {
       // A subscription belongs to the key it was made with, so the key exists before one is kept: a key
@@ -40,6 +48,10 @@ export function createPushApi(options: IPushApiOptions): TPushApi {
       if (typeof body !== 'object' || body === null || Array.isArray(body))
         throw new DeliveryRefusedError('Name the push address to stop');
       subscriptions.remove((body as Record<string, unknown>)['endpoint']);
+      return ok(status());
+    }
+    if (collection === 'subscriptions' && method === 'DELETE') {
+      subscriptions.clear();
       return ok(status());
     }
     return undefined;

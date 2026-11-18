@@ -4,20 +4,25 @@ import { installPushWorker } from '../push-worker-core.js';
 
 import type { IWorkerScope } from '../push-worker-core.js';
 
-const SCOPE = 'http://127.0.0.1:7360/session-path/';
+const ORIGIN = 'http://127.0.0.1:7360';
+const SCOPE = `${ORIGIN}/__robota_personal_push__/`;
+const PAGE = `${ORIGIN}/${'s'.repeat(32)}/`;
+const LOGIN = `${ORIGIN}/?return=feed`;
 
 interface IFakeClient {
   readonly url: string;
   focus: ReturnType<typeof vi.fn>;
+  postMessage: ReturnType<typeof vi.fn>;
 }
 
 type TListener = (event: unknown) => void;
 
-function startWorker(options: { windows?: IFakeClient[]; scope?: string } = {}) {
+function startWorker(options: { windows?: IFakeClient[]; scope?: string; current?: boolean } = {}) {
   const listeners = new Map<string, TListener>();
   const shown: { title: string; options: Record<string, unknown> }[] = [];
   const opened: string[] = [];
   const self = {
+    fetch: vi.fn(async (_url: string, _init: RequestInit) => ({ ok: options.current ?? true })),
     addEventListener: (type: string, listener: TListener) => void listeners.set(type, listener),
     registration: {
       scope: options.scope ?? SCOPE,
@@ -77,6 +82,11 @@ const client = (
 ): IFakeClient => ({
   url,
   focus: vi.fn(focus),
+  postMessage: vi.fn((_message: unknown, ports: Transferable[]) => {
+    const port = ports[0] as MessagePort;
+    port.postMessage('opened');
+    port.close();
+  }),
 });
 
 describe('the push worker', () => {
@@ -169,12 +179,22 @@ describe('the push worker', () => {
   });
 
   it('closes the notification on a click, and brings forward the window of the page that is open', async () => {
-    const other = client('http://127.0.0.1:7360/session-path/');
+    const other = client(PAGE);
     const worker = startWorker({ windows: [client('https://elsewhere.test/page'), other] });
     const clicked = click(worker, { url: './#feed' });
     await clicked.done();
     expect(clicked.notification.close).toHaveBeenCalledTimes(1);
     expect(other.focus).toHaveBeenCalledTimes(1);
+    expect(other.postMessage).toHaveBeenCalledWith({ type: 'open-feed' }, [
+      expect.any(MessagePort),
+    ]);
+    expect(worker.self.fetch).toHaveBeenCalledWith(PAGE, {
+      method: 'HEAD',
+      credentials: 'include',
+      cache: 'no-store',
+      redirect: 'error',
+      signal: expect.any(AbortSignal),
+    });
     expect(worker.self.clients.matchAll).toHaveBeenCalledWith({
       type: 'window',
       includeUncontrolled: true,
@@ -182,31 +202,69 @@ describe('the push worker', () => {
     expect(worker.opened).toEqual([]);
   });
 
-  it('brings forward a window of the same origin even under another path, as after the agent restarted', async () => {
-    const stale = client('http://127.0.0.1:7360/an-earlier-path/');
-    const worker = startWorker({ windows: [stale] });
+  it('opens the login when an earlier session is still open after the agent restarted', async () => {
+    const stale = client(PAGE);
+    const worker = startWorker({ windows: [stale], current: false });
     await click(worker, { url: './#feed' }).done();
-    expect(stale.focus).toHaveBeenCalledTimes(1);
+    expect(stale.focus).not.toHaveBeenCalled();
+    expect(worker.opened).toEqual([LOGIN]);
+  });
+
+  it('opens the login within the click deadline when a page check never answers', async () => {
+    vi.useFakeTimers();
+    try {
+      const stale = client(PAGE);
+      const worker = startWorker({ windows: [stale] });
+      worker.self.fetch.mockImplementation(async () => new Promise(() => {}));
+      const clicked = click(worker, { url: './#feed' });
+      await vi.advanceTimersByTimeAsync(1_000);
+      await clicked.done();
+      expect(stale.focus).not.toHaveBeenCalled();
+      expect(worker.opened).toEqual([LOGIN]);
+      expect(worker.self.fetch.mock.calls[0]?.[1].signal?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('checks open pages concurrently so a slow old page cannot block a current one', async () => {
+    const slow = client(PAGE);
+    const current = client(`${ORIGIN}/${'t'.repeat(32)}/`);
+    const worker = startWorker({ windows: [slow, current] });
+    worker.self.fetch.mockImplementation(async (url) =>
+      url === PAGE ? new Promise(() => {}) : { ok: true },
+    );
+    await click(worker, { url: './#feed' }).done();
+    expect(current.focus).toHaveBeenCalledTimes(1);
     expect(worker.opened).toEqual([]);
   });
 
   it('opens the page at the Feed when no window of it is open', async () => {
     const worker = startWorker({ windows: [client('https://elsewhere.test/')] });
     await click(worker, { url: './#feed' }).done();
-    expect(worker.opened).toEqual([`${SCOPE}#feed`]);
+    expect(worker.opened).toEqual([LOGIN]);
   });
 
   it('opens the page when the window it found cannot be brought forward', async () => {
-    const stuck = client(SCOPE, async () => {
+    const stuck = client(PAGE, async () => {
       throw new Error('refused');
     });
     const worker = startWorker({ windows: [stuck] });
     await click(worker, { url: './#feed' }).done();
     expect(stuck.focus).toHaveBeenCalledTimes(1);
-    expect(worker.opened).toEqual([`${SCOPE}#feed`]);
+    expect(worker.opened).toEqual([LOGIN]);
   });
 
-  it('opens only an address inside its own page: any other, or none, opens the page itself', async () => {
+  it('opens the login when the page is loading and cannot acknowledge the Feed', async () => {
+    const loading = client(PAGE);
+    loading.postMessage.mockImplementation(() => undefined);
+    const worker = startWorker({ windows: [loading] });
+    await click(worker, { url: './#feed' }).done();
+    expect(loading.focus).not.toHaveBeenCalled();
+    expect(worker.opened).toEqual([LOGIN]);
+  });
+
+  it('always opens the local login regardless of the notification target', async () => {
     for (const data of [
       { url: 'https://evil.example/login' },
       { url: `${SCOPE}../other` },
@@ -220,10 +278,10 @@ describe('the push worker', () => {
     ]) {
       const worker = startWorker();
       await click(worker, data).done();
-      expect(worker.opened, JSON.stringify(data)).toEqual([SCOPE]);
+      expect(worker.opened, JSON.stringify(data)).toEqual([LOGIN]);
     }
     const worker = startWorker();
     await click(worker, { url: `${SCOPE}deeper/page#feed` }).done();
-    expect(worker.opened).toEqual([`${SCOPE}deeper/page#feed`]);
+    expect(worker.opened).toEqual([LOGIN]);
   });
 });

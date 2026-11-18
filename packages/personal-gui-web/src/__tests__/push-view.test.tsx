@@ -4,7 +4,7 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api.js';
-import { keyBytes } from '../push.js';
+import { enablePush, keyBytes, PUSH_SCOPE } from '../push.js';
 import { PushNotifications } from '../views/PushNotifications.js';
 import { SettingsView } from '../views/Settings.js';
 
@@ -48,12 +48,12 @@ class FakeRegistration {
   subscription: FakeSubscription | null = null;
   unregistered = false;
   readonly subscribeCalls: { userVisibleOnly: boolean; applicationServerKey: Uint8Array }[] = [];
-  active: { scriptURL: string };
+  active: { scriptURL: string; state: 'activated' };
   constructor(
     readonly scope: string,
     scriptURL = `${scope}push-worker.js`,
   ) {
-    this.active = { scriptURL };
+    this.active = { scriptURL, state: 'activated' };
   }
   readonly pushManager = {
     getSubscription: async (): Promise<FakeSubscription | null> => this.subscription,
@@ -75,8 +75,8 @@ class FakeRegistration {
   }
 }
 
-/** The page's own address in jsdom, so its worker's scope is the folder the page is in. */
-const OWN_SCOPE = new URL('.', window.location.href).href;
+/** A stable scope on this origin, independent of the page's per-launch path. */
+const OWN_SCOPE = new URL(PUSH_SCOPE, window.location.origin).href;
 
 class FakePermission {
   static permission: NotificationPermission = 'default';
@@ -108,15 +108,18 @@ function browser(
     others?: FakeRegistration[];
     api?: Partial<IPersonalApi>;
     subscribed?: number;
+    current?: boolean;
   } = {},
 ): IWorld {
-  const own = new FakeRegistration(OWN_SCOPE);
+  const own = new FakeRegistration(OWN_SCOPE, new URL('/push-worker.js', OWN_SCOPE).href);
   if (options.held === true)
     own.subscription = new FakeSubscription(ENDPOINT, options.heldKey ?? KEY, own);
   const others = options.others ?? [];
   const registrations = [own, ...others];
   const calls: string[] = [];
   const count = { subscribed: options.subscribed ?? 0 };
+  let current = options.held === true && options.current !== false && count.subscribed > 0;
+  const removed = new Set<string>();
   const register = vi.fn(async (script: string) => {
     calls.push(`register ${script}`);
     return own;
@@ -136,23 +139,42 @@ function browser(
   FakePermission.requested = 0;
   vi.stubGlobal('Notification', FakePermission);
   const api = {
-    pushStatus: vi.fn(async () => {
+    pushStatus: vi.fn(async (endpoint?: string) => {
       calls.push('status');
-      return { subscribed: count.subscribed, supported: true };
+      return {
+        subscribed: count.subscribed,
+        supported: true,
+        ...(endpoint === undefined ? {} : { current: options.current ?? current }),
+      };
     }),
     pushKey: vi.fn(async () => {
       calls.push('key');
       return { publicKey: KEY };
     }),
-    subscribePush: vi.fn(async (subscription: PushSubscriptionJSON) => {
-      calls.push(`subscribe ${subscription.endpoint}`);
-      count.subscribed += 1;
-      return { subscribed: count.subscribed, supported: true };
-    }),
+    subscribePush: vi.fn(
+      async (subscription: PushSubscriptionJSON, replacing?: readonly string[]) => {
+        calls.push(`subscribe ${subscription.endpoint}`);
+        const replaced = (replacing ?? []).filter((endpoint) =>
+          others.some((registration) => registration.subscription?.endpoint === endpoint),
+        ).length;
+        for (const endpoint of replacing ?? []) removed.add(endpoint);
+        count.subscribed = Math.max(0, count.subscribed - replaced) + (current ? 0 : 1);
+        current = true;
+        return { subscribed: count.subscribed, supported: true };
+      },
+    ),
     unsubscribePush: vi.fn(async (endpoint: string) => {
       calls.push(`unsubscribe ${endpoint}`);
-      count.subscribed = Math.max(0, count.subscribed - 1);
+      if (!removed.has(endpoint)) count.subscribed = Math.max(0, count.subscribed - 1);
+      removed.add(endpoint);
+      if (endpoint === ENDPOINT) current = false;
       return { subscribed: count.subscribed, supported: true };
+    }),
+    clearPushSubscriptions: vi.fn(async () => {
+      calls.push('clear all');
+      count.subscribed = 0;
+      current = false;
+      return { subscribed: 0, supported: true };
     }),
     ...options.api,
   } as unknown as IPersonalApi;
@@ -187,11 +209,13 @@ describe('notifications when the page is closed, in Settings', () => {
     expect(FakePermission.requested).toBe(1);
     expect(world.calls).toEqual([
       'status',
-      'register push-worker.js',
+      'register /push-worker.js',
       'key',
       `subscribe ${ENDPOINT}`,
+      'status',
     ]);
     expect(world.own.subscribeCalls).toHaveLength(1);
+    expect(world.register).toHaveBeenCalledWith('/push-worker.js', { scope: PUSH_SCOPE });
     expect(world.own.subscribeCalls[0]!.userVisibleOnly).toBe(true);
     expect(
       Buffer.from(world.own.subscribeCalls[0]!.applicationServerKey).toString('base64url'),
@@ -212,6 +236,122 @@ describe('notifications when the page is closed, in Settings', () => {
     expect(FakePermission.requested).toBe(0);
     expect(enable().disabled).toBe(true);
     expect(stop().disabled).toBe(false);
+  });
+
+  it('does not send another app’s root-scoped subscription to the agent', async () => {
+    const world = browser({ permission: 'granted', held: true, subscribed: 1 });
+    Object.defineProperty(world.own, 'scope', { value: new URL('/', window.location.origin).href });
+    render(<PushNotifications api={world.api} />);
+    await waitFor(() => expect(status()).toMatch(/^Off\./u));
+    expect(world.api.pushStatus).toHaveBeenCalledWith(undefined);
+    expect(world.api.pushStatus).not.toHaveBeenCalledWith(ENDPOINT);
+  });
+
+  it('does not replace another worker that already uses the notification scope', async () => {
+    const earlier = new FakeRegistration(
+      new URL(`/${'a'.repeat(32)}/`, window.location.origin).href,
+    );
+    earlier.subscription = new FakeSubscription(OTHER_ENDPOINT, KEY, earlier);
+    const world = browser({ others: [earlier], subscribed: 1 });
+    world.own.active.scriptURL = new URL('/another-worker.js', OWN_SCOPE).href;
+    render(<PushNotifications api={world.api} />);
+    await waitFor(() => expect(status()).toMatch(/^Off\./u));
+    fireEvent.click(enable());
+    await waitFor(() =>
+      expect(status()).toBe('Another worker already uses the notification scope'),
+    );
+    expect(world.register).not.toHaveBeenCalled();
+    expect(world.own.unregistered).toBe(false);
+    expect(earlier.subscription).not.toBeNull();
+    expect(earlier.unregistered).toBe(false);
+    expect(world.api.unsubscribePush).not.toHaveBeenCalled();
+  });
+
+  it('waits for an installing worker even though its scope does not control the page', async () => {
+    const world = browser();
+    const registrationEvents = new EventTarget();
+    const worker = Object.assign(new EventTarget(), {
+      scriptURL: new URL('/push-worker.js', OWN_SCOPE).href,
+      state: 'installing',
+    });
+    Object.defineProperties(world.own, {
+      active: { configurable: true, writable: true, value: null },
+      installing: { configurable: true, value: worker },
+      waiting: { configurable: true, value: null },
+      addEventListener: { value: registrationEvents.addEventListener.bind(registrationEvents) },
+      removeEventListener: {
+        value: registrationEvents.removeEventListener.bind(registrationEvents),
+      },
+    });
+    const result = enablePush(world.api);
+    await waitFor(() => expect(world.register).toHaveBeenCalled());
+    worker.state = 'activated';
+    Object.defineProperty(world.own, 'active', { configurable: true, value: worker });
+    worker.dispatchEvent(new Event('statechange'));
+    expect(await result).toEqual({ state: 'on', subscribed: 1 });
+  });
+
+  it('does not treat another browser as this browser and can remove stale subscriptions', async () => {
+    const world = browser({ permission: 'granted', held: true, subscribed: 2, current: false });
+    render(<PushNotifications api={world.api} />);
+    await waitFor(() => expect(status()).toMatch(/^Off\./u));
+    expect(screen.getByText('2 browsers are subscribed.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove all browsers from this agent' }));
+    await waitFor(() => expect(screen.getByText('0 browsers are subscribed.')).toBeTruthy());
+    expect(world.api.clearPushSubscriptions).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).not.toContain(TOKEN);
+  });
+
+  it('shows off and the new count when another browser removes subscriptions during setup', async () => {
+    const world = browser({
+      subscribed: 1,
+      api: {
+        pushStatus: vi.fn(async (endpoint?: string) =>
+          endpoint === undefined
+            ? { subscribed: 1, supported: true }
+            : { subscribed: 0, supported: true, current: false },
+        ),
+      },
+    });
+    render(<PushNotifications api={world.api} />);
+    await waitFor(() => expect(screen.getByText('1 browser is subscribed.')).toBeTruthy());
+    fireEvent.click(enable());
+    await waitFor(() => expect(world.api.pushStatus).toHaveBeenCalledWith(ENDPOINT));
+    await waitFor(() => expect(screen.getByText('0 browsers are subscribed.')).toBeTruthy());
+    expect(status()).toMatch(/^Off\./u);
+    expect(stop().disabled).toBe(true);
+  });
+
+  it('still offers removal when an older subscription cannot be read', async () => {
+    const earlier = new FakeRegistration(
+      new URL(`/${'a'.repeat(32)}/`, window.location.origin).href,
+    );
+    earlier.pushManager.getSubscription = async () => {
+      throw new Error('AbortError');
+    };
+    const world = browser({ others: [earlier], subscribed: 1 });
+    render(<PushNotifications api={world.api} />);
+    await waitFor(() => expect(screen.getByText('1 browser is subscribed.')).toBeTruthy());
+    expect(
+      screen.getByText(/This browser may have an older notification subscription/u),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove all browsers from this agent' }));
+    await waitFor(() => expect(world.api.clearPushSubscriptions).toHaveBeenCalledTimes(1));
+  });
+
+  it('still offers removal when this browser’s current subscription cannot be read', async () => {
+    const world = browser({ subscribed: 1 });
+    world.own.pushManager.getSubscription = async () => {
+      throw new Error('AbortError');
+    };
+    render(<PushNotifications api={world.api} />);
+    await waitFor(() =>
+      expect(status()).toBe('Could not check this browser’s notification subscription.'),
+    );
+    expect(screen.getByText('1 browser is subscribed.')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Remove all browsers from this agent' }),
+    ).toBeTruthy();
   });
 
   it('registers nothing and subscribes to nothing when the person does not allow it, or the browser has it blocked', async () => {
@@ -247,18 +387,28 @@ describe('notifications when the page is closed, in Settings', () => {
     // No service worker (as on a page that is not secure).
     vi.stubGlobal('PushManager', class {});
     vi.stubGlobal('Notification', FakePermission);
-    const api = { pushStatus: vi.fn() } as unknown as IPersonalApi;
+    const api = {
+      pushStatus: vi.fn(async () => ({ subscribed: 0, supported: true })),
+    } as unknown as IPersonalApi;
     render(<PushNotifications api={api} />);
     expect(status()).toMatch(unsupported);
     expect(enable().disabled).toBe(true);
     expect(stop().disabled).toBe(true);
-    expect(api.pushStatus).not.toHaveBeenCalled();
+    await waitFor(() => expect(api.pushStatus).toHaveBeenCalledTimes(1));
     cleanup();
 
     browser();
     vi.stubGlobal('PushManager', undefined);
     Reflect.deleteProperty(window, 'PushManager');
-    render(<PushNotifications api={{ pushStatus: vi.fn() } as unknown as IPersonalApi} />);
+    render(
+      <PushNotifications
+        api={
+          {
+            pushStatus: vi.fn(async () => ({ subscribed: 0, supported: true })),
+          } as unknown as IPersonalApi
+        }
+      />,
+    );
     expect(status()).toMatch(unsupported);
     cleanup();
 
@@ -266,11 +416,17 @@ describe('notifications when the page is closed, in Settings', () => {
     vi.stubGlobal('Notification', undefined);
     render(<PushNotifications api={world.api} />);
     expect(status()).toMatch(unsupported);
-    expect(world.api.pushStatus).not.toHaveBeenCalled();
+    await waitFor(() => expect(world.api.pushStatus).toHaveBeenCalledTimes(1));
   });
 
-  it('shows the agent’s words when it refuses the subscription, and takes the browser’s subscription back', async () => {
+  it('shows the agent’s words when it refuses the subscription and preserves browser subscriptions', async () => {
+    const earlier = new FakeRegistration(
+      new URL(`/${'a'.repeat(32)}/`, window.location.origin).href,
+    );
+    earlier.subscription = new FakeSubscription(OTHER_ENDPOINT, KEY, earlier);
     const world = browser({
+      others: [earlier],
+      subscribed: 1,
       api: {
         subscribePush: vi.fn(async () => {
           throw new ApiError(400, 'The push address (push.example.test) cannot be used: refused');
@@ -281,9 +437,95 @@ describe('notifications when the page is closed, in Settings', () => {
     await waitFor(() => expect(status()).toMatch(/^Off\./u));
     fireEvent.click(enable());
     await waitFor(() => expect(status()).toMatch(/cannot be used: refused/u));
-    expect(world.own.subscription).toBeNull();
+    expect(world.own.subscription).not.toBeNull();
+    expect(earlier.subscription).not.toBeNull();
+    expect(earlier.unregistered).toBe(false);
     expect(enable().disabled).toBe(false);
-    expect(stop().disabled).toBe(true);
+    expect(stop().disabled).toBe(false);
+  });
+
+  it('finishes replacement when a lost response is followed by confirmation that the agent kept it', async () => {
+    const earlier = new FakeRegistration(
+      new URL(`/${'a'.repeat(32)}/`, window.location.origin).href,
+    );
+    earlier.subscription = new FakeSubscription(OTHER_ENDPOINT, KEY, earlier);
+    const world = browser({
+      others: [earlier],
+      subscribed: 1,
+      api: {
+        subscribePush: vi.fn(async () => {
+          throw new TypeError('Connection lost');
+        }),
+        pushStatus: vi.fn(async (endpoint?: string) => ({
+          subscribed: 1,
+          supported: true,
+          ...(endpoint === undefined ? {} : { current: true }),
+        })),
+      },
+    });
+    render(<PushNotifications api={world.api} />);
+    await waitFor(() => expect(status()).toMatch(/^Off\./u));
+    fireEvent.click(enable());
+    await waitFor(() => expect(status()).toMatch(/^On\./u));
+    expect(world.own.subscription).not.toBeNull();
+    expect(earlier.unregistered).toBe(true);
+    expect(world.api.unsubscribePush).toHaveBeenCalledWith(OTHER_ENDPOINT);
+  });
+
+  it('does not mistake an explicit refusal for a successful replacement of older subscriptions', async () => {
+    const earlier = new FakeRegistration(
+      new URL(`/${'a'.repeat(32)}/`, window.location.origin).href,
+    );
+    earlier.subscription = new FakeSubscription(OTHER_ENDPOINT, KEY, earlier);
+    const world = browser({
+      others: [earlier],
+      subscribed: 1,
+      api: {
+        subscribePush: vi.fn(async () => {
+          throw new ApiError(400, 'Replacement refused');
+        }),
+        pushStatus: vi.fn(async (endpoint?: string) => ({
+          subscribed: 1,
+          supported: true,
+          ...(endpoint === undefined ? {} : { current: true }),
+        })),
+      },
+    });
+    render(<PushNotifications api={world.api} />);
+    await waitFor(() => expect(status()).toMatch(/^Off\./u));
+    fireEvent.click(enable());
+    await waitFor(() => expect(status()).toBe('Replacement refused'));
+    expect(world.own.subscription).not.toBeNull();
+    expect(earlier.subscription).not.toBeNull();
+    expect(earlier.unregistered).toBe(false);
+    expect(world.api.unsubscribePush).not.toHaveBeenCalled();
+  });
+
+  it('keeps both subscriptions when a lost response cannot be checked', async () => {
+    const earlier = new FakeRegistration(
+      new URL(`/${'a'.repeat(32)}/`, window.location.origin).href,
+    );
+    earlier.subscription = new FakeSubscription(OTHER_ENDPOINT, KEY, earlier);
+    const world = browser({
+      others: [earlier],
+      subscribed: 1,
+      api: {
+        subscribePush: vi.fn(async () => {
+          throw new TypeError('Connection lost');
+        }),
+        pushStatus: vi.fn(async (endpoint?: string) => {
+          if (endpoint !== undefined) throw new TypeError('Connection lost');
+          return { subscribed: 1, supported: true };
+        }),
+      },
+    });
+    render(<PushNotifications api={world.api} />);
+    await waitFor(() => expect(status()).toMatch(/^Off\./u));
+    fireEvent.click(enable());
+    await waitFor(() => expect(status()).toBe('Connection lost'));
+    expect(world.own.subscription).not.toBeNull();
+    expect(earlier.subscription).not.toBeNull();
+    expect(earlier.unregistered).toBe(false);
   });
 
   it('shows what went wrong, without throwing, when the browser cannot register or subscribe', async () => {
@@ -370,7 +612,9 @@ describe('notifications when the page is closed, in Settings', () => {
   });
 
   it('stops the workers an earlier start of the agent left under other paths, so a message does not arrive twice', async () => {
-    const earlier = new FakeRegistration('http://localhost:3000/an-earlier-path/');
+    const earlier = new FakeRegistration(
+      new URL(`/${'a'.repeat(32)}/`, window.location.origin).href,
+    );
     earlier.subscription = new FakeSubscription(OTHER_ENDPOINT, KEY, earlier);
     const stranger = new FakeRegistration(
       'http://localhost:3000/elsewhere/',
@@ -380,21 +624,49 @@ describe('notifications when the page is closed, in Settings', () => {
     const world = browser({ others: [earlier, stranger], subscribed: 1 });
     render(<PushNotifications api={world.api} />);
     await waitFor(() => expect(status()).toMatch(/^Off\./u));
+    expect(
+      screen.getByText(/This browser may have an older notification subscription/u),
+    ).toBeTruthy();
+    expect(stop().disabled).toBe(false);
     fireEvent.click(enable());
     await waitFor(() => expect(status()).toMatch(/^On\./u));
     expect(world.calls).toEqual([
       'status',
-      `unsubscribe ${OTHER_ENDPOINT}`,
-      'register push-worker.js',
+      'register /push-worker.js',
       'key',
       `subscribe ${ENDPOINT}`,
+      `unsubscribe ${OTHER_ENDPOINT}`,
+      'status',
     ]);
+    expect(world.api.subscribePush).toHaveBeenCalledWith(expect.anything(), [OTHER_ENDPOINT]);
     expect(earlier.subscription).toBeNull();
     expect(earlier.unregistered).toBe(true);
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/This browser may have an older notification subscription/u),
+      ).toBeNull(),
+    );
     // A worker that is not ours is left alone, and so is this page's own.
     expect(stranger.unregistered).toBe(false);
     expect(stranger.subscription).not.toBeNull();
     expect(world.own.unregistered).toBe(false);
+  });
+
+  it('keeps older workers when their subscription cannot be read during replacement', async () => {
+    const earlier = new FakeRegistration(
+      new URL(`/${'a'.repeat(32)}/`, window.location.origin).href,
+    );
+    earlier.subscription = new FakeSubscription(OTHER_ENDPOINT, KEY, earlier);
+    earlier.pushManager.getSubscription = async () => {
+      throw new Error('Could not read an earlier subscription');
+    };
+    const world = browser({ others: [earlier], subscribed: 5 });
+    render(<PushNotifications api={world.api} />);
+    await waitFor(() => expect(screen.getByText('5 browsers are subscribed.')).toBeTruthy());
+    fireEvent.click(enable());
+    await waitFor(() => expect(status()).toBe('Could not read an earlier subscription'));
+    expect(world.api.subscribePush).not.toHaveBeenCalled();
+    expect(earlier.unregistered).toBe(false);
   });
 
   it('is part of the Settings view, below the notifications of this browser', async () => {

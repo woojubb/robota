@@ -80,6 +80,23 @@ export function usePageNotifications(
   useEffect(() => {
     open.current = onOpenFeed;
   });
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || navigator.serviceWorker === undefined) return;
+    const serviceWorker = navigator.serviceWorker;
+    const onMessage = (event: MessageEvent<unknown>): void => {
+      if (
+        typeof event.data === 'object' &&
+        event.data !== null &&
+        (event.data as { type?: unknown }).type === 'open-feed'
+      ) {
+        open.current();
+        event.ports[0]?.postMessage('opened');
+        event.ports[0]?.close();
+      }
+    };
+    serviceWorker.addEventListener('message', onMessage);
+    return () => serviceWorker.removeEventListener('message', onMessage);
+  }, []);
   // The count goes in front of whatever title the page has, and stays there when something else (the
   // chat, which names the folder it works in) sets the title again.
   useEffect(() => {

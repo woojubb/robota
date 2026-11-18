@@ -105,10 +105,11 @@ export interface IBrowserNotificationView {
   readonly text: string;
 }
 
-/** How many browsers are subscribed to be notified while the page is closed; their addresses are never sent back. */
+/** How many browsers are subscribed and, when checked, whether this browser is among them. */
 export interface IPushStatusView {
   readonly subscribed: number;
   readonly supported: boolean;
+  readonly current?: boolean;
 }
 
 export type TGoalStatus = 'active' | 'running' | 'waiting' | 'paused' | 'done' | 'failed';
@@ -403,16 +404,21 @@ export interface IPersonalApi {
     readonly latest: number;
   }>;
   /** How many browsers are subscribed to be notified while the page is closed. */
-  pushStatus(): Promise<IPushStatusView>;
+  pushStatus(endpoint?: string): Promise<IPushStatusView>;
   /** The public key a browser subscribes with. */
   pushKey(): Promise<{ readonly publicKey: string }>;
   /**
    * Tell the agent this browser subscribed, as the browser gives it (`PushSubscription.toJSON()`); the
    * agent refuses in words the page shows.
    */
-  subscribePush(subscription: PushSubscriptionJSON): Promise<IPushStatusView>;
+  subscribePush(
+    subscription: PushSubscriptionJSON,
+    replacing?: readonly string[],
+  ): Promise<IPushStatusView>;
   /** Tell the agent this browser no longer takes pushes. */
   unsubscribePush(endpoint: string): Promise<IPushStatusView>;
+  /** Remove all browsers from this agent, including ones on an old origin. */
+  clearPushSubscriptions(): Promise<IPushStatusView>;
   goals(): Promise<readonly IGoalView[]>;
   goal(id: string): Promise<{ goal: IGoalView; runs: readonly IGoalRunView[] }>;
   createGoal(input: {
@@ -540,10 +546,17 @@ export function createPersonalApi(
     testWebhook: () => call('POST', 'delivery/webhook/test'),
     notifications: (after) =>
       call('GET', after === undefined ? 'notifications' : `notifications?after=${after}`),
-    pushStatus: () => call('GET', 'push'),
+    pushStatus: (endpoint) =>
+      endpoint === undefined ? call('GET', 'push') : call('POST', 'push/status', { endpoint }),
     pushKey: () => call('GET', 'push/key'),
-    subscribePush: (subscription) => call('POST', 'push/subscribe', subscription),
+    subscribePush: (subscription, replacing) =>
+      call(
+        'POST',
+        'push/subscribe',
+        replacing === undefined ? subscription : { ...subscription, replacing },
+      ),
     unsubscribePush: (endpoint) => call('DELETE', 'push/subscribe', { endpoint }),
+    clearPushSubscriptions: () => call('DELETE', 'push/subscriptions'),
     saveProvider: (provider) => call('PUT', 'settings/provider', provider),
     goals: async () => (await call<{ goals: IGoalView[] }>('GET', 'goals')).goals,
     goal: (goalId) => call('GET', `goals/${id(goalId)}`),

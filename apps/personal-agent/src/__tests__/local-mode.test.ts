@@ -161,6 +161,90 @@ describe('web GUI server', () => {
     expect((await fetch(harness.local.gui!.url)).status).toBe(200);
   });
 
+  it('reuses the local GUI origin after a restart without keeping the browser session', async () => {
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const stateDir = mkdtempSync(join(tmpdir(), 'personal-agent-restart-'));
+    const webRoot = createFixtureWebRoot();
+    try {
+      harness = await startHarness({ gui: true, webRoot, stateDir });
+      const first = harness.local.gui!;
+      const login = await fetch(new URL('/__monitor_login', first.url), {
+        method: 'POST',
+        body: new URLSearchParams({ code: first.accessCode }),
+        redirect: 'manual',
+      });
+      const oldPath = login.headers.get('location')!;
+      const oldCookie = login.headers.get('set-cookie')!.split(';')[0]!;
+      const origin = new URL(first.url).origin;
+      const guiPort = new URL(first.url).port;
+      expect(new URL(harness.local.wsUrl).port).not.toBe(guiPort);
+      expect(new URL(harness.local.httpUrl).port).not.toBe(guiPort);
+      await harness.close();
+      harness = undefined;
+
+      harness = await startHarness({ gui: true, webRoot, stateDir });
+      const next = harness.local.gui!;
+      expect(new URL(next.url).origin).toBe(origin);
+      expect(
+        (await fetch(new URL(oldPath, next.url), { headers: { cookie: oldCookie } })).status,
+      ).not.toBe(200);
+      const again = await fetch(new URL('/__monitor_login', next.url), {
+        method: 'POST',
+        body: new URLSearchParams({ code: next.accessCode, return: 'feed' }),
+        redirect: 'manual',
+      });
+      expect(again.headers.get('location')).toMatch(/\/#feed$/u);
+    } finally {
+      await harness?.close();
+      harness = undefined;
+      rmSync(stateDir, { recursive: true, force: true });
+      rmSync(webRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses an occupied remembered port instead of silently changing the origin', async () => {
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { createServer } = await import('node:http');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { saveConfig } = await import('../config.js');
+    const { loadGuiPort, saveGuiPort } = await import('../gui-port.js');
+    const { startLocalMode } = await import('../local-mode.js');
+    const { createProviderFromProfile } = await import('../provider.js');
+    const { startScriptedModel } = await import('./scripted-model.js');
+    const stateDir = mkdtempSync(join(tmpdir(), 'personal-agent-port-'));
+    const webRoot = createFixtureWebRoot();
+    const model = await startScriptedModel();
+    const occupied = createServer();
+    await new Promise<void>((resolve) => occupied.listen(0, '127.0.0.1', () => resolve()));
+    const port = (occupied.address() as import('node:net').AddressInfo).port;
+    const profile = {
+      type: 'openai',
+      model: 'scripted-model',
+      baseURL: model.baseURL,
+      apiKeyEnv: 'SCRIPTED_KEY',
+    };
+    try {
+      saveConfig(stateDir, { version: 1, provider: profile });
+      saveGuiPort(stateDir, port, false);
+      const provider = createProviderFromProfile(profile, {
+        HOME: stateDir,
+        SCRIPTED_KEY: 'scripted-key',
+      });
+      await expect(startLocalMode({ stateDir, provider, gui: true, webRoot })).rejects.toThrow(
+        `GUI port ${port} is in use`,
+      );
+      expect(loadGuiPort(stateDir)).toBe(port);
+    } finally {
+      await new Promise<void>((resolve) => occupied.close(() => resolve()));
+      await model.close();
+      rmSync(stateDir, { recursive: true, force: true });
+      rmSync(webRoot, { recursive: true, force: true });
+    }
+  });
+
   it('refuses a request whose Host is not loopback', async () => {
     harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
     const { request } = await import('node:http');
@@ -177,6 +261,39 @@ describe('web GUI server', () => {
 });
 
 describe('local mode start and stop', () => {
+  it('keeps the previous GUI port when a later runtime fails to start', async () => {
+    const { createServer } = await import('node:http');
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { startLocalMode } = await import('../local-mode.js');
+    const { loadGuiPort, saveGuiPort } = await import('../gui-port.js');
+    const { startScriptedModel } = await import('./scripted-model.js');
+    const { createProviderFromProfile } = await import('../provider.js');
+    const stateDir = mkdtempSync(join(tmpdir(), 'personal-agent-start-'));
+    const webRoot = createFixtureWebRoot();
+    const model = await startScriptedModel();
+    const busy = createServer();
+    await new Promise<void>((resolve) => busy.listen(0, '127.0.0.1', () => resolve()));
+    const takenPort = (busy.address() as import('node:net').AddressInfo).port;
+    const provider = createProviderFromProfile(
+      { type: 'openai', model: 'scripted-model', baseURL: model.baseURL, apiKeyEnv: 'KEY' },
+      { KEY: 'k' },
+    );
+    try {
+      saveGuiPort(stateDir, 12345, false);
+      await expect(
+        startLocalMode({ stateDir, provider, webRoot, guiPort: 0, wsPort: takenPort }),
+      ).rejects.toThrow();
+      expect(loadGuiPort(stateDir)).toBe(12345);
+    } finally {
+      await new Promise<void>((resolve) => busy.close(() => resolve()));
+      await model.close();
+      rmSync(stateDir, { recursive: true, force: true });
+      rmSync(webRoot, { recursive: true, force: true });
+    }
+  });
+
   it('releases what it started when the WebSocket port is taken, so the next start on the same state works', async () => {
     const { createServer } = await import('node:http');
     const { mkdtempSync, rmSync } = await import('node:fs');
