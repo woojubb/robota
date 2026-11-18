@@ -504,6 +504,80 @@ describe('the person chooses a case connector', () => {
       await other.close();
     }
   }, 15_000);
+
+  it('does not hold unrelated case writes while connector settings are busy', async () => {
+    harness = await startHarness();
+    const first = await harness.capabilities.cases.open(SIGN_IN);
+    const second = await harness.capabilities.cases.open({ ...SIGN_IN, source: 'another-item' });
+    const other = await startHarness({ stateDir: harness.stateDir });
+    const scope = createCaseActionScope(join(harness.stateDir, 'case-action-scope'));
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const held = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const holding = scope.exclusive(async () => {
+      entered();
+      await gate;
+    });
+    let closing: Promise<ICase> | undefined;
+    try {
+      await held;
+      closing = harness.capabilities.cases.close(first.case.id, 'Settled.');
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+      const note = other.capabilities.cases.note(second.case.id, 'Still available.');
+      const completed = await Promise.race([
+        note.then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 750)),
+      ]);
+      expect(completed).toBe(true);
+      await note;
+    } finally {
+      release();
+      await holding;
+      await closing;
+      await other.close();
+    }
+  }, 15_000);
+
+  it('does not hold connector settings while a case write is busy', async () => {
+    harness = await startHarness();
+    const opened = await harness.capabilities.cases.open(SIGN_IN);
+    const writes = createCaseActionScope(join(harness.stateDir, 'cases'));
+    const scope = createCaseActionScope(join(harness.stateDir, 'case-action-scope'));
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const held = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const holding = writes.exclusive(async () => {
+      entered();
+      await gate;
+    });
+    let closing: Promise<ICase> | undefined;
+    try {
+      await held;
+      closing = harness.capabilities.cases.close(opened.case.id, 'Settled.');
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+      const setting = scope.exclusive(async () => true);
+      const completed = await Promise.race([
+        setting,
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 750)),
+      ]);
+      expect(completed).toBe(true);
+      await setting;
+    } finally {
+      release();
+      await holding;
+      await closing;
+    }
+  }, 15_000);
 });
 
 describe('answering a question over the personal API', () => {

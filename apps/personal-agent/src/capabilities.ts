@@ -302,26 +302,28 @@ export function createPersonalCapabilities(
   const cases = new CaseBook({
     store: {
       ...caseStore,
-      put: async (item) =>
-        caseWrites.exclusive(async () => {
-          const existing = await caseStore.get(item.id);
-          if (item.state === 'open' && existing?.state === 'closed')
-            throw new CaseRefusedError('This case is closed');
-          if (item.state === 'open' && existing === undefined && item.history.length !== 1)
-            throw new CaseRefusedError('This case no longer exists');
-          if (item.state !== 'closed') return caseStore.put(item);
-          try {
-            await caseActions.exclusive(async () => {
-              await caseStore.put(item);
-              // Failure to clean a setting must not prevent closing the case; closed cases do not expose it.
-              await caseBindings?.closeLocked(item.id).catch(() => undefined);
-            });
-          } catch (error) {
-            if (!(error instanceof ConnectorRefusedError)) throw error;
-            // Even an unavailable settings lock cannot prevent the person's case from closing.
+      put: async (item) => {
+        const save = () =>
+          caseWrites.exclusive(async () => {
+            const existing = await caseStore.get(item.id);
+            if (item.state === 'open' && existing?.state === 'closed')
+              throw new CaseRefusedError('This case is closed');
+            if (item.state === 'open' && existing === undefined && item.history.length !== 1)
+              throw new CaseRefusedError('This case no longer exists');
             await caseStore.put(item);
-          }
-        }),
+          });
+        if (item.state !== 'closed') return save();
+        await save();
+        try {
+          await caseActions.exclusive(async () => {
+            // Failure to clean a setting must not prevent closing the case; closed cases do not expose it.
+            await caseBindings?.closeLocked(item.id).catch(() => undefined);
+          });
+        } catch (error) {
+          if (!(error instanceof ConnectorRefusedError)) throw error;
+          // Even an unavailable settings lock cannot prevent the person's case from closing.
+        }
+      },
     },
     feed: goals,
     // Not waited for, and it cannot fail the ask: the question is in the feed already.
