@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { CaseConnector } from './CaseConnector.js';
+import { caseRequest } from './case-request.js';
 import { Button, Notice, ViewFrame, errorText, when } from './ui.js';
 
 import type { ICaseView, IPersonalApi, TCaseEventKind } from '../api.js';
@@ -32,34 +33,59 @@ export function CaseThread({
 }): React.ReactElement {
   const [thread, setThread] = useState<ICaseView | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
+  const requestNumber = useRef(0);
+  const appliedRequest = useRef(0);
+  const active = useRef(false);
   const load = useCallback(async () => {
+    const request = ++requestNumber.current;
     try {
-      setThread(await api.caseThread(caseId));
+      const next = await caseRequest((signal) => api.caseThread(caseId, signal));
+      if (!active.current || request <= appliedRequest.current) return;
+      appliedRequest.current = request;
+      setThread(next);
       setError(undefined);
     } catch (caught) {
+      if (!active.current || request <= appliedRequest.current) return;
+      appliedRequest.current = request;
       setError(errorText(caught));
     }
   }, [api, caseId]);
   useEffect(() => {
+    active.current = true;
+    setError(undefined);
     void load();
     const timer = setInterval(() => void load(), REFRESH_MS);
-    return () => clearInterval(timer);
+    return () => {
+      active.current = false;
+      requestNumber.current += 1;
+      appliedRequest.current = requestNumber.current;
+      clearInterval(timer);
+    };
   }, [load]);
+  const shown = thread?.id === caseId ? thread : undefined;
   return (
     <ViewFrame title="Case" actions={<Button onClick={onBack}>Back to feed</Button>}>
       {error !== undefined && <Notice tone="error">{error}</Notice>}
-      {thread === undefined && error === undefined && <Notice>Loading…</Notice>}
-      {thread !== undefined && (
+      {shown === undefined && error === undefined && <Notice>Loading…</Notice>}
+      {shown !== undefined && (
         <article className="flex max-w-3xl flex-col gap-4 p-4">
           <header>
-            <h2 className="text-[18px] font-semibold">{thread.title}</h2>
+            <h2 className="text-[18px] font-semibold">{shown.title}</h2>
             <p className="text-[13px] text-muted-foreground">
-              {thread.state === 'open' ? 'Open' : 'Closed'} · opened {when(thread.createdAt)}
+              {error !== undefined ? 'Last known: ' : ''}
+              {shown.state === 'open' ? 'Open' : 'Closed'} · opened {when(shown.createdAt)}
             </p>
           </header>
-          {thread.state === 'open' && <CaseConnector key={caseId} api={api} caseId={caseId} />}
+          {shown.state === 'open' && (
+            <CaseConnector
+              key={caseId}
+              api={api}
+              caseId={caseId}
+              caseConfirmed={error === undefined}
+            />
+          )}
           <ol aria-label="History" className="flex flex-col gap-2">
-            {thread.history.map((event, index) => (
+            {shown.history.map((event, index) => (
               <li key={index} className="rounded-lg border border-border p-3 text-[13px]">
                 <div className="text-muted-foreground">
                   {EVENT_LABEL[event.kind]} · {when(event.at)}
@@ -68,14 +94,14 @@ export function CaseThread({
               </li>
             ))}
           </ol>
-          {thread.question !== undefined && (
+          {shown.question !== undefined && (
             <section aria-label="Waiting for you" className="rounded-lg border border-warning p-3">
               <p className="text-[13px] text-muted-foreground">Waiting for your answer</p>
               <p className="mt-1 whitespace-pre-wrap text-[14px] font-medium">
-                {thread.question.text}
+                {shown.question.text}
               </p>
-              {thread.question.options.length > 0 && (
-                <p className="mt-1 text-[13px]">{thread.question.options.join(' · ')}</p>
+              {shown.question.options.length > 0 && (
+                <p className="mt-1 text-[13px]">{shown.question.options.join(' · ')}</p>
               )}
               <p className="mt-1 text-[12.5px] text-muted-foreground">Answer it from your feed.</p>
             </section>

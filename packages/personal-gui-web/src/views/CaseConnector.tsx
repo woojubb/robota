@@ -1,38 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError } from '../api.js';
+import { caseRequest } from './case-request.js';
 import { Button, errorText } from './ui.js';
 
 import type { ICaseConnectorBinding, IConnectorView, IPersonalApi } from '../api.js';
 
 const REFRESH_MS = 3_000;
-const REQUEST_TIMEOUT_MS = 15_000;
-
-async function request<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
-  const controller = new AbortController();
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      run(controller.signal),
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => {
-          reject(new Error('The case connector request took too long'));
-          controller.abort();
-        }, REQUEST_TIMEOUT_MS);
-      }),
-    ]);
-  } finally {
-    if (timeout !== undefined) clearTimeout(timeout);
-  }
-}
-
 /** The owner chooses this independently of any origin written in case content. */
 export function CaseConnector({
   api,
   caseId,
+  caseConfirmed = true,
 }: {
   readonly api: IPersonalApi;
   readonly caseId: string;
+  readonly caseConfirmed?: boolean;
 }): React.ReactElement | null {
   const [binding, setBinding] = useState<ICaseConnectorBinding | undefined>(undefined);
   const [choices, setChoices] = useState<readonly IConnectorView[] | undefined>(undefined);
@@ -54,10 +37,12 @@ export function CaseConnector({
   const recovery = useRef<string | undefined>(undefined);
 
   const apply = useCallback((next: ICaseConnectorBinding, fromPoll = false): void => {
-    if (fromPoll && dirty.current && current.current?.revision !== next.revision) {
+    const choiceChanged =
+      current.current?.connectorId !== next.connectorId || current.current?.error !== next.error;
+    if (fromPoll && dirty.current && choiceChanged) {
       setProblem('This choice changed in another page. Choose again before saving.');
     }
-    if (!fromPoll || current.current?.revision !== next.revision || !dirty.current) {
+    if (!fromPoll || choiceChanged || !dirty.current) {
       setDraft(next.connectorId ?? '');
       dirty.current = false;
     }
@@ -71,12 +56,12 @@ export function CaseConnector({
     working.current = true;
     setBusy(true);
     try {
-      const initial = await request((signal) => api.caseConnector(caseId, signal));
+      const initial = await caseRequest((signal) => api.caseConnector(caseId, signal));
       if (!mounted.current || ticket !== sequence.current) return;
       const settled =
         initial.error === true
           ? initial
-          : await request((signal) => api.fenceCaseConnector(caseId, initial.revision, signal));
+          : await caseRequest((signal) => api.fenceCaseConnector(caseId, initial.revision, signal));
       if (!mounted.current || ticket !== sequence.current) return;
       apply(settled);
       recovery.current = undefined;
@@ -97,7 +82,9 @@ export function CaseConnector({
 
   const settle = useCallback(
     async (revision: string, ticket: number): Promise<ICaseConnectorBinding | undefined> => {
-      const result = await request((signal) => api.fenceCaseConnector(caseId, revision, signal));
+      const result = await caseRequest((signal) =>
+        api.fenceCaseConnector(caseId, revision, signal),
+      );
       if (!mounted.current || ticket !== sequence.current) return undefined;
       apply(result);
       recovery.current = undefined;
@@ -109,7 +96,12 @@ export function CaseConnector({
   );
 
   const save = async (connectorId: string | null): Promise<void> => {
-    if (working.current || current.current === undefined) return;
+    if (
+      working.current ||
+      current.current === undefined ||
+      (connectorId !== null && !caseConfirmed)
+    )
+      return;
     const revision = current.current.revision;
     const ticket = ++sequence.current;
     working.current = true;
@@ -117,7 +109,7 @@ export function CaseConnector({
     setBusy(true);
     setProblem(undefined);
     try {
-      const result = await request((signal) =>
+      const result = await caseRequest((signal) =>
         api.setCaseConnector(caseId, connectorId, revision, signal),
       );
       if (!mounted.current || ticket !== sequence.current) return;
@@ -127,9 +119,20 @@ export function CaseConnector({
       if (!mounted.current || ticket !== sequence.current) return;
       recovery.current = revision;
       setReady(false);
-      setProblem(errorText(caught));
+      setProblem(
+        connectorId === null
+          ? 'The removal could not be confirmed. Refresh the setting and try again.'
+          : errorText(caught),
+      );
       try {
-        await settle(revision, ticket);
+        const result = await settle(revision, ticket);
+        if (connectorId === null && mounted.current && ticket === sequence.current) {
+          setProblem(
+            result?.connectorId !== undefined || result?.error === true
+              ? 'The choice is still selected. Review it and choose Remove choice again.'
+              : undefined,
+          );
+        }
       } catch {
         // Keep the setting closed until its conditional fence succeeds.
       }
@@ -179,7 +182,7 @@ export function CaseConnector({
     const token = Symbol();
     inventory.current = token;
     try {
-      const listing = await request((signal) => api.connectorInventory(signal));
+      const listing = await caseRequest((signal) => api.connectorInventory(signal));
       if (mounted.current && inventory.current === token) {
         setChoices(listing.connectors);
         setInventoryProblem(undefined);
@@ -203,7 +206,7 @@ export function CaseConnector({
     const token = Symbol();
     polling.current = token;
     try {
-      const next = await request((signal) => api.caseConnector(caseId, signal));
+      const next = await caseRequest((signal) => api.caseConnector(caseId, signal));
       if (mounted.current && ticket === sequence.current && !working.current) {
         apply(next, true);
         setPollProblem(false);
@@ -254,6 +257,11 @@ export function CaseConnector({
           {problem}
         </p>
       )}
+      {!caseConfirmed && (
+        <p className="mt-1 text-destructive">
+          The case status cannot be confirmed. You can remove its choice while it is unavailable.
+        </p>
+      )}
       {pollProblem && (
         <div className="mt-1 text-destructive" role="alert">
           The current choice cannot be confirmed. Refresh it before relying on what is shown.
@@ -286,7 +294,12 @@ export function CaseConnector({
             className="max-w-full rounded-md border border-border bg-background px-2 py-1.5 text-[13px]"
             value={draft}
             disabled={
-              !ready || busy || pollProblem || binding.error === true || choices === undefined
+              !ready ||
+              busy ||
+              !caseConfirmed ||
+              pollProblem ||
+              binding.error === true ||
+              choices === undefined
             }
             onChange={(event) => {
               dirty.current = true;
@@ -305,6 +318,7 @@ export function CaseConnector({
             disabled={
               !ready ||
               busy ||
+              !caseConfirmed ||
               pollProblem ||
               !draftAvailable ||
               binding.error === true ||
@@ -314,7 +328,10 @@ export function CaseConnector({
           >
             Save choice
           </Button>
-          {(binding.connectorId !== undefined || binding.error === true || pollProblem) && (
+          {(binding.connectorId !== undefined ||
+            binding.error === true ||
+            pollProblem ||
+            !caseConfirmed) && (
             <Button disabled={!ready || busy} onClick={() => void save(null)}>
               Remove choice
             </Button>

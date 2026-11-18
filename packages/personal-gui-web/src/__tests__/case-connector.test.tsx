@@ -173,6 +173,31 @@ describe('the case service choice', () => {
     expect(fake.read().connectorId).toBeUndefined();
   });
 
+  it('explains how to retry a removal fenced by another page', async () => {
+    const fake = fakeApi({ revision: 'revision-1', connectorId: MAIL.id });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fake.api.setCaseConnector = async (_id, connectorId, revision) => {
+      await gate;
+      return fake.update(connectorId, revision);
+    };
+    render(<CaseConnector api={fake.api} caseId={THREAD.id} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove choice' }));
+    await act(async () => {
+      await fake.fenceCaseConnector(THREAD.id, 'revision-2');
+      release();
+      await gate;
+    });
+    await screen.findByText(
+      'The choice is still selected. Review it and choose Remove choice again.',
+    );
+    expect(fake.read().connectorId).toBe(MAIL.id);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove choice' }));
+    await waitFor(() => expect(fake.read().connectorId).toBeUndefined());
+  });
+
   it('fences a delayed choice when the person cancels it', async () => {
     const fake = fakeApi();
     let release!: () => void;
@@ -271,6 +296,30 @@ describe('the case service choice', () => {
     expect(fake.setCaseConnector).not.toHaveBeenCalled();
   });
 
+  it('keeps a draft when another page only fences the same choice', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    const fake = fakeApi();
+    render(<CaseConnector api={fake.api} caseId={THREAD.id} />);
+    await waitFor(() => expect(select().disabled).toBe(false));
+    fireEvent.change(select(), { target: { value: NOTES.id } });
+    await fake.fenceCaseConnector(THREAD.id, fake.read().revision);
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+    });
+    expect(select().value).toBe(NOTES.id);
+    expect(screen.queryByText(/This choice changed in another page/u)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Save choice' }));
+    await waitFor(() => expect(fake.read().connectorId).toBe(NOTES.id));
+  });
+
   it('marks a stale choice unconfirmed and lets the person remove the newer choice', async () => {
     let tick!: () => void;
     vi.spyOn(globalThis, 'setInterval').mockImplementation(((
@@ -294,7 +343,9 @@ describe('the case service choice', () => {
     await screen.findByText(/The current choice cannot be confirmed/u);
     expect(select().disabled).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Remove choice' }));
-    await screen.findByText('The setting changed');
+    await screen.findByText(
+      'The choice is still selected. Review it and choose Remove choice again.',
+    );
     await waitFor(() => expect(select().value).toBe(MAIL.id));
     expect(fake.read().connectorId).toBe(MAIL.id);
     fireEvent.click(screen.getByRole('button', { name: 'Remove choice' }));
@@ -323,5 +374,95 @@ describe('the case service choice', () => {
     await screen.findByText(/Closed · opened/u);
     expect(screen.queryByRole('region', { name: 'Service for this case' })).toBeNull();
     expect(fake.caseConnector).not.toHaveBeenCalled();
+  });
+
+  it('does not reopen a case from an older delayed response', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    const fake = fakeApi();
+    let release!: (value: ICaseView) => void;
+    const first = new Promise<ICaseView>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    fake.api.caseThread = async () => (++calls === 1 ? first : { ...THREAD, state: 'closed' });
+    render(<CaseThread api={fake.api} caseId={THREAD.id} onBack={() => undefined} />);
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+    });
+    await screen.findByText(/Closed · opened/u);
+    await act(async () => {
+      release(THREAD);
+      await first;
+    });
+    expect(screen.getByText(/Closed · opened/u)).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Service for this case' })).toBeNull();
+  });
+
+  it('shows a slow case response while a newer poll is still running', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    const fake = fakeApi();
+    let release!: (value: ICaseView) => void;
+    const first = new Promise<ICaseView>((resolve) => {
+      release = resolve;
+    });
+    const never = new Promise<ICaseView>(() => undefined);
+    let calls = 0;
+    fake.api.caseThread = async () => (++calls === 1 ? first : never);
+    render(<CaseThread api={fake.api} caseId={THREAD.id} onBack={() => undefined} />);
+    await act(async () => {
+      tick();
+      tick();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      release(THREAD);
+      await first;
+    });
+    expect(await screen.findByText('A case')).toBeTruthy();
+    expect(screen.getByText(/Open · opened/u)).toBeTruthy();
+  });
+
+  it('allows removing a choice while the case status cannot be confirmed', async () => {
+    let tick!: () => void;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      callback: () => void,
+      delay?: number,
+    ) => {
+      if (delay === 3_000 && tick === undefined) tick = callback;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    }) as typeof setInterval);
+    const fake = fakeApi({ revision: 'revision-1', connectorId: MAIL.id });
+    let healthy = true;
+    fake.api.caseThread = async () => {
+      if (!healthy) throw new Error('Case unavailable');
+      return THREAD;
+    };
+    render(<CaseThread api={fake.api} caseId={THREAD.id} onBack={() => undefined} />);
+    await screen.findByRole('region', { name: 'Service for this case' });
+    healthy = false;
+    await act(async () => {
+      tick();
+      await Promise.resolve();
+    });
+    await screen.findByText('Case unavailable');
+    expect(screen.getByText(/Last known: Open/u)).toBeTruthy();
+    expect(select().disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove choice' }));
+    await waitFor(() => expect(fake.read().connectorId).toBeUndefined());
   });
 });

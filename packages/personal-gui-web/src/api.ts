@@ -471,7 +471,7 @@ export interface IPersonalApi {
   ): Promise<{ item: IFeedItemView; case: ICaseView }>;
   /** Open cases first, then the ones closed last. */
   cases(): Promise<readonly ICaseView[]>;
-  caseThread(id: string): Promise<ICaseView>;
+  caseThread(id: string, signal?: AbortSignal): Promise<ICaseView>;
   caseConnector(id: string, signal?: AbortSignal): Promise<ICaseConnectorBinding>;
   setCaseConnector(
     id: string,
@@ -618,8 +618,8 @@ export function createPersonalApi(
     answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
     answerQuestion: (itemId, answer) => call('POST', `feed/${id(itemId)}/answer`, answer),
     cases: async () => (await call<{ cases: ICaseView[] }>('GET', 'cases')).cases,
-    caseThread: async (caseId) =>
-      (await call<{ case: ICaseView }>('GET', `cases/${id(caseId)}`)).case,
+    caseThread: async (caseId, signal) =>
+      (await call<{ case: ICaseView }>('GET', `cases/${id(caseId)}`, undefined, signal)).case,
     caseConnector: async (caseId, signal) =>
       (
         await call<{ binding: ICaseConnectorBinding }>(
