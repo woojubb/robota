@@ -33,6 +33,7 @@ export interface IChannelTurns {
 export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns {
   const { book, approvals } = options;
   const sessions = new Map<string, TChannelSession>();
+  const notices = new Set<Promise<void>>();
   /** Turns run one at a time per conversation, in the order their messages arrived. */
   const queues = new Map<string, Promise<unknown>>();
 
@@ -59,11 +60,19 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
         if (detail === undefined) {
           opened.resolvePermission(event.id, false);
           settledEarly.delete(event.id);
-          await book.post({
-            kind: 'notice',
-            title: `A message on ${channel}`,
-            body: 'The connector action was refused because its complete details are too long or cannot be shown safely.',
-          });
+          // A failed notice does not undo the refusal. A pending write must settle before shutdown.
+          const notice = book
+            .post({
+              kind: 'notice',
+              title: `A message on ${channel}`,
+              body: 'The connector action was refused because its complete details are too long or cannot be shown safely.',
+            })
+            .then(
+              () => undefined,
+              () => undefined,
+            );
+          notices.add(notice);
+          void notice.then(() => notices.delete(notice));
           return;
         }
         const item = await book.post({
@@ -119,6 +128,7 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
     async stop() {
       for (const session of sessions.values()) session.abort();
       await Promise.allSettled([...sessions.values()].map((session) => session.shutdown()));
+      await Promise.allSettled([...notices]);
       sessions.clear();
     },
   };

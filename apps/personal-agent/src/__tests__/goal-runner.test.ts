@@ -88,6 +88,33 @@ describe('connector action approvals', () => {
     expect(describeCall('ConnectorAct', { text: 'before\u202eafter' })).not.toContain('\u202e');
   });
 
+  it('shows the effective connector arguments after JSON escapes are decoded', () => {
+    const recipient = 'recipient@example.invalid';
+    const escaped = [...recipient]
+      .map((char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`)
+      .join('');
+    const detail = describeCall('ConnectorAct', {
+      connector: 'mail',
+      tool: 'send',
+      argumentsJson: `{"to":"${escaped}","body":"before\\u202eafter"}`,
+    });
+    expect(detail).toContain(recipient);
+    expect(detail).not.toContain('\u202e');
+    expect(detail).toContain('202e');
+    expect(describeCall('ConnectorAct', { argumentsJson: '[]' })).toBeUndefined();
+    expect(describeCall('ConnectorAct', { argumentsJson: '{bad json' })).toBeUndefined();
+  });
+
+  it('refuses an effective call that exceeds the display limit after invisible characters are made explicit', () => {
+    expect(
+      describeCall('ConnectorAct', {
+        connector: 'mail',
+        tool: 'send',
+        argumentsJson: JSON.stringify({ body: '\u202e'.repeat(35) }),
+      }),
+    ).toBeUndefined();
+  });
+
   it('shows a complete connector action and waits for the person to approve it', async () => {
     const book = new GoalBook({ store: createMemoryGoalStore() });
     const stub = promptingSession({
@@ -158,6 +185,52 @@ describe('connector action approvals', () => {
       await expect(turn).resolves.toBe('Not bought.');
       expect((await book.feed()).some((entry) => entry.approval?.state === 'pending')).toBe(false);
     } finally {
+      await channel.stop();
+    }
+  });
+
+  it('waits for a refused channel action notice before shutdown completes', async () => {
+    const store = createMemoryGoalStore();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let entered: () => void = () => undefined;
+    const writing = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const book = new GoalBook({
+      store: {
+        ...store,
+        putFeedItem: async (item) => {
+          entered();
+          await gate;
+          await store.putFeedItem(item);
+        },
+      },
+    });
+    const stub = promptingSession(oversized);
+    const channel = createChannelTurns({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    try {
+      await expect(
+        channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Send it'),
+      ).resolves.toBe('Not bought.');
+      await writing;
+      let stopped = false;
+      const stopping = channel.stop().then(() => {
+        stopped = true;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(stopped).toBe(false);
+      release();
+      await stopping;
+      expect((await book.feed()).some((item) => item.kind === 'notice')).toBe(true);
+    } finally {
+      release();
       await channel.stop();
     }
   });

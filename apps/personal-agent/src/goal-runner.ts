@@ -14,6 +14,7 @@ import {
   CONNECTOR_TOOL_NAMES,
   GOAL_TOOL_NAMES,
   goalRunInstructions,
+  parseConnectorArguments,
 } from '@robota-sdk/agent-product/personal';
 
 import type { GoalBook, IFeedItem, IGoal, IGoalRun } from '@robota-sdk/agent-product/personal';
@@ -71,7 +72,10 @@ export function describeCall(
 ): string | undefined {
   if (toolName === CONNECTOR_TOOL_NAMES.act) {
     try {
-      const json = JSON.stringify(args).replace(
+      const raw = args['argumentsJson'];
+      if (raw !== undefined && typeof raw !== 'string') return undefined;
+      const effective = parseConnectorArguments(raw);
+      const json = JSON.stringify({ ...args, argumentsJson: effective }).replace(
         /\p{Cf}/gu,
         (char) => `\\u{${char.codePointAt(0)!.toString(16)}}`,
       );

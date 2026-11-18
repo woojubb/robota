@@ -351,6 +351,39 @@ describe('using a connected service', () => {
     expect(feed.some((item) => item.approval?.state === 'pending')).toBe(false);
   });
 
+  it('shows the decoded recipient before a background connector action is approved', async () => {
+    const w = await connected();
+    const recipient = 'recipient@example.invalid';
+    const escaped = [...recipient]
+      .map((char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`)
+      .join('');
+    w.harness.model.script(
+      {
+        tool: 'ConnectorAct',
+        args: {
+          connector: w.id,
+          tool: 'create_note',
+          argumentsJson: `{"to":"${escaped}"}`,
+        },
+      },
+      { text: 'done' },
+    );
+    const { goals } = w.harness.capabilities;
+    const runner = w.harness.capabilities.runner()!;
+    await goals.create({ title: 'Note', instructions: 'Create a note.' });
+    await runner.runDue();
+    let approval = (await goals.feed()).find((item) => item.approval?.state === 'pending');
+    for (let attempt = 0; approval === undefined && attempt < 100; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      approval = (await goals.feed()).find((item) => item.approval?.state === 'pending');
+    }
+    expect(approval?.approval?.detail).toContain(recipient);
+    expect(w.notes.calls).toEqual([]);
+    await runner.answer(approval!.id, true);
+    await runner.settled();
+    expect(w.notes.calls).toEqual([`create_note ${JSON.stringify({ to: recipient })}`]);
+  });
+
   it('does not let a write run through the reading tool, or a read through the writing one', async () => {
     const w = await connected();
     w.harness.model.script(
