@@ -384,14 +384,17 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     session.on('prompt_resolved', onResolved as never);
     let outcome: 'done' | 'failed' | 'interrupted' = 'done';
     let report: string;
+    let settledBeforeShutdown = false;
     try {
       // A run that was starting while the runner stopped ends here instead of working unwatched.
       if (stopped) throw new Error('the agent was stopping');
       const handle = await session.submit(goal.instructions);
       const result = await handle.completed;
+      settledBeforeShutdown = !stopped;
       report =
         result.response.trim() === '' ? 'The run ended without a report.' : result.response.trim();
     } catch (error) {
+      settledBeforeShutdown = !stopped;
       outcome = 'failed';
       report = `The run failed: ${error instanceof Error ? error.message : String(error)}`;
     } finally {
@@ -400,7 +403,12 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       session.off('prompt_resolved', onResolved as never);
     }
     await chain;
-    if (stopped && goal.caseId !== undefined && run.caseAnswerId !== undefined) {
+    if (
+      stopped &&
+      !settledBeforeShutdown &&
+      goal.caseId !== undefined &&
+      run.caseAnswerId !== undefined
+    ) {
       outcome = 'interrupted';
       report = 'The run was stopped.';
     } else if (approvalFailed) {

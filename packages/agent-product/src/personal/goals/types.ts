@@ -24,6 +24,12 @@ export interface IGoal {
   readonly caseId?: string;
   /** An accepted case answer awaiting a turn, owned by the agent holding its authority snapshot. */
   readonly pendingCaseAnswer?: { readonly feedItemId: string; readonly ownerId: string };
+  /** The agent and answer associated with a claimed case turn. */
+  readonly activeCaseRun?: {
+    readonly runId: string;
+    readonly ownerId: string;
+    readonly answerId: string;
+  };
   /** The most recent case answer whose turn has started. */
   readonly lastCaseAnswerId?: string;
   readonly status: TGoalStatus;
@@ -49,6 +55,7 @@ export interface IGoalRun {
   readonly id: string;
   readonly goalId: string;
   readonly caseAnswerId?: string;
+  readonly resumeAfterShutdown?: true;
   readonly startedAt: string;
   readonly endedAt?: string;
   readonly outcome?: TGoalRunOutcome;

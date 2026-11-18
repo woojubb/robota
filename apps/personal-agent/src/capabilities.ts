@@ -197,6 +197,7 @@ export function createPersonalCapabilities(
     goals.supportsSharedGoalLock !== true ||
     goals.supportsCaseAnswerQueue !== true ||
     goals.supportsCaseInterruptionRecovery !== true ||
+    goals.supportsCaseRunOwnership !== true ||
     goals.supportsCoordinatedRemoval !== true ||
     typeof goals.adoptCaseAnswer !== 'function' ||
     typeof goals.recoverGoal !== 'function' ||
@@ -522,12 +523,15 @@ export function createPersonalCapabilities(
     };
   const cleanStoppedOwners = async (): Promise<void> => {
     await caseWrites.exclusive(async () => {
+      const owners = presence.stoppedOwners();
       const pending = new Set(
         (await goals.list()).flatMap((goal) =>
-          goal.pendingCaseAnswer === undefined ? [] : [goal.pendingCaseAnswer.ownerId],
+          [goal.pendingCaseAnswer?.ownerId, goal.activeCaseRun?.ownerId].filter(
+            (owner): owner is string => owner !== undefined,
+          ),
         ),
       );
-      for (const owner of presence.stoppedOwners()) {
+      for (const owner of owners) {
         if (!pending.has(owner) && answerOutbox?.hasOwner(owner) !== true) {
           try {
             presence.forgetStopped(owner);
@@ -699,6 +703,9 @@ export function createPersonalCapabilities(
         beforeRunDue: async (isRunning, recover) => {
           await answerOutbox?.recover();
           for (const goal of await goals.list()) {
+            const runOwner = goal.activeCaseRun?.ownerId;
+            if (runOwner !== undefined && presence.ownerExited(runOwner))
+              await goals.recoverCaseOwner(goal.id, runOwner, presence.id);
             const owner = goal.pendingCaseAnswer?.ownerId;
             if (owner !== undefined && presence.ownerExited(owner))
               await goals.adoptCaseAnswer(goal.id, owner, presence.id);

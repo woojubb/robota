@@ -166,6 +166,69 @@ it('adopts a stopped owner’s pending answer while other agents remain active',
   }
 }, 20_000);
 
+it('recovers an active case run when its owner exits and other agents remain active', async () => {
+  if (process.platform === 'win32') return;
+  const { spawn } = await import('node:child_process');
+  const { startHarness } = await import('./harness.js');
+  const { offeredTools } = await import('./scripted-model.js');
+  const root = mkdtempSync(join(tmpdir(), 'personal-active-case-owner-'));
+  directories.push(root);
+  const harnessUrl = new URL('./harness.ts', import.meta.url).href;
+  const program = `
+    import fs from 'node:fs';
+    const { startHarness } = await import(${JSON.stringify(harnessUrl)});
+    const h = await startHarness({ stateDir: ${JSON.stringify(root)} });
+    const { case: opened } = await h.capabilities.cases.open({ title: 'Answer', noticed: 'A note', source: 'test:active-owner' });
+    const { item } = await h.capabilities.cases.ask(opened.id, { question: 'Continue?', options: ['Yes', 'No'] });
+    h.model.script(() => {
+      fs.writeSync(1, 'READY:' + JSON.stringify({ caseId: opened.id }) + '\\n');
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);
+      return { text: 'Done' };
+    });
+    await h.capabilities.api({ method: 'POST', path: '/feed/' + item.id + '/answer',
+      segments: ['feed', item.id, 'answer'], query: new URLSearchParams(), body: { choice: 'Yes' } });
+  `;
+  const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', program], {
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  const ended = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+  let second: Awaited<ReturnType<typeof startHarness>> | undefined;
+  let third: Awaited<ReturnType<typeof startHarness>> | undefined;
+  try {
+    const ids = await new Promise<{ caseId: string }>((resolve, reject) => {
+      let output = '';
+      child.stdout!.on('data', (chunk: Buffer) => {
+        output += chunk.toString();
+        const match = /READY:(\{[^\n]+\})/u.exec(output);
+        if (match !== null) resolve(JSON.parse(match[1]!));
+      });
+      child.once('exit', () => reject(new Error('the owner exited before its case turn')));
+      child.once('error', reject);
+    });
+    second = await startHarness({ stateDir: root });
+    third = await startHarness({ stateDir: root });
+    expect(await second.capabilities.runner()!.runDue()).toBe(0);
+    child.kill('SIGKILL');
+    await ended;
+    second.model.script({ text: 'The interrupted case was reconsidered.' });
+    expect(await second.capabilities.runner()!.runDue()).toBe(1);
+    await second.capabilities.runner()!.settled();
+    const goal = (await second.capabilities.goals.list()).find(
+      (entry) => entry.caseId === ids.caseId,
+    )!;
+    expect((await second.capabilities.goals.runs(goal.id)).map((run) => run.outcome)).toEqual(
+      expect.arrayContaining(['interrupted', 'done']),
+    );
+    expect(offeredTools(second.model.requests[0]!)).not.toContain('ConnectorAct');
+    expect(await third.capabilities.runner()!.runDue()).toBe(0);
+  } finally {
+    child.kill('SIGKILL');
+    await ended;
+    await second?.close();
+    await third?.close();
+  }
+}, 20_000);
+
 it('adopts a normally closed owner’s pending answer while other agents remain active', async () => {
   const { startHarness } = await import('./harness.js');
   const { offeredTools } = await import('./scripted-model.js');

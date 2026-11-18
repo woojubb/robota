@@ -358,6 +358,58 @@ describe('the agent takes a turn on a case once its question is answered', () =>
     }
   }, 20_000);
 
+  it('does not repeat a completed case turn when shutdown waits for its records', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'personal-answer-completed-'));
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    let closing: Promise<void> | undefined;
+    try {
+      harness = await startHarness({ stateDir: root });
+      const { opened, item } = await asked(harness);
+      const goals = harness.capabilities.goals;
+      const record = goals.recordAction.bind(goals);
+      vi.spyOn(goals, 'recordAction').mockImplementation(async (...args) => {
+        const saved = await record(...args);
+        reached();
+        await gate;
+        return saved;
+      });
+      harness.model.script(
+        { tool: 'CaseNote', args: { id: opened.id, text: 'The answer was noted.' } },
+        { text: 'Done.' },
+      );
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      await waiting;
+      await until(async () => harness!.model.requests.length >= 2, 'the model to finish');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+      closing = harness.close();
+      release();
+      await closing;
+      closing = undefined;
+      expect((await goals.runs(goal.id))[0]?.outcome).toBe('done');
+      harness = await startHarness({ stateDir: root });
+      expect(await harness.capabilities.runner()!.runDue()).toBe(0);
+      expect(
+        (await harness.capabilities.cases.get(opened.id))?.notes.filter(
+          (note) => note.text === 'The answer was noted.',
+        ),
+      ).toHaveLength(1);
+    } finally {
+      release();
+      if (closing !== undefined) await closing;
+      else await harness?.close();
+      harness = undefined;
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 20_000);
+
   it('isolates a damaged answer record from other goals and a restart', async () => {
     if (process.platform === 'win32') return;
     const root = mkdtempSync(join(tmpdir(), 'personal-answer-damaged-'));
