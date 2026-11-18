@@ -22,9 +22,6 @@ const PARK_MS = 1000;
 const SAMPLE_MS = 5;
 /** OS and PTY jitter allowance on the asserted interval. */
 const SLACK_MS = 60;
-/** Growths closer than this are one burst: a PTY read can split one contiguous write. */
-const COALESCE_MS = 30;
-
 /** Startup frames settle for this long before the keystroke is measured against a quiet stream. */
 const STARTUP_SETTLE_MS = 750;
 const OPEN_WINDOW = '\x1b[?2026h';
@@ -54,7 +51,8 @@ function answerWindow(output: string): string | undefined {
   if (start < 0 || start > answer) throw new Error('Answer has no open synchronized-output window');
   const close = output.indexOf(CLOSE_WINDOW, answer);
   const nested = output.indexOf(OPEN_WINDOW, start + OPEN_WINDOW.length);
-  if (nested >= 0 && (close < 0 || nested < close))
+  const inside = output.slice(start + OPEN_WINDOW.length, close < 0 ? undefined : close);
+  if ((nested >= 0 && (close < 0 || nested < close)) || inside.match(OSC_133) !== null)
     throw new Error('Interleaved synchronized-output windows');
   return close < 0 ? undefined : output.slice(start, close + CLOSE_WINDOW.length);
 }
@@ -84,15 +82,13 @@ async function sampleUntil(
   );
 }
 
-/** Merge growths that landed within `COALESCE_MS` of each other — one contiguous write, one burst. */
-function bursts(growths: IGrowth[]): IGrowth[] {
-  const merged: IGrowth[] = [];
+function visibleAt(growths: IGrowth[], text: string): number {
+  let output = '';
   for (const growth of growths) {
-    const last = merged.at(-1);
-    if (last !== undefined && growth.at - last.at < COALESCE_MS) last.bytes += growth.bytes;
-    else merged.push({ ...growth });
+    output += growth.bytes;
+    if (visible(output).includes(text)) return growth.at;
   }
-  return merged;
+  throw new Error(`PTY did not emit ${JSON.stringify(text)}`);
 }
 
 /** The mount-time prompt-start must precede the answer. */
@@ -120,15 +116,11 @@ async function typeAndSubmit(session: IPtySession, requireWindow = false): Promi
   const typedAt = Date.now();
   await session.sendKeys('o');
   session.writeRaw('\r');
-  const growths = bursts(await sampling);
-  const echo = growths.find((g) => visible(g.bytes).includes('hello'));
-  const answer = growths.find((g) => visible(g.bytes).includes('REPLAYED_ANSWER_42'));
-  expect(echo, 'the echo of the typed line').toBeDefined();
-  expect(answer, 'the replayed answer').toBeDefined();
+  const growths = await sampling;
   return {
     typedAt,
-    echoAt: (echo as IGrowth).at,
-    answerAt: (answer as IGrowth).at,
+    echoAt: visibleAt(growths, 'hello'),
+    answerAt: visibleAt(growths, ANSWER),
   };
 }
 
@@ -143,17 +135,28 @@ function spawnScenario(projectDir: string, mode: 'park' | 'zero' | 'off'): IPtyS
   });
 }
 
-function delayClosingMarker(session: IPtySession): IPtySession {
-  let revealAt: number | undefined;
+/** Deliver the echo, answer, and closing marker in separate PTY reads. */
+function fragmentOutput(session: IPtySession): IPtySession {
+  let echoAt: number | undefined;
+  let answerAt: number | undefined;
+  let closeAt: number | undefined;
   return {
     ...session,
     raw() {
       const output = session.raw();
+      const echo = output.indexOf('hello');
+      if (echo >= 0) {
+        echoAt ??= Date.now() + 75;
+        if (Date.now() < echoAt) return output.slice(0, echo + 2);
+      }
       const answer = output.indexOf(ANSWER);
-      const close = answer < 0 ? -1 : output.indexOf(CLOSE_WINDOW, answer);
+      if (answer < 0) return output;
+      answerAt ??= Date.now() + 75;
+      if (Date.now() < answerAt) return output.slice(0, answer + 12);
+      const close = output.indexOf(CLOSE_WINDOW, answer);
       if (close < 0) return output;
-      revealAt ??= Date.now() + 150;
-      return Date.now() < revealAt ? output.slice(0, close) : output;
+      closeAt ??= Date.now() + 150;
+      return Date.now() < closeAt ? output.slice(0, close) : output;
     },
   };
 }
@@ -184,7 +187,7 @@ describe('the pre-write park through the real binary', () => {
       session = spawnScenario(projectDir, 'park');
       await settled(session);
 
-      const fragmented = delayClosingMarker(session);
+      const fragmented = fragmentOutput(session);
       const timing = await typeAndSubmit(fragmented, true);
       expect(timing.echoAt - timing.typedAt).toBeLessThan(PARK_MS - SLACK_MS);
       expect(timing.answerAt - timing.echoAt).toBeGreaterThanOrEqual(PARK_MS - SLACK_MS);
@@ -199,6 +202,9 @@ describe('the pre-write park through the real binary', () => {
         'Interleaved',
       );
       expect(() => answerWindow(`${incomplete}${OPEN_WINDOW}${CLOSE_WINDOW}`)).toThrow(
+        'Interleaved',
+      );
+      expect(() => answerWindow(`${incomplete}\x1b]133;A\x07${CLOSE_WINDOW}`)).toThrow(
         'Interleaved',
       );
     },
