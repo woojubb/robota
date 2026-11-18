@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   chmodSync,
   mkdirSync,
@@ -88,6 +89,28 @@ describe('the owner’s case action scope', () => {
     await expect(scope.set('connector-other', 'x'.repeat(129), true)).rejects.toThrow();
   });
 
+  it('keeps old grants inactive if a process stops after recording a revocation', async () => {
+    const root = directory();
+    const scope = createCaseActionScope(root);
+    await scope.set('connector-mail', 'send', true);
+    const stored = join(root, 'connector-mail');
+    const digest = createHash('sha256').update('send').digest('hex');
+    writeFileSync(join(stored, `.${digest}.version`), `${randomUUID()}\n`);
+    expect(await scope.tools('connector-mail')).toEqual([]);
+    await scope.set('connector-mail', 'send', true);
+    expect(await scope.tools('connector-mail')).toEqual(['send']);
+    writeFileSync(join(stored, '.scope-version'), `${randomUUID()}\n`);
+    expect(await scope.tools('connector-mail')).toEqual([]);
+  });
+
+  it('does not activate an old grant written after a newer revocation', async () => {
+    const scope = createCaseActionScope(directory());
+    const old = scope.version('connector-mail', 'send');
+    await scope.set('connector-mail', 'send', false);
+    await scope.set('connector-mail', 'send', true, old);
+    expect(await scope.tools('connector-mail')).toEqual([]);
+  });
+
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
     'does not treat inaccessible settings as a successful revocation',
     async () => {
@@ -103,6 +126,48 @@ describe('the owner’s case action scope', () => {
         chmodSync(stored, 0o700);
       }
       expect(await scope.tools('connector-mail')).toEqual(['send']);
+    },
+  );
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'keeps the original settings if a reset cannot commit its new generation',
+    async () => {
+      const root = directory();
+      const scope = createCaseActionScope(root);
+      await scope.set('connector-mail', 'send', true);
+      const before = scope.version('connector-mail', 'send');
+      const stored = join(root, 'connector-mail');
+      chmodSync(stored, 0o500);
+      try {
+        await expect(scope.reset('connector-mail')).rejects.toThrow();
+      } finally {
+        chmodSync(stored, 0o700);
+      }
+      expect(scope.version('connector-mail', 'send')).toEqual(before);
+      expect(await scope.tools('connector-mail')).toEqual(['send']);
+    },
+  );
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'retains reset invalidation when later cleanup cannot finish',
+    async () => {
+      const root = directory();
+      const scope = createCaseActionScope(root);
+      await scope.set('connector-mail', 'send', true);
+      const before = scope.version('connector-mail', 'send');
+      const stored = join(root, 'connector-mail');
+      const stuck = join(stored, 'stuck');
+      mkdirSync(stuck);
+      writeFileSync(join(stuck, 'file'), 'fixture');
+      chmodSync(stuck, 0o500);
+      try {
+        await expect(scope.reset('connector-mail')).rejects.toThrow();
+      } finally {
+        chmodSync(stuck, 0o700);
+      }
+      rmSync(stuck, { recursive: true, force: true });
+      expect(scope.version('connector-mail', 'send').scope).not.toBe(before.scope);
+      expect(await scope.tools('connector-mail')).toEqual([]);
     },
   );
 

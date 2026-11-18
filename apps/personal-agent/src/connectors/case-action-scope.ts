@@ -18,11 +18,13 @@ import { lock } from 'proper-lockfile';
 export interface ICaseActionScope {
   exclusive<T>(work: () => Promise<T>): Promise<T>;
   tools(connectorId: string): Promise<readonly string[]>;
-  version(
+  version(connectorId: string, tool: string): { readonly scope: string; readonly tool: string };
+  set(
     connectorId: string,
     tool: string,
-  ): Promise<{ readonly scope: string; readonly tool: string }>;
-  set(connectorId: string, tool: string, allowed: boolean): Promise<void>;
+    allowed: boolean,
+    expected?: { readonly scope: string; readonly tool: string },
+  ): Promise<void>;
   reset(connectorId: string): Promise<void>;
   clear(connectorId: string): Promise<void>;
 }
@@ -114,12 +116,22 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
           typeof value !== 'object' ||
           value === null ||
           Array.isArray(value) ||
-          !validTool((value as Record<string, unknown>)['tool'])
+          !validTool((value as Record<string, unknown>)['tool']) ||
+          typeof (value as Record<string, unknown>)['scopeVersion'] !== 'string' ||
+          typeof (value as Record<string, unknown>)['toolVersion'] !== 'string'
         )
           throw new Error('invalid tool');
-        const tool = (value as { tool: string }).tool;
+        const { tool, scopeVersion, toolVersion } = value as {
+          tool: string;
+          scopeVersion: string;
+          toolVersion: string;
+        };
         if (file !== nameOf(tool)) throw new Error('invalid tool file');
-        tools.push(tool);
+        if (
+          scopeVersion === readVersion(path, '.scope-version') &&
+          toolVersion === readVersion(path, toolVersionName(tool))
+        )
+          tools.push(tool);
       }
       return tools.sort();
     } catch {
@@ -146,7 +158,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       }
     },
     tools: async (connectorId) => read(connectorId),
-    version: async (connectorId, tool) => {
+    version: (connectorId, tool) => {
       if (!validTool(tool)) throw new ConnectorRefusedError('Invalid tool name');
       const path = pathOf(connectorId);
       return {
@@ -154,7 +166,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
         tool: readVersion(path, toolVersionName(tool)),
       };
     },
-    set: async (connectorId, tool, allowed) => {
+    set: async (connectorId, tool, allowed, expected) => {
       if (!validTool(tool)) throw new ConnectorRefusedError('Invalid tool name');
       const path = pathOf(connectorId);
       const current = read(connectorId);
@@ -162,7 +174,13 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       const target = join(path, nameOf(tool));
       try {
         if (allowed) {
-          writeAtomic(path, nameOf(tool), `${JSON.stringify({ tool })}\n`);
+          const scopeVersion = expected?.scope ?? readVersion(path, '.scope-version');
+          const toolVersion = expected?.tool ?? readVersion(path, toolVersionName(tool));
+          writeAtomic(
+            path,
+            nameOf(tool),
+            `${JSON.stringify({ tool, scopeVersion, toolVersion })}\n`,
+          );
         } else {
           // Even an absent grant may have an older allow still discovering the service.
           writeAtomic(path, toolVersionName(tool), `${randomUUID()}\n`);
@@ -176,8 +194,12 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       const path = pathOf(connectorId);
       try {
         if (!statSync(directory).isDirectory()) throw new Error('not a directory');
-        rmSync(path, { recursive: true, force: true });
+        // Invalidate old grants and pending allows before removing anything. If cleanup fails or the
+        // process stops, their recorded generation can no longer match this one.
         writeAtomic(path, '.scope-version', `${randomUUID()}\n`);
+        for (const file of readdirSync(path)) {
+          if (file !== '.scope-version') rmSync(join(path, file), { recursive: true, force: true });
+        }
       } catch {
         throw new ConnectorRefusedError('The case action settings could not be reset');
       }

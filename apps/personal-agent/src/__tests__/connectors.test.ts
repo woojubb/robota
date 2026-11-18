@@ -466,6 +466,64 @@ describe('using a connected service', () => {
     }
   });
 
+  it('rejects an allow admitted before a reset even when its connector lookup was delayed', async () => {
+    const w = await connected();
+    const book = new ConnectorBook({
+      store: createFileConnectorStore(join(w.harness.stateDir, 'connectors')),
+    });
+    const second = createConnectorsApi({
+      registry: w.harness.capabilities.connectors,
+      book,
+      sync: new ConnectorSync(w.harness.capabilities.goals),
+      wiki: w.harness.capabilities.wiki,
+      caseActions: createCaseActionScope(join(w.harness.stateDir, 'case-action-scope')),
+      origins: () => [],
+      catalog: {} as IConnectorCatalog,
+    });
+    let captured: () => void = () => undefined;
+    const seen = new Promise<void>((resolve) => {
+      captured = resolve;
+    });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const original = book.get.bind(book);
+    let paused = false;
+    const spy = vi.spyOn(book, 'get').mockImplementation(async (id) => {
+      const found = await original(id);
+      if (!paused && id === w.id) {
+        paused = true;
+        captured();
+        await gate;
+      }
+      return found;
+    });
+    const allow = second({
+      method: 'POST',
+      path: `/connectors/${w.id}/case-actions/create_note`,
+      segments: ['connectors', w.id, 'case-actions', 'create_note'],
+      query: new URLSearchParams(),
+      body: { allowed: true },
+    });
+    const rejected = expect(allow).rejects.toThrow(/changed/u);
+    try {
+      await seen;
+      expect(
+        (await w.call('POST', ['connectors', w.id, 'case-actions'], { reset: true })).status,
+      ).toBe(200);
+      release();
+      await rejected;
+      expect((await w.call('GET', ['connectors', w.id])).body.connector.caseActionTools).toEqual(
+        [],
+      );
+    } finally {
+      release();
+      await Promise.allSettled([allow]);
+      spy.mockRestore();
+    }
+  });
+
   it('keeps a damaged case scope closed while letting the owner block a tool and reset it', async () => {
     const w = await connected();
     const scope = join(w.harness.stateDir, 'case-action-scope', w.id);

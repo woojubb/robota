@@ -190,6 +190,28 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
     const [area, id, action, tool] = request.segments;
     if (area !== 'connectors') return undefined;
     const { method } = request;
+    // Capture before the first await: a later reset must invalidate even a request whose connector
+    // lookup or service discovery has not finished yet.
+    let capturedVersion:
+      | { readonly ok: true; readonly value: ReturnType<ICaseActionScope['version']> }
+      | { readonly ok: false; readonly error: unknown }
+      | undefined;
+    if (
+      id !== undefined &&
+      method === 'POST' &&
+      action === 'case-actions' &&
+      tool !== undefined &&
+      typeof request.body === 'object' &&
+      request.body !== null &&
+      !Array.isArray(request.body) &&
+      (request.body as Record<string, unknown>)['allowed'] === true
+    ) {
+      try {
+        capturedVersion = { ok: true, value: caseActions.version(id, tool) };
+      } catch (error) {
+        capturedVersion = { ok: false, error };
+      }
+    }
 
     if (id === undefined) {
       if (method === 'GET') {
@@ -405,7 +427,11 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       const allowed = record(request.body)['allowed'];
       if (typeof allowed !== 'boolean')
         throw new ConnectorRefusedError('allowed must be true or false');
-      const version = allowed ? await caseActions.version(id, tool) : undefined;
+      const captured = allowed ? capturedVersion : undefined;
+      if (allowed && captured === undefined)
+        throw new ConnectorRefusedError('Case action settings changed; try again');
+      if (captured !== undefined && !captured.ok) throw captured.error;
+      const version = captured?.value;
       const view = allowed ? await registry.view(id) : undefined;
       const candidate = view?.tools?.find((item) => item.name === tool);
       if (allowed && (view?.status.state !== 'connected' || candidate === undefined)) {
@@ -415,7 +441,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         const current = await book.get(id);
         if (current === undefined) return false;
         if (version !== undefined) {
-          const latest = await caseActions.version(id, tool);
+          const latest = caseActions.version(id, tool);
           if (version.scope !== latest.scope || version.tool !== latest.tool) {
             throw new ConnectorRefusedError('Case action settings changed; try again');
           }
@@ -423,7 +449,13 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         if (allowed && (candidate === undefined || classifyTool(current, candidate) !== 'write')) {
           throw new ConnectorRefusedError('Choose a connected writable tool for case requests');
         }
-        await caseActions.set(id, tool, allowed);
+        await caseActions.set(id, tool, allowed, version);
+        if (version !== undefined) {
+          const latest = caseActions.version(id, tool);
+          if (version.scope !== latest.scope || version.tool !== latest.tool) {
+            throw new ConnectorRefusedError('Case action settings changed; try again');
+          }
+        }
         return true;
       });
       return changed ? ok({ connector: await show(id) }) : notFound;
