@@ -442,17 +442,17 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         if (current === undefined) return false;
         if (version !== undefined) {
           const latest = caseActions.version(id, tool);
-          if (version.scope !== latest.scope || version.tool !== latest.tool) {
+          if (version !== latest) {
             throw new ConnectorRefusedError('Case action settings changed; try again');
           }
         }
         if (allowed && (candidate === undefined || classifyTool(current, candidate) !== 'write')) {
           throw new ConnectorRefusedError('Choose a connected writable tool for case requests');
         }
-        await caseActions.set(id, tool, allowed, version);
+        const savedVersion = await caseActions.set(id, tool, allowed, version);
         if (version !== undefined) {
           const latest = caseActions.version(id, tool);
-          if (version.scope !== latest.scope || version.tool !== latest.tool) {
+          if (savedVersion !== latest) {
             throw new ConnectorRefusedError('Case action settings changed; try again');
           }
         }

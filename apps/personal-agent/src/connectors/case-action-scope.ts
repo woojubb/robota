@@ -1,5 +1,5 @@
 /** Owner-selected connector tools a case may propose, kept separately from service content. */
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import {
   mkdirSync,
   readFileSync,
@@ -18,20 +18,27 @@ import { lock } from 'proper-lockfile';
 export interface ICaseActionScope {
   exclusive<T>(work: () => Promise<T>): Promise<T>;
   tools(connectorId: string): Promise<readonly string[]>;
-  version(connectorId: string, tool: string): { readonly scope: string; readonly tool: string };
+  /** Captured synchronously before a request yields to another settings change. */
+  version(connectorId: string, tool: string): string;
   set(
     connectorId: string,
     tool: string,
     allowed: boolean,
-    expected?: { readonly scope: string; readonly tool: string },
-  ): Promise<void>;
+    expected?: string,
+  ): Promise<string | undefined>;
   reset(connectorId: string): Promise<void>;
   clear(connectorId: string): Promise<void>;
 }
 
+interface IScopeState {
+  readonly revision: string;
+  readonly tools: readonly string[];
+}
+
 const CONNECTOR_ID = /^connector-[a-z0-9-]{1,60}$/u;
-const MAX_TOOL_NAME = 128;
 const VERSION = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
+const MAX_TOOL_NAME = 128;
+const MAX_TOOLS = 200;
 
 /** A missing scope grants nothing; an unreadable or malformed scope is never replaced by a guess. */
 export function createCaseActionScope(directory: string): ICaseActionScope {
@@ -45,97 +52,54 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
   };
   const validTool = (tool: unknown): tool is string =>
     typeof tool === 'string' && tool.length > 0 && tool.length <= MAX_TOOL_NAME;
-  const nameOf = (tool: string): string =>
-    `${createHash('sha256').update(tool).digest('hex')}.json`;
-  const toolVersionName = (tool: string): string => `.${nameOf(tool).slice(0, -5)}.version`;
-  const readVersion = (path: string, name: string): string => {
+  const read = (connectorId: string): IScopeState => {
+    const path = pathOf(connectorId);
     try {
       if (!statSync(directory).isDirectory()) throw new Error('not a directory');
-      let value: string;
       try {
-        value = readFileSync(join(path, name), 'utf8').trim();
+        readdirSync(path);
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '0';
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          if (!statSync(directory).isDirectory()) throw new Error('not a directory');
+          return { revision: '0', tools: [] };
+        }
         throw error;
       }
-      if (!VERSION.test(value)) throw new Error('invalid version');
-      return value;
+      // An existing directory without its state file is damaged, not a fresh empty scope.
+      const value: unknown = JSON.parse(readFileSync(join(path, 'scope.json'), 'utf8'));
+      if (typeof value !== 'object' || value === null || Array.isArray(value))
+        throw new Error('invalid scope');
+      const { revision, tools } = value as { revision?: unknown; tools?: unknown };
+      if (
+        typeof revision !== 'string' ||
+        !VERSION.test(revision) ||
+        !Array.isArray(tools) ||
+        tools.length > MAX_TOOLS ||
+        !tools.every(validTool) ||
+        new Set(tools).size !== tools.length
+      ) {
+        throw new Error('invalid scope');
+      }
+      return { revision, tools: tools as string[] };
     } catch {
       throw new ConnectorRefusedError('The case action settings cannot be read');
     }
   };
-  const writeAtomic = (path: string, name: string, value: string): void => {
+  const write = (connectorId: string, next: IScopeState): void => {
+    const path = pathOf(connectorId);
     const temporary = join(path, `.${randomUUID()}.tmp`);
     try {
       mkdirSync(path, { recursive: true, mode: 0o700 });
-      writeFileSync(temporary, value, { mode: 0o600 });
-      renameSync(temporary, join(path, name));
+      writeFileSync(temporary, `${JSON.stringify(next)}\n`, { mode: 0o600 });
+      renameSync(temporary, join(path, 'scope.json'));
     } catch {
       throw new ConnectorRefusedError('The case action settings could not be saved');
     } finally {
       try {
         rmSync(temporary, { force: true });
       } catch {
-        // An unfinished temporary file is never an active permission.
+        /* An unfinished file grants nothing. */
       }
-    }
-  };
-  const read = (connectorId: string): string[] => {
-    const path = pathOf(connectorId);
-    try {
-      // The base directory is created at startup. Losing access to it is not an empty scope.
-      if (!statSync(directory).isDirectory()) throw new Error('not a directory');
-      let files: string[];
-      try {
-        files = readdirSync(path);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-          if (!statSync(directory).isDirectory()) throw new Error('not a directory');
-          return [];
-        }
-        throw error;
-      }
-      const tools: string[] = [];
-      for (const file of files) {
-        // A crash can leave an unfinished temporary file, which grants nothing.
-        if (file.startsWith('.') && file.endsWith('.tmp')) continue;
-        let contents: string;
-        try {
-          contents = readFileSync(join(path, file), 'utf8');
-        } catch (error) {
-          // Another process may have revoked this one after the directory was read.
-          if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
-          throw error;
-        }
-        if (file === '.scope-version' || /^\.[0-9a-f]{64}\.version$/u.test(file)) {
-          if (!VERSION.test(contents.trim())) throw new Error('invalid version');
-          continue;
-        }
-        const value: unknown = JSON.parse(contents);
-        if (
-          typeof value !== 'object' ||
-          value === null ||
-          Array.isArray(value) ||
-          !validTool((value as Record<string, unknown>)['tool']) ||
-          typeof (value as Record<string, unknown>)['scopeVersion'] !== 'string' ||
-          typeof (value as Record<string, unknown>)['toolVersion'] !== 'string'
-        )
-          throw new Error('invalid tool');
-        const { tool, scopeVersion, toolVersion } = value as {
-          tool: string;
-          scopeVersion: string;
-          toolVersion: string;
-        };
-        if (file !== nameOf(tool)) throw new Error('invalid tool file');
-        if (
-          scopeVersion === readVersion(path, '.scope-version') &&
-          toolVersion === readVersion(path, toolVersionName(tool))
-        )
-          tools.push(tool);
-      }
-      return tools.sort();
-    } catch {
-      throw new ConnectorRefusedError('The case action settings cannot be read');
     }
   };
   return {
@@ -157,55 +121,59 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
         await release();
       }
     },
-    tools: async (connectorId) => read(connectorId),
+    tools: async (connectorId) => read(connectorId).tools,
     version: (connectorId, tool) => {
       if (!validTool(tool)) throw new ConnectorRefusedError('Invalid tool name');
+      const current = read(connectorId);
+      if (current.revision !== '0') return current.revision;
       const path = pathOf(connectorId);
-      return {
-        scope: readVersion(path, '.scope-version'),
-        tool: readVersion(path, toolVersionName(tool)),
-      };
+      const initial = { revision: randomUUID(), tools: [] };
+      try {
+        mkdirSync(path, { mode: 0o700 });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') return read(connectorId).revision;
+        throw new ConnectorRefusedError('The case action settings could not be saved');
+      }
+      try {
+        writeFileSync(join(path, 'scope.json'), `${JSON.stringify(initial)}\n`, {
+          flag: 'wx',
+          mode: 0o600,
+        });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') return read(connectorId).revision;
+        throw new ConnectorRefusedError('The case action settings could not be saved');
+      }
+      return initial.revision;
     },
     set: async (connectorId, tool, allowed, expected) => {
       if (!validTool(tool)) throw new ConnectorRefusedError('Invalid tool name');
-      const path = pathOf(connectorId);
       const current = read(connectorId);
-      if (allowed && current.includes(tool)) return;
-      const target = join(path, nameOf(tool));
-      try {
-        if (allowed) {
-          const scopeVersion = expected?.scope ?? readVersion(path, '.scope-version');
-          const toolVersion = expected?.tool ?? readVersion(path, toolVersionName(tool));
-          writeAtomic(
-            path,
-            nameOf(tool),
-            `${JSON.stringify({ tool, scopeVersion, toolVersion })}\n`,
-          );
-        } else {
-          // Even an absent grant may have an older allow still discovering the service.
-          writeAtomic(path, toolVersionName(tool), `${randomUUID()}\n`);
-          rmSync(target, { force: true });
-        }
-      } catch {
-        throw new ConnectorRefusedError('The case action settings could not be saved');
+      if (allowed && expected !== undefined && expected !== current.revision) {
+        throw new ConnectorRefusedError('Case action settings changed; try again');
       }
+      if (allowed && current.tools.includes(tool)) return current.revision;
+      const tools = new Set(current.tools);
+      if (allowed) tools.add(tool);
+      else tools.delete(tool);
+      if (tools.size > MAX_TOOLS) throw new ConnectorRefusedError('Too many case action tools');
+      // A revoke advances the revision even when the tool is absent, cancelling older allows.
+      const next = { revision: randomUUID(), tools: [...tools].sort() };
+      write(connectorId, next);
+      return allowed ? next.revision : undefined;
     },
     reset: async (connectorId) => {
+      // Replace the whole authority in one rename. A failed write leaves the old file intact.
+      write(connectorId, { revision: randomUUID(), tools: [] });
       const path = pathOf(connectorId);
       try {
-        if (!statSync(directory).isDirectory()) throw new Error('not a directory');
-        // Invalidate old grants and pending allows before removing anything. If cleanup fails or the
-        // process stops, their recorded generation can no longer match this one.
-        writeAtomic(path, '.scope-version', `${randomUUID()}\n`);
         for (const file of readdirSync(path)) {
-          if (file !== '.scope-version') rmSync(join(path, file), { recursive: true, force: true });
+          if (file !== 'scope.json') rmSync(join(path, file), { recursive: true, force: true });
         }
       } catch {
         throw new ConnectorRefusedError('The case action settings could not be reset');
       }
     },
     clear: async (connectorId) => {
-      // Check the base first: an inaccessible directory is not successful cleanup.
       try {
         if (!statSync(directory).isDirectory()) throw new Error('not a directory');
         rmSync(pathOf(connectorId), { recursive: true, force: true });

@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import {
   chmodSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -89,17 +90,26 @@ describe('the owner’s case action scope', () => {
     await expect(scope.set('connector-other', 'x'.repeat(129), true)).rejects.toThrow();
   });
 
-  it('keeps old grants inactive if a process stops after recording a revocation', async () => {
+  it('reports a malformed revision rather than treating the scope as healthy', async () => {
     const root = directory();
     const scope = createCaseActionScope(root);
     await scope.set('connector-mail', 'send', true);
     const stored = join(root, 'connector-mail');
-    const digest = createHash('sha256').update('send').digest('hex');
-    writeFileSync(join(stored, `.${digest}.version`), `${randomUUID()}\n`);
-    expect(await scope.tools('connector-mail')).toEqual([]);
+    const name = readdirSync(stored).find((file) => file.endsWith('.json'))!;
+    writeFileSync(join(stored, name), JSON.stringify({ revision: 'invalid', tools: ['send'] }));
+    await expect(scope.tools('connector-mail')).rejects.toThrow();
+  });
+
+  it('keeps the old state until a revocation is committed, then keeps it revoked', async () => {
+    const root = directory();
+    const scope = createCaseActionScope(root);
     await scope.set('connector-mail', 'send', true);
+    const stored = join(root, 'connector-mail');
     expect(await scope.tools('connector-mail')).toEqual(['send']);
-    writeFileSync(join(stored, '.scope-version'), `${randomUUID()}\n`);
+    const pending = join(stored, '.interrupted.tmp');
+    writeFileSync(pending, JSON.stringify({ revision: randomUUID(), tools: [] }));
+    expect(await scope.tools('connector-mail')).toEqual(['send']);
+    renameSync(pending, join(stored, 'scope.json'));
     expect(await scope.tools('connector-mail')).toEqual([]);
   });
 
@@ -107,7 +117,27 @@ describe('the owner’s case action scope', () => {
     const scope = createCaseActionScope(directory());
     const old = scope.version('connector-mail', 'send');
     await scope.set('connector-mail', 'send', false);
-    await scope.set('connector-mail', 'send', true, old);
+    await expect(scope.set('connector-mail', 'send', true, old)).rejects.toThrow();
+    expect(await scope.tools('connector-mail')).toEqual([]);
+  });
+
+  it('fails closed when an existing scope loses its state file', async () => {
+    const root = directory();
+    const scope = createCaseActionScope(root);
+    await scope.set('connector-mail', 'send', true);
+    rmSync(join(root, 'connector-mail', 'scope.json'));
+    await expect(scope.tools('connector-mail')).rejects.toThrow();
+    expect(() => scope.version('connector-mail', 'send')).toThrow();
+  });
+
+  it('does not reuse an old revision if the entire scope directory disappears', async () => {
+    const root = directory();
+    const scope = createCaseActionScope(root);
+    await scope.set('connector-mail', 'send', true);
+    const old = scope.version('connector-mail', 'send');
+    rmSync(join(root, 'connector-mail'), { recursive: true });
+    expect(scope.version('connector-mail', 'send')).not.toBe(old);
+    await expect(scope.set('connector-mail', 'send', true, old)).rejects.toThrow();
     expect(await scope.tools('connector-mail')).toEqual([]);
   });
 
@@ -166,7 +196,7 @@ describe('the owner’s case action scope', () => {
         chmodSync(stuck, 0o700);
       }
       rmSync(stuck, { recursive: true, force: true });
-      expect(scope.version('connector-mail', 'send').scope).not.toBe(before.scope);
+      expect(scope.version('connector-mail', 'send')).not.toBe(before);
       expect(await scope.tools('connector-mail')).toEqual([]);
     },
   );
@@ -179,7 +209,7 @@ describe('the owner’s case action scope', () => {
       import { createCaseActionScope } from ${JSON.stringify(moduleUrl)};
       const scope = createCaseActionScope(${JSON.stringify(root)});
       process.on('message', async ({ tool, allowed }) => {
-        try { await scope.set('connector-mail', tool, allowed); process.send({ ok: true }); }
+        try { await scope.exclusive(() => scope.set('connector-mail', tool, allowed)); process.send({ ok: true }); }
         catch (error) { process.send({ error: String(error) }); }
       });
       process.send({ ready: true });
