@@ -116,9 +116,11 @@ describe('case connector authority', () => {
       cases: harness.capabilities.cases,
       connectors: book,
       scope,
+      writes: createCaseActionScope(join(harness.stateDir, 'cases')),
     };
     const bindings = createCaseConnectorBindings(options);
-    const authority = () => scope.exclusive(() => bindings.authorityLocked(opened.id));
+    const authority = async () =>
+      (await bindings.withAuthority(opened.id, (value) => ({ value }))).value;
     const initial = (await bindings.get(opened.id))!;
     expect(await authority()).toBeUndefined();
     const selected = (await bindings.set(opened.id, connector.id, initial.revision))!;
@@ -134,7 +136,9 @@ describe('case connector authority', () => {
     const reselected = (await authority())!;
     expect(reselected.generation).not.toBe(first.generation);
     const restarted = createCaseConnectorBindings(options);
-    expect(await scope.exclusive(() => restarted.authorityLocked(opened.id))).toEqual(reselected);
+    expect((await restarted.withAuthority(opened.id, (value) => ({ value }))).value).toEqual(
+      reselected,
+    );
     await harness.capabilities.cases.close(opened.id, 'Settled.');
     expect(await authority()).toBeUndefined();
   });
@@ -159,11 +163,13 @@ describe('case connector authority', () => {
       cases: harness.capabilities.cases,
       connectors: book,
       scope,
+      writes: createCaseActionScope(join(harness.stateDir, 'cases')),
     });
     const path = join(directory, `${opened.id}.json`);
     const revision = '00000000-0000-4000-8000-000000000001';
     writeFileSync(path, JSON.stringify({ revision, connectorId: connector.id }));
-    const authority = () => scope.exclusive(() => bindings.authorityLocked(opened.id));
+    const authority = async () =>
+      (await bindings.withAuthority(opened.id, (value) => ({ value }))).value;
     expect(await authority()).toEqual({ connectorId: connector.id, generation: revision });
     await bindings.fence(opened.id, revision);
     expect(await authority()).toEqual({ connectorId: connector.id, generation: revision });
@@ -177,6 +183,111 @@ describe('case connector authority', () => {
     );
     await expect(authority()).rejects.toThrow(/cannot be read/u);
     expect((await bindings.get(opened.id))?.error).toBe(true);
+  });
+
+  it('orders authority use and case closure across agent instances', async () => {
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    const book = new ConnectorBook({
+      store: createFileConnectorStore(join(harness.stateDir, 'connectors')),
+    });
+    const connector = await book.create({
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'mcp',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'none',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const bindings = createCaseConnectorBindings({
+      directory: join(harness.stateDir, 'case-connector-bindings'),
+      cases: harness.capabilities.cases,
+      connectors: book,
+      scope: createCaseActionScope(join(harness.stateDir, 'case-action-scope')),
+      writes: createCaseActionScope(join(harness.stateDir, 'cases')),
+    });
+    const initial = (await bindings.get(opened.id))!;
+    await bindings.set(opened.id, connector.id, initial.revision);
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const get = book.get.bind(book);
+    const spy = vi.spyOn(book, 'get').mockImplementation(async (id) => {
+      entered();
+      await gate;
+      return get(id);
+    });
+    const using = bindings.withAuthority(opened.id, (value) => ({ value }));
+    let closing: Promise<ICase> | undefined;
+    try {
+      await waiting;
+      closing = other.capabilities.cases.close(opened.id, 'Settled.');
+      const closedEarly = await Promise.race([
+        closing.then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+      ]);
+      expect(closedEarly).toBe(false);
+      release();
+      expect((await using).value?.connectorId).toBe(connector.id);
+      await closing;
+      expect(
+        (await bindings.withAuthority(opened.id, (value) => ({ value }))).value,
+      ).toBeUndefined();
+    } finally {
+      release();
+      await Promise.allSettled([using, ...(closing === undefined ? [] : [closing])]);
+      spy.mockRestore();
+      await other.close();
+    }
+  });
+
+  it('releases case and settings locks while an admitted operation awaits its result', async () => {
+    harness = await startHarness();
+    const book = new ConnectorBook({
+      store: createFileConnectorStore(join(harness.stateDir, 'connectors')),
+    });
+    const connector = await book.create({
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'mcp',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'none',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const bindings = createCaseConnectorBindings({
+      directory: join(harness.stateDir, 'case-connector-bindings'),
+      cases: harness.capabilities.cases,
+      connectors: book,
+      scope: createCaseActionScope(join(harness.stateDir, 'case-action-scope')),
+      writes: createCaseActionScope(join(harness.stateDir, 'cases')),
+    });
+    const initial = (await bindings.get(opened.id))!;
+    await bindings.set(opened.id, connector.id, initial.revision);
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    try {
+      const started = await bindings.withAuthority(opened.id, (authority) => {
+        expect(authority?.connectorId).toBe(connector.id);
+        return { value: response };
+      });
+      const closing = harness.capabilities.cases.close(opened.id, 'Settled.');
+      const closed = await Promise.race([
+        closing.then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 1_000)),
+      ]);
+      expect(closed).toBe(true);
+      finish();
+      await started.value;
+    } finally {
+      finish();
+    }
   });
 });
 

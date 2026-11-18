@@ -24,6 +24,11 @@ export interface ICaseConnectorBinding {
   readonly error?: true;
 }
 
+export interface ICaseConnectorAuthority {
+  readonly connectorId: string;
+  readonly generation: string;
+}
+
 export interface ICaseConnectorBindings {
   get(caseId: string): Promise<ICaseConnectorBinding | undefined>;
   set(
@@ -32,10 +37,11 @@ export interface ICaseConnectorBindings {
     revision: string,
   ): Promise<ICaseConnectorBinding | undefined>;
   fence(caseId: string, revision: string): Promise<ICaseConnectorBinding | undefined>;
-  /** Read owner-confirmed authority while the caller holds the shared settings lock. */
-  authorityLocked(
+  /** Check and begin an authority use under the locks; return any later work inside the value. */
+  withAuthority<T>(
     caseId: string,
-  ): Promise<{ readonly connectorId: string; readonly generation: string } | undefined>;
+    work: (authority: ICaseConnectorAuthority | undefined) => { readonly value: T },
+  ): Promise<{ readonly value: T }>;
   /** Clear a case on closure while the caller holds the shared settings lock. */
   closeLocked(caseId: string): Promise<void>;
   /** Revoke references before a connector record is removed; caller holds the shared lock. */
@@ -68,6 +74,8 @@ export function createCaseConnectorBindings(options: {
   readonly connectors: ConnectorBook;
   /** The same filesystem-backed lock that protects connector scope changes and removals. */
   readonly scope: ICaseActionScope;
+  /** The lock that protects case writes, including closure in another process. */
+  readonly writes: ICaseActionScope;
 }): ICaseConnectorBindings {
   mkdirSync(options.directory, { recursive: true, mode: 0o700 });
   const pathOf = (caseId: string): string => {
@@ -203,17 +211,20 @@ export function createCaseConnectorBindings(options: {
     }
   };
   return {
-    authorityLocked: async (caseId) => {
-      if ((await options.cases.get(caseId))?.state !== 'open' || hasRecovery(caseId))
-        return undefined;
-      const current = read(caseId);
-      if (
-        current?.connectorId === undefined ||
-        (await options.connectors.get(current.connectorId)) === undefined
-      )
-        return undefined;
-      return { connectorId: current.connectorId, generation: current.generation };
-    },
+    withAuthority: (caseId, work) =>
+      options.scope.exclusive(() =>
+        options.writes.exclusive(async () => {
+          if ((await options.cases.get(caseId))?.state !== 'open' || hasRecovery(caseId))
+            return work(undefined);
+          const current = read(caseId);
+          if (
+            current?.connectorId === undefined ||
+            (await options.connectors.get(current.connectorId)) === undefined
+          )
+            return work(undefined);
+          return work({ connectorId: current.connectorId, generation: current.generation });
+        }),
+      ),
     get: (caseId) =>
       options.scope.exclusive(async () => {
         const found = await options.cases.get(caseId);
