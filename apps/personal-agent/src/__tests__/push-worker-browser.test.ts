@@ -5,11 +5,12 @@
  * before it shows a notification and its push service is a third party; what the worker does with a message
  * is checked in the page's own tests, against the same code.
  */
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+import { chromium as playwrightChromium } from 'playwright';
 
 import { resolveGuiRoot } from '../gui-server.js';
 import { findChromium } from './browser-driver.js';
@@ -17,7 +18,15 @@ import { startHarness } from './harness.js';
 
 import type { IHarness } from './harness.js';
 
-const chromium = findChromium();
+const systemChromium = process.env['CHROME_BIN'] ?? '/usr/bin/google-chrome';
+const chromium =
+  findChromium() ??
+  (existsSync(systemChromium)
+    ? {
+        launch: (args: readonly string[] = []) =>
+          playwrightChromium.launch({ executablePath: systemChromium, args: [...args] }),
+      }
+    : undefined);
 /** Runs in the page; passed as a function because the page's CSP refuses evaluated strings. */
 const bodyIncludes = (text: string): boolean => document.body.innerText.includes(text);
 
