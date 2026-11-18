@@ -36,6 +36,7 @@ import { createFixtureWebRoot, startHarness } from './harness.js';
 
 import type { IAskInput, ICase } from '@robota-sdk/agent-product/personal';
 import type { IPersonalApiOptions } from '../personal-api.js';
+import type { ICaseActionSnapshot } from '../case-action.js';
 import type { IHarness } from './harness.js';
 
 const dirs: string[] = [];
@@ -713,13 +714,17 @@ describe('answering a question over the personal API', () => {
 });
 
 describe('the seam an answer leaves for what continues the case', () => {
-  function apiWith(onCaseAnswered: (answered: ICase) => void) {
+  function apiWith(
+    onCaseAnswered: (answered: ICase, snapshot?: ICaseActionSnapshot) => void,
+    captureCaseAction?: IPersonalApiOptions['captureCaseAction'],
+  ) {
     const goals = new GoalBook({ store: createMemoryGoalStore() });
     const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
     const api = createPersonalApi({
       goals,
       cases,
       onCaseAnswered,
+      captureCaseAction,
     } as unknown as IPersonalApiOptions);
     const answer = (id: string, body: unknown) =>
       api({
@@ -754,6 +759,57 @@ describe('the seam an answer leaves for what continues the case', () => {
     const { case: opened } = await cases.open(SIGN_IN);
     const { item } = await cases.ask(opened.id, { question: 'Sure?', options: ['Yes'] });
     expect((await answer(item.id, { choice: 'Yes' })).status).toBe(200);
+    expect((await cases.get(opened.id))?.history.at(-1)?.kind).toBe('answered');
+  });
+
+  it('captures authority before accepting the answer and passes it only for that answer', async () => {
+    const seen: (ICaseActionSnapshot | undefined)[] = [];
+    let capturedWhileWaiting = false;
+    const { cases, answer } = apiWith(
+      (_answered, snapshot) => seen.push(snapshot),
+      async (caseId, feedItemId) => {
+        capturedWhileWaiting = (await cases.get(caseId))?.question?.feedItemId === feedItemId;
+        return {
+          caseId,
+          feedItemId,
+          connectorId: 'connector-mail',
+          bindingGeneration: 'binding',
+          scopeGeneration: 'scope',
+          tools: ['send'],
+        };
+      },
+    );
+    const { case: opened } = await cases.open(SIGN_IN);
+    const { item } = await cases.ask(opened.id, { question: 'Sure?', options: ['Yes'] });
+    expect((await answer(item.id, { choice: 'Yes' })).status).toBe(200);
+    expect(capturedWhileWaiting).toBe(true);
+    expect(seen).toEqual([expect.objectContaining({ caseId: opened.id, feedItemId: item.id })]);
+  });
+
+  it('records the answer without authority if its capture is unavailable or too slow', async () => {
+    const seen: (ICaseActionSnapshot | undefined)[] = [];
+    let finish!: (snapshot: ICaseActionSnapshot) => void;
+    const late = new Promise<ICaseActionSnapshot>((resolve) => {
+      finish = resolve;
+    });
+    const { cases, answer } = apiWith(
+      (_answered, snapshot) => seen.push(snapshot),
+      async () => late,
+    );
+    const { case: opened } = await cases.open(SIGN_IN);
+    const { item } = await cases.ask(opened.id, { question: 'Sure?', options: ['Yes'] });
+    expect((await answer(item.id, { choice: 'Yes' })).status).toBe(200);
+    expect(seen).toEqual([undefined]);
+    finish({
+      caseId: opened.id,
+      feedItemId: item.id,
+      connectorId: 'connector-mail',
+      bindingGeneration: 'later',
+      scopeGeneration: 'later',
+      tools: ['send'],
+    });
+    await Promise.resolve();
+    expect(seen).toEqual([undefined]);
     expect((await cases.get(opened.id))?.history.at(-1)?.kind).toBe('answered');
   });
 });

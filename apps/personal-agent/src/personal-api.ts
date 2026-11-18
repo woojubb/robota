@@ -48,6 +48,7 @@ import type { IProviderProfile } from './config.js';
 import type { ICaseConnectorBindings } from './case-connector-binding.js';
 import type { TConnectorsApi } from './connectors/connectors-api.js';
 import type { TPushApi } from './push/push-api.js';
+import type { ICaseActionSnapshot } from './case-action.js';
 
 export interface IPersonalApiOptions {
   readonly wiki: KnowledgeWiki;
@@ -66,7 +67,12 @@ export interface IPersonalApiOptions {
    * Called with a case once the person's answer is recorded on it. It must not wait for work: an
    * answer is already recorded when this runs, and an error from it never undoes or fails the answer.
    */
-  readonly onCaseAnswered: (answered: ICase) => void;
+  readonly onCaseAnswered: (answered: ICase, snapshot?: ICaseActionSnapshot) => void;
+  /** Capture existing authority before accepting the answer; an unavailable snapshot means read-only. */
+  readonly captureCaseAction?: (
+    caseId: string,
+    feedItemId: string,
+  ) => Promise<ICaseActionSnapshot | undefined>;
   readonly ideas: IdeaBook;
   readonly spaces: SpaceBook;
   readonly sideChats: ISideChatBook;
@@ -341,13 +347,31 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
           throw new BadRequest('choice must be a string');
         if (reply !== undefined && typeof reply !== 'string')
           throw new BadRequest('reply must be a string');
-        if ((await goals.feedItem(collection)) === undefined) return fail(404, 'no such feed item');
+        const item = await goals.feedItem(collection);
+        if (item === undefined) return fail(404, 'no such feed item');
+        let snapshot: ICaseActionSnapshot | undefined;
+        if (item.question?.state === 'open' && options.captureCaseAction !== undefined) {
+          let cancelTimeout = (): void => undefined;
+          try {
+            snapshot = await Promise.race([
+              options.captureCaseAction(item.question.caseId, collection),
+              new Promise<undefined>((resolve) => {
+                const timer = setTimeout(resolve, 1_000);
+                cancelTimeout = () => clearTimeout(timer);
+              }),
+            ]);
+          } catch {
+            // An unavailable authority snapshot leaves this answer read-only.
+          } finally {
+            cancelTimeout();
+          }
+        }
         const answered = await cases.answer(collection, {
           ...(choice !== undefined && { choice }),
           ...(reply !== undefined && { reply }),
         });
         try {
-          options.onCaseAnswered(answered.case);
+          options.onCaseAnswered(answered.case, snapshot);
         } catch {
           // allow-fallback: the answer is recorded; whatever follows it cannot fail the person's answer.
         }

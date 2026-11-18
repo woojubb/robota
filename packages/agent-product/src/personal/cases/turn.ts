@@ -62,7 +62,10 @@ function latestExchange(history: readonly ICaseEvent[]):
  * come after the label that says so, and the directions come after them; only the case id and the
  * person's own answer stand before it.
  */
-export function caseTurnInstructions(found: ICase): string {
+export function caseTurnInstructions(
+  found: ICase,
+  options: { readonly allowApprovedActions?: boolean } = {},
+): string {
   const exchange = latestExchange(found.history);
   if (exchange === undefined)
     return `The case (case id ${found.id}) has no answer from the person to act on. Say so in one line and do nothing else.`;
@@ -84,7 +87,9 @@ export function caseTurnInstructions(found: ICase): string {
     'Record what the answer means with CaseNote, using this case id.',
     'Then ask exactly one follow-up question with CaseAsk when something still needs the person, or close the case with CaseClose and a one-sentence resolution when it is settled.',
     'Use at most a few reads of the connector or the library to check something related, and only when the answer calls for it.',
-    'You cannot change anything at a service and must not try; you can only change your own notes.',
+    options.allowApprovedActions === true
+      ? 'For this answer you may propose only a scoped ConnectorAct call when the person asked for it. Each call waits for the person to approve its complete details.'
+      : 'You cannot change anything at a service and must not try; you can only change your own notes.',
     'End with one plain sentence telling the person what you decided.',
   ].join('\n');
 }

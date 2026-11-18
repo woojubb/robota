@@ -562,6 +562,45 @@ async function pieces() {
 }
 
 describe('how a case turn is started and run', () => {
+  it('uses only the matching answer snapshot once, and a restarted turn stays read-only', async () => {
+    const goals = new GoalBook({ store: createMemoryGoalStore() });
+    const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
+    const tool = createConnectorTools({} as ConnectorRegistry).find(
+      (candidate) => candidate.getName() === CONNECTOR_TOOL_NAMES.act,
+    )!;
+    const turns = createCaseTurns({
+      goals,
+      cases,
+      makeAction: () => ({ tool, approved: () => undefined }),
+    });
+    const { case: opened } = await cases.open(SIGN_IN);
+    const { item } = await cases.ask(opened.id, QUESTION);
+    const answered = (await cases.answer(item.id, { choice: 'No' })).case;
+    const snapshot = {
+      caseId: opened.id,
+      feedItemId: item.id,
+      connectorId: 'connector-mail',
+      bindingGeneration: 'binding',
+      scopeGeneration: 'scope',
+      tools: ['send'],
+    };
+    turns.remember(answered, { ...snapshot, feedItemId: 'different-answer' });
+    await turns.onAnswered(answered);
+    const goal = (await goals.list()).find((candidate) => candidate.caseId === opened.id)!;
+    expect((await turns.shape(goal))?.onlyTools).toEqual(caseTurnTools());
+    turns.remember(answered, snapshot);
+    const acting = await turns.shape(goal);
+    expect(acting?.onlyTools).toContain(CONNECTOR_TOOL_NAMES.act);
+    expect(acting?.instructions).toContain('Each call waits for the person to approve');
+    expect((await turns.shape(goal))?.onlyTools).toEqual(caseTurnTools());
+    const restarted = createCaseTurns({
+      goals,
+      cases,
+      makeAction: () => ({ tool, approved: () => undefined }),
+    });
+    expect((await restarted.shape(goal))?.onlyTools).toEqual(caseTurnTools());
+  });
+
   it('keeps the case action replacement inside its session and still asks for approval', async () => {
     harness = await startHarness();
     const original = harness.capabilities.tools.find(

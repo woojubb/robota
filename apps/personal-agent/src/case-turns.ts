@@ -10,12 +10,17 @@ import {
   caseTurnInstructions,
   caseTurnPrompt,
   caseTurnTools,
+  CONNECTOR_TOOL_NAMES,
 } from '@robota-sdk/agent-product/personal';
 
 import type { CaseBook, GoalBook, ICase, IGoal } from '@robota-sdk/agent-product/personal';
 import type { IGoalShape } from './goal-runner.js';
+import type { ICaseAction } from './goal-runner.js';
+import type { ICaseActionSnapshot } from './case-action.js';
 
 export interface ICaseTurns {
+  /** Keep only the authority captured for the answer that was actually accepted. */
+  remember(answered: ICase, snapshot: ICaseActionSnapshot | undefined): void;
   /** Make the case's goal due: one goal for each case, created by its first answer and run again by each later one. */
   onAnswered(answered: ICase): Promise<void>;
   shape(goal: IGoal): Promise<IGoalShape | undefined>;
@@ -32,9 +37,11 @@ export interface ICaseTurns {
 export function createCaseTurns(options: {
   readonly goals: GoalBook;
   readonly cases: CaseBook;
+  readonly makeAction?: (snapshot: ICaseActionSnapshot) => ICaseAction;
 }): ICaseTurns {
   /** How many events a case had when its turn began, to tell what the turn left and what came during it. */
   const atStart = new Map<string, number>();
+  const answers = new Map<string, ICaseActionSnapshot>();
 
   async function onAnswered(answered: ICase): Promise<void> {
     const existing = (await options.goals.list()).find((goal) => goal.caseId === answered.id);
@@ -58,6 +65,15 @@ export function createCaseTurns(options: {
   }
 
   return {
+    remember(answered, snapshot) {
+      const feedId = answered.lastAnsweredFeedItemId;
+      if (feedId === undefined) return;
+      answers.delete(feedId);
+      if (snapshot?.caseId === answered.id && snapshot.feedItemId === feedId) {
+        answers.set(feedId, snapshot);
+        if (answers.size > 1_000) answers.delete(answers.keys().next().value!);
+      }
+    },
     onAnswered,
 
     async shape(goal) {
@@ -65,6 +81,11 @@ export function createCaseTurns(options: {
       // Read when the turn begins, not when the answer came: the case may have moved on since.
       const found = await options.cases.get(goal.caseId);
       if (found !== undefined) atStart.set(goal.id, found.history.length);
+      const snapshot =
+        found?.lastAnsweredFeedItemId === undefined
+          ? undefined
+          : answers.get(found.lastAnsweredFeedItemId);
+      if (found?.lastAnsweredFeedItemId !== undefined) answers.delete(found.lastAnsweredFeedItemId);
       if (found === undefined || found.state === 'closed') {
         return {
           instructions:
@@ -77,6 +98,13 @@ export function createCaseTurns(options: {
           instructions:
             "The case is still waiting for the person's answer. Say so in one line and do nothing else.",
           onlyTools: [],
+        };
+      }
+      if (snapshot !== undefined && options.makeAction !== undefined) {
+        return {
+          instructions: caseTurnInstructions(found, { allowApprovedActions: true }),
+          onlyTools: [...caseTurnTools(), CONNECTOR_TOOL_NAMES.act],
+          caseAction: options.makeAction(snapshot),
         };
       }
       return { instructions: caseTurnInstructions(found), onlyTools: caseTurnTools() };
