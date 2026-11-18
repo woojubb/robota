@@ -52,6 +52,7 @@ import { createConnectorCatalog } from './connectors/catalog.js';
 import { createConnectorsApi } from './connectors/connectors-api.js';
 import { createMcpConnectorProtocol } from './connectors/mcp-protocol.js';
 import { createSyncRuns } from './connectors/sync-runs.js';
+import { createCaseConnectorBindings } from './case-connector-binding.js';
 import { createLayoutBook } from './layout.js';
 import { createNotificationTransport } from './notification-transport.js';
 import { createPushApi } from './push/push-api.js';
@@ -291,6 +292,12 @@ export function createPersonalCapabilities(
     // Not waited for, and it cannot fail the ask: the question is in the feed already.
     onAsked: (event) => delivery.onAsked(event),
   });
+  const caseBindings = createCaseConnectorBindings({
+    directory: join(options.stateDir, 'case-connector-bindings'),
+    cases,
+    connectors: connectorBook,
+    scope: caseActions,
+  });
   const syncRuns = createSyncRuns({
     book: connectorBook,
     registry: connectors,
@@ -347,6 +354,7 @@ export function createPersonalCapabilities(
       wiki,
       goals,
       cases,
+      caseBindings,
       delivery,
       notificationAddress,
       notifications,

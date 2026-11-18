@@ -45,6 +45,7 @@ import type { ILayoutBook } from './layout.js';
 import type { ISideChatBook } from './side-chats.js';
 import type { IGoalRunner } from './goal-runner.js';
 import type { IProviderProfile } from './config.js';
+import type { ICaseConnectorBindings } from './case-connector-binding.js';
 import type { TConnectorsApi } from './connectors/connectors-api.js';
 import type { TPushApi } from './push/push-api.js';
 
@@ -52,6 +53,7 @@ export interface IPersonalApiOptions {
   readonly wiki: KnowledgeWiki;
   readonly goals: GoalBook;
   readonly cases: CaseBook;
+  readonly caseBindings: ICaseConnectorBindings;
   /** The person's delivery limits: only their own request, through the routes here, reads or changes them. */
   readonly delivery: QuestionDelivery;
   /** The person's notification address: the page sets, clears and tests it, and never reads it back. */
@@ -358,6 +360,28 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
     if (area === 'cases' && collection !== undefined && id === undefined && method === 'GET') {
       const found = await cases.get(collection);
       return found === undefined ? fail(404, 'no such case') : ok({ case: found });
+    }
+    if (area === 'cases' && collection !== undefined && id === 'connector') {
+      if (method === 'GET') {
+        const binding = await options.caseBindings.get(collection);
+        return binding === undefined ? fail(404, 'no such case') : ok({ binding });
+      }
+      if (method === 'POST') {
+        const body = record(request.body);
+        const revision = text(body, 'revision')!;
+        const connector = body['connectorId'];
+        const fence = body['fence'];
+        if (fence === true && connector !== undefined) throw new BadRequest('choose one change');
+        if (fence !== undefined && fence !== true) throw new BadRequest('fence must be true');
+        if (fence !== true && connector !== null && typeof connector !== 'string') {
+          throw new BadRequest('connectorId must be a connector id or null');
+        }
+        const binding =
+          fence === true
+            ? await options.caseBindings.fence(collection, revision)
+            : await options.caseBindings.set(collection, connector as string | null, revision);
+        return binding === undefined ? fail(404, 'no such case') : ok({ binding });
+      }
     }
 
     if (area === 'delivery' && collection === undefined) {

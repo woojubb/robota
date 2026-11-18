@@ -3,7 +3,7 @@
  * person a question that shows in the feed, and the person's answer is recorded over the HTTP API.
  * The turn the agent takes on an answered case is in `case-turns.test.ts`.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -159,6 +159,94 @@ describe('a read-only goal run', () => {
     ]);
     expect(await harness.capabilities.cases.list()).toHaveLength(1);
     expect(await harness.capabilities.ideas.list()).toEqual([]);
+  });
+});
+
+describe('the person chooses a case connector', () => {
+  it('keeps model-supplied origins untrusted and serializes explicit owner choices', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    const first = await api.send('POST', 'connectors', {
+      title: 'Work notes',
+      kind: 'notes',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'token',
+    });
+    const second = await api.send('POST', 'connectors', {
+      title: 'Personal notes',
+      kind: 'notes',
+      endpoint: 'https://other.example/mcp',
+      auth: 'token',
+    });
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    const { case: opened } = await harness.capabilities.cases.open({
+      ...SIGN_IN,
+      connectorId: first.body.connector.id,
+    });
+    const path = `cases/${opened.id}/connector`;
+    const initial = (await api.get(path)).body.binding;
+    expect(initial.connectorId).toBeUndefined();
+    const wanted = { connectorId: first.body.connector.id, revision: initial.revision };
+    expect((await api.send('POST', path, wanted, { cookie: false })).status).toBe(403);
+    expect((await api.send('POST', path, wanted, { write: false })).status).toBe(403);
+    const [a, b] = await Promise.all([
+      api.send('POST', path, wanted),
+      api.send('POST', path, { connectorId: second.body.connector.id, revision: initial.revision }),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([200, 400]);
+    const stored = (await api.get(path)).body.binding;
+    expect([first.body.connector.id, second.body.connector.id]).toContain(stored.connectorId);
+    expect(
+      (await api.send('POST', path, { fence: true, revision: initial.revision })).body.binding,
+    ).toEqual(stored);
+    expect(
+      (await api.send('POST', path, { connectorId: null, revision: initial.revision })).status,
+    ).toBe(400);
+    const removed = await api.send('POST', path, { connectorId: null, revision: stored.revision });
+    expect(removed.status).toBe(200);
+    expect(removed.body.binding.connectorId).toBeUndefined();
+    expect((await api.send('POST', path, wanted)).status).toBe(400);
+    expect(
+      (
+        await api.send('POST', path, {
+          connectorId: 'connector-missing',
+          revision: removed.body.binding.revision,
+        })
+      ).status,
+    ).toBe(400);
+    const file = join(harness.stateDir, 'case-connector-bindings', `${opened.id}.json`);
+    expect(statSync(file).mode & 0o077).toBe(0);
+    expect(readFileSync(file, 'utf8')).not.toContain(SIGN_IN.noticed);
+    expect(harness.capabilities.tools.map((tool) => tool.getName())).not.toContain('CaseConnector');
+  });
+
+  it('fails closed on damaged settings and makes an old recovery token unusable after repair', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const path = `cases/${opened.id}/connector`;
+    await api.get(path);
+    const file = join(harness.stateDir, 'case-connector-bindings', `${opened.id}.json`);
+    writeFileSync(file, '{bad');
+    const broken = (await api.get(path)).body.binding;
+    expect(broken.error).toBe(true);
+    expect(broken.connectorId).toBeUndefined();
+    expect(
+      (await api.send('POST', path, { connectorId: 'connector-mail-1', revision: broken.revision }))
+        .status,
+    ).toBe(400);
+    const reset = await api.send('POST', path, { connectorId: null, revision: broken.revision });
+    expect(reset.status).toBe(200);
+    writeFileSync(file, '{bad');
+    const brokenAgain = (await api.get(path)).body.binding;
+    expect(brokenAgain.revision).not.toBe(broken.revision);
+    expect(
+      (await api.send('POST', path, { connectorId: null, revision: broken.revision })).status,
+    ).toBe(400);
+    expect(
+      (await api.send('POST', path, { fence: true, revision: broken.revision })).body.binding,
+    ).toEqual(brokenAgain);
   });
 });
 
@@ -347,11 +435,34 @@ describe('a restart in the middle of a case', () => {
     const first = await startHarness({ stateDir, gui: true, webRoot: createFixtureWebRoot() });
     const { opened, item } = await ask(first);
     await first.capabilities.cases.note(opened.id, 'Looked at the address.');
+    const before = (method: string, segments: string[], body?: unknown) =>
+      first.capabilities.api({
+        method,
+        path: `/${segments.join('/')}`,
+        segments,
+        query: new URLSearchParams(),
+        body,
+      });
+    const connector = await before('POST', ['connectors'], {
+      title: 'Notes',
+      kind: 'notes',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'token',
+    });
+    const binding = (await before('GET', ['cases', opened.id, 'connector'])).body as any;
+    const selected = await before('POST', ['cases', opened.id, 'connector'], {
+      connectorId: (connector.body as any).connector.id,
+      revision: binding.binding.revision,
+    });
+    expect(selected.status).toBe(200);
     await first.close();
 
     harness = await startHarness({ stateDir, gui: true, webRoot: createFixtureWebRoot() });
     const api = await client(harness);
     const read = (await api.get(`cases/${opened.id}`)).body.case as ICase;
+    expect((await api.get(`cases/${opened.id}/connector`)).body.binding).toEqual(
+      (selected.body as any).binding,
+    );
     expect(read.question?.feedItemId).toBe(item.id);
     expect(read.history.map((event) => event.kind)).toEqual(['observed', 'asked', 'noted']);
     const open = (await api.get('feed')).body.items.find((entry: any) => entry.id === item.id);
