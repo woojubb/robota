@@ -23,6 +23,7 @@ import { createHttpTransport } from '@robota-sdk/agent-transport/http';
 import { WsTransport } from '@robota-sdk/agent-transport/ws';
 
 import { createPersonalAgent } from './agent.js';
+import { boundGuiPort, loadGuiPort, saveGuiPort } from './gui-port.js';
 import { startLoopbackGuiServer } from '@robota-sdk/agent-local-host';
 
 import { GUI_LABELS, guiHeadHtml, resolveGuiRoot } from './gui-server.js';
@@ -59,7 +60,7 @@ export interface ILocalModeOptions {
   readonly wsPort?: number;
   /**
    * A fixed loopback port for the web UI, so an address registered in advance (a sign-in's redirect
-   * with a service that requires one) stays valid across restarts; omitted lets the system choose.
+   * with a service that requires one) stays valid across restarts; omitted reuses the last port.
    */
   readonly guiPort?: number;
   /**
@@ -115,8 +116,59 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
   let httpUrl: string;
   const httpToken = randomBytes(32).toString('base64url');
   let gui: ILoopbackGuiServer | undefined;
+  let pageHeadHtml: string | undefined;
+  let pendingGuiPort: { port: number; replace: boolean } | undefined;
   let primary: InteractiveSession;
   try {
+    if (options.gui !== false) {
+      const webRoot = options.webRoot ?? resolveGuiRoot();
+      if (webRoot === undefined)
+        throw new Error(
+          'The web UI is not built: run `pnpm --filter @robota-sdk/personal-gui-web build`',
+        );
+      const remembered = options.server === undefined ? loadGuiPort(options.stateDir) : undefined;
+      const port = options.server?.guiPort ?? options.guiPort ?? remembered ?? 0;
+      let started: ILoopbackGuiServer;
+      try {
+        started = await startLoopbackGuiServer({
+          webRoot,
+          headHtml: () => pageHeadHtml,
+          labels: GUI_LABELS,
+          port,
+          ...(options.server !== undefined && {
+            publicOrigin: options.server.publicOrigin,
+            accessCode: options.server.accessCode,
+          }),
+          ...(options.api !== undefined && { api: options.api }),
+          ...(options.landing !== undefined && { landing: options.landing }),
+        });
+      } catch (error) {
+        if (
+          port !== 0 &&
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          error.code === 'EADDRINUSE'
+        ) {
+          throw new Error(
+            `GUI port ${port} is in use. Stop the other process or choose --gui-port.`,
+            { cause: error },
+          );
+        }
+        throw error;
+      }
+      gui = started;
+      cleanups.push(() => started.close());
+      if (options.server === undefined) {
+        const actualPort = boundGuiPort(port, started.url);
+        if (remembered !== actualPort) {
+          pendingGuiPort = {
+            port: actualPort,
+            replace: remembered !== undefined && options.guiPort !== undefined,
+          };
+        }
+      }
+    }
     const store = agent.runtime.sessionStore;
     if (store === undefined) throw new Error('The personal agent keeps no session store');
     // Each connected page gets its own place in the pool: its chat list, new chats and switches.
@@ -206,29 +258,12 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
     );
     httpUrl = `http://${LOOPBACK}:${(httpServer.address() as AddressInfo).port}`;
 
-    if (options.gui !== false) {
-      const webRoot = options.webRoot ?? resolveGuiRoot();
-      if (webRoot === undefined)
-        throw new Error(
-          'The web UI is not built: run `pnpm --filter @robota-sdk/personal-gui-web build`',
-        );
-      const started = await startLoopbackGuiServer({
-        webRoot,
-        headHtml: guiHeadHtml(pageWsUrl),
-        labels: GUI_LABELS,
-        ...(options.server !== undefined && {
-          publicOrigin: options.server.publicOrigin,
-          port: options.server.guiPort,
-          accessCode: options.server.accessCode,
-        }),
-        ...(options.server === undefined &&
-          options.guiPort !== undefined && { port: options.guiPort }),
-        ...(options.api !== undefined && { api: options.api }),
-        ...(options.landing !== undefined && { landing: options.landing }),
-      });
-      gui = started;
-      cleanups.push(() => started.close());
+    if (pendingGuiPort !== undefined) {
+      const kept = saveGuiPort(options.stateDir, pendingGuiPort.port, pendingGuiPort.replace);
+      if (kept !== pendingGuiPort.port)
+        throw new Error('Another agent selected a GUI port; start again');
     }
+    pageHeadHtml = guiHeadHtml(pageWsUrl);
   } catch (error) {
     await unwind();
     throw error;

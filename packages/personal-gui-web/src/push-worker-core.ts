@@ -3,10 +3,9 @@
  * page is closed, and brings the page forward when the person clicks it. It caches nothing and answers no
  * request, so it listens for these two events only.
  *
- * Its scope is the folder it is served from. The local server serves the page under a random path it
- * picks at each start, and the built worker sits beside the page's index, so the worker's scope is exactly
- * that path: it covers the page with no `Service-Worker-Allowed` header and reaches nothing else on the
- * origin. What it shows is plain text: a notification body is never markup.
+ * Its registration has a stable scope separate from the page's per-launch path. A click can return to
+ * an authenticated page or open the access-code page, even when the old page path no longer exists.
+ * What it shows is plain text: a notification body is never markup.
  *
  * The handlers are installed on a scope given to them, so a test can stand in for the worker's global.
  */
@@ -26,6 +25,7 @@ export interface IClickEvent {
 export interface IWindowClient {
   readonly url: string;
   focus(): Promise<unknown>;
+  postMessage(message: unknown, transfer: Transferable[]): void;
 }
 
 /**
@@ -33,6 +33,7 @@ export interface IWindowClient {
  * and the worker's scope is not one.
  */
 export interface IWorkerScope {
+  fetch(url: string, init: RequestInit): Promise<{ readonly ok: boolean }>;
   readonly registration: {
     readonly scope: string;
     showNotification(
@@ -58,6 +59,9 @@ const TAG_LIMIT = 64;
 const RAW_LIMIT = 4000;
 const FALLBACK_TITLE = 'Personal agent';
 const FALLBACK_TEXT = 'Open your Feed.';
+const PAGE_CHECK_TIMEOUT_MS = 1_000;
+const PAGE_ACK_TIMEOUT_MS = 500;
+const PAGE_FOCUS_TIMEOUT_MS = 1_000;
 
 interface IShown {
   readonly title: string;
@@ -118,29 +122,105 @@ function readPush(event: IPushEvent): IShown {
   };
 }
 
-/** The page address a click opens: inside this worker's own scope, or the scope itself. */
-function pageAddress(scope: string, target: unknown): string {
+/** A current page is a session path that still accepts this browser's cookie. */
+async function isCurrentPage(
+  scope: IWorkerScope,
+  client: IWindowClient,
+  origin: string,
+  signal: AbortSignal,
+): Promise<boolean> {
   try {
-    const address = new URL(typeof target === 'string' ? target : '', scope);
-    return address.href.startsWith(scope) ? address.href : scope;
+    const address = new URL(client.url);
+    if (address.origin !== origin || !/^\/[A-Za-z0-9_-]{32}\/$/u.test(address.pathname))
+      return false;
+    return (
+      await scope.fetch(`${origin}${address.pathname}`, {
+        method: 'HEAD',
+        credentials: 'include',
+        cache: 'no-store',
+        redirect: 'error',
+        signal,
+      })
+    ).ok;
   } catch {
-    // allow-fallback: an address that cannot be read opens the page itself.
-    return scope;
+    // allow-fallback: a page that cannot be checked is not a current session.
+    return false;
   }
 }
 
-async function bringPageForward(scope: IWorkerScope, target: unknown): Promise<unknown> {
+/** Check open pages concurrently and give up before the browser's click deadline. */
+async function currentPage(
+  scope: IWorkerScope,
+  windows: readonly IWindowClient[],
+  origin: string,
+): Promise<IWindowClient | undefined> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.any(
+        windows.map(async (client) => {
+          if (await isCurrentPage(scope, client, origin, controller.signal)) return client;
+          throw new Error('Not a current page');
+        }),
+      ).catch(() => undefined),
+      new Promise<undefined>((resolve) => {
+        timer = setTimeout(() => resolve(undefined), PAGE_CHECK_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    controller.abort();
+  }
+}
+
+/** A loading page may not yet have a listener; only its acknowledgement proves the Feed opened. */
+async function openFeed(client: IWindowClient): Promise<boolean> {
+  const channel = new MessageChannel();
+  return new Promise((resolve) => {
+    let finished = false;
+    const finish = (opened: boolean): void => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      channel.port1.close();
+      resolve(opened);
+    };
+    const timer = setTimeout(() => finish(false), PAGE_ACK_TIMEOUT_MS);
+    channel.port1.onmessage = (event: MessageEvent<unknown>) => finish(event.data === 'opened');
+    try {
+      client.postMessage({ type: 'open-feed' }, [channel.port2]);
+    } catch {
+      finish(false);
+    }
+  });
+}
+
+async function bringPageForward(scope: IWorkerScope): Promise<unknown> {
   const origin = new URL(scope.registration.scope).origin;
   const windows = await scope.clients.matchAll({ type: 'window', includeUncontrolled: true });
-  const open = windows.find((client) => new URL(client.url).origin === origin);
+  const open = await currentPage(scope, windows, origin);
   if (open !== undefined) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      return await open.focus();
+      if (await openFeed(open)) {
+        return await Promise.race([
+          open.focus(),
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(
+              () => reject(new Error('The page did not focus')),
+              PAGE_FOCUS_TIMEOUT_MS,
+            );
+          }),
+        ]);
+      }
     } catch {
       // allow-fallback: a window the browser will not focus is no window; the page is opened instead.
+    } finally {
+      clearTimeout(timer);
     }
   }
-  return scope.clients.openWindow(pageAddress(scope.registration.scope, target));
+  return scope.clients.openWindow(`${origin}/?return=feed`);
 }
 
 export function installPushWorker(scope: IWorkerScope): void {
@@ -156,9 +236,6 @@ export function installPushWorker(scope: IWorkerScope): void {
   });
   scope.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const { data } = event.notification;
-    const target =
-      typeof data === 'object' && data !== null ? (data as { url?: unknown }).url : undefined;
-    event.waitUntil(bringPageForward(scope, target));
+    event.waitUntil(bringPageForward(scope));
   });
 }

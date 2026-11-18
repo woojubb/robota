@@ -48,7 +48,8 @@ importable library.
   only suggests how urgent a question is; the address is sent once, its field emptied, and only its host
   shown afterwards, and the browser's permission to notify, and with it the worker that shows a push while the
   page is closed, is asked for only when the person presses its button; the page keeps and shows no push address
-  or key, only how many browsers are subscribed.
+  or key, only how many browsers are subscribed and whether this browser is among them. The person can
+  remove subscriptions left at an old browser or address from the agent.
 
 ## Non-goals
 

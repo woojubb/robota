@@ -106,8 +106,8 @@ const API_BODY_LIMIT = 1024 * 1024;
 export interface ILoopbackGuiServerOptions {
   /** The built GUI; its `index.html` is served only after the access code. */
   readonly webRoot: string;
-  /** Markup placed before `</head>` of the index, such as the runtime's `<meta name="ws-url">`. */
-  readonly headHtml: string;
+  /** Markup placed before `</head>`; a function can wait for the runtime by returning undefined. */
+  readonly headHtml: string | (() => string | undefined);
   readonly labels?: Partial<ILoopbackGuiLabels>;
   /** The product's API under the session path's `api/`, reached only with the access cookie. */
   readonly api?: (request: ILoopbackGuiApiRequest) => Promise<ILoopbackGuiApiResponse>;
@@ -143,6 +143,11 @@ export interface ILoopbackGuiServer {
 
 function escapeHtml(text: string): string {
   return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+}
+
+/** A login may return to a named view, never to another path or origin. */
+function loginFragment(value: string | null): string {
+  return value !== null && /^[A-Za-z0-9_-]{1,40}$/u.test(value) ? value : '';
 }
 
 function sendJson(res: import('node:http').ServerResponse, status: number, body: unknown): void {
@@ -221,6 +226,17 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
       res.writeHead(403).end('Forbidden host');
       return;
     }
+    let resolvedHeadHtml: string | undefined;
+    try {
+      resolvedHeadHtml = typeof headHtml === 'function' ? headHtml() : headHtml;
+    } catch {
+      // allow-fallback: a host that is still starting is unavailable, not a process crash.
+      resolvedHeadHtml = undefined;
+    }
+    if (resolvedHeadHtml === undefined) {
+      res.writeHead(503).end('The host is starting');
+      return;
+    }
     if (
       options.landing !== undefined &&
       req.method === 'GET' &&
@@ -242,15 +258,17 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
         if (body.length > 1024) req.destroy();
       });
       req.on('end', () => {
-        const supplied = new URLSearchParams(body).get('code') ?? '';
+        const form = new URLSearchParams(body);
+        const supplied = form.get('code') ?? '';
         const expected = Buffer.from(accessCode);
         const actual = Buffer.from(supplied);
         if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
           res.writeHead(403).end('Invalid access code');
           return;
         }
+        const fragment = loginFragment(form.get('return'));
         res.writeHead(303, {
-          Location: sessionPath,
+          Location: `${sessionPath}${fragment === '' ? '' : `#${fragment}`}`,
           'Set-Cookie': `robota_monitor=${sessionCookie}; HttpOnly; SameSite=Strict; Path=${sessionPath}${secureCookie}`,
         }).end();
       });
@@ -258,23 +276,25 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
     }
     const method = req.method ?? 'GET';
     const isRead = method === 'GET' || method === 'HEAD';
-    if (req.url === '/') {
+    const requestPath = (req.url ?? '/').split('?')[0];
+    if (requestPath === '/') {
       if (!isRead) {
         res.writeHead(405).end('Method not allowed');
         return;
       }
+      const fragment = loginFragment(new URLSearchParams((req.url ?? '').split('?')[1] ?? '').get('return'));
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
         'content-security-policy': "default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
         'x-frame-options': 'DENY',
       }).end(
         `<!doctype html><title>${escapeHtml(labels.title)}</title><form method="post" action="/__monitor_login">` +
+        (fragment === '' ? '' : `<input type="hidden" name="return" value="${fragment}">`) +
         `<label>${escapeHtml(labels.prompt)} <input name="code" type="password" required autocomplete="off"></label>` +
         `<button type="submit">${escapeHtml(labels.submit)}</button></form>`,
       );
       return;
     }
-    const requestPath = (req.url ?? '/').split('?')[0];
     const isSession = requestPath.startsWith(sessionPath);
     if (isSession) {
       const cookies = (req.headers.cookie ?? '').split(';').map((cookie) => cookie.trim());
@@ -367,7 +387,7 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
         res.writeHead(404).end('Not found');
         return;
       }
-      body = isIndex ? injectHead(readFileSync(fd, 'utf8'), headHtml) : readFileSync(fd);
+      body = isIndex ? injectHead(readFileSync(fd, 'utf8'), resolvedHeadHtml) : readFileSync(fd);
     } catch {
       // allow-fallback: an unreadable asset is a 404, for the same reason as above.
       res.writeHead(404).end('Not found');

@@ -26,9 +26,11 @@ export const PUSH_SUBSCRIPTION_LIMIT = 5;
 
 export interface IPushSubscriptions {
   count(): number;
+  /** Whether this browser's address is currently kept. */
+  has(endpoint: unknown): boolean;
   /** For the sink that sends. Not reachable from any route. */
   list(): readonly IPushSubscription[];
-  /** Keep this browser, in place of an earlier entry for the same address; the count afterwards. */
+  /** Keep this browser, replacing any named earlier addresses before applying the limit. */
   add(input: unknown): Promise<number>;
   /** Forget the browser with this address, if kept; the count afterwards. */
   remove(endpoint: unknown): number;
@@ -139,14 +141,24 @@ export function createPushSubscriptions(options: IPushSubscriptionsOptions): IPu
   };
   return {
     count: () => read().length,
+    has: (endpoint) => {
+      const address = endpointOf(endpoint).href;
+      return read().some((entry) => entry.endpoint === address);
+    },
     list: read,
     add: async (input) => {
       const { url, subscription } = parse(input);
+      const replacing = (input as Record<string, unknown>)['replacing'];
+      if (replacing !== undefined && !Array.isArray(replacing))
+        throw new DeliveryRefusedError('The earlier push addresses must be a list');
+      const previous = new Set((replacing ?? []).map((entry: unknown) => endpointOf(entry).href));
       const refusal = await options.admit(url);
       if (refusal !== undefined)
         throw new DeliveryRefusedError(`The push address (${url.host}) cannot be used: ${refusal}`);
       const kept = [
-        ...read().filter((entry) => entry.endpoint !== subscription.endpoint),
+        ...read().filter(
+          (entry) => entry.endpoint !== subscription.endpoint && !previous.has(entry.endpoint),
+        ),
         subscription,
       ].slice(-PUSH_SUBSCRIPTION_LIMIT);
       write(kept);

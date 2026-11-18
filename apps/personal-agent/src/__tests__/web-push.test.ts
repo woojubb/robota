@@ -390,6 +390,21 @@ describe('the push routes', () => {
     );
   });
 
+  it('checks this browser and clears stale subscriptions without returning an address', async () => {
+    const { send, subscribe } = await world();
+    await subscribe('a');
+    await subscribe('b');
+    const own = await send('POST', 'push/status', { endpoint: endpointAt('a') });
+    expect(own.body).toEqual({ subscribed: 2, supported: true, current: true });
+    const unknown = await send('POST', 'push/status', { endpoint: endpointAt('other') });
+    expect(unknown.body).toEqual({ subscribed: 2, supported: true, current: false });
+    expect(JSON.stringify([own.body, unknown.body])).not.toContain(TOKEN);
+    expect((await send('DELETE', 'push/subscriptions')).body).toEqual({
+      subscribed: 0,
+      supported: true,
+    });
+  });
+
   it('refuse what is not a subscription, in plain words that repeat none of it', async () => {
     const { send } = await world();
     const keys = newBrowserKeys();
