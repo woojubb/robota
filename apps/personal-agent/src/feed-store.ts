@@ -8,7 +8,11 @@ import { createSharedLock } from './shared-lock.js';
 
 import type { IFeedItem, IGoalStore } from '@robota-sdk/agent-product/personal';
 
-function checkUpdate(current: IFeedItem | undefined, next: IFeedItem): void {
+function checkUpdate(
+  current: IFeedItem | undefined,
+  next: IFeedItem,
+  options?: { readonly cancelApproved?: boolean },
+): void {
   if (current === undefined) return;
   if (
     current.kind !== next.kind ||
@@ -28,7 +32,13 @@ function checkUpdate(current: IFeedItem | undefined, next: IFeedItem): void {
       after !== undefined &&
       (before.tool !== after.tool ||
         before.detail !== after.detail ||
-        (before.state !== 'pending' && before.state !== after.state)))
+        (before.state !== 'pending' &&
+          before.state !== after.state &&
+          !(
+            options?.cancelApproved === true &&
+            before.state === 'approved' &&
+            after.state === 'expired'
+          ))))
   )
     throw new GoalRefusedError('This approval changed; try again');
   const question = current.question;
@@ -54,9 +64,9 @@ export function createSharedFeedStore(stateDir: string): IGoalStore {
   const lock = createSharedLock(join(realpathSync(stateDir), '.feed-write.lock'), 'The feed');
   return {
     ...store,
-    putFeedItem: (item) =>
+    putFeedItem: (item, options) =>
       lock(async () => {
-        checkUpdate(await store.getFeedItem(item.id), item);
+        checkUpdate(await store.getFeedItem(item.id), item, options);
         await store.putFeedItem(item);
       }),
   };

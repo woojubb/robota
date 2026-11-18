@@ -46,7 +46,22 @@ describe('the shared feed', () => {
         approval: { ...approved.approval!, detail: 'send to bob' },
       }),
     ).rejects.toThrow(/approval changed/u);
+    await expect(
+      store.putFeedItem(
+        {
+          ...approved,
+          approval: { ...approved.approval!, detail: 'send to bob', state: 'expired' },
+        },
+        { cancelApproved: true },
+      ),
+    ).rejects.toThrow(/approval changed/u);
     expect(await store.getFeedItem(approval.id)).toEqual(approved);
+    const expired: IFeedItem = {
+      ...approved,
+      approval: { ...approved.approval!, state: 'expired' },
+    };
+    await store.putFeedItem(expired, { cancelApproved: true });
+    expect((await store.getFeedItem(approval.id))?.approval?.state).toBe('expired');
   });
 
   it('retains an approval posted while another process is rewriting the feed', async () => {

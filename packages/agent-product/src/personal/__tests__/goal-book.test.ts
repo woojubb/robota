@@ -270,6 +270,25 @@ describe.each([
     },
   );
 
+  it.each(['all', 'one'] as const)(
+    'settles an unfinished run even when its goal is still active: %s',
+    async (mode) => {
+      const store = makeStore();
+      const book = new GoalBook({ store, now: clock().now });
+      const goal = await book.create({ title: 'Interrupted', instructions: 'x' });
+      await store.putRun({
+        id: 'run-orphan',
+        goalId: goal.id,
+        startedAt: goal.createdAt,
+        actions: [],
+      });
+      if (mode === 'all') await book.recover();
+      else await book.recoverGoal(goal.id);
+      expect((await book.runs(goal.id))[0]?.outcome).toBe('interrupted');
+      expect((await book.get(goal.id))?.status).toBe('active');
+    },
+  );
+
   it('refuses a goal without instructions, a bad interval, and secrets', async () => {
     const book = new GoalBook({ store: makeStore(), now: clock().now });
     await expect(book.create({ title: 'x', instructions: ' ' })).rejects.toThrow(GoalRefusedError);

@@ -67,6 +67,7 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
       toolArgs: Record<string, unknown>;
     }) => {
       let postedId: string | undefined;
+      let registered = false;
       const donePreparing = approvals.preparing();
       track(
         (async () => {
@@ -101,10 +102,11 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
             promptId: event.id,
             recordAnswer: (approve) => book.setApproval(item.id, approve ? 'approved' : 'denied'),
           });
+          registered = true;
         })()
           .catch(async () => {
             if (postedId === undefined && settledEarly.delete(event.id)) return;
-            if (postedId === undefined || approvals.release(postedId)) {
+            if (postedId === undefined || !registered || approvals.release(postedId) || stopped) {
               approvalFailures.add(key);
               opened.resolvePermission(event.id, false);
               settledEarly.delete(event.id);
@@ -153,11 +155,15 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
     stop() {
       if (stopping !== undefined) return stopping;
       stopped = true;
-      for (const session of sessions.values()) session.abort();
+      const active = [...sessions.values()];
+      const cancelling = active.map((session) => approvals.cancelSession(session));
+      for (const session of active) session.abort();
       stopping = (async () => {
-        await Promise.allSettled([...sessions.values()].map((session) => session.shutdown()));
+        await Promise.allSettled(cancelling);
+        await Promise.allSettled(active.map((session) => session.shutdown()));
         await Promise.allSettled([...queues.values()]);
         while (notices.size > 0) await Promise.allSettled([...notices]);
+        await approvals.settleFailed();
         sessions.clear();
       })();
       return stopping;

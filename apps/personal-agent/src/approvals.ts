@@ -25,6 +25,12 @@ export interface IApprovalRegistry {
   release(feedId: string): boolean;
   waitingFor(goalId: string): boolean;
   answer(feedId: string, approve: boolean): Promise<IFeedItem>;
+  /** Retry expiration of approvals whose answer could not be recorded. */
+  settleFailed(): Promise<void>;
+  /** Cancel and drain answers owned by a session that is stopping. */
+  cancelSession(session: IPendingApproval['session']): Promise<void>;
+  /** Prevent new answers and drain all in-flight approval records. */
+  shutdown(): Promise<void>;
   /** Called with each new approval, such as to tell the person on their channels. */
   onRegistered(listener: (item: IFeedItem) => void): void;
 }
@@ -34,19 +40,46 @@ export function createApprovalRegistry(
   otherAgents: () => boolean = () => false,
   recoverOrphan?: (item: IFeedItem) => Promise<void>,
 ): IApprovalRegistry {
+  type TExpected = {
+    readonly id: string;
+    readonly goalId: string | undefined;
+    readonly runId: string | undefined;
+    readonly tool: string;
+    readonly detail: string;
+  };
   const pending = new Map<
+    string,
+    { readonly entry: IPendingApproval; readonly expected: TExpected }
+  >();
+  const answering = new Map<
     string,
     {
       readonly entry: IPendingApproval;
-      readonly expected: {
-        readonly id: string;
-        readonly goalId: string | undefined;
-        readonly runId: string | undefined;
-        readonly tool: string;
-        readonly detail: string;
-      };
+      cancelled: boolean;
+      readonly done: Promise<void>;
     }
   >();
+  const stoppingSessions = new WeakSet<object>();
+  let closing = false;
+  const failed = new Map<string, TExpected>();
+  const attempts = new Map<string, Promise<void>>();
+  const matches = (item: IFeedItem, expected: TExpected): boolean =>
+    item.id === expected.id &&
+    item.goalId === expected.goalId &&
+    item.runId === expected.runId &&
+    item.approval?.tool === expected.tool &&
+    item.approval.detail === expected.detail;
+  const expireFailed = (expected: TExpected): void => {
+    failed.set(expected.id, expected);
+    if (attempts.has(expected.id)) return;
+    const attempt = (async () => {
+      await book.cancelApproval(expected.id, expected);
+      failed.delete(expected.id);
+    })()
+      .catch(() => undefined)
+      .finally(() => attempts.delete(expected.id));
+    attempts.set(expected.id, attempt);
+  };
   let posting = 0;
   const listeners: ((item: IFeedItem) => void)[] = [];
   return {
@@ -60,6 +93,7 @@ export function createApprovalRegistry(
       };
     },
     register(item, entry) {
+      if (closing || stoppingSessions.has(entry.session)) throw new Error('The agent is stopping');
       if (item.approval?.state !== 'pending') throw new Error('The approval is not pending');
       pending.set(item.id, {
         entry,
@@ -79,11 +113,18 @@ export function createApprovalRegistry(
         }
       }
     },
-    release: (feedId) => pending.delete(feedId),
+    release: (feedId) => {
+      if (pending.delete(feedId)) return true;
+      const flight = answering.get(feedId);
+      if (flight !== undefined) flight.cancelled = true;
+      return false;
+    },
     waitingFor: (goalId) => [...pending.values()].some(({ entry }) => entry.goalId === goalId),
     async answer(feedId, approve) {
+      if (closing) throw new Error('The agent is stopping');
       const found = pending.get(feedId);
       if (found === undefined) {
+        if (answering.has(feedId)) throw new Error('This approval is being answered; try again');
         const item = await book.feedItem(feedId);
         if (item?.approval?.state === 'pending') {
           if (posting > 0) throw new Error('This approval is still being prepared; try again');
@@ -99,23 +140,68 @@ export function createApprovalRegistry(
       }
       const { entry: waiting, expected } = found;
       pending.delete(feedId);
+      if (stoppingSessions.has(waiting.session)) {
+        waiting.session.resolvePermission(waiting.promptId, false);
+        expireFailed(expected);
+        throw new Error('The approval is no longer waiting');
+      }
+      let finish!: () => void;
+      const done = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      const flight = { entry: waiting, cancelled: false, done };
+      answering.set(feedId, flight);
+      let handedOff = false;
       try {
         const recorded = await waiting.recordAnswer(approve);
+        if (flight.cancelled || closing) throw new Error('The approval was cancelled');
         if (
-          recorded.id !== expected.id ||
-          recorded.goalId !== expected.goalId ||
-          recorded.runId !== expected.runId ||
-          recorded.approval?.tool !== expected.tool ||
-          recorded.approval.detail !== expected.detail ||
-          recorded.approval.state !== (approve ? 'approved' : 'denied')
+          !matches(recorded, expected) ||
+          recorded.approval?.state !== (approve ? 'approved' : 'denied')
         )
           throw new Error('The recorded approval differs from the displayed action');
+        answering.delete(feedId);
+        handedOff = true;
         waiting.session.resolvePermission(waiting.promptId, approve);
         return recorded;
       } catch (error) {
-        waiting.session.resolvePermission(waiting.promptId, false);
+        if (!handedOff) {
+          waiting.session.resolvePermission(waiting.promptId, false);
+          expireFailed(expected);
+        }
         throw error;
+      } finally {
+        answering.delete(feedId);
+        finish();
       }
+    },
+    async settleFailed() {
+      for (const expected of failed.values()) expireFailed(expected);
+      await Promise.all([...attempts.values()]);
+    },
+    async cancelSession(session) {
+      stoppingSessions.add(session);
+      for (const [id, found] of pending) {
+        if (found.entry.session !== session) continue;
+        pending.delete(id);
+        found.entry.session.resolvePermission(found.entry.promptId, false);
+        expireFailed(found.expected);
+      }
+      const active = [...answering.values()].filter((flight) => flight.entry.session === session);
+      for (const flight of active) flight.cancelled = true;
+      await Promise.all(active.map((flight) => flight.done));
+    },
+    async shutdown() {
+      closing = true;
+      for (const [id, found] of pending) {
+        pending.delete(id);
+        found.entry.session.resolvePermission(found.entry.promptId, false);
+        expireFailed(found.expected);
+      }
+      const active = [...answering.values()];
+      for (const flight of active) flight.cancelled = true;
+      await Promise.all(active.map((flight) => flight.done));
+      await this.settleFailed();
     },
     onRegistered(listener) {
       listeners.push(listener);

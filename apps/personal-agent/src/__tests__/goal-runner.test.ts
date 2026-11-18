@@ -190,8 +190,79 @@ describe('connector action approvals', () => {
       await expect(approvals.answer(item.id, true)).rejects.toThrow();
       expect(resolvePermission).toHaveBeenCalledWith('prompt', false);
       expect(resolvePermission).not.toHaveBeenCalledWith('prompt', true);
+      await approvals.settleFailed();
+      expect((await book.feedItem(item.id))?.approval?.state).toBe('expired');
     },
   );
+
+  it('does not expire an approval while another answer is being recorded', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const item = await book.post({
+      kind: 'approval',
+      title: 'Action',
+      body: '',
+      approval: { tool: 'ConnectorAct', detail: 'send to alice', state: 'pending' },
+    });
+    const resolvePermission = vi.fn();
+    const approvals = createApprovalRegistry(book);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    approvals.register(item, {
+      session: { resolvePermission },
+      promptId: 'prompt',
+      recordAnswer: async (approve) => {
+        reached();
+        await gate;
+        return book.setApproval(item.id, approve ? 'approved' : 'denied');
+      },
+    });
+    const first = approvals.answer(item.id, true);
+    try {
+      await waiting;
+      await expect(approvals.answer(item.id, true)).rejects.toThrow(/being answered/u);
+      expect((await book.feedItem(item.id))?.approval?.state).toBe('pending');
+      release();
+      expect((await first).approval?.state).toBe('approved');
+      expect(resolvePermission).toHaveBeenCalledOnce();
+      expect(resolvePermission).toHaveBeenCalledWith('prompt', true);
+    } finally {
+      release();
+      await Promise.allSettled([first]);
+    }
+  });
+
+  it('retries expiration when recording an answer and the first cleanup both fail', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const item = await book.post({
+      kind: 'approval',
+      title: 'Action',
+      body: '',
+      approval: { tool: 'ConnectorAct', detail: 'send to alice', state: 'pending' },
+    });
+    const write = vi.spyOn(book, 'cancelApproval').mockRejectedValueOnce(new Error('busy'));
+    const approvals = createApprovalRegistry(book);
+    approvals.register(item, {
+      session: { resolvePermission: vi.fn() },
+      promptId: 'prompt',
+      recordAnswer: async () => {
+        throw new Error('cannot save answer');
+      },
+    });
+    try {
+      await expect(approvals.answer(item.id, true)).rejects.toThrow('cannot save answer');
+      await approvals.settleFailed();
+      await approvals.settleFailed();
+      expect((await book.feedItem(item.id))?.approval?.state).toBe('expired');
+    } finally {
+      write.mockRestore();
+    }
+  });
 
   it('drains a channel approval that is still being posted when the channel stops', async () => {
     const book = new GoalBook({ store: createMemoryGoalStore() });
@@ -237,6 +308,104 @@ describe('connector action approvals', () => {
       release();
       await Promise.allSettled([turn, ...(stopping === undefined ? [] : [stopping])]);
       post.mockRestore();
+      await channel.stop();
+    }
+  });
+
+  it('expires a posted card if shutdown begins before its registration completes', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const original = book.post.bind(book);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const post = vi.spyOn(book, 'post').mockImplementation(async (item) => {
+      const posted = await original(item);
+      if (item.kind === 'approval') {
+        reached();
+        await gate;
+      }
+      return posted;
+    });
+    const stub = promptingSession();
+    const abort = vi.spyOn(stub.session, 'abort').mockImplementation(() => undefined);
+    const approvals = createApprovalRegistry(book);
+    const channel = createChannelTurns({ book, approvals, openSession: () => stub.session });
+    const turn = channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Buy it');
+    let stopping: Promise<void> | undefined;
+    try {
+      await waiting;
+      await approvals.shutdown();
+      stopping = channel.stop();
+      release();
+      await stopping;
+      await turn;
+      expect((await book.feed()).find((item) => item.kind === 'approval')?.approval?.state).toBe(
+        'expired',
+      );
+    } finally {
+      release();
+      await Promise.allSettled([turn, ...(stopping === undefined ? [] : [stopping])]);
+      post.mockRestore();
+      abort.mockRestore();
+      await channel.stop();
+    }
+  });
+
+  it('cancels and drains a channel answer being recorded during shutdown', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const original = book.setApproval.bind(book);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const write = vi.spyOn(book, 'setApproval').mockImplementation(async (...args) => {
+      if (args[1] === 'approved') {
+        reached();
+        await gate;
+      }
+      return original(...args);
+    });
+    const stub = promptingSession();
+    const resolve = vi.spyOn(stub.session, 'resolvePermission');
+    const approvals = createApprovalRegistry(book);
+    const channel = createChannelTurns({ book, approvals, openSession: () => stub.session });
+    const turn = channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Buy it');
+    let answer: Promise<unknown> | undefined;
+    let stopping: Promise<void> | undefined;
+    try {
+      const item = await pendingApproval(book);
+      answer = approvals.answer(item.id, true).catch((error: unknown) => error);
+      await waiting;
+      stopping = channel.stop();
+      const early = await Promise.race([
+        stopping.then(() => true),
+        new Promise<false>((resolveEarly) => setTimeout(() => resolveEarly(false), 100)),
+      ]);
+      expect(early).toBe(false);
+      release();
+      await stopping;
+      expect(await answer).toBeInstanceOf(Error);
+      expect(resolve).not.toHaveBeenCalledWith('prompt-1', true);
+      expect((await book.feedItem(item.id))?.approval?.state).toBe('expired');
+      await turn;
+    } finally {
+      release();
+      await Promise.allSettled([
+        turn,
+        ...(answer === undefined ? [] : [answer]),
+        ...(stopping === undefined ? [] : [stopping]),
+      ]);
+      write.mockRestore();
+      resolve.mockRestore();
       await channel.stop();
     }
   });

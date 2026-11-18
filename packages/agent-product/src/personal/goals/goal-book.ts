@@ -338,13 +338,18 @@ export class GoalBook {
   private async recoverUnlocked(): Promise<number> {
     let recovered = 0;
     for (const goal of await this.store.listGoals()) {
-      if (goal.status !== 'running' && goal.status !== 'waiting') continue;
-      recovered += 1;
-      await this.save(goal, { status: 'active', nextRunAt: this.stamp() });
+      let changed = false;
       for (const run of await this.store.listRuns(goal.id, Number.POSITIVE_INFINITY)) {
-        if (run.endedAt === undefined)
+        if (run.endedAt === undefined) {
           await this.store.putRun({ ...run, endedAt: this.stamp(), outcome: 'interrupted' });
+          changed = true;
+        }
       }
+      if (goal.status === 'running' || goal.status === 'waiting') {
+        await this.save(goal, { status: 'active', nextRunAt: this.stamp() });
+        changed = true;
+      }
+      if (changed) recovered += 1;
     }
     for (const item of await this.store.listFeed(Number.POSITIVE_INFINITY)) {
       if (item.approval?.state === 'pending') await this.setApproval(item.id, 'expired');
@@ -359,17 +364,25 @@ export class GoalBook {
 
   private async recoverGoalUnlocked(id: string): Promise<boolean> {
     const goal = await this.store.getGoal(id);
-    if (goal?.status !== 'running' && goal?.status !== 'waiting') return false;
+    if (goal === undefined) return false;
+    let changed = false;
     for (const item of await this.store.listFeed(Number.POSITIVE_INFINITY)) {
-      if (item.goalId === id && item.approval?.state === 'pending')
+      if (item.goalId === id && item.approval?.state === 'pending') {
         await this.setApproval(item.id, 'expired');
+        changed = true;
+      }
     }
     for (const run of await this.store.listRuns(id, Number.POSITIVE_INFINITY)) {
-      if (run.endedAt === undefined)
+      if (run.endedAt === undefined) {
         await this.store.putRun({ ...run, endedAt: this.stamp(), outcome: 'interrupted' });
+        changed = true;
+      }
     }
-    await this.save(goal, { status: 'active', nextRunAt: this.stamp() });
-    return true;
+    if (goal.status === 'running' || goal.status === 'waiting') {
+      await this.save(goal, { status: 'active', nextRunAt: this.stamp() });
+      changed = true;
+    }
+    return changed;
   }
 
   async post(item: Omit<IFeedItem, 'id' | 'at' | 'dismissed'>): Promise<IFeedItem> {
@@ -397,6 +410,34 @@ export class GoalBook {
     const next: IFeedItem = { ...item, approval: { ...item.approval, state } };
     await this.store.putFeedItem(next);
     return next;
+  }
+
+  /** Expire this exact approval after its prompt was cancelled before the action could start. */
+  async cancelApproval(
+    id: string,
+    expected: {
+      readonly goalId: string | undefined;
+      readonly runId: string | undefined;
+      readonly tool: string;
+      readonly detail: string;
+    },
+  ): Promise<void> {
+    const item = await this.store.getFeedItem(id);
+    if (
+      item === undefined ||
+      item.goalId !== expected.goalId ||
+      item.runId !== expected.runId ||
+      item.approval?.tool !== expected.tool ||
+      item.approval.detail !== expected.detail ||
+      (item.approval.state !== 'pending' && item.approval.state !== 'approved')
+    )
+      return;
+    await this.store.putFeedItem(
+      { ...item, approval: { ...item.approval, state: 'expired' } },
+      {
+        cancelApproved: true,
+      },
+    );
   }
 
   /** Record the person's answer to a question; a question is answered once. */

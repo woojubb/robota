@@ -180,7 +180,8 @@ export function createPersonalCapabilities(
   if (
     goals.usesUniqueFeedIds !== true ||
     goals.supportsSharedGoalLock !== true ||
-    typeof goals.recoverGoal !== 'function'
+    typeof goals.recoverGoal !== 'function' ||
+    typeof goals.cancelApproval !== 'function'
   )
     throw new Error('The product SDK cannot safely coordinate this agent; rebuild the workspace');
   const presence = createAgentPresence(options.stateDir);
@@ -545,8 +546,7 @@ export function createPersonalCapabilities(
         beforeRunDue: async (isRunning) => {
           await presence.whenAlone(async () => {
             for (const goal of await goals.list()) {
-              if ((goal.status === 'running' || goal.status === 'waiting') && !isRunning(goal.id))
-                await goals.recoverGoal(goal.id);
+              if (!isRunning(goal.id)) await goals.recoverGoal(goal.id);
             }
           });
         },
@@ -570,10 +570,13 @@ export function createPersonalCapabilities(
       }
     },
     dispose: async () => {
+      const drainingApprovals = approvals.shutdown();
       try {
         clearInterval(deliveryTimer);
         await runner?.stop();
         await channelTurns?.stop();
+        await drainingApprovals;
+        await approvals.settleFailed();
         for (const channel of channels.channels()) await channels.disconnect(channel.id);
         await connectors.close();
         await browser.close();

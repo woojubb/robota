@@ -108,7 +108,7 @@ export interface IGoalStore {
   putRun(run: IGoalRun): Promise<void>;
   /** A goal's runs, newest first. */
   listRuns(goalId: string, limit: number): Promise<readonly IGoalRun[]>;
-  putFeedItem(item: IFeedItem): Promise<void>;
+  putFeedItem(item: IFeedItem, options?: { readonly cancelApproved?: boolean }): Promise<void>;
   getFeedItem(id: string): Promise<IFeedItem | undefined>;
   /** Feed items, newest first. */
   listFeed(limit: number): Promise<readonly IFeedItem[]>;
