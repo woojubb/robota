@@ -37,11 +37,8 @@ export interface ICaseConnectorBindings {
     revision: string,
   ): Promise<ICaseConnectorBinding | undefined>;
   fence(caseId: string, revision: string): Promise<ICaseConnectorBinding | undefined>;
-  /** Check and begin an authority use under the locks; return any later work inside the value. */
-  withAuthority<T>(
-    caseId: string,
-    work: (authority: ICaseConnectorAuthority | undefined) => { readonly value: T },
-  ): Promise<{ readonly value: T }>;
+  /** Take a snapshot under both locks. It must be rechecked at effect dispatch. */
+  authoritySnapshot(caseId: string): Promise<ICaseConnectorAuthority | undefined>;
   /** Clear a case on closure while the caller holds the shared settings lock. */
   closeLocked(caseId: string): Promise<void>;
   /** Revoke references before a connector record is removed; caller holds the shared lock. */
@@ -211,20 +208,27 @@ export function createCaseConnectorBindings(options: {
     }
   };
   return {
-    withAuthority: (caseId, work) =>
-      options.scope.exclusive(() =>
-        options.writes.exclusive(async () => {
-          if ((await options.cases.get(caseId))?.state !== 'open' || hasRecovery(caseId))
-            return work(undefined);
-          const current = read(caseId);
-          if (
-            current?.connectorId === undefined ||
-            (await options.connectors.get(current.connectorId)) === undefined
-          )
-            return work(undefined);
-          return work({ connectorId: current.connectorId, generation: current.generation });
-        }),
-      ),
+    authoritySnapshot: async (caseId) => {
+      for (let attempt = 0; attempt <= 100; attempt += 1) {
+        const result = await options.scope.tryExclusive(() =>
+          options.writes.tryExclusive(async () => {
+            if ((await options.cases.get(caseId))?.state !== 'open' || hasRecovery(caseId))
+              return undefined;
+            const current = read(caseId);
+            if (
+              current?.connectorId === undefined ||
+              (await options.connectors.get(current.connectorId)) === undefined
+            )
+              return undefined;
+            return { connectorId: current.connectorId, generation: current.generation };
+          }),
+        );
+        if (result.acquired && result.value.acquired) return result.value.value;
+        if (attempt === 100) throw new ConnectorRefusedError('Case authority is busy; try again');
+        await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      }
+      throw new ConnectorRefusedError('Case authority cannot be locked');
+    },
     get: (caseId) =>
       options.scope.exclusive(async () => {
         const found = await options.cases.get(caseId);

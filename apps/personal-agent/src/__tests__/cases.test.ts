@@ -119,8 +119,7 @@ describe('case connector authority', () => {
       writes: createCaseActionScope(join(harness.stateDir, 'cases')),
     };
     const bindings = createCaseConnectorBindings(options);
-    const authority = async () =>
-      (await bindings.withAuthority(opened.id, (value) => ({ value }))).value;
+    const authority = () => bindings.authoritySnapshot(opened.id);
     const initial = (await bindings.get(opened.id))!;
     expect(await authority()).toBeUndefined();
     const selected = (await bindings.set(opened.id, connector.id, initial.revision))!;
@@ -136,9 +135,7 @@ describe('case connector authority', () => {
     const reselected = (await authority())!;
     expect(reselected.generation).not.toBe(first.generation);
     const restarted = createCaseConnectorBindings(options);
-    expect((await restarted.withAuthority(opened.id, (value) => ({ value }))).value).toEqual(
-      reselected,
-    );
+    expect(await restarted.authoritySnapshot(opened.id)).toEqual(reselected);
     await harness.capabilities.cases.close(opened.id, 'Settled.');
     expect(await authority()).toBeUndefined();
   });
@@ -168,8 +165,7 @@ describe('case connector authority', () => {
     const path = join(directory, `${opened.id}.json`);
     const revision = '00000000-0000-4000-8000-000000000001';
     writeFileSync(path, JSON.stringify({ revision, connectorId: connector.id }));
-    const authority = async () =>
-      (await bindings.withAuthority(opened.id, (value) => ({ value }))).value;
+    const authority = () => bindings.authoritySnapshot(opened.id);
     expect(await authority()).toEqual({ connectorId: connector.id, generation: revision });
     await bindings.fence(opened.id, revision);
     expect(await authority()).toEqual({ connectorId: connector.id, generation: revision });
@@ -185,7 +181,7 @@ describe('case connector authority', () => {
     expect((await bindings.get(opened.id))?.error).toBe(true);
   });
 
-  it('orders authority use and case closure across agent instances', async () => {
+  it('orders authority snapshots and case closure across agent instances', async () => {
     harness = await startHarness();
     const other = await startHarness({ stateDir: harness.stateDir });
     const book = new ConnectorBook({
@@ -222,7 +218,7 @@ describe('case connector authority', () => {
       await gate;
       return get(id);
     });
-    const using = bindings.withAuthority(opened.id, (value) => ({ value }));
+    const using = bindings.authoritySnapshot(opened.id);
     let closing: Promise<ICase> | undefined;
     try {
       await waiting;
@@ -232,12 +228,11 @@ describe('case connector authority', () => {
         new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
       ]);
       expect(closedEarly).toBe(false);
+      expect((await other.capabilities.cases.get(opened.id))?.state).toBe('open');
       release();
-      expect((await using).value?.connectorId).toBe(connector.id);
+      expect((await using)?.connectorId).toBe(connector.id);
       await closing;
-      expect(
-        (await bindings.withAuthority(opened.id, (value) => ({ value }))).value,
-      ).toBeUndefined();
+      expect(await bindings.authoritySnapshot(opened.id)).toBeUndefined();
     } finally {
       release();
       await Promise.allSettled([using, ...(closing === undefined ? [] : [closing])]);
@@ -246,7 +241,7 @@ describe('case connector authority', () => {
     }
   });
 
-  it('releases case and settings locks while an admitted operation awaits its result', async () => {
+  it('lets another connector be blocked while an authority check waits for case writes', async () => {
     harness = await startHarness();
     const book = new ConnectorBook({
       store: createFileConnectorStore(join(harness.stateDir, 'connectors')),
@@ -258,35 +253,66 @@ describe('case connector authority', () => {
       endpoint: 'https://notes.example/mcp',
       auth: 'none',
     });
+    const another = await book.create({
+      title: 'Other',
+      kind: 'notes',
+      protocol: 'mcp',
+      endpoint: 'https://other.example/mcp',
+      auth: 'none',
+    });
     const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const scope = createCaseActionScope(join(harness.stateDir, 'case-action-scope'));
+    const writes = createCaseActionScope(join(harness.stateDir, 'cases'));
     const bindings = createCaseConnectorBindings({
       directory: join(harness.stateDir, 'case-connector-bindings'),
       cases: harness.capabilities.cases,
       connectors: book,
-      scope: createCaseActionScope(join(harness.stateDir, 'case-action-scope')),
-      writes: createCaseActionScope(join(harness.stateDir, 'cases')),
+      scope,
+      writes,
     });
     const initial = (await bindings.get(opened.id))!;
     await bindings.set(opened.id, connector.id, initial.revision);
-    let finish!: () => void;
-    const response = new Promise<void>((resolve) => {
-      finish = resolve;
+    await scope.exclusive(() => scope.initialize(another.id));
+    let release!: () => void;
+    let held!: () => void;
+    let attempted!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
     });
+    const holding = new Promise<void>((resolve) => {
+      held = resolve;
+    });
+    const tried = new Promise<void>((resolve) => {
+      attempted = resolve;
+    });
+    const original = writes.tryExclusive.bind(writes);
+    const spy = vi.spyOn(writes, 'tryExclusive').mockImplementation(async (work) => {
+      const result = await original(work);
+      attempted();
+      return result;
+    });
+    const locked = writes.exclusive(async () => {
+      held();
+      await gate;
+    });
+    let checking: Promise<unknown> | undefined;
     try {
-      const started = await bindings.withAuthority(opened.id, (authority) => {
-        expect(authority?.connectorId).toBe(connector.id);
-        return { value: response };
-      });
-      const closing = harness.capabilities.cases.close(opened.id, 'Settled.');
-      const closed = await Promise.race([
-        closing.then(() => true),
-        new Promise<false>((resolve) => setTimeout(() => resolve(false), 1_000)),
+      await holding;
+      checking = bindings.authoritySnapshot(opened.id);
+      await tried;
+      const blocked = scope.exclusive(() => scope.set(another.id, 'create_note', false));
+      const prompt = await Promise.race([
+        blocked.then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 750)),
       ]);
-      expect(closed).toBe(true);
-      finish();
-      await started.value;
+      expect(prompt).toBe(true);
+      release();
+      await blocked;
+      expect(((await checking) as { connectorId: string }).connectorId).toBe(connector.id);
     } finally {
-      finish();
+      release();
+      await Promise.allSettled([locked, ...(checking === undefined ? [] : [checking])]);
+      spy.mockRestore();
     }
   });
 });
