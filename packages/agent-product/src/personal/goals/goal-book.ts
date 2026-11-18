@@ -62,6 +62,7 @@ export class GoalBook {
   readonly supportsCaseInterruptionRecovery = true as const;
   readonly supportsCaseRunOwnership = true as const;
   readonly supportsCaseReportRecovery = true as const;
+  readonly supportsCaseRunIdentityRecovery = true as const;
   readonly supportsCoordinatedRemoval = true as const;
 
   private readonly store: IGoalStore;
@@ -216,11 +217,17 @@ export class GoalBook {
   }
 
   /** Recover a case run only after its particular owner has been proven stopped. */
-  recoverCaseOwner(id: string, previousOwner: string, ownerId: string): Promise<boolean> {
+  recoverCaseOwner(
+    id: string,
+    previousOwner: string,
+    ownerId: string,
+    expectedRunId: string,
+  ): Promise<boolean> {
     return this.exclusive(async () => {
       const goal = await this.store.getGoal(id);
       const active = goal?.activeCaseRun;
-      if (goal === undefined || active?.ownerId !== previousOwner) return false;
+      if (goal === undefined || active?.ownerId !== previousOwner || active.runId !== expectedRunId)
+        return false;
       let run = (await this.store.listRuns(id, Number.POSITIVE_INFINITY)).find(
         (entry) => entry.id === active.runId,
       );

@@ -55,6 +55,32 @@ describe.each([
   ['memory', () => createMemoryGoalStore()],
   ['file', () => fileStore().store],
 ])('goal book over a %s store', (_name, makeStore) => {
+  it('does not recover a later case run using an earlier run identity', async () => {
+    const book = new GoalBook({ store: makeStore() });
+    const first = await book.enqueueCaseAnswer({
+      caseId: 'case-one',
+      feedItemId: 'feed-one',
+      ownerId: 'owner',
+      title: 'Case',
+      instructions: 'Review.',
+    });
+    const oldRun = await book.startRun(first.id, { ownerId: 'owner' });
+    expect(await book.recoverCaseOwner(first.id, 'owner', 'owner', oldRun.id)).toBe(true);
+    await book.enqueueCaseAnswer({
+      caseId: 'case-one',
+      feedItemId: 'feed-two',
+      ownerId: 'owner',
+      title: 'Case',
+      instructions: 'Review.',
+    });
+    const newRun = await book.startRun(first.id, { ownerId: 'owner' });
+    expect(await book.recoverCaseOwner(first.id, 'owner', 'owner', oldRun.id)).toBe(false);
+    expect((await book.get(first.id))?.activeCaseRun?.runId).toBe(newRun.id);
+    expect(
+      (await book.runs(first.id)).find((run) => run.id === newRun.id)?.endedAt,
+    ).toBeUndefined();
+  });
+
   it('makes a new goal due at once and a repeating one due again after its interval', async () => {
     const time = clock();
     const book = new GoalBook({ store: makeStore(), now: time.now });

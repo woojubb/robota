@@ -264,6 +264,36 @@ records; do not delete the answer recovery record while its outcome is uncertain
    NODE
    ```
 
+   On Windows, run the equivalent command in PowerShell, replacing the state folder if needed:
+
+   ```powershell
+   $env:PERSONAL_AGENT_RECOVERY_STATE_DIR = Join-Path $HOME '.robota\personal'
+   @'
+   const fs = require('node:fs');
+   const path = require('node:path');
+   const state = fs.realpathSync(process.env.PERSONAL_AGENT_RECOVERY_STATE_DIR);
+   const backup = fs.mkdtempSync(path.join(state, 'case-action-recovery-'));
+   for (const name of fs.readdirSync(state)) {
+     const settings = ['case-action-scope', 'case-connector-bindings', '.case-action-scope-recovery',
+       '.case-action-scope-transitions', '.agent-presence'].includes(name);
+     const lock = name.startsWith('.case-action-scope-') && /\.lock(?:\.|$)/.test(name);
+     const oldLock = name.startsWith('.case-action-scope-connector-settings.sqlite');
+     const caseLock = name.startsWith('.cases-connector-settings.lock') ||
+       name.startsWith('.cases-connector-settings.sqlite');
+     const workLock = name.startsWith('.feed-write.lock') || name.startsWith('.goal-write.lock');
+     if (settings || lock || oldLock || caseLock || workLock)
+       fs.renameSync(path.join(state, name), path.join(backup, name));
+   }
+   for (const name of ['.case-action-scope-connector-settings.sqlite',
+     '.cases-connector-settings.sqlite']) {
+     const guard = path.join(state, name);
+     fs.mkdirSync(guard, { mode: 0o700 });
+     fs.writeFileSync(path.join(guard, 'format'), 'case-action-directory-lock-v1\n', { mode: 0o600 });
+   }
+   console.log(`Moved case-request state to ${backup}`);
+   '@ | node
+   ```
+
 3. Start only one upgraded agent first. Let its interrupted work recover and check the Feed and Goals
    before starting any other agents. Disconnect the affected connector normally before reconnecting it, and
    choose its case-request tools again only when needed. The moved files are a recovery record, not

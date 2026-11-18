@@ -199,6 +199,7 @@ export function createPersonalCapabilities(
     goals.supportsCaseInterruptionRecovery !== true ||
     goals.supportsCaseRunOwnership !== true ||
     goals.supportsCaseReportRecovery !== true ||
+    goals.supportsCaseRunIdentityRecovery !== true ||
     goals.supportsCoordinatedRemoval !== true ||
     typeof goals.adoptCaseAnswer !== 'function' ||
     typeof goals.recoverGoal !== 'function' ||
@@ -699,7 +700,12 @@ export function createPersonalCapabilities(
               ((runOwner === presence.id && !isRunning(goal.id)) || presence.ownerExited(runOwner))
             ) {
               try {
-                await goals.recoverCaseOwner(goal.id, runOwner, presence.id);
+                await goals.recoverCaseOwner(
+                  goal.id,
+                  runOwner,
+                  presence.id,
+                  goal.activeCaseRun!.runId,
+                );
               } catch {
                 // Keep this run closed while other goals continue.
               }
@@ -715,7 +721,12 @@ export function createPersonalCapabilities(
                 if (goal.activeCaseRun !== undefined) {
                   try {
                     await recover(goal.id, () =>
-                      goals.recoverCaseOwner(goal.id, goal.activeCaseRun!.ownerId, presence.id),
+                      goals.recoverCaseOwner(
+                        goal.id,
+                        goal.activeCaseRun!.ownerId,
+                        presence.id,
+                        goal.activeCaseRun!.runId,
+                      ),
                     );
                   } catch {
                     // An unreadable run stays closed while other goals continue.
