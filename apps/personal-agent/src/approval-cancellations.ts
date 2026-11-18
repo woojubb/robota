@@ -23,8 +23,13 @@ export interface IApprovalIdentity {
 
 export interface IApprovalCancellations {
   mark(expected: IApprovalIdentity): void;
-  list(): readonly IApprovalIdentity[];
+  authorize(expected: IApprovalIdentity): void;
+  list(): readonly IApprovalIntent[];
   finish(expected: IApprovalIdentity): void;
+}
+
+export interface IApprovalIntent extends IApprovalIdentity {
+  readonly phase: 'pending' | 'authorized';
 }
 
 const FEED_ID = /^feed-[a-z0-9]{1,40}$/u;
@@ -38,7 +43,7 @@ function syncDirectory(path: string): void {
   }
 }
 
-function parse(value: unknown): IApprovalIdentity {
+function parse(value: unknown): IApprovalIntent {
   if (typeof value !== 'object' || value === null || Array.isArray(value))
     throw new Error('Invalid cancellation');
   const item = value as Record<string, unknown>;
@@ -48,7 +53,8 @@ function parse(value: unknown): IApprovalIdentity {
     (item['goalId'] !== undefined && typeof item['goalId'] !== 'string') ||
     (item['runId'] !== undefined && typeof item['runId'] !== 'string') ||
     typeof item['tool'] !== 'string' ||
-    typeof item['detail'] !== 'string'
+    typeof item['detail'] !== 'string' ||
+    (item['phase'] !== undefined && item['phase'] !== 'pending' && item['phase'] !== 'authorized')
   )
     throw new Error('Invalid cancellation');
   return {
@@ -57,6 +63,7 @@ function parse(value: unknown): IApprovalIdentity {
     runId: item['runId'],
     tool: item['tool'],
     detail: item['detail'],
+    phase: item['phase'] ?? 'pending',
   };
 }
 
@@ -66,7 +73,7 @@ export function createApprovalCancellations(stateDir: string): IApprovalCancella
     if (!FEED_ID.test(id)) throw new Error('Invalid approval id');
     return join(directory, `${id}.json`);
   };
-  const read = (path: string): IApprovalIdentity | undefined => {
+  const read = (path: string): IApprovalIntent | undefined => {
     try {
       return parse(JSON.parse(readFileSync(path, 'utf8')));
     } catch (error) {
@@ -80,32 +87,54 @@ export function createApprovalCancellations(stateDir: string): IApprovalCancella
     a.runId === b.runId &&
     a.tool === b.tool &&
     a.detail === b.detail;
+  const write = (expected: IApprovalIdentity, phase: IApprovalIntent['phase']): void => {
+    const path = pathOf(expected.id);
+    const temporary = join(directory, `${randomUUID()}.tmp`);
+    let created = false;
+    try {
+      const fd = openSync(temporary, 'wx', 0o600);
+      created = true;
+      try {
+        writeFileSync(fd, `${JSON.stringify({ ...expected, phase })}\n`);
+        fsyncSync(fd);
+      } finally {
+        closeSync(fd);
+      }
+      renameSync(temporary, path);
+      syncDirectory(directory);
+    } finally {
+      if (created) rmSync(temporary, { force: true });
+    }
+  };
+  const syncFeed = (): void => {
+    const feed = join(stateDir, 'goals', 'feed.json');
+    try {
+      const fd = openSync(feed, 'r');
+      try {
+        fsyncSync(fd);
+      } finally {
+        closeSync(fd);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    syncDirectory(join(stateDir, 'goals'));
+  };
   return {
     mark(expected) {
       mkdirSync(directory, { recursive: true, mode: 0o700 });
       syncDirectory(dirname(directory));
-      const path = pathOf(expected.id);
-      const existing = read(path);
-      if (existing !== undefined) {
-        if (!same(existing, expected)) throw new Error('The approval cancellation changed');
-        return;
-      }
-      const temporary = join(directory, `${randomUUID()}.tmp`);
-      let created = false;
-      try {
-        const fd = openSync(temporary, 'wx', 0o600);
-        created = true;
-        try {
-          writeFileSync(fd, `${JSON.stringify(expected)}\n`);
-          fsyncSync(fd);
-        } finally {
-          closeSync(fd);
-        }
-        renameSync(temporary, path);
-        syncDirectory(directory);
-      } finally {
-        if (created) rmSync(temporary, { force: true });
-      }
+      const existing = read(pathOf(expected.id));
+      if (existing !== undefined && !same(existing, expected))
+        throw new Error('The approval cancellation changed');
+      if (existing?.phase !== 'pending') write(expected, 'pending');
+    },
+    authorize(expected) {
+      const existing = read(pathOf(expected.id));
+      if (existing === undefined || !same(existing, expected) || existing.phase !== 'pending')
+        throw new Error('The approval intent changed');
+      syncFeed();
+      write(expected, 'authorized');
     },
     list() {
       try {
@@ -127,18 +156,7 @@ export function createApprovalCancellations(stateDir: string): IApprovalCancella
       const existing = read(path);
       if (existing === undefined) return;
       if (!same(existing, expected)) throw new Error('The approval cancellation changed');
-      const feed = join(stateDir, 'goals', 'feed.json');
-      try {
-        const fd = openSync(feed, 'r');
-        try {
-          fsyncSync(fd);
-        } finally {
-          closeSync(fd);
-        }
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-      }
-      syncDirectory(join(stateDir, 'goals'));
+      syncFeed();
       rmSync(path);
       syncDirectory(directory);
     },

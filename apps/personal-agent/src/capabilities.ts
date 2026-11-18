@@ -556,11 +556,11 @@ export function createPersonalCapabilities(
         },
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
-        beforeRunDue: async (isRunning) => {
+        beforeRunDue: async (isRunning, recover) => {
           await presence.whenAlone(async () => {
             await approvals.restore();
             for (const goal of await goals.list()) {
-              if (!isRunning(goal.id)) await goals.recoverGoal(goal.id);
+              if (!isRunning(goal.id)) await recover(goal.id, () => goals.recoverGoal(goal.id));
             }
           });
         },

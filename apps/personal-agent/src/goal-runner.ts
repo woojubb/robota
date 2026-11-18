@@ -74,7 +74,10 @@ export interface IGoalRunnerOptions {
   /** How often to look for due goals; 0 runs only when asked. */
   readonly tickMs?: number;
   /** Recover abandoned work before looking for due goals. */
-  readonly beforeRunDue?: (isRunning: (goalId: string) => boolean) => Promise<void>;
+  readonly beforeRunDue?: (
+    isRunning: (goalId: string) => boolean,
+    recover: (goalId: string, work: () => Promise<unknown>) => Promise<void>,
+  ) => Promise<void>;
   /** A goal that is more than the person's instruction, such as one keeping a connector in sync. */
   readonly shape?: (goal: IGoal) => Promise<IGoalShape | undefined>;
   /** A run that went well and is not worth the person's attention: kept in the goal's history only. */
@@ -144,11 +147,13 @@ function approvedConnectorCall(
 export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
   const { book } = options;
   const running = new Map<string, Promise<void>>();
+  const controls = new Map<string, { cancelled: boolean }>();
   const scheduling = new Set<{
     cancelledAll: boolean;
     readonly cancelled: Set<string>;
     done: Promise<number>;
   }>();
+  const recovering = new Map<string, Set<Promise<unknown>>>();
   /** A goal is owned from before its persisted claim until its session is registered. */
   const claiming = new Map<
     string,
@@ -170,7 +175,11 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     await book.setWaiting(goalId, approvals.waitingFor(goalId));
   };
 
-  const runGoal = async (goal: IGoal, initialRun: IGoalRun): Promise<void> => {
+  const runGoal = async (
+    goal: IGoal,
+    initialRun: IGoalRun,
+    control: { cancelled: boolean },
+  ): Promise<void> => {
     let run: IGoalRun = initialRun;
     // Writes to the run and the feed happen in order, whatever order the session's events arrive in.
     let chain = Promise.resolve();
@@ -183,7 +192,18 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       enqueue(async () => {
         run = await book.recordAction(run, action);
       });
-    const shape = await options.shape?.(goal);
+    let shape: IGoalShape | undefined;
+    try {
+      shape = await options.shape?.(goal);
+    } catch (error) {
+      if (!stopped && !control.cancelled) throw error;
+      await book.finishRun(run, 'interrupted', 'The run was stopped.');
+      return;
+    }
+    if (stopped || control.cancelled) {
+      await book.finishRun(run, 'interrupted', 'The run was stopped.');
+      return;
+    }
     if (
       shape?.caseAction !== undefined &&
       (goal.caseId === undefined || !shape.onlyTools.includes(CONNECTOR_TOOL_NAMES.act))
@@ -203,6 +223,16 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       ...(shape?.caseAction !== undefined && { caseAction: shape.caseAction.tool }),
     });
     sessions.set(session, goal.id);
+    if (stopped || control.cancelled) {
+      session.abort();
+      try {
+        await book.finishRun(run, 'interrupted', 'The run was stopped.');
+      } finally {
+        sessions.delete(session);
+        await session.shutdown().catch(() => undefined);
+      }
+      return;
+    }
     /** Prompt id to the feed item that shows it. */
     const ownPrompts = new Map<string, string>();
     const settledEarly = new Set<string>();
@@ -383,7 +413,19 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
   }): Promise<number> => {
     if (stopped || activity.cancelledAll) return 0;
     await approvals.settleFailed();
-    await options.beforeRunDue?.(owns);
+    await options.beforeRunDue?.(owns, async (goalId, work) => {
+      if (stopped || activity.cancelledAll || activity.cancelled.has(goalId)) return;
+      const task = work();
+      const tasks = recovering.get(goalId) ?? new Set<Promise<unknown>>();
+      tasks.add(task);
+      recovering.set(goalId, tasks);
+      try {
+        await task;
+      } finally {
+        tasks.delete(task);
+        if (tasks.size === 0) recovering.delete(goalId);
+      }
+    });
     if (stopped) return 0;
     let started = 0;
     for (const goal of await book.due()) {
@@ -420,7 +462,9 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
         continue;
       }
       started += 1;
-      const task = runGoal(goal, run)
+      const control = { cancelled: false };
+      controls.set(goal.id, control);
+      const task = runGoal(goal, run, control)
         .catch(async (error: unknown) => {
           await book.post({
             kind: 'notice',
@@ -431,7 +475,10 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
         })
         // allow-fallback: a run that cannot even report must not end the process serving the person.
         .catch(() => undefined)
-        .finally(() => running.delete(goal.id));
+        .finally(() => {
+          running.delete(goal.id);
+          controls.delete(goal.id);
+        });
       running.set(goal.id, task);
       claiming.delete(goal.id);
       claim.finish();
@@ -469,11 +516,8 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     answer: (feedId, approve) => approvals.answer(feedId, approve),
     async settled(goalId) {
       if (goalId !== undefined) {
-        await Promise.allSettled(
-          [...scheduling]
-            .filter((activity) => activity.cancelledAll || activity.cancelled.has(goalId))
-            .map((activity) => activity.done),
-        );
+        while (recovering.has(goalId))
+          await Promise.allSettled([...(recovering.get(goalId) ?? [])]);
         while (claiming.has(goalId)) await claiming.get(goalId)!.completed;
         await running.get(goalId);
         return;
@@ -493,6 +537,9 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       for (const [id, claim] of claiming) {
         if (goalId === undefined || id === goalId) claim.cancelled = true;
       }
+      for (const [id, control] of controls) {
+        if (goalId === undefined || id === goalId) control.cancelled = true;
+      }
       for (const [session, owner] of sessions) {
         if (goalId === undefined || owner === goalId) session.abort();
       }
@@ -500,6 +547,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     async stop() {
       stopped = true;
       if (timer !== undefined) clearInterval(timer);
+      for (const control of controls.values()) control.cancelled = true;
       // Abort every running turn: its prompts are refused, so nothing waits on a person who is gone.
       const cancelling = [...sessions.keys()].map((session) => approvals.cancelSession(session));
       for (const session of sessions.keys()) session.abort();

@@ -714,6 +714,95 @@ async function pendingApproval(book: GoalBook) {
 }
 
 describe('goal runner', () => {
+  it.each(['completes', 'fails'] as const)(
+    'does not open a session when interrupted preparation %s',
+    async (preparation) => {
+      const book = new GoalBook({ store: createMemoryGoalStore() });
+      let release!: () => void;
+      let reached!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const preparing = new Promise<void>((resolve) => {
+        reached = resolve;
+      });
+      const openSession = vi.fn(() => promptingSession().session);
+      const runner = createGoalRunner({
+        book,
+        approvals: createApprovalRegistry(book),
+        openSession,
+        shape: async () => {
+          reached();
+          await gate;
+          if (preparation === 'fails') throw new Error('The case is unavailable');
+          return undefined;
+        },
+      });
+      const goal = await book.create({ title: 'Prepare', instructions: 'Look.' });
+      try {
+        await runner.runDue();
+        await preparing;
+        runner.interrupt(goal.id);
+        const settling = runner.settled(goal.id);
+        release();
+        await settling;
+        expect(openSession).not.toHaveBeenCalled();
+        expect((await book.runs(goal.id))[0]?.outcome).toBe('interrupted');
+      } finally {
+        release();
+        await runner.stop();
+      }
+    },
+  );
+
+  it('settles the interrupted goal without waiting for an unrelated claim', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession();
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    const runningGoal = await book.create({ title: 'Running', instructions: 'Buy tickets' });
+    await runner.runDue();
+    await pendingApproval(book);
+    const otherGoal = await book.create({ title: 'Other', instructions: 'Do something else' });
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const claimed = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const original = book.startRun.bind(book);
+    const start = vi.spyOn(book, 'startRun').mockImplementation(async (...args) => {
+      const run = await original(...args);
+      if (args[0] === otherGoal.id) {
+        reached();
+        await gate;
+      }
+      return run;
+    });
+    const scheduling = runner.runDue();
+    try {
+      await claimed;
+      runner.interrupt(runningGoal.id);
+      const settled = await Promise.race([
+        runner.settled(runningGoal.id).then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+      ]);
+      expect(settled).toBe(true);
+      expect((await book.get(runningGoal.id))?.status).toBe('done');
+    } finally {
+      runner.interrupt(otherGoal.id);
+      release();
+      await Promise.allSettled([scheduling]);
+      start.mockRestore();
+      await runner.stop();
+    }
+  });
+
   it('does not approve when the prompt backstop fires while the answer is recorded', async () => {
     const book = new GoalBook({ store: createMemoryGoalStore() });
     const stub = promptingSession();
@@ -899,8 +988,8 @@ describe('goal runner stopping', () => {
     expect(submitted).toBe(0);
     expect((await book.runs(goal.id))[0]).toEqual(
       expect.objectContaining({
-        outcome: 'failed',
-        report: 'The run failed: the agent was stopping',
+        outcome: 'interrupted',
+        report: 'The run was stopped.',
       }),
     );
   });

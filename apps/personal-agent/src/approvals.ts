@@ -167,6 +167,8 @@ export function createApprovalRegistry(
       answering.set(feedId, flight);
       let handedOff = false;
       try {
+        // Recovery can distinguish an answer still being recorded from an authorized handoff.
+        cancellations?.mark(expected);
         const recorded = await waiting.recordAnswer(approve);
         if (flight.cancelled || closing) throw new Error('The approval was cancelled');
         if (
@@ -174,9 +176,15 @@ export function createApprovalRegistry(
           recorded.approval?.state !== (approve ? 'approved' : 'denied')
         )
           throw new Error('The recorded approval differs from the displayed action');
+        cancellations?.authorize(expected);
         answering.delete(feedId);
         handedOff = true;
         waiting.session.resolvePermission(waiting.promptId, approve);
+        try {
+          cancellations?.finish(expected);
+        } catch {
+          // An authorized intent preserves the answer for reconciliation on restart.
+        }
         return recorded;
       } catch (error) {
         if (!handedOff) {
@@ -196,7 +204,11 @@ export function createApprovalRegistry(
       for (const expected of failed.values()) cancellations?.mark(expected);
     },
     async restore() {
-      for (const expected of cancellations?.list() ?? []) failed.set(expected.id, expected);
+      for (const expected of cancellations?.list() ?? []) {
+        if (answering.has(expected.id)) continue;
+        if (expected.phase === 'authorized') cancellations?.finish(expected);
+        else failed.set(expected.id, expected);
+      }
       await this.settleFailed();
       if (failed.size > 0) throw new Error('Approval cancellations could not be recovered');
     },
