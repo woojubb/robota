@@ -25,11 +25,13 @@ import {
   GoalBook,
   createMemoryCaseStore,
   createMemoryConnectorStore,
+  createFileConnectorStore,
   createFileCaseStore,
   createMemoryGoalStore,
 } from '@robota-sdk/agent-product/personal';
 
 import { createPersonalApi } from '../personal-api.js';
+import { createCaseConnectorBindings } from '../case-connector-binding.js';
 import { createCaseActionScope } from '../connectors/case-action-scope.js';
 import { offeredTools, toolResults } from './scripted-model.js';
 import { createFixtureWebRoot, startHarness } from './harness.js';
@@ -93,6 +95,90 @@ const SIGN_IN = {
   source: 'mail:message-1',
   connectorId: 'connector-mail-1',
 };
+
+describe('case connector authority', () => {
+  it('preserves authority across passive fences but replaces it after an owner revokes and reselects', async () => {
+    harness = await startHarness();
+    const book = new ConnectorBook({
+      store: createFileConnectorStore(join(harness.stateDir, 'connectors')),
+    });
+    const connector = await book.create({
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'mcp',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'none',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const scope = createCaseActionScope(join(harness.stateDir, 'case-action-scope'));
+    const options = {
+      directory: join(harness.stateDir, 'case-connector-bindings'),
+      cases: harness.capabilities.cases,
+      connectors: book,
+      scope,
+    };
+    const bindings = createCaseConnectorBindings(options);
+    const authority = () => scope.exclusive(() => bindings.authorityLocked(opened.id));
+    const initial = (await bindings.get(opened.id))!;
+    expect(await authority()).toBeUndefined();
+    const selected = (await bindings.set(opened.id, connector.id, initial.revision))!;
+    expect(selected).not.toHaveProperty('generation');
+    const first = (await authority())!;
+    expect(first.connectorId).toBe(connector.id);
+    const fenced = (await bindings.fence(opened.id, selected.revision))!;
+    expect(fenced.revision).not.toBe(selected.revision);
+    expect(await authority()).toEqual(first);
+    const removed = (await bindings.set(opened.id, null, fenced.revision))!;
+    expect(await authority()).toBeUndefined();
+    await bindings.set(opened.id, connector.id, removed.revision);
+    const reselected = (await authority())!;
+    expect(reselected.generation).not.toBe(first.generation);
+    const restarted = createCaseConnectorBindings(options);
+    expect(await scope.exclusive(() => restarted.authorityLocked(opened.id))).toEqual(reselected);
+    await harness.capabilities.cases.close(opened.id, 'Settled.');
+    expect(await authority()).toBeUndefined();
+  });
+
+  it('accepts legacy settings conservatively and fails closed for damaged generations or recovery', async () => {
+    harness = await startHarness();
+    const book = new ConnectorBook({
+      store: createFileConnectorStore(join(harness.stateDir, 'connectors')),
+    });
+    const connector = await book.create({
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'mcp',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'none',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const scope = createCaseActionScope(join(harness.stateDir, 'case-action-scope'));
+    const directory = join(harness.stateDir, 'case-connector-bindings');
+    const bindings = createCaseConnectorBindings({
+      directory,
+      cases: harness.capabilities.cases,
+      connectors: book,
+      scope,
+    });
+    const path = join(directory, `${opened.id}.json`);
+    const revision = '00000000-0000-4000-8000-000000000001';
+    writeFileSync(path, JSON.stringify({ revision, connectorId: connector.id }));
+    const authority = () => scope.exclusive(() => bindings.authorityLocked(opened.id));
+    expect(await authority()).toEqual({ connectorId: connector.id, generation: revision });
+    await bindings.fence(opened.id, revision);
+    expect(await authority()).toEqual({ connectorId: connector.id, generation: revision });
+    writeFileSync(`${path}.recovery`, revision);
+    expect(await authority()).toBeUndefined();
+    await bindings.get(opened.id);
+    expect((await authority())?.generation).not.toBe(revision);
+    writeFileSync(
+      path,
+      JSON.stringify({ revision, generation: 'damaged', connectorId: connector.id }),
+    );
+    await expect(authority()).rejects.toThrow(/cannot be read/u);
+    expect((await bindings.get(opened.id))?.error).toBe(true);
+  });
+});
 
 /** A case with a question waiting in the feed, made through the agent's own book. */
 async function ask(
