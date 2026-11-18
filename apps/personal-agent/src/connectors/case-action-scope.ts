@@ -21,8 +21,19 @@ import { ownerHasExited, removeDirectoryGuard, tryDirectoryLock } from './direct
 
 export class CaseActionMigrationError extends ConnectorRefusedError {}
 
+export interface ICaseActionSnapshot {
+  readonly revision: string;
+  /** Changes when authority changes, not when an unchanged setting is fenced. */
+  readonly generation: string;
+  readonly tools: readonly string[];
+}
+
 export interface ICaseActionScope {
   exclusive<T>(work: () => Promise<T>): Promise<T>;
+  /** Try once without waiting, so a caller can acquire multiple locks without holding one while waiting. */
+  tryExclusive<T>(
+    work: () => Promise<T>,
+  ): Promise<{ readonly acquired: false } | { readonly acquired: true; readonly value: T }>;
   /** Serialize an owner block while case settings remain closed for offline migration. */
   exclusiveBlock<T>(work: () => Promise<T>): Promise<T>;
   /** Serialize a connection check and its completion for one connector without blocking others. */
@@ -30,11 +41,9 @@ export interface ICaseActionScope {
   /** Hold `exclusive` while using this result to authorize an action. */
   tools(connectorId: string): Promise<readonly string[]>;
   /** Read the allowed tools and their shared revision as one snapshot. */
-  snapshot(connectorId: string): { readonly revision: string; readonly tools: readonly string[] };
+  snapshot(connectorId: string): ICaseActionSnapshot;
   /** The previously displayed owner choices while an allow is still being confirmed. */
-  pendingSnapshot(
-    connectorId: string,
-  ): { readonly revision: string; readonly tools: readonly string[] } | undefined;
+  pendingSnapshot(connectorId: string): ICaseActionSnapshot | undefined;
   /** Issue a stable recovery revision while this connector's scope is unreadable. Caller holds the lock. */
   errorRevision(connectorId: string): string;
   /** Mark a disconnect immediately and keep the marker locked until the attempt ends. */
@@ -62,10 +71,7 @@ export interface ICaseActionScope {
   clear(connectorId: string): Promise<void>;
 }
 
-interface IScopeState {
-  readonly revision: string;
-  readonly tools: readonly string[];
-}
+type IScopeState = ICaseActionSnapshot;
 
 interface IPendingAllow {
   readonly previous: IScopeState;
@@ -200,7 +206,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
           if (!statSync(directory).isDirectory()) throw new Error('not a directory');
-          return { revision: '0', tools: [] };
+          return { revision: '0', generation: '0', tools: [] };
         }
         throw error;
       }
@@ -208,10 +214,16 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       const value: unknown = JSON.parse(readFileSync(join(path, 'scope.json'), 'utf8'));
       if (typeof value !== 'object' || value === null || Array.isArray(value))
         throw new Error('invalid scope');
-      const { revision, tools } = value as { revision?: unknown; tools?: unknown };
+      const { revision, generation, tools } = value as {
+        revision?: unknown;
+        generation?: unknown;
+        tools?: unknown;
+      };
       if (
         typeof revision !== 'string' ||
         !VERSION.test(revision) ||
+        (generation !== undefined &&
+          (typeof generation !== 'string' || !VERSION.test(generation))) ||
         !Array.isArray(tools) ||
         tools.length > MAX_TOOLS ||
         !tools.every(validTool) ||
@@ -219,7 +231,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       ) {
         throw new Error('invalid scope');
       }
-      return { revision, tools: tools as string[] };
+      return { revision, generation: generation ?? revision, tools: tools as string[] };
     } catch {
       throw new ConnectorRefusedError('The case action settings cannot be read');
     }
@@ -301,10 +313,16 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
         Array.isArray(entry.previous)
       )
         throw new Error();
-      const previous = entry.previous as { revision?: unknown; tools?: unknown };
+      const previous = entry.previous as {
+        revision?: unknown;
+        generation?: unknown;
+        tools?: unknown;
+      };
       if (
         typeof previous.revision !== 'string' ||
         !VERSION.test(previous.revision) ||
+        (previous.generation !== undefined &&
+          (typeof previous.generation !== 'string' || !VERSION.test(previous.generation))) ||
         !Array.isArray(previous.tools) ||
         !previous.tools.every(validTool) ||
         previous.tools.length > MAX_TOOLS ||
@@ -316,7 +334,11 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       )
         throw new Error();
       return {
-        previous: { revision: previous.revision, tools: previous.tools as string[] },
+        previous: {
+          revision: previous.revision,
+          generation: previous.generation ?? previous.revision,
+          tools: previous.tools as string[],
+        },
         next: entry.next,
         recovery: entry.recovery,
       };
@@ -417,7 +439,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
   const settleDisconnects = async (connectorId: string, disconnected = false): Promise<void> => {
     recoverPending(connectorId);
     const markers = transitionPaths(connectorId);
-    if (markers.length === 0) return;
+    if (markers.length === 0 && !disconnected) return;
     try {
       for (const marker of markers) {
         if (marker.endsWith('.done')) continue;
@@ -427,7 +449,8 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
         );
       }
       const current = read(connectorId);
-      if (current.revision !== '0') write(connectorId, { ...current, revision: randomUUID() });
+      if (current.revision !== '0')
+        write(connectorId, { ...current, revision: randomUUID(), generation: randomUUID() });
       for (const marker of markers) removeDirectoryGuard(marker);
     } catch (error) {
       if (error instanceof ConnectorRefusedError) throw error;
@@ -442,7 +465,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
     } else if (expected !== undefined && authorized(connectorId).revision !== expected) {
       throw new ConnectorRefusedError('Case action settings changed; try again');
     }
-    write(connectorId, { revision: randomUUID(), tools: [] });
+    write(connectorId, { revision: randomUUID(), generation: randomUUID(), tools: [] });
     // Keep authority closed by the marker until the replacement is durable.
     clearRecovery(connectorId);
     const path = pathOf(connectorId);
@@ -463,7 +486,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
     const tools = new Set(current.tools);
     tools.add(tool);
     if (tools.size > MAX_TOOLS) throw new ConnectorRefusedError('Too many case action tools');
-    const next = { revision: randomUUID(), tools: [...tools].sort() };
+    const next = { revision: randomUUID(), generation: randomUUID(), tools: [...tools].sort() };
     writePending(connectorId, { previous: current, next: next.revision, recovery: randomUUID() });
     write(connectorId, next);
     return next.revision;
@@ -487,6 +510,16 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
   };
   return {
     exclusive: (work) => lock(lockPath, 100, work),
+    tryExclusive: async (work) => {
+      ensureLegacyGuard();
+      const held = tryDirectoryLock(lockPath);
+      if (held === undefined) return { acquired: false };
+      try {
+        return { acquired: true, value: await work() };
+      } finally {
+        held.release();
+      }
+    },
     exclusiveBlock: (work) => lock(lockPath, 100, work, false),
     exclusiveConnector: (connectorId, work) => {
       pathOf(connectorId);
@@ -528,7 +561,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       }
       const current = read(connectorId);
       if (hasRecovery(connectorId)) {
-        write(connectorId, { ...current, revision: randomUUID() });
+        write(connectorId, { ...current, revision: randomUUID(), generation: randomUUID() });
         clearRecovery(connectorId);
         return;
       }
@@ -543,10 +576,10 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       await settleDisconnects(connectorId);
       const current = read(connectorId);
       if (current.revision === '0') {
-        write(connectorId, { revision: randomUUID(), tools: [] });
+        write(connectorId, { revision: randomUUID(), generation: randomUUID(), tools: [] });
         clearRecovery(connectorId);
       } else if (hasRecovery(connectorId)) {
-        write(connectorId, { ...current, revision: randomUUID() });
+        write(connectorId, { ...current, revision: randomUUID(), generation: randomUUID() });
         clearRecovery(connectorId);
       }
     },
@@ -585,7 +618,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       tools.delete(tool);
       if (tools.size > MAX_TOOLS) throw new ConnectorRefusedError('Too many case action tools');
       // A revoke advances the revision even when the tool is absent, cancelling older allows.
-      const next = { revision: randomUUID(), tools: [...tools].sort() };
+      const next = { revision: randomUUID(), generation: randomUUID(), tools: [...tools].sort() };
       write(connectorId, next);
       return undefined;
     },
