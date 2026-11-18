@@ -282,22 +282,5 @@ export function createCaseAnswerOutbox(options: {
       await recoverUnlocked(undefined, caseId);
       await work();
     });
-  const hasOwner = (ownerId: string): boolean => {
-    try {
-      for (const caseId of caseDirectories()) {
-        for (const name of readdirSync(caseDirectory(caseId))) {
-          if (!name.endsWith('.json')) continue;
-          try {
-            if (read(caseId, name.slice(0, -5))?.ownerId === ownerId) return true;
-          } catch {
-            return true;
-          }
-        }
-      }
-      return false;
-    } catch {
-      return true;
-    }
-  };
-  return { prepare, complete, persistCase, recover, stopCase, has, hasOwner };
+  return { prepare, complete, persistCase, recover, stopCase, has };
 }

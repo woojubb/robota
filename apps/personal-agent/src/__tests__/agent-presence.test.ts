@@ -263,6 +263,55 @@ it('adopts an unqueued answer after its owner closes normally', async () => {
   }
 }, 20_000);
 
+it('retains owner shutdown evidence when another agent queues its answer first', async () => {
+  if (process.platform === 'win32') return;
+  const { startHarness } = await import('./harness.js');
+  const root = mkdtempSync(join(tmpdir(), 'personal-answer-close-recovered-'));
+  directories.push(root);
+  const first = await startHarness({ stateDir: root });
+  const second = await startHarness({ stateDir: root });
+  const third = await startHarness({ stateDir: root });
+  let firstClosed = false;
+  try {
+    vi.spyOn(first.capabilities.runner()!, 'runDue').mockResolvedValue(0);
+    const failure = vi
+      .spyOn(first.capabilities.goals, 'enqueueCaseAnswer')
+      .mockRejectedValue(new Error('unavailable'));
+    const { case: opened } = await first.capabilities.cases.open({
+      title: 'Answer',
+      noticed: 'A note',
+      source: 'test:close-recovered',
+    });
+    const { item } = await first.capabilities.cases.ask(opened.id, {
+      question: 'Continue?',
+      options: ['Yes', 'No'],
+    });
+    const answered = await first.capabilities.api({
+      method: 'POST',
+      path: `/feed/${item.id}/answer`,
+      segments: ['feed', item.id, 'answer'],
+      query: new URLSearchParams(),
+      body: { choice: 'Yes' },
+    });
+    expect(answered.status).toBe(200);
+    failure.mockRestore();
+    expect(await second.capabilities.runner()!.runDue()).toBe(0);
+    expect(
+      (await second.capabilities.goals.list()).find((goal) => goal.caseId === opened.id)
+        ?.pendingCaseAnswer,
+    ).toBeDefined();
+    await first.close();
+    firstClosed = true;
+    expect(await second.capabilities.runner()!.runDue()).toBe(1);
+    await second.capabilities.runner()!.settled();
+    expect(await third.capabilities.runner()!.runDue()).toBe(0);
+  } finally {
+    if (!firstClosed) await first.close();
+    await second.close();
+    await third.close();
+  }
+}, 20_000);
+
 it('drains an answer already being recorded before marking its owner stopped', async () => {
   if (process.platform === 'win32') return;
   const { startHarness } = await import('./harness.js');
@@ -335,6 +384,111 @@ it('drains an answer already being recorded before marking its owner stopped', a
     await third.close();
   }
 }, 20_000);
+
+it('cancels an approval being recorded as shutdown starts', async () => {
+  const { startHarness } = await import('./harness.js');
+  const root = mkdtempSync(join(tmpdir(), 'personal-shutdown-approval-'));
+  directories.push(root);
+  const first = await startHarness({ stateDir: root });
+  let release!: () => void;
+  let reached!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const waiting = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  let closing: Promise<void> | undefined;
+  try {
+    first.model.script({
+      tool: 'ConnectorAct',
+      args: {
+        connector: 'connector-test',
+        tool: 'send',
+        argumentsJson: '{}',
+      },
+    });
+    const goals = first.capabilities.goals;
+    await goals.create({ title: 'Pending action', instructions: 'Send.' });
+    await first.capabilities.runner()!.runDue();
+    let approval = (await goals.feed()).find((item) => item.approval?.state === 'pending');
+    for (let attempt = 0; approval === undefined && attempt < 200; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      approval = (await goals.feed()).find((item) => item.approval?.state === 'pending');
+    }
+    expect(approval).toBeDefined();
+    const save = goals.setApproval.bind(goals);
+    vi.spyOn(goals, 'setApproval').mockImplementation(async (id, state) => {
+      const result = await save(id, state);
+      if (id === approval!.id && state === 'approved') {
+        reached();
+        await gate;
+      }
+      return result;
+    });
+    const answering = first.capabilities.api({
+      method: 'POST',
+      path: `/feed/${approval!.id}/approve`,
+      segments: ['feed', approval!.id, 'approve'],
+      query: new URLSearchParams(),
+      body: {},
+    });
+    await waiting;
+    closing = first.close();
+    release();
+    expect((await answering).status).toBe(400);
+    await closing;
+    expect((await goals.feedItem(approval!.id))?.approval?.state).toBe('expired');
+  } finally {
+    release();
+    if (closing === undefined) closing = first.close();
+    await closing;
+  }
+}, 20_000);
+
+it('does not delay shutdown on an unrelated slow API read', async () => {
+  const { startHarness } = await import('./harness.js');
+  const first = await startHarness();
+  let release!: () => void;
+  let reached!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const waiting = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  const goals = first.capabilities.goals;
+  const feed = goals.feed.bind(goals);
+  vi.spyOn(goals, 'feed').mockImplementation(async () => {
+    reached();
+    await gate;
+    return feed();
+  });
+  let closing: Promise<void> | undefined;
+  let reading: Promise<unknown> | undefined;
+  try {
+    reading = first.capabilities.api({
+      method: 'GET',
+      path: '/feed',
+      segments: ['feed'],
+      query: new URLSearchParams(),
+      body: undefined,
+    });
+    await waiting;
+    closing = first.close();
+    expect(
+      await Promise.race([
+        closing.then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 1_000)),
+      ]),
+    ).toBe(true);
+  } finally {
+    release();
+    await reading;
+    if (closing === undefined) closing = first.close();
+    await closing;
+  }
+}, 15_000);
 
 it('serializes goal recovery with a concurrent schedule change', async () => {
   const { startHarness } = await import('./harness.js');

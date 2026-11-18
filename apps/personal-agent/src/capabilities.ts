@@ -509,7 +509,12 @@ export function createPersonalCapabilities(
     (request) => {
       if (shuttingDown)
         return Promise.resolve({ status: 503, body: { error: 'The agent is stopping' } });
-      return track(api(request));
+      const task = api(request);
+      return request.method === 'POST' &&
+        request.segments[0] === 'feed' &&
+        request.segments[2] === 'answer'
+        ? track(task)
+        : task;
     };
   return {
     tools: [
@@ -656,14 +661,16 @@ export function createPersonalCapabilities(
           if (goal.caseId === undefined) return;
           // An answer that came while a case turn ran started nothing: give it its turn. The goal still
           // counts as running until its run is over, so what is due runs once it has ended.
-          void caseTurns
-            .ended(goal)
-            .then(async (again) => {
-              if (!again) return;
-              await runner?.settled(goal.id);
-              await runner?.runDue();
-            })
-            .catch(() => undefined);
+          void track(
+            caseTurns
+              .ended(goal)
+              .then(async (again) => {
+                if (!again) return;
+                await runner?.settled(goal.id);
+                await runner?.runDue();
+              })
+              .catch(() => undefined),
+          );
         },
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
@@ -707,13 +714,14 @@ export function createPersonalCapabilities(
     },
     dispose: async () => {
       shuttingDown = true;
-      while (pendingWork.size > 0) await Promise.allSettled([...pendingWork]);
       clearInterval(deliveryTimer);
-      const stopped = await Promise.allSettled([
+      const stopping = Promise.allSettled([
         approvals.shutdown(),
         runner?.stop(),
         channelTurns?.stop(),
       ]);
+      while (pendingWork.size > 0) await Promise.allSettled([...pendingWork]);
+      const stopped = await stopping;
       const closed = await Promise.allSettled([
         ...channels.channels().map((channel) => channels.disconnect(channel.id)),
         connectors.close(),
@@ -721,10 +729,7 @@ export function createPersonalCapabilities(
       ]);
       const failure = [...stopped, ...closed].find((result) => result.status === 'rejected');
       if (failure?.status === 'rejected') throw failure.reason;
-      presence.close(
-        (await goals.list()).some((goal) => goal.pendingCaseAnswer?.ownerId === presence.id) ||
-          answerOutbox?.hasOwner(presence.id) === true,
-      );
+      presence.close(true);
     },
   };
 }
