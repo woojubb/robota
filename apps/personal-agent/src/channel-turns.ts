@@ -33,8 +33,11 @@ export interface IChannelTurns {
 export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns {
   const { book, approvals } = options;
   const sessions = new Map<string, TChannelSession>();
+  const notices = new Set<Promise<void>>();
   /** Turns run one at a time per conversation, in the order their messages arrived. */
   const queues = new Map<string, Promise<unknown>>();
+  let stopped = false;
+  let stopping: Promise<void> | undefined;
 
   const sessionFor = (channel: string, conversationId: string): TChannelSession => {
     const key = `${channel}\u0000${conversationId}`;
@@ -56,6 +59,24 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
     }) => {
       void (async () => {
         const detail = describeCall(event.toolName, event.toolArgs);
+        if (detail === undefined) {
+          opened.resolvePermission(event.id, false);
+          settledEarly.delete(event.id);
+          // A failed notice does not undo the refusal. A pending write must settle before shutdown.
+          const notice = book
+            .post({
+              kind: 'notice',
+              title: `A message on ${channel}`,
+              body: 'The connector action was refused because its complete details are too long or cannot be shown safely.',
+            })
+            .then(
+              () => undefined,
+              () => undefined,
+            );
+          notices.add(notice);
+          void notice.then(() => notices.delete(notice));
+          return;
+        }
         const item = await book.post({
           kind: 'approval',
           title: `A message on ${channel}`,
@@ -90,9 +111,11 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
 
   return {
     runTurn(key, text) {
+      if (stopped) return Promise.reject(new Error('Channel turns are stopping'));
       const session = sessionFor(key.channel, key.conversationId);
       const queueKey = `${key.channel}\u0000${key.conversationId}`;
       const turn = (queues.get(queueKey) ?? Promise.resolve()).then(async () => {
+        if (stopped) throw new Error('Channel turns are stopping');
         const handle = await session.submit(text);
         const result = await handle.completed;
         return result.response.trim() === '' ? '(no reply)' : result.response.trim();
@@ -106,10 +129,17 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
     interrupt() {
       for (const session of sessions.values()) session.abort();
     },
-    async stop() {
+    stop() {
+      if (stopping !== undefined) return stopping;
+      stopped = true;
       for (const session of sessions.values()) session.abort();
-      await Promise.allSettled([...sessions.values()].map((session) => session.shutdown()));
-      sessions.clear();
+      stopping = (async () => {
+        await Promise.allSettled([...sessions.values()].map((session) => session.shutdown()));
+        await Promise.allSettled([...queues.values()]);
+        await Promise.allSettled([...notices]);
+        sessions.clear();
+      })();
+      return stopping;
     },
   };
 }
