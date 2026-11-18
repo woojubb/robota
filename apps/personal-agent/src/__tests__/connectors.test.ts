@@ -337,7 +337,7 @@ describe('using a connected service', () => {
       w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], { allowed: true }),
       w.call('POST', ['connectors', w.id, 'tools', 'create_note'], { decision: 'blocked' }),
     ]);
-    expect(allowed.status).toBe(200);
+    expect([200, 400]).toContain(allowed.status);
     expect(blocked.status).toBe(200);
     const view = (await w.call('GET', ['connectors', w.id])).body.connector;
     expect(view.caseActionTools).toEqual([]);
@@ -346,7 +346,7 @@ describe('using a connected service', () => {
     );
   });
 
-  it('serializes an in-flight allow and a block across API instances sharing state', async () => {
+  it('rechecks an in-flight allow after a block from another API instance', async () => {
     const w = await connected();
     const registry = w.harness.capabilities.connectors;
     const second = createConnectorsApi({
@@ -385,24 +385,67 @@ describe('using a connected service', () => {
     let block: Promise<unknown> | undefined;
     try {
       await seen;
-      let settled = false;
       block = second({
         method: 'POST',
         path: `/connectors/${w.id}/tools/create_note`,
         segments: ['connectors', w.id, 'tools', 'create_note'],
         query: new URLSearchParams(),
         body: { decision: 'blocked' },
-      }).then((value) => {
-        settled = true;
-        return value;
       });
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      expect(settled).toBe(false);
-      release();
-      expect((await allow).status).toBe(200);
       expect(((await block) as { status: number }).status).toBe(200);
+      release();
+      expect((await allow).status).toBe(400);
       const view = (await w.call('GET', ['connectors', w.id])).body.connector;
       expect(view.caseActionTools).toEqual([]);
+    } finally {
+      release();
+      await Promise.allSettled([allow, ...(block === undefined ? [] : [block])]);
+      spy.mockRestore();
+    }
+  });
+
+  it('does not delay blocking another connector while discovery is stalled', async () => {
+    const w = await connected();
+    const calendar = await w.add('Calendar', 'calendar', CALENDAR_HOST);
+    await w.consent((await w.connect(calendar)).authorizationUrl);
+    await w.waitForState(calendar, 'connected');
+    const registry = w.harness.capabilities.connectors;
+    const original = registry.view.bind(registry);
+    let captured: () => void = () => undefined;
+    const seen = new Promise<void>((resolve) => {
+      captured = resolve;
+    });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let paused = false;
+    const spy = vi.spyOn(registry, 'view').mockImplementation(async (...args) => {
+      const view = await original(...args);
+      if (!paused && args[0] === w.id) {
+        paused = true;
+        captured();
+        await gate;
+      }
+      return view;
+    });
+    const allow = w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
+      allowed: true,
+    });
+    let block: ReturnType<IWorld['call']> | undefined;
+    try {
+      await seen;
+      block = w.call('POST', ['connectors', calendar, 'tools', 'add_event'], {
+        decision: 'blocked',
+      });
+      const completed = await Promise.race([
+        block.then(() => true),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500)),
+      ]);
+      expect(completed).toBe(true);
+      expect((await block).status).toBe(200);
+      release();
+      expect((await allow).status).toBe(200);
     } finally {
       release();
       await Promise.allSettled([allow, ...(block === undefined ? [] : [block])]);
@@ -507,9 +550,10 @@ describe('using a connected service', () => {
       chmodSync(scopeDirectory, 0o500);
       try {
         const removed = await w.call('POST', ['connectors', w.id, 'remove'], {});
-        expect(removed.status).toBe(200);
+        expect(removed.status).toBe(500);
         expect(removed.body.outcome.removed).toBe(true);
         expect(removed.body.caseActionScopeCleanupFailed).toBe(true);
+        expect(removed.body.error).toContain(`case-action-scope/${w.id}`);
         expect(w.auth.revoked.length).toBeGreaterThan(0);
         expect((await w.call('GET', ['connectors', w.id])).status).toBe(404);
       } finally {

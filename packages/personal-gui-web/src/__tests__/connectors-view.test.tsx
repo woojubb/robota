@@ -299,6 +299,17 @@ describe('the Connectors tab', () => {
     await waitFor(() => expect(remove).toHaveBeenCalledWith(NOTES.id, false));
   });
 
+  it('shows the owner how to handle a partial removal', async () => {
+    const reason = `The connector was removed, but its follow-up cleanup did not finish. Restore write access to the agent state directory and remove case-action-scope/${NOTES.id}.`;
+    const remove = vi.fn(async () => {
+      throw new Error(reason);
+    });
+    render(<ConnectorsView api={fakeApi([NOTES], { removeConnector: remove })} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, remove' }));
+    expect(await screen.findByText(reason)).toBeTruthy();
+  });
+
   it('turns keeping the library up to date on, off and runs it now', async () => {
     const setSync = vi.fn(async () => ({ connector: NOTES }));
     const run = vi.fn(async () => ({}));

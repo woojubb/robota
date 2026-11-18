@@ -164,10 +164,14 @@ export function createPersonalCapabilities(
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
   const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
   const layout = createLayoutBook(join(options.stateDir, 'layout'));
-  const connectorBook = new ConnectorBook({
-    store: createFileConnectorStore(join(options.stateDir, 'connectors')),
-  });
   const caseActions = createCaseActionScope(join(options.stateDir, 'case-action-scope'));
+  const connectorStore = createFileConnectorStore(join(options.stateDir, 'connectors'));
+  const connectorBook = new ConnectorBook({
+    store: {
+      ...connectorStore,
+      remove: (id) => caseActions.exclusive(() => connectorStore.remove(id)),
+    },
+  });
   const consent = createConsentBroker();
   const connectors = new ConnectorRegistry({
     book: connectorBook,
