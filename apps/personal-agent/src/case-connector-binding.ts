@@ -24,6 +24,11 @@ export interface ICaseConnectorBinding {
   readonly error?: true;
 }
 
+export interface ICaseConnectorAuthority {
+  readonly connectorId: string;
+  readonly generation: string;
+}
+
 export interface ICaseConnectorBindings {
   get(caseId: string): Promise<ICaseConnectorBinding | undefined>;
   set(
@@ -32,11 +37,29 @@ export interface ICaseConnectorBindings {
     revision: string,
   ): Promise<ICaseConnectorBinding | undefined>;
   fence(caseId: string, revision: string): Promise<ICaseConnectorBinding | undefined>;
+  /** Take a snapshot under both locks. It must be rechecked at effect dispatch. */
+  authoritySnapshot(caseId: string): Promise<ICaseConnectorAuthority | undefined>;
   /** Clear a case on closure while the caller holds the shared settings lock. */
   closeLocked(caseId: string): Promise<void>;
   /** Revoke references before a connector record is removed; caller holds the shared lock. */
   removeConnectorLocked(connectorId: string): Promise<void>;
 }
+
+interface ISavedBinding {
+  readonly revision: string;
+  readonly generation: string;
+  readonly connectorId?: string;
+  readonly error?: never;
+}
+
+type TBindingState =
+  | ISavedBinding
+  | {
+      readonly revision: string;
+      readonly error: true;
+      readonly connectorId?: never;
+      readonly generation?: never;
+    };
 
 const CASE_ID = /^case-[a-z0-9]{1,40}$/u;
 const CONNECTOR_ID = /^connector-[a-z0-9-]{1,60}$/u;
@@ -48,6 +71,8 @@ export function createCaseConnectorBindings(options: {
   readonly connectors: ConnectorBook;
   /** The same filesystem-backed lock that protects connector scope changes and removals. */
   readonly scope: ICaseActionScope;
+  /** The lock that protects case writes, including closure in another process. */
+  readonly writes: ICaseActionScope;
 }): ICaseConnectorBindings {
   mkdirSync(options.directory, { recursive: true, mode: 0o700 });
   const pathOf = (caseId: string): string => {
@@ -62,7 +87,7 @@ export function createCaseConnectorBindings(options: {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
   };
-  const write = (caseId: string, value: ICaseConnectorBinding, recovering = false): void => {
+  const write = (caseId: string, value: ISavedBinding, recovering = false): void => {
     const path = pathOf(caseId);
     const temporary = `${path}.${randomUUID()}.tmp`;
     try {
@@ -116,20 +141,23 @@ export function createCaseConnectorBindings(options: {
       throw new ConnectorRefusedError('The case connector recovery setting cannot be read');
     }
   };
-  const read = (caseId: string): ICaseConnectorBinding | undefined => {
+  const read = (caseId: string): ISavedBinding | undefined => {
     try {
       const value: unknown = JSON.parse(readFileSync(pathOf(caseId), 'utf8'));
       if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error();
-      const entry = value as { revision?: unknown; connectorId?: unknown };
+      const entry = value as { revision?: unknown; generation?: unknown; connectorId?: unknown };
       if (
         typeof entry.revision !== 'string' ||
         !REVISION.test(entry.revision) ||
+        (entry.generation !== undefined &&
+          (typeof entry.generation !== 'string' || !REVISION.test(entry.generation))) ||
         (entry.connectorId !== undefined &&
           (typeof entry.connectorId !== 'string' || !CONNECTOR_ID.test(entry.connectorId)))
       )
         throw new Error();
       return {
         revision: entry.revision,
+        generation: entry.generation ?? entry.revision,
         ...(entry.connectorId !== undefined && { connectorId: entry.connectorId }),
       };
     } catch (error) {
@@ -137,8 +165,8 @@ export function createCaseConnectorBindings(options: {
       throw new ConnectorRefusedError('The case connector setting cannot be read');
     }
   };
-  const present = (caseId: string): ICaseConnectorBinding => {
-    let found: ICaseConnectorBinding | undefined;
+  const present = (caseId: string): TBindingState => {
+    let found: ISavedBinding | undefined;
     try {
       found = read(caseId);
     } catch (error) {
@@ -146,11 +174,20 @@ export function createCaseConnectorBindings(options: {
       return { revision: recoveryRevision(caseId), error: true };
     }
     if (found !== undefined && !hasRecovery(caseId)) return found;
-    const refreshed = { ...found, revision: randomUUID() };
+    const refreshed: ISavedBinding = {
+      ...found,
+      revision: randomUUID(),
+      generation: randomUUID(),
+    };
     write(caseId, refreshed);
     clearRecovery(caseId);
     return refreshed;
   };
+  const visible = (state: TBindingState): ICaseConnectorBinding => ({
+    revision: state.revision,
+    ...(state.connectorId !== undefined && { connectorId: state.connectorId }),
+    ...(state.error === true && { error: true }),
+  });
   const prune = async (): Promise<void> => {
     const retained = new Set(
       (await options.cases.list(Number.POSITIVE_INFINITY)).map((item) => `${item.id}.json`),
@@ -171,6 +208,27 @@ export function createCaseConnectorBindings(options: {
     }
   };
   return {
+    authoritySnapshot: async (caseId) => {
+      for (let attempt = 0; attempt <= 100; attempt += 1) {
+        const result = await options.scope.tryExclusive(() =>
+          options.writes.tryExclusive(async () => {
+            if ((await options.cases.get(caseId))?.state !== 'open' || hasRecovery(caseId))
+              return undefined;
+            const current = read(caseId);
+            if (
+              current?.connectorId === undefined ||
+              (await options.connectors.get(current.connectorId)) === undefined
+            )
+              return undefined;
+            return { connectorId: current.connectorId, generation: current.generation };
+          }),
+        );
+        if (result.acquired && result.value.acquired) return result.value.value;
+        if (attempt === 100) throw new ConnectorRefusedError('Case authority is busy; try again');
+        await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      }
+      throw new ConnectorRefusedError('Case authority cannot be locked');
+    },
     get: (caseId) =>
       options.scope.exclusive(async () => {
         const found = await options.cases.get(caseId);
@@ -179,7 +237,7 @@ export function createCaseConnectorBindings(options: {
         const current = present(caseId);
         return found.state === 'closed' && current.connectorId !== undefined
           ? { revision: current.revision }
-          : current;
+          : visible(current);
       }),
     set: (caseId, connectorId, revision) =>
       options.scope.exclusive(async () => {
@@ -198,18 +256,19 @@ export function createCaseConnectorBindings(options: {
           }
           if (found.state !== 'open') throw new ConnectorRefusedError('This case is closed');
         }
-        const next: ICaseConnectorBinding = {
+        const next: ISavedBinding = {
           revision: randomUUID(),
+          generation: randomUUID(),
           ...(connectorId !== null && { connectorId }),
         };
         await prune();
         write(caseId, next, current.error === true);
         clearRecovery(caseId);
         if (connectorId !== null && (await options.cases.get(caseId))?.state !== 'open') {
-          write(caseId, { revision: randomUUID() });
+          write(caseId, { revision: randomUUID(), generation: randomUUID() });
           throw new ConnectorRefusedError('This case is closed');
         }
-        return next;
+        return visible(next);
       }),
     fence: (caseId, revision) =>
       options.scope.exclusive(async () => {
@@ -220,19 +279,19 @@ export function createCaseConnectorBindings(options: {
         if (current.revision !== revision) {
           return found.state === 'closed' && current.connectorId !== undefined
             ? { revision: current.revision }
-            : current;
+            : visible(current);
         }
         const next =
           current.error === true || found.state === 'closed'
-            ? { revision: randomUUID() }
+            ? { revision: randomUUID(), generation: randomUUID() }
             : { ...current, revision: randomUUID() };
         write(caseId, next, current.error === true);
         clearRecovery(caseId);
-        return next;
+        return visible(next);
       }),
     closeLocked: async (caseId) => {
       if (!existsSync(pathOf(caseId)) && !existsSync(recoveryPath(caseId))) return;
-      write(caseId, { revision: randomUUID() }, true);
+      write(caseId, { revision: randomUUID(), generation: randomUUID() }, true);
       clearRecovery(caseId);
     },
     removeConnectorLocked: async (connectorId) => {
@@ -252,7 +311,7 @@ export function createCaseConnectorBindings(options: {
           clear = true;
         }
         if (clear) {
-          write(caseId, { revision: randomUUID() }, true);
+          write(caseId, { revision: randomUUID(), generation: randomUUID() }, true);
           clearRecovery(caseId);
         }
       }
