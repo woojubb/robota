@@ -55,13 +55,13 @@ describe('personal API client', () => {
     expect(calls.map((call) => [call.init?.method, call.url, call.init?.body])).toEqual([
       [
         'POST',
-        'api/connectors/service%2Fa/case-actions/send%2Fmessage',
-        JSON.stringify({ allowed: true }),
+        'api/connectors/service%2Fa/case-actions',
+        JSON.stringify({ tool: 'send/message', allowed: true }),
       ],
       [
         'POST',
-        'api/connectors/service%2Fa/case-actions/send%2Fmessage',
-        JSON.stringify({ allowed: false }),
+        'api/connectors/service%2Fa/case-actions',
+        JSON.stringify({ tool: 'send/message', allowed: false }),
       ],
       ['POST', 'api/connectors/service%2Fa/case-actions', JSON.stringify({ reset: true })],
     ]);

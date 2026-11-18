@@ -628,7 +628,7 @@ export function createPersonalApi(
     decideConnectorTool: (connectorId, tool, decision) =>
       call('POST', `connectors/${id(connectorId)}/tools/${id(tool)}`, { decision }),
     setConnectorCaseAction: (connectorId, tool, allowed) =>
-      call('POST', `connectors/${id(connectorId)}/case-actions/${id(tool)}`, { allowed }),
+      call('POST', `connectors/${id(connectorId)}/case-actions`, { tool, allowed }),
     resetConnectorCaseActions: (connectorId) =>
       call('POST', `connectors/${id(connectorId)}/case-actions`, { reset: true }),
   };

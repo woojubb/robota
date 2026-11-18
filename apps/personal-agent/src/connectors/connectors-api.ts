@@ -196,6 +196,23 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
     const [area, id, action, tool] = request.segments;
     if (area !== 'connectors') return undefined;
     const { method } = request;
+    const body =
+      typeof request.body === 'object' && request.body !== null && !Array.isArray(request.body)
+        ? (request.body as Record<string, unknown>)
+        : undefined;
+    const caseTool =
+      action === 'case-actions' && tool === undefined && typeof body?.['tool'] === 'string'
+        ? body['tool']
+        : tool;
+    if (
+      method === 'POST' &&
+      action === 'case-actions' &&
+      ((body?.['reset'] === true &&
+        (tool !== undefined || body['tool'] !== undefined || body['allowed'] !== undefined)) ||
+        (tool !== undefined && body?.['tool'] !== undefined && body['tool'] !== tool))
+    ) {
+      throw new ConnectorRefusedError('Choose a tool or reset, not both');
+    }
     // Capture before the first await: a later reset must invalidate even a request whose connector
     // lookup or service discovery has not finished yet.
     let capturedVersion:
@@ -206,14 +223,11 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       id !== undefined &&
       method === 'POST' &&
       action === 'case-actions' &&
-      tool !== undefined &&
-      typeof request.body === 'object' &&
-      request.body !== null &&
-      !Array.isArray(request.body) &&
-      (request.body as Record<string, unknown>)['allowed'] === true
+      caseTool !== undefined &&
+      body?.['allowed'] === true
     ) {
       try {
-        capturedVersion = { ok: true, value: caseActions.version(id, tool) };
+        capturedVersion = { ok: true, value: caseActions.version(id, caseTool) };
       } catch (error) {
         capturedVersion = { ok: false, error };
       }
@@ -418,7 +432,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       });
       return changed ? ok({ connector: await show(id) }) : notFound;
     }
-    if (action === 'case-actions' && tool === undefined) {
+    if (action === 'case-actions' && caseTool === undefined) {
       if (record(request.body)['reset'] !== true) {
         throw new ConnectorRefusedError('reset must be true');
       }
@@ -429,7 +443,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       });
       return changed ? ok({ connector: await show(id) }) : notFound;
     }
-    if (action === 'case-actions' && tool !== undefined) {
+    if (action === 'case-actions' && caseTool !== undefined) {
       const allowed = record(request.body)['allowed'];
       if (typeof allowed !== 'boolean')
         throw new ConnectorRefusedError('allowed must be true or false');
@@ -439,7 +453,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       if (captured !== undefined && !captured.ok) throw captured.error;
       const version = captured?.value;
       const view = allowed ? await registry.view(id) : undefined;
-      const candidate = view?.tools?.find((item) => item.name === tool);
+      const candidate = view?.tools?.find((item) => item.name === caseTool);
       if (allowed && (view?.status.state !== 'connected' || candidate === undefined)) {
         throw new ConnectorRefusedError('Choose a connected writable tool for case requests');
       }
@@ -447,7 +461,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         const current = await book.get(id);
         if (current === undefined) return false;
         if (version !== undefined) {
-          const latest = caseActions.version(id, tool);
+          const latest = caseActions.version(id, caseTool);
           if (version !== latest) {
             throw new ConnectorRefusedError('Case action settings changed; try again');
           }
@@ -455,9 +469,9 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         if (allowed && (candidate === undefined || classifyTool(current, candidate) !== 'write')) {
           throw new ConnectorRefusedError('Choose a connected writable tool for case requests');
         }
-        const savedVersion = await caseActions.set(id, tool, allowed, version);
+        const savedVersion = await caseActions.set(id, caseTool, allowed, version);
         if (version !== undefined) {
-          const latest = caseActions.version(id, tool);
+          const latest = caseActions.version(id, caseTool);
           if (savedVersion !== latest) {
             throw new ConnectorRefusedError('Case action settings changed; try again');
           }

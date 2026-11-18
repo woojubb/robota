@@ -105,14 +105,18 @@ afterEach(async () => {
 async function world(
   authorization: Omit<IStandInAuthorizationOptions, 'publicBase'> = {},
   extraHosts: Readonly<Record<string, number>> = {},
-  app: { readonly clientMetadataUrl?: string; readonly registryUrl?: string | null } = {},
+  app: {
+    readonly clientMetadataUrl?: string;
+    readonly registryUrl?: string | null;
+    readonly notesTools?: readonly IStandInTool[];
+  } = {},
 ): Promise<IWorld> {
   const auth = withTokenCheck(
     await startStandInAuthorizationServer({ publicBase: `https://${AUTH_HOST}`, ...authorization }),
   );
   const notes = await startStandInConnector({
     authorization: auth,
-    tools: NOTES,
+    tools: app.notesTools ?? NOTES,
     publicBase: `https://${NOTES_HOST}`,
   });
   const calendar = await startStandInConnector({
@@ -293,13 +297,46 @@ describe('connecting', () => {
 });
 
 describe('using a connected service', () => {
-  async function connected(): Promise<IWorld & { id: string }> {
-    const w = await world();
+  async function connected(notesTools?: readonly IStandInTool[]): Promise<IWorld & { id: string }> {
+    const w = await world({}, {}, notesTools === undefined ? {} : { notesTools });
     const id = await w.add('Notes', 'notes', NOTES_HOST);
     await w.consent((await w.connect(id)).authorizationUrl);
     await w.waitForState(id, 'connected');
     return { ...w, id };
   }
+
+  it('allows and revokes exact dot tool names through the authenticated HTTP API', async () => {
+    const w = await connected([
+      { name: '.', run: () => 'done' },
+      { name: '..', run: () => 'done' },
+    ]);
+    const gui = w.harness.local.gui!;
+    const login = await fetch(new URL('/__monitor_login', gui.url), {
+      method: 'POST',
+      body: new URLSearchParams({ code: gui.accessCode }),
+      redirect: 'manual',
+    });
+    const base = new URL(`${login.headers.get('location')!}api/`, gui.url);
+    const cookie = login.headers.get('set-cookie')!.split(';')[0]!;
+    const send = async (body: unknown) => {
+      const response = await fetch(new URL(`connectors/${w.id}/case-actions`, base), {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json', 'x-robota-api': '1' },
+        body: JSON.stringify(body),
+      });
+      return { status: response.status, body: (await response.json()) as any };
+    };
+    for (const tool of ['.', '..']) {
+      const enabled = await send({ tool, allowed: true });
+      expect(enabled.status).toBe(200);
+      expect(enabled.body.connector.caseActionTools).toEqual([tool]);
+      const disabled = await send({ tool, allowed: false });
+      expect(disabled.status).toBe(200);
+      expect(disabled.body.connector.caseActionTools).toEqual([]);
+    }
+    expect((await send({ tool: '.', allowed: true, reset: true })).status).toBe(400);
+    expect((await send({ allowed: true, reset: true })).status).toBe(400);
+  });
 
   it('lets the owner allow only named writable tools for case requests', async () => {
     const w = await connected();
@@ -383,7 +420,8 @@ describe('using a connected service', () => {
         }
         return view;
       });
-      const allow = w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
+      const allow = w.call('POST', ['connectors', w.id, 'case-actions'], {
+        tool: 'create_note',
         allowed: true,
       });
       let block: Promise<unknown> | undefined;
