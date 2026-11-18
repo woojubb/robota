@@ -450,6 +450,36 @@ describe('using a connected service', () => {
     }
   });
 
+  it('invalidates earlier authority when a disconnect could not mark its transition', async () => {
+    if (process.platform === 'win32') return;
+    const w = await connected();
+    const path = ['connectors', w.id, 'case-actions'];
+    const revision = await scopeRevision(w);
+    expect(
+      (await w.call('POST', path, { tool: 'create_note', allowed: true, revision })).status,
+    ).toBe(200);
+    const scope = createCaseActionScope(join(w.harness.stateDir, 'case-action-scope'));
+    const before = scope.snapshot(w.id);
+    const transitions = join(w.harness.stateDir, '.case-action-scope-transitions');
+    const registry = w.harness.capabilities.connectors;
+    const disconnect = registry.disconnect.bind(registry);
+    const spy = vi.spyOn(registry, 'disconnect').mockImplementation(async (...args) => {
+      const result = await disconnect(...args);
+      chmodSync(transitions, 0o700);
+      return result;
+    });
+    try {
+      chmodSync(transitions, 0o500);
+      expect((await w.call('POST', ['connectors', w.id, 'disconnect'], {})).status).toBe(200);
+      const after = scope.snapshot(w.id);
+      expect(after.generation).not.toBe(before.generation);
+      expect(after.revision).not.toBe(before.revision);
+    } finally {
+      chmodSync(transitions, 0o700);
+      spy.mockRestore();
+    }
+  });
+
   it('keeps an interrupted disconnect closed until the owner finishes disconnecting', async () => {
     const w = await connected();
     const path = ['connectors', w.id, 'case-actions'];

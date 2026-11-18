@@ -435,7 +435,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
   const settleDisconnects = async (connectorId: string, disconnected = false): Promise<void> => {
     recoverPending(connectorId);
     const markers = transitionPaths(connectorId);
-    if (markers.length === 0) return;
+    if (markers.length === 0 && !disconnected) return;
     try {
       for (const marker of markers) {
         if (marker.endsWith('.done')) continue;
