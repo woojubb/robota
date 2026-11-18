@@ -168,6 +168,8 @@ export function createPersonalCapabilities(
     store: createFileKnowledgeStore(join(options.stateDir, 'wiki')),
   });
   const goals = new GoalBook({ store: createSharedFeedStore(options.stateDir) });
+  if (goals.usesUniqueFeedIds !== true || typeof goals.recoverGoal !== 'function')
+    throw new Error('The product SDK cannot safely coordinate this agent; rebuild the workspace');
   const presence = createAgentPresence(options.stateDir);
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
@@ -222,7 +224,14 @@ export function createPersonalCapabilities(
   });
   let guiOrigins: readonly string[] = [];
   let channelTurns: IChannelTurns | undefined;
-  const approvals = createApprovalRegistry(goals, presence.others);
+  const approvals = createApprovalRegistry(goals, presence.others, async (item) => {
+    const recovered = await presence.whenAlone(async () => {
+      if (item.goalId !== undefined && runner?.isRunning(item.goalId) === true)
+        throw new Error('This approval is still being prepared; try again');
+      if (item.goalId !== undefined) await goals.recoverGoal(item.goalId);
+    });
+    if (!recovered) throw new Error('This approval is waiting in another agent; answer it there');
+  });
   const channels = createChannelHub({
     runTurn: async (key, text) => {
       if (channelTurns === undefined) throw new Error('The agent is not running yet');
@@ -305,42 +314,42 @@ export function createPersonalCapabilities(
   // Case writes must not resurrect a closed case even when connector settings are unavailable.
   const caseWrites = createCaseActionScope(join(options.stateDir, 'cases'));
   const cases = new CaseBook({
+    withWriteLock: (work) => caseWrites.exclusive(work),
     store: {
       ...caseStore,
       put: async (item) => {
-        const save = () =>
-          caseWrites.exclusive(async () => {
-            const existing = await caseStore.get(item.id);
-            if (existing?.state === 'closed') throw new CaseRefusedError('This case is closed');
-            if (existing === undefined && (item.state !== 'open' || item.history.length !== 1))
-              throw new CaseRefusedError('This case no longer exists');
-            if (
-              existing !== undefined &&
-              (item.history.length !== existing.history.length + 1 ||
-                JSON.stringify(item.history.slice(0, -1)) !== JSON.stringify(existing.history) ||
-                (item.history.at(-1)?.kind === 'answered' &&
-                  existing.question?.feedItemId !== item.lastAnsweredFeedItemId))
-            )
-              throw new CaseRefusedError('This case changed; try again');
-            await caseStore.put(item);
-          });
-        if (item.state !== 'closed') return save();
-        await save();
-        try {
-          await caseActions.exclusive(async () => {
-            // Failure to clean a setting must not prevent closing the case; closed cases do not expose it.
-            await caseBindings?.closeLocked(item.id).catch(() => undefined);
-          });
-        } catch (error) {
-          if (!(error instanceof ConnectorRefusedError)) throw error;
-          // Even an unavailable settings lock cannot prevent the person's case from closing.
-        }
+        const existing = await caseStore.get(item.id);
+        if (existing?.state === 'closed') throw new CaseRefusedError('This case is closed');
+        if (existing === undefined && (item.state !== 'open' || item.history.length !== 1))
+          throw new CaseRefusedError('This case no longer exists');
+        if (
+          existing !== undefined &&
+          (item.history.length !== existing.history.length + 1 ||
+            JSON.stringify(item.history.slice(0, -1)) !== JSON.stringify(existing.history) ||
+            (item.history.at(-1)?.kind === 'answered' &&
+              existing.question?.feedItemId !== item.lastAnsweredFeedItemId))
+        )
+          throw new CaseRefusedError('This case changed; try again');
+        await caseStore.put(item);
       },
+    },
+    onClosed: async (item) => {
+      try {
+        await caseActions.exclusive(async () => {
+          // Failure to clean a setting must not prevent closing the case; closed cases do not expose it.
+          await caseBindings?.closeLocked(item.id).catch(() => undefined);
+        });
+      } catch (error) {
+        if (!(error instanceof ConnectorRefusedError)) throw error;
+        // Even an unavailable settings lock cannot prevent the person's case from closing.
+      }
     },
     feed: goals,
     // Not waited for, and it cannot fail the ask: the question is in the feed already.
     onAsked: (event) => delivery.onAsked(event),
   });
+  if (cases.supportsSharedWriteLock !== true)
+    throw new Error('The product SDK cannot safely coordinate cases; rebuild the workspace');
   caseBindings = createCaseConnectorBindings({
     directory: join(options.stateDir, 'case-connector-bindings'),
     cases,
@@ -520,6 +529,14 @@ export function createPersonalCapabilities(
         },
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
+        beforeRunDue: async (isRunning) => {
+          await presence.whenAlone(async () => {
+            for (const goal of await goals.list()) {
+              if ((goal.status === 'running' || goal.status === 'waiting') && !isRunning(goal.id))
+                await goals.recoverGoal(goal.id);
+            }
+          });
+        },
         // A sync run reads one connector and adds to the library; a case turn reads and keeps the case.
         // Each has only the tools to do that.
         shape: (goal) => (goal.caseId !== undefined ? caseTurns.shape(goal) : syncRuns.shape(goal)),

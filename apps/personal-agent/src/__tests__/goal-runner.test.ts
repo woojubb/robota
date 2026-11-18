@@ -1,5 +1,5 @@
 import { GoalBook, createMemoryGoalStore } from '@robota-sdk/agent-product/personal';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createApprovalRegistry } from '../approvals.js';
 import { createChannelTurns } from '../channel-turns.js';
@@ -76,6 +76,96 @@ describe('connector action approvals', () => {
       argumentsJson: JSON.stringify({ body: 'x'.repeat(400), to: 'recipient@example.invalid' }),
     },
   };
+
+  it('refuses the prompt and reports failure if the approval cannot be posted', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const post = vi.spyOn(book, 'post').mockRejectedValueOnce(new Error('feed unavailable'));
+    const stub = promptingSession();
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    const goal = await book.create({ title: 'Buy', instructions: 'Buy the ticket.' });
+    try {
+      await runner.runDue();
+      await runner.settled();
+      expect((await book.get(goal.id))?.status).toBe('failed');
+      expect((await book.runs(goal.id))[0]?.report).toMatch(/approval could not be shown/u);
+      expect((await book.feed()).some((item) => item.approval?.state === 'pending')).toBe(false);
+    } finally {
+      post.mockRestore();
+      await runner.stop();
+    }
+  });
+
+  it('refuses a channel prompt and tells the person if the approval cannot be posted', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const post = vi.spyOn(book, 'post').mockRejectedValueOnce(new Error('feed unavailable'));
+    const stub = promptingSession();
+    const channel = createChannelTurns({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    try {
+      expect(await channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Buy it')).toMatch(
+        /approval could not be shown/u,
+      );
+      expect((await book.feed()).some((item) => item.approval?.state === 'pending')).toBe(false);
+    } finally {
+      post.mockRestore();
+      await channel.stop();
+    }
+  });
+
+  it('drains a channel approval that is still being posted when the channel stops', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const original = book.post.bind(book);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const post = vi.spyOn(book, 'post').mockImplementation(async (item) => {
+      if (item.kind === 'approval') {
+        reached();
+        await gate;
+      }
+      return original(item);
+    });
+    const stub = promptingSession();
+    const channel = createChannelTurns({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    const turn = channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Buy it');
+    let stopping: Promise<void> | undefined;
+    try {
+      await waiting;
+      let stopped = false;
+      stopping = channel.stop().then(() => {
+        stopped = true;
+      });
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      expect(stopped).toBe(false);
+      release();
+      await stopping;
+      await turn;
+      expect((await book.feed()).find((item) => item.kind === 'approval')?.approval?.state).toBe(
+        'expired',
+      );
+    } finally {
+      release();
+      await Promise.allSettled([turn, ...(stopping === undefined ? [] : [stopping])]);
+      post.mockRestore();
+      await channel.stop();
+    }
+  });
 
   it('binds the displayed case call and its recorded approval to the execution', async () => {
     const book = new GoalBook({ store: createMemoryGoalStore() });

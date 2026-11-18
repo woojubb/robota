@@ -52,6 +52,8 @@ export interface ICaseAskedEvent {
 
 export interface ICaseBookOptions {
   readonly store: ICaseStore;
+  /** Serialize complete case mutations across hosts that share the store and feed. */
+  readonly withWriteLock?: <T>(work: () => Promise<T>) => Promise<T>;
   /** Where a question is shown to the person, and where their answer is recorded. */
   readonly feed: GoalBook;
   /**
@@ -59,6 +61,8 @@ export interface ICaseBookOptions {
    * question is already in the feed when this runs, whatever the host does about telling the person.
    */
   readonly onAsked?: (event: ICaseAskedEvent) => void | Promise<void>;
+  /** Called after a case has closed and its write lock has been released. */
+  readonly onClosed?: (closed: ICase) => void | Promise<void>;
   readonly now?: () => Date;
 }
 
@@ -106,17 +110,24 @@ const evidence = (notes: readonly ICaseNote[]): string =>
   notes.map((note) => `- ${note.text}`).join('\n');
 
 export class CaseBook {
+  /** This book serializes a complete mutation with the host's write lock. */
+  readonly supportsSharedWriteLock = true as const;
+
   private readonly store: ICaseStore;
   private readonly feed: GoalBook;
   private readonly onAsked: ICaseBookOptions['onAsked'];
+  private readonly onClosed: ICaseBookOptions['onClosed'];
   private readonly now: () => Date;
+  private readonly withWriteLock: ICaseBookOptions['withWriteLock'];
   private tail: Promise<unknown> = Promise.resolve();
 
   constructor(options: ICaseBookOptions) {
     this.store = options.store;
     this.feed = options.feed;
     this.onAsked = options.onAsked;
+    this.onClosed = options.onClosed;
     this.now = options.now ?? (() => new Date());
+    this.withWriteLock = options.withWriteLock;
   }
 
   /** Tell the host a question was asked, without waiting for it and without letting it fail the ask. */
@@ -135,7 +146,9 @@ export class CaseBook {
 
   /** One write at a time, so two calls in one turn cannot both pass a check the other changes. */
   private exclusive<T>(work: () => Promise<T>): Promise<T> {
-    const run = this.tail.then(work);
+    const run = this.tail.then(() =>
+      this.withWriteLock === undefined ? work() : this.withWriteLock(work),
+    );
     this.tail = run.catch(() => undefined);
     return run;
   }
@@ -343,6 +356,13 @@ export class CaseBook {
       else if (found.lastAnsweredFeedItemId !== undefined)
         await this.showResolution(found.lastAnsweredFeedItemId, text);
       return next;
+    }).then(async (closed) => {
+      try {
+        await this.onClosed?.(closed);
+      } catch {
+        // Cleanup cannot undo a case that is already closed.
+      }
+      return closed;
     });
   }
 

@@ -36,6 +36,15 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
   const notices = new Set<Promise<void>>();
   /** Turns run one at a time per conversation, in the order their messages arrived. */
   const queues = new Map<string, Promise<unknown>>();
+  const approvalFailures = new Set<string>();
+  const track = (work: Promise<unknown>): void => {
+    const done = work.then(
+      () => undefined,
+      () => undefined,
+    );
+    notices.add(done);
+    void done.then(() => notices.delete(done));
+  };
   let stopped = false;
   let stopping: Promise<void> | undefined;
 
@@ -57,43 +66,51 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
       toolName: string;
       toolArgs: Record<string, unknown>;
     }) => {
-      void (async () => {
-        const detail = describeCall(event.toolName, event.toolArgs);
-        if (detail === undefined) {
-          opened.resolvePermission(event.id, false);
-          settledEarly.delete(event.id);
-          // A failed notice does not undo the refusal. A pending write must settle before shutdown.
-          const notice = book
-            .post({
-              kind: 'notice',
-              title: `A message on ${channel}`,
-              body: 'The connector action was refused because its complete details are too long or cannot be shown safely.',
-            })
-            .then(
-              () => undefined,
-              () => undefined,
+      let postedId: string | undefined;
+      track(
+        (async () => {
+          const detail = describeCall(event.toolName, event.toolArgs);
+          if (detail === undefined) {
+            opened.resolvePermission(event.id, false);
+            settledEarly.delete(event.id);
+            // A failed notice does not undo the refusal. A pending write must settle before shutdown.
+            track(
+              book.post({
+                kind: 'notice',
+                title: `A message on ${channel}`,
+                body: 'The connector action was refused because its complete details are too long or cannot be shown safely.',
+              }),
             );
-          notices.add(notice);
-          void notice.then(() => notices.delete(notice));
-          return;
-        }
-        const item = await book.post({
-          kind: 'approval',
-          title: `A message on ${channel}`,
-          body: `Your agent wants to use ${event.toolName} to answer you on ${channel}.`,
-          approval: { tool: event.toolName, detail, state: 'pending' },
-        });
-        ownPrompts.set(event.id, item.id);
-        if (settledEarly.delete(event.id)) {
-          await book.setApproval(item.id, 'expired');
-          return;
-        }
-        approvals.register(item, {
-          session: opened,
-          promptId: event.id,
-          recordAnswer: (approve) => book.setApproval(item.id, approve ? 'approved' : 'denied'),
-        });
-      })().catch(() => undefined);
+            return;
+          }
+          const item = await book.post({
+            kind: 'approval',
+            title: `A message on ${channel}`,
+            body: `Your agent wants to use ${event.toolName} to answer you on ${channel}.`,
+            approval: { tool: event.toolName, detail, state: 'pending' },
+          });
+          postedId = item.id;
+          ownPrompts.set(event.id, item.id);
+          if (settledEarly.delete(event.id)) {
+            await book.setApproval(item.id, 'expired');
+            return;
+          }
+          approvals.register(item, {
+            session: opened,
+            promptId: event.id,
+            recordAnswer: (approve) => book.setApproval(item.id, approve ? 'approved' : 'denied'),
+          });
+        })().catch(async () => {
+          if (postedId === undefined && settledEarly.delete(event.id)) return;
+          if (postedId === undefined || approvals.release(postedId)) {
+            approvalFailures.add(key);
+            opened.resolvePermission(event.id, false);
+            settledEarly.delete(event.id);
+            if (postedId !== undefined)
+              await book.setApproval(postedId, 'expired').catch(() => undefined);
+          }
+        }),
+      );
     }) as never);
     // A prompt settled by anything but the person's answer can no longer be approved.
     opened.on('prompt_resolved', ((event: { id: string }) => {
@@ -102,8 +119,7 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
         settledEarly.add(event.id);
         return;
       }
-      if (approvals.release(feedId))
-        void book.setApproval(feedId, 'expired').catch(() => undefined);
+      if (approvals.release(feedId)) track(book.setApproval(feedId, 'expired'));
     }) as never);
     sessions.set(key, opened);
     return opened;
@@ -118,6 +134,8 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
         if (stopped) throw new Error('Channel turns are stopping');
         const handle = await session.submit(text);
         const result = await handle.completed;
+        if (approvalFailures.delete(queueKey))
+          return 'The action was refused because its approval could not be shown or recorded.';
         return result.response.trim() === '' ? '(no reply)' : result.response.trim();
       });
       queues.set(
@@ -136,7 +154,7 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
       stopping = (async () => {
         await Promise.allSettled([...sessions.values()].map((session) => session.shutdown()));
         await Promise.allSettled([...queues.values()]);
-        await Promise.allSettled([...notices]);
+        while (notices.size > 0) await Promise.allSettled([...notices]);
         sessions.clear();
       })();
       return stopping;

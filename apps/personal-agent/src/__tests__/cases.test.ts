@@ -98,7 +98,7 @@ const SIGN_IN = {
 };
 
 describe('case connector authority', () => {
-  it('does not let a stale answer overwrite another instance’s accepted answer', async () => {
+  it('serializes competing answers before either instance reads the case', async () => {
     harness = await startHarness();
     const other = await startHarness({ stateDir: harness.stateDir });
     const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
@@ -122,22 +122,87 @@ describe('case connector authority', () => {
       await gate;
       return found;
     });
-    const stale = other.capabilities.cases.answer(item.id, { choice: 'No' });
+    const first = other.capabilities.cases.answer(item.id, { choice: 'No' });
+    let second: Promise<unknown> | undefined;
     try {
       await waiting;
-      await harness.capabilities.cases.answer(item.id, { choice: 'Yes' });
+      second = harness.capabilities.cases.answer(item.id, { choice: 'Yes' });
+      const early = await Promise.race([
+        second.then(
+          () => true,
+          () => true,
+        ),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+      ]);
+      expect(early).toBe(false);
       release();
-      await expect(stale).rejects.toThrow(/changed/u);
+      await first;
+      await expect(second).rejects.toThrow(/already answered/u);
+      expect((await harness.capabilities.cases.get(opened.id))?.history.at(-1)).toMatchObject({
+        kind: 'answered',
+        text: 'No',
+      });
+      expect((await harness.capabilities.goals.feedItem(item.id))?.question?.answer?.choice).toBe(
+        'No',
+      );
+    } finally {
+      release();
+      await Promise.allSettled([first, ...(second === undefined ? [] : [second])]);
+      spy.mockRestore();
+      await other.close();
+    }
+  });
+
+  it('keeps another answer from withdrawing a card between the case and feed writes', async () => {
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const { item } = await harness.capabilities.cases.ask(opened.id, {
+      question: 'Was it you?',
+      options: ['Yes', 'No'],
+    });
+    const goals = harness.capabilities.goals;
+    const answerQuestion = goals.answerQuestion.bind(goals);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const spy = vi.spyOn(goals, 'answerQuestion').mockImplementation(async (...args) => {
+      reached();
+      await gate;
+      return answerQuestion(...args);
+    });
+    const accepted = harness.capabilities.cases.answer(item.id, { choice: 'Yes' });
+    let competing: Promise<unknown> | undefined;
+    try {
+      await waiting;
+      competing = other.capabilities.cases.answer(item.id, { choice: 'No' });
+      const early = await Promise.race([
+        competing.then(
+          () => true,
+          () => true,
+        ),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+      ]);
+      expect(early).toBe(false);
+      release();
+      await accepted;
+      await expect(competing).rejects.toThrow(/already answered/u);
       expect((await harness.capabilities.cases.get(opened.id))?.history.at(-1)).toMatchObject({
         kind: 'answered',
         text: 'Yes',
       });
-      expect((await harness.capabilities.goals.feedItem(item.id))?.question?.answer?.choice).toBe(
-        'Yes',
-      );
+      expect((await goals.feedItem(item.id))?.question).toMatchObject({
+        state: 'answered',
+        answer: { choice: 'Yes' },
+      });
     } finally {
       release();
-      await Promise.allSettled([stale]);
+      await Promise.allSettled([accepted, ...(competing === undefined ? [] : [competing])]);
       spy.mockRestore();
       await other.close();
     }
@@ -761,7 +826,7 @@ describe('the person chooses a case connector', () => {
     expect((await api.get(path)).body.binding.connectorId).toBeUndefined();
   }, 15_000);
 
-  it('does not restore a closed case from another instance’s stale note', async () => {
+  it('orders a delayed note before closure and refuses notes after closure', async () => {
     harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
     const api = await client(harness);
     const connector = await api.send('POST', 'connectors', {
@@ -797,19 +862,31 @@ describe('the person chooses a case connector', () => {
       return result;
     });
     const bindingDir = join(harness.stateDir, 'case-connector-bindings');
+    let closing: Promise<ICase> | undefined;
     try {
       const note = other.capabilities.cases.note(opened.id, 'A delayed note.');
       await paused;
       chmodSync(bindingDir, 0o000);
-      await harness.capabilities.cases.close(opened.id, 'Settled.');
-      chmodSync(bindingDir, 0o700);
+      closing = harness.capabilities.cases.close(opened.id, 'Settled.');
+      const early = await Promise.race([
+        closing.then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+      ]);
+      expect(early).toBe(false);
       release();
-      await expect(note).rejects.toThrow(/closed/u);
+      await note;
+      await closing;
+      chmodSync(bindingDir, 0o700);
+      spy.mockRestore();
+      await expect(other.capabilities.cases.note(opened.id, 'Too late.')).rejects.toThrow(
+        /closed/u,
+      );
       expect((await api.get(path)).body.binding.connectorId).toBeUndefined();
       expect((await harness.capabilities.cases.get(opened.id))?.state).toBe('closed');
     } finally {
       chmodSync(bindingDir, 0o700);
       release();
+      if (closing !== undefined) await closing.catch(() => undefined);
       spy.mockRestore();
       await other.close();
     }

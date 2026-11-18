@@ -34,21 +34,28 @@ export function createAgentPresence(stateDir: string) {
       return true;
     }
   };
+  const locked = async <T>(work: () => Promise<T>): Promise<T> => {
+    const startupPath = join(root, 'startup.lock');
+    let startup: { release(): void } | undefined;
+    for (let attempt = 0; attempt <= 100; attempt += 1) {
+      startup = tryDirectoryLock(startupPath);
+      if (startup !== undefined) break;
+      if (attempt === 100)
+        throw new Error('Agent startup is busy; recover the state folder offline');
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    }
+    if (startup === undefined) throw new Error('Agent startup cannot be locked');
+    try {
+      return await work();
+    } finally {
+      startup.release();
+    }
+  };
   return {
     others,
     async enter(recover: () => Promise<unknown>): Promise<void> {
       if (active !== undefined) throw new Error('The agent is already attached');
-      const startupPath = join(root, 'startup.lock');
-      let startup: { release(): void } | undefined;
-      for (let attempt = 0; attempt <= 100; attempt += 1) {
-        startup = tryDirectoryLock(startupPath);
-        if (startup !== undefined) break;
-        if (attempt === 100)
-          throw new Error('Agent startup is busy; recover the state folder offline');
-        await new Promise<void>((resolve) => setTimeout(resolve, 50));
-      }
-      if (startup === undefined) throw new Error('Agent startup cannot be locked');
-      try {
+      await locked(async () => {
         active = tryDirectoryLock(path);
         if (active === undefined) throw new Error('The agent presence cannot be recorded');
         try {
@@ -58,9 +65,14 @@ export function createAgentPresence(stateDir: string) {
           active = undefined;
           throw error;
         }
-      } finally {
-        startup.release();
-      }
+      });
+    },
+    async whenAlone(work: () => Promise<void>): Promise<boolean> {
+      return locked(async () => {
+        if (others()) return false;
+        await work();
+        return true;
+      });
     },
     close(): void {
       active?.release();

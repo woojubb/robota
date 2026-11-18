@@ -51,6 +51,9 @@ function slug(title: string): string {
 }
 
 export class GoalBook {
+  /** This book allocates feed identifiers independently across host processes. */
+  readonly usesUniqueFeedIds = true as const;
+
   private readonly store: IGoalStore;
   private readonly now: () => Date;
   private sequence = 0;
@@ -273,6 +276,22 @@ export class GoalBook {
       if (item.approval?.state === 'pending') await this.setApproval(item.id, 'expired');
     }
     return recovered;
+  }
+
+  /** Recover one goal only when its host has proved no live agent owns it. */
+  async recoverGoal(id: string): Promise<boolean> {
+    const goal = await this.store.getGoal(id);
+    if (goal?.status !== 'running' && goal?.status !== 'waiting') return false;
+    for (const item of await this.store.listFeed(Number.POSITIVE_INFINITY)) {
+      if (item.goalId === id && item.approval?.state === 'pending')
+        await this.setApproval(item.id, 'expired');
+    }
+    for (const run of await this.store.listRuns(id, 1)) {
+      if (run.endedAt === undefined)
+        await this.store.putRun({ ...run, endedAt: this.stamp(), outcome: 'interrupted' });
+    }
+    await this.save(goal, { status: 'active', nextRunAt: this.stamp() });
+    return true;
   }
 
   async post(item: Omit<IFeedItem, 'id' | 'at' | 'dismissed'>): Promise<IFeedItem> {

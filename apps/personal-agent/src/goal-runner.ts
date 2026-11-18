@@ -72,6 +72,8 @@ export interface IGoalRunnerOptions {
   readonly onReport?: (goal: IGoal, report: string, run: { readonly quiet: boolean }) => void;
   /** How often to look for due goals; 0 runs only when asked. */
   readonly tickMs?: number;
+  /** Recover abandoned work before looking for due goals. */
+  readonly beforeRunDue?: (isRunning: (goalId: string) => boolean) => Promise<void>;
   /** A goal that is more than the person's instruction, such as one keeping a connector in sync. */
   readonly shape?: (goal: IGoal) => Promise<IGoalShape | undefined>;
   /** A run that went well and is not worth the person's attention: kept in the goal's history only. */
@@ -81,6 +83,7 @@ export interface IGoalRunnerOptions {
 export interface IGoalRunner {
   /** Start every due goal that is not already running; returns how many started. */
   runDue(): Promise<number>;
+  isRunning(goalId: string): boolean;
   /** Answer an approval waiting in the feed. */
   answer(feedId: string, approve: boolean): Promise<IFeedItem>;
   /** Resolves when every run started so far has ended, or when the given goal's run has. */
@@ -185,6 +188,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     sessions.set(session, goal.id);
     /** Prompt id to the feed item that shows it. */
     const ownPrompts = new Map<string, string>();
+    let approvalFailed = false;
     const onToolEnd = (state: { toolName: string; firstArg: string; result?: string }): void => {
       const outcome =
         state.result === 'success' ? 'done' : state.result === 'denied' ? 'denied' : 'error';
@@ -226,50 +230,61 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
         return;
       }
       void enqueue(async () => {
-        run = await book.recordAction(run, {
-          tool: event.toolName,
-          detail,
-          outcome: 'waiting-approval',
-        });
-        const item = await book.post({
-          kind: 'approval',
-          title: goal.title,
-          body: `Your agent wants to use ${event.toolName} while working on this goal.`,
-          goalId: goal.id,
-          runId: run.id,
-          approval: { tool: event.toolName, detail, state: 'pending' },
-        });
-        ownPrompts.set(event.id, item.id);
-        approvals.register(item, {
-          session,
-          promptId: event.id,
-          goalId: goal.id,
-          recordAnswer: (approve) => {
-            let answered: IFeedItem | undefined;
-            const done = enqueue(async () => {
-              answered = await book.setApproval(item.id, approve ? 'approved' : 'denied');
-              run = await book.recordAction(run, {
-                tool: event.toolName,
-                detail,
-                outcome: approve ? 'approved' : 'denied',
+        let item: IFeedItem | undefined;
+        try {
+          run = await book.recordAction(run, {
+            tool: event.toolName,
+            detail,
+            outcome: 'waiting-approval',
+          });
+          item = await book.post({
+            kind: 'approval',
+            title: goal.title,
+            body: `Your agent wants to use ${event.toolName} while working on this goal.`,
+            goalId: goal.id,
+            runId: run.id,
+            approval: { tool: event.toolName, detail, state: 'pending' },
+          });
+          const posted = item;
+          ownPrompts.set(event.id, posted.id);
+          approvals.register(item, {
+            session,
+            promptId: event.id,
+            goalId: goal.id,
+            recordAnswer: (approve) => {
+              let answered: IFeedItem | undefined;
+              const done = enqueue(async () => {
+                answered = await book.setApproval(posted.id, approve ? 'approved' : 'denied');
+                run = await book.recordAction(run, {
+                  tool: event.toolName,
+                  detail,
+                  outcome: approve ? 'approved' : 'denied',
+                });
+                await settleWaiting(goal.id);
               });
-              await settleWaiting(goal.id);
-            });
-            const recorded = done.then(() => {
-              if (answered === undefined) throw new Error('The answer could not be recorded');
-              return answered;
-            });
-            if (approve && caseCall !== undefined && executionId !== undefined)
-              shape?.caseAction?.approved(executionId, caseCall, recorded, {
-                id: item.id,
-                goalId: goal.id,
-                runId: run.id,
-                detail,
+              const recorded = done.then(() => {
+                if (answered === undefined) throw new Error('The answer could not be recorded');
+                return answered;
               });
-            return recorded;
-          },
-        });
-        await book.setWaiting(goal.id, true);
+              if (approve && caseCall !== undefined && executionId !== undefined)
+                shape?.caseAction?.approved(executionId, caseCall, recorded, {
+                  id: posted.id,
+                  goalId: goal.id,
+                  runId: run.id,
+                  detail,
+                });
+              return recorded;
+            },
+          });
+          await book.setWaiting(goal.id, true);
+        } catch {
+          if (item === undefined || approvals.release(item.id)) {
+            approvalFailed = true;
+            session.resolvePermission(event.id, false);
+            if (item !== undefined)
+              await book.setApproval(item.id, 'expired').catch(() => undefined);
+          }
+        }
       });
     };
     // A prompt settled by anything but the person's answer (the session's backstop, a shutdown) was
@@ -309,6 +324,10 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       session.off('prompt_resolved', onResolved as never);
     }
     await chain;
+    if (approvalFailed) {
+      outcome = 'failed';
+      report = 'The action was refused because its approval could not be shown or recorded.';
+    }
     // An approval the turn stopped waiting for can no longer be answered.
     for (const feedId of ownPrompts.values()) {
       if (approvals.release(feedId)) await book.setApproval(feedId, 'expired');
@@ -326,6 +345,8 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
   };
 
   const runDue = async (): Promise<number> => {
+    if (stopped) return 0;
+    await options.beforeRunDue?.((goalId) => running.has(goalId));
     if (stopped) return 0;
     let started = 0;
     for (const goal of await book.due()) {
@@ -358,6 +379,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
 
   return {
     runDue,
+    isRunning: (goalId) => running.has(goalId),
     answer: (feedId, approve) => approvals.answer(feedId, approve),
     async settled(goalId) {
       if (goalId !== undefined) {

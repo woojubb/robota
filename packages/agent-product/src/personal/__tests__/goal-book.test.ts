@@ -228,6 +228,32 @@ describe.each([
     expect((await restarted.due()).map((due) => due.id)).toEqual([goal.id]);
   });
 
+  it('recovers only the selected interrupted goal and its approval', async () => {
+    const book = new GoalBook({ store: makeStore(), now: clock().now });
+    const first = await book.create({ title: 'First', instructions: 'x' });
+    const second = await book.create({ title: 'Second', instructions: 'x' });
+    const items = [];
+    for (const goal of [first, second]) {
+      await book.startRun(goal.id);
+      await book.setWaiting(goal.id, true);
+      items.push(
+        await book.post({
+          kind: 'approval',
+          title: goal.title,
+          body: 'waiting',
+          goalId: goal.id,
+          approval: { tool: 'BrowserSubmit', detail: 'POST', state: 'pending' },
+        }),
+      );
+    }
+    expect(await book.recoverGoal(first.id)).toBe(true);
+    expect((await book.get(first.id))?.status).toBe('active');
+    expect((await book.get(second.id))?.status).toBe('waiting');
+    expect((await book.feedItem(items[0]!.id))?.approval?.state).toBe('expired');
+    expect((await book.feedItem(items[1]!.id))?.approval?.state).toBe('pending');
+    expect(await book.recoverGoal(first.id)).toBe(false);
+  });
+
   it('refuses a goal without instructions, a bad interval, and secrets', async () => {
     const book = new GoalBook({ store: makeStore(), now: clock().now });
     await expect(book.create({ title: 'x', instructions: ' ' })).rejects.toThrow(GoalRefusedError);

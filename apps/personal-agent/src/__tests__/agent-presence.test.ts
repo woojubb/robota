@@ -36,3 +36,73 @@ it('recovers only when no other agent may still own a prompt', async () => {
     third.close();
   }
 });
+
+it.each(['run', 'answer'] as const)(
+  'recovers an orphaned goal after its owning process exits: %s',
+  async (trigger) => {
+    if (process.platform === 'win32') return;
+    const { spawn } = await import('node:child_process');
+    const { startHarness } = await import('./harness.js');
+    const root = mkdtempSync(join(tmpdir(), 'personal-presence-process-'));
+    directories.push(root);
+    const harnessUrl = new URL('./harness.ts', import.meta.url).href;
+    const program = `
+      import fs from 'node:fs';
+      const { startHarness } = await import(${JSON.stringify(harnessUrl)});
+      const h = await startHarness({ stateDir: ${JSON.stringify(root)} });
+      h.model.script({ tool: 'ConnectorAct', args: {
+        connector: 'connector-test', tool: 'send', argumentsJson: '{}' } });
+      const goal = await h.capabilities.goals.create({ title: 'Pending', instructions: 'Send.' });
+      await h.capabilities.runner().runDue();
+      for (let i = 0; i < 200; i += 1) {
+        const item = (await h.capabilities.goals.feed()).find(x => x.approval?.state === 'pending');
+        if (item && (await h.capabilities.goals.get(goal.id))?.status === 'waiting') {
+          fs.writeSync(1, 'READY:' + JSON.stringify({ goal: goal.id, approval: item.id }) + '\\n');
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);
+        }
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      throw new Error('approval did not start');
+    `;
+    const child = spawn(
+      process.execPath,
+      ['--import', 'tsx', '--input-type=module', '-e', program],
+      { stdio: ['ignore', 'pipe', 'inherit'] },
+    );
+    const ended = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+    let other: Awaited<ReturnType<typeof startHarness>> | undefined;
+    try {
+      const ids = await new Promise<{ goal: string; approval: string }>((resolve, reject) => {
+        let output = '';
+        child.stdout!.on('data', (chunk: Buffer) => {
+          output += chunk.toString();
+          const match = /READY:(\{[^\n]+\})/u.exec(output);
+          if (match !== null) resolve(JSON.parse(match[1]!));
+        });
+        child.once('exit', () => reject(new Error('the owner exited before its prompt')));
+        child.once('error', reject);
+      });
+      other = await startHarness({ stateDir: root });
+      const goals = other.capabilities.goals;
+      const runner = other.capabilities.runner()!;
+      expect((await goals.get(ids.goal))?.status).toBe('waiting');
+      expect((await goals.feedItem(ids.approval))?.approval?.state).toBe('pending');
+      child.kill('SIGKILL');
+      await ended;
+      if (trigger === 'answer') {
+        expect((await runner.answer(ids.approval, true)).approval?.state).toBe('expired');
+        expect((await goals.get(ids.goal))?.status).toBe('active');
+      }
+      other.model.script({ text: 'The interrupted work can be reviewed again.' });
+      expect(await runner.runDue()).toBe(1);
+      await runner.settled();
+      expect((await goals.feedItem(ids.approval))?.approval?.state).toBe('expired');
+      expect((await goals.runs(ids.goal)).some((run) => run.outcome === 'interrupted')).toBe(true);
+    } finally {
+      child.kill('SIGKILL');
+      await ended;
+      await other?.close();
+    }
+  },
+  20_000,
+);

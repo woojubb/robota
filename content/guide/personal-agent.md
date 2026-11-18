@@ -209,7 +209,7 @@ unused. In that case the settings stay closed and may need offline recovery:
    case-request choices for **all** connectors and cases; it does not remove cases, sign-ins or tokens.
    Approved case-action records are kept separately in the owner-only `case-approvals` folder; this
    recovery leaves them in place. They contain the action details shown at approval.
-   Work interrupted on another host is recovered when an agent starts alone; an agent that cannot
+   Interrupted work is recovered when only one agent can be confirmed active. An agent that cannot
    confirm another agent has stopped leaves its pending work untouched until offline recovery.
    If the command fails, fix the error and run it again before restarting.
 

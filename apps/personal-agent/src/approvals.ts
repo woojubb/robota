@@ -31,6 +31,7 @@ export interface IApprovalRegistry {
 export function createApprovalRegistry(
   book: GoalBook,
   otherAgents: () => boolean = () => false,
+  recoverOrphan?: (item: IFeedItem) => Promise<void>,
 ): IApprovalRegistry {
   const pending = new Map<string, IPendingApproval>();
   const listeners: ((item: IFeedItem) => void)[] = [];
@@ -54,7 +55,11 @@ export function createApprovalRegistry(
         if (item?.approval?.state === 'pending') {
           if (otherAgents())
             throw new Error('This approval is waiting in another agent; answer it there');
-          return book.setApproval(feedId, 'expired');
+          await recoverOrphan?.(item);
+          const current = await book.feedItem(feedId);
+          return current?.approval?.state === 'pending'
+            ? book.setApproval(feedId, 'expired')
+            : (current ?? item);
         }
         throw new Error('This approval is no longer waiting');
       }
