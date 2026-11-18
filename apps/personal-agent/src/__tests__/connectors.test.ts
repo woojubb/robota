@@ -346,63 +346,76 @@ describe('using a connected service', () => {
     );
   });
 
-  it('rechecks an in-flight allow after a block from another API instance', async () => {
-    const w = await connected();
-    const registry = w.harness.capabilities.connectors;
-    const second = createConnectorsApi({
-      registry,
-      book: new ConnectorBook({
-        store: createFileConnectorStore(join(w.harness.stateDir, 'connectors')),
-      }),
-      sync: new ConnectorSync(w.harness.capabilities.goals),
-      wiki: w.harness.capabilities.wiki,
-      caseActions: createCaseActionScope(join(w.harness.stateDir, 'case-action-scope')),
-      origins: () => [],
-      catalog: {} as IConnectorCatalog,
-    });
-    let captured: () => void = () => undefined;
-    const seen = new Promise<void>((resolve) => {
-      captured = resolve;
-    });
-    let release: () => void = () => undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const original = registry.view.bind(registry);
-    let paused = false;
-    const spy = vi.spyOn(registry, 'view').mockImplementation(async (...args) => {
-      const view = await original(...args);
-      if (!paused && args[0] === w.id) {
-        paused = true;
-        captured();
-        await gate;
-      }
-      return view;
-    });
-    const allow = w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
-      allowed: true,
-    });
-    let block: Promise<unknown> | undefined;
-    try {
-      await seen;
-      block = second({
-        method: 'POST',
-        path: `/connectors/${w.id}/tools/create_note`,
-        segments: ['connectors', w.id, 'tools', 'create_note'],
-        query: new URLSearchParams(),
-        body: { decision: 'blocked' },
+  it.each(['disable', 'reset', 'block then write'] as const)(
+    'rejects an older allow after %s from another API instance',
+    async (intervention) => {
+      const w = await connected();
+      const registry = w.harness.capabilities.connectors;
+      const second = createConnectorsApi({
+        registry,
+        book: new ConnectorBook({
+          store: createFileConnectorStore(join(w.harness.stateDir, 'connectors')),
+        }),
+        sync: new ConnectorSync(w.harness.capabilities.goals),
+        wiki: w.harness.capabilities.wiki,
+        caseActions: createCaseActionScope(join(w.harness.stateDir, 'case-action-scope')),
+        origins: () => [],
+        catalog: {} as IConnectorCatalog,
       });
-      expect(((await block) as { status: number }).status).toBe(200);
-      release();
-      expect((await allow).status).toBe(400);
-      const view = (await w.call('GET', ['connectors', w.id])).body.connector;
-      expect(view.caseActionTools).toEqual([]);
-    } finally {
-      release();
-      await Promise.allSettled([allow, ...(block === undefined ? [] : [block])]);
-      spy.mockRestore();
-    }
-  });
+      let captured: () => void = () => undefined;
+      const seen = new Promise<void>((resolve) => {
+        captured = resolve;
+      });
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const original = registry.view.bind(registry);
+      let paused = false;
+      const spy = vi.spyOn(registry, 'view').mockImplementation(async (...args) => {
+        const view = await original(...args);
+        if (!paused && args[0] === w.id) {
+          paused = true;
+          captured();
+          await gate;
+        }
+        return view;
+      });
+      const allow = w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], {
+        allowed: true,
+      });
+      let block: Promise<unknown> | undefined;
+      try {
+        await seen;
+        const call = (action: string, tool: string | undefined, body: unknown) =>
+          second({
+            method: 'POST',
+            path: `/connectors/${w.id}/${action}${tool === undefined ? '' : `/${tool}`}`,
+            segments: ['connectors', w.id, action, ...(tool === undefined ? [] : [tool])],
+            query: new URLSearchParams(),
+            body,
+          });
+        block =
+          intervention === 'disable'
+            ? call('case-actions', 'create_note', { allowed: false })
+            : intervention === 'reset'
+              ? call('case-actions', undefined, { reset: true })
+              : call('tools', 'create_note', { decision: 'blocked' });
+        expect(((await block) as { status: number }).status).toBe(200);
+        if (intervention === 'block then write') {
+          expect((await call('tools', 'create_note', { decision: 'write' }))?.status).toBe(200);
+        }
+        release();
+        expect((await allow).status).toBe(400);
+        const view = (await w.call('GET', ['connectors', w.id])).body.connector;
+        expect(view.caseActionTools).toEqual([]);
+      } finally {
+        release();
+        await Promise.allSettled([allow, ...(block === undefined ? [] : [block])]);
+        spy.mockRestore();
+      }
+    },
+  );
 
   it('does not delay blocking another connector while discovery is stalled', async () => {
     const w = await connected();

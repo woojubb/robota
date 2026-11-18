@@ -332,12 +332,15 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       }
       if (cleanupFailed || followupFailed) {
         const cleanupAdvice = cleanupFailed
-          ? ` Restore write access to the agent state directory and remove case-action-scope/${id}.`
+          ? ` Its case-action settings could not be cleared. Restore write access to the agent state directory and remove case-action-scope/${id}.`
           : '';
+        const description = followupFailed
+          ? 'The connector was removed, but its sync or library cleanup did not finish.'
+          : 'The connector was removed.';
         return {
           status: 500,
           body: {
-            error: `The connector was removed, but its follow-up cleanup did not finish.${cleanupAdvice}`,
+            error: `${description}${cleanupAdvice}`,
             connectorRemoved: true,
             outcome: disconnected,
             ...(cleanupFailed && { caseActionScopeCleanupFailed: true }),
@@ -393,7 +396,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       }
       const changed = await change(async () => {
         if (!(await known(id))) return false;
-        await caseActions.clear(id);
+        await caseActions.reset(id);
         return true;
       });
       return changed ? ok({ connector: await show(id) }) : notFound;
@@ -402,6 +405,7 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       const allowed = record(request.body)['allowed'];
       if (typeof allowed !== 'boolean')
         throw new ConnectorRefusedError('allowed must be true or false');
+      const version = allowed ? await caseActions.version(id, tool) : undefined;
       const view = allowed ? await registry.view(id) : undefined;
       const candidate = view?.tools?.find((item) => item.name === tool);
       if (allowed && (view?.status.state !== 'connected' || candidate === undefined)) {
@@ -410,6 +414,12 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       const changed = await change(async () => {
         const current = await book.get(id);
         if (current === undefined) return false;
+        if (version !== undefined) {
+          const latest = await caseActions.version(id, tool);
+          if (version.scope !== latest.scope || version.tool !== latest.tool) {
+            throw new ConnectorRefusedError('Case action settings changed; try again');
+          }
+        }
         if (allowed && (candidate === undefined || classifyTool(current, candidate) !== 'write')) {
           throw new ConnectorRefusedError('Choose a connected writable tool for case requests');
         }

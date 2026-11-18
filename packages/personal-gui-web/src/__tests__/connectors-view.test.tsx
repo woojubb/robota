@@ -300,7 +300,7 @@ describe('the Connectors tab', () => {
   });
 
   it('shows the owner how to handle a partial removal', async () => {
-    const reason = `The connector was removed, but its follow-up cleanup did not finish. Restore write access to the agent state directory and remove case-action-scope/${NOTES.id}.`;
+    const reason = `The connector was removed. Its case-action settings could not be cleared. Restore write access to the agent state directory and remove case-action-scope/${NOTES.id}.`;
     const remove = vi.fn(async () => {
       throw new Error(reason);
     });
