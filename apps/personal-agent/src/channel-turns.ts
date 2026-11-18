@@ -56,6 +56,16 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
     }) => {
       void (async () => {
         const detail = describeCall(event.toolName, event.toolArgs);
+        if (detail === undefined) {
+          opened.resolvePermission(event.id, false);
+          settledEarly.delete(event.id);
+          await book.post({
+            kind: 'notice',
+            title: `A message on ${channel}`,
+            body: 'The connector action was refused because its complete details are too long or cannot be shown safely.',
+          });
+          return;
+        }
         const item = await book.post({
           kind: 'approval',
           title: `A message on ${channel}`,

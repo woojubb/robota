@@ -329,6 +329,28 @@ describe('using a connected service', () => {
     expect(w.notes.calls).toEqual(['create_note {"text":"call mom"}']);
   });
 
+  it('refuses a background connector action when its full arguments cannot be reviewed', async () => {
+    const w = await connected();
+    w.harness.model.script(
+      {
+        tool: 'ConnectorAct',
+        args: {
+          connector: w.id,
+          tool: 'create_note',
+          argumentsJson: JSON.stringify({ text: 'x'.repeat(400), to: 'recipient@example.invalid' }),
+        },
+      },
+      { text: 'The action was not sent.' },
+    );
+    await w.harness.capabilities.goals.create({ title: 'Note', instructions: 'Create a note.' });
+    await w.harness.capabilities.runner()!.runDue();
+    await w.harness.capabilities.runner()!.settled();
+    expect(w.notes.calls).toEqual([]);
+    const feed = await w.harness.capabilities.goals.feed();
+    expect(feed.some((item) => item.kind === 'notice' && item.body.includes('refused'))).toBe(true);
+    expect(feed.some((item) => item.approval?.state === 'pending')).toBe(false);
+  });
+
   it('does not let a write run through the reading tool, or a read through the writing one', async () => {
     const w = await connected();
     w.harness.model.script(

@@ -10,7 +10,11 @@
  * The runner keeps no state of its own beyond the sessions it has open: the goal book is the record,
  * so after a restart the book's recovery makes interrupted goals due again.
  */
-import { GOAL_TOOL_NAMES, goalRunInstructions } from '@robota-sdk/agent-product/personal';
+import {
+  CONNECTOR_TOOL_NAMES,
+  GOAL_TOOL_NAMES,
+  goalRunInstructions,
+} from '@robota-sdk/agent-product/personal';
 
 import type { GoalBook, IFeedItem, IGoal, IGoalRun } from '@robota-sdk/agent-product/personal';
 import type { IExtraSessionOptions, TPersonalSession } from './agent.js';
@@ -61,7 +65,22 @@ export interface IGoalRunner {
 const DETAIL_LIMIT = 300;
 
 /** What an approval shows the person: the call, briefly, with its address first when it has one. */
-export function describeCall(toolName: string, args: Readonly<Record<string, unknown>>): string {
+export function describeCall(
+  toolName: string,
+  args: Readonly<Record<string, unknown>>,
+): string | undefined {
+  if (toolName === CONNECTOR_TOOL_NAMES.act) {
+    try {
+      const json = JSON.stringify(args).replace(
+        /\p{Cf}/gu,
+        (char) => `\\u{${char.codePointAt(0)!.toString(16)}}`,
+      );
+      const detail = `${toolName} ${json}`;
+      return detail.length <= DETAIL_LIMIT ? detail : undefined;
+    } catch {
+      return undefined;
+    }
+  }
   const method = typeof args['method'] === 'string' ? `${args['method']} ` : '';
   if (typeof args['url'] === 'string') return `${method}${args['url']}`.slice(0, DETAIL_LIMIT);
   const json = JSON.stringify(args);
@@ -118,6 +137,24 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       toolArgs: Record<string, unknown>;
     }): void => {
       const detail = describeCall(event.toolName, event.toolArgs);
+      if (detail === undefined) {
+        session.resolvePermission(event.id, false);
+        void record({
+          tool: event.toolName,
+          detail: 'Action details cannot be shown safely',
+          outcome: 'denied',
+        });
+        void enqueue(async () => {
+          await book.post({
+            kind: 'notice',
+            title: goal.title,
+            body: 'The connector action was refused because its complete details are too long or cannot be shown safely.',
+            goalId: goal.id,
+            runId: run.id,
+          });
+        });
+        return;
+      }
       void enqueue(async () => {
         run = await book.recordAction(run, {
           tool: event.toolName,
