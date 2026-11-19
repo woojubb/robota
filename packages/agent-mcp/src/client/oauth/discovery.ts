@@ -4,8 +4,8 @@
  * authorization server.
  *
  * Every link in the chain is checked against the one before it:
- * - the protected-resource metadata must describe this server (its `resource` is the canonical
- *   server URL), and a `resource_metadata` link from a 401 is followed only on the server's origin;
+ * - the protected-resource metadata must describe this endpoint, or its origin when discovered at
+ *   the origin, and a `resource_metadata` link from a 401 is followed only on the server's origin;
  * - the authorization server metadata must name, as its `issuer`, the authorization server the
  *   resource pointed to (or that the definition configured);
  * - the server, the authorization server and its authorization, token and registration endpoints
@@ -62,8 +62,8 @@ function parseHttps(value: string): URL {
 }
 
 /**
- * The server URL as an OAuth resource: `https`, normalised by URL parsing (lower-case scheme and
- * host, default port dropped), without a fragment.
+ * The server's `https` URL, normalised by URL parsing (lower-case scheme and host, default port
+ * dropped), without a fragment.
  */
 export function canonicalServerUrl(serverUrl: string): string {
   const url = parseHttps(serverUrl);
