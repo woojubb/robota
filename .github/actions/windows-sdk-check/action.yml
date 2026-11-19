@@ -18,6 +18,7 @@ runs:
       env:
         SDK_PLAN: ${{ inputs.plan }}
         INSTALL_SDK: ${{ inputs.install }}
+        VITEST_MAX_WORKERS: '2'
       run: |
         set -euo pipefail
         node -e 'const p=JSON.parse(process.env.SDK_PLAN).windowsChecks ?? []; if (!Array.isArray(p) || p.some(x => typeof x !== "string" || !/^packages\/[a-z0-9][a-z0-9._-]*$/.test(x))) throw Error("Invalid Windows SDK selection"); process.stdout.write(p.join("\n"))' > "$RUNNER_TEMP/windows-sdk-paths"
@@ -47,5 +48,5 @@ runs:
         pnpm --filter './packages/agent-keyring' smoke:bun
         pnpm --filter './packages/agent-transport' smoke:bun:link
         if [ "${#test_filters[@]}" -gt 0 ]; then
-          pnpm -r "${test_filters[@]}" --if-present run test
+          pnpm -r "${test_filters[@]}" --workspace-concurrency=1 --if-present run test
         fi

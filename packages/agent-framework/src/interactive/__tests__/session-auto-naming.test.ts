@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
 import { SessionAutoNaming } from '../session-auto-naming.js';
@@ -18,7 +19,7 @@ import type {
 const testHost = createTestFrameworkHost();
 
 interface IFakeProvider extends IAIProvider {
-  chat: ReturnType<typeof vi.fn>;
+  chat: Mock<IAIProvider['chat']>;
 }
 
 function fakeProvider(title: string | Promise<string>): IFakeProvider {

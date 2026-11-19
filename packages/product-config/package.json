@@ -47,7 +47,7 @@
   },
   "devDependencies": {
     "tsdown": "^0.22.14",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.12"
   },
   "engines": {
     "node": ">=22.12.0"

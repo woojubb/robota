@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { BackgroundTaskManager } from '../background-task-manager.js';
 
@@ -41,9 +42,9 @@ function scheduledRequest(
 }
 
 interface IFakeHandle extends IBackgroundTaskHandle<'scheduled'> {
-  pause: ReturnType<typeof vi.fn>;
-  resume: ReturnType<typeof vi.fn>;
-  editSchedule: ReturnType<typeof vi.fn>;
+  pause: Mock<() => Promise<void>>;
+  resume: Mock<() => Promise<void>>;
+  editSchedule: Mock<(patch: IScheduleEditPatch) => Promise<void>>;
 }
 
 type TEmit = (event: Parameters<NonNullable<IBackgroundTaskStart['emit']>>[0]) => void;

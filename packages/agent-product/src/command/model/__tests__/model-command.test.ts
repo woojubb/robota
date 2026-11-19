@@ -50,7 +50,7 @@ function providers(): Record<string, IProviderProfileSettings> {
 }
 
 function buildOptions(overrides: {
-  writeTargetSettings?: ReturnType<typeof vi.fn>;
+  writeTargetSettings?: IProviderCommandModuleOptions['settings']['writeTargetSettings'];
   currentProvider?: string;
   providers?: Record<string, IProviderProfileSettings>;
   allowedProviders?: string[];

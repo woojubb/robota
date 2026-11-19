@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "lib": ["ESNext", "DOM"],
+    "types": ["node"],
     "moduleResolution": "bundler",
     "strict": true,
     "noImplicitAny": true,

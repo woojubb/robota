@@ -28,7 +28,7 @@ function text(body: string, contentType = 'text/plain; charset=utf-8', status = 
 
 function harness(routes: Record<string, TRoute>, options: Omit<IWebFetchToolOptions, 'egress'> = {}, lookup = async () => ['93.184.216.34']) {
   const requested: string[] = [];
-  const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetch = vi.fn(async (input: Parameters<typeof globalThis.fetch>[0], init?: RequestInit) => {
     const url = String(input);
     requested.push(url);
     const route = routes[url];

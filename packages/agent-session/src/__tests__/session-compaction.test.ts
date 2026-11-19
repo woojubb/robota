@@ -28,27 +28,29 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    ConversationAgent: vi.fn().mockImplementation(() => ({
-      run: vi.fn().mockImplementation(async (msg: string) => {
-        mockRunCalls.push(msg);
-        mockHistory.push({ role: 'user', content: msg });
-        mockHistory.push({
-          role: 'assistant',
-          content: 'mock response',
-          metadata: { inputTokens: 1000, outputTokens: 200 },
-        });
-        return 'mock response';
-      }),
-      getHistory: vi.fn().mockImplementation(() => mockHistory),
-      clearHistory: vi.fn().mockImplementation(() => {
-        mockClearCount++;
-        mockHistory = [];
-      }),
-      injectMessage: vi.fn().mockImplementation((role: string, content: string) => {
-        mockInjectCalls.push({ role, content });
-        mockHistory.push({ role, content });
-      }),
-    })),
+    ConversationAgent: vi.fn().mockImplementation(function () {
+      return {
+        run: vi.fn().mockImplementation(async (msg: string) => {
+          mockRunCalls.push(msg);
+          mockHistory.push({ role: 'user', content: msg });
+          mockHistory.push({
+            role: 'assistant',
+            content: 'mock response',
+            metadata: { inputTokens: 1000, outputTokens: 200 },
+          });
+          return 'mock response';
+        }),
+        getHistory: vi.fn().mockImplementation(() => mockHistory),
+        clearHistory: vi.fn().mockImplementation(() => {
+          mockClearCount++;
+          mockHistory = [];
+        }),
+        injectMessage: vi.fn().mockImplementation((role: string, content: string) => {
+          mockInjectCalls.push({ role, content });
+          mockHistory.push({ role, content });
+        }),
+      };
+    }),
     runHooks: vi.fn().mockResolvedValue({ blocked: false, stdout: '' }),
   };
 });

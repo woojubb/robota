@@ -38,7 +38,7 @@ vi.mock('@robota-sdk/agent-session', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-session');
   return {
     ...actual,
-    Session: vi.fn().mockImplementation(() => {
+    Session: vi.fn().mockImplementation(function () {
       events.push('session-created');
       return {
         getSessionId: vi.fn().mockReturnValue('session-restore'),
@@ -78,7 +78,9 @@ vi.mock('@robota-sdk/agent-session', async () => {
         clearSessionAllowedTools: vi.fn(),
       };
     }),
-    FileSessionLogger: vi.fn().mockImplementation(() => ({})),
+    FileSessionLogger: vi.fn().mockImplementation(function () {
+      return {};
+    }),
   };
 });
 
@@ -86,21 +88,23 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    ConversationAgent: vi.fn().mockImplementation(() => ({
-      run: vi.fn().mockResolvedValue('mock AI response'),
-      assertInputAllowed: vi.fn(),
-      getConversationSnapshot(
-        this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
-      ) {
-        return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
-      },
-      getHistory: vi.fn().mockReturnValue([]),
-      getFullHistory: vi.fn().mockReturnValue([]),
-      clearHistory: vi.fn(),
-      injectMessage: vi.fn(),
-      injectRawMessage: vi.fn(),
-      addHistoryEntry: vi.fn(),
-    })),
+    ConversationAgent: vi.fn().mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue('mock AI response'),
+        assertInputAllowed: vi.fn(),
+        getConversationSnapshot(
+          this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+        ) {
+          return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+        },
+        getHistory: vi.fn().mockReturnValue([]),
+        getFullHistory: vi.fn().mockReturnValue([]),
+        clearHistory: vi.fn(),
+        injectMessage: vi.fn(),
+        injectRawMessage: vi.fn(),
+        addHistoryEntry: vi.fn(),
+      };
+    }),
     runHooks: vi.fn().mockResolvedValue({ blocked: false }),
   };
 });

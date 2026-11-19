@@ -3,6 +3,7 @@ import { render } from '../../testing/product-provider.js';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { Composer } from '../Composer.js';
 
@@ -21,25 +22,27 @@ afterEach(() => {
 
 const catalog: TCommandCatalog = { commands: [], skills: [] };
 
+type TComposerProps = React.ComponentProps<typeof Composer>;
+
 function baseProps(): {
-  onSubmit: ReturnType<typeof vi.fn>;
-  onCommand: ReturnType<typeof vi.fn>;
+  onSubmit: Mock<TComposerProps['onSubmit']>;
+  onCommand: Mock<TComposerProps['onCommand']>;
   catalog: TCommandCatalog;
   status: null;
   running: boolean;
-  onStop: ReturnType<typeof vi.fn>;
+  onStop: Mock<NonNullable<TComposerProps['onStop']>>;
   queued: null;
-  onCancelQueue: ReturnType<typeof vi.fn>;
+  onCancelQueue: Mock<NonNullable<TComposerProps['onCancelQueue']>>;
 } {
   return {
-    onSubmit: vi.fn(),
-    onCommand: vi.fn(),
+    onSubmit: vi.fn<TComposerProps['onSubmit']>(),
+    onCommand: vi.fn<TComposerProps['onCommand']>(),
     catalog,
     status: null,
     running: false,
-    onStop: vi.fn(),
+    onStop: vi.fn<NonNullable<TComposerProps['onStop']>>(),
     queued: null,
-    onCancelQueue: vi.fn(),
+    onCancelQueue: vi.fn<NonNullable<TComposerProps['onCancelQueue']>>(),
   };
 }
 
