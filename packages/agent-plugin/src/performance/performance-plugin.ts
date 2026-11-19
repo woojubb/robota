@@ -150,7 +150,7 @@ export class PerformancePlugin extends AbstractPlugin<
           ...(descriptor.isError && { error: eventData.error?.message || 'unknown error' }),
         },
       });
-    } catch (_error) {
+    } catch {
       // Swallow to avoid breaking module event processing
     }
   }
