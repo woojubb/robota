@@ -135,7 +135,7 @@
     "zod-to-json-schema": "^3.24.6"
   },
   "peerDependencies": {
-    "e2b": "2.51.0"
+    "e2b": "2.64.0"
   },
   "peerDependenciesMeta": {
     "e2b": {
@@ -175,7 +175,7 @@
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.18.1",
     "@xterm/xterm": "^5.5.0",
-    "e2b": "2.51.0",
+    "e2b": "2.64.0",
     "gifenc": "^1.0.3",
     "jose": "6.2.3",
     "playwright": "^1.49.1",

@@ -46,7 +46,7 @@ export async function buildProductNativeBinary(options) {
     createRequire(new URL('../package.json', import.meta.url)).resolve('e2b/dist/index.mjs');
   } catch (cause) {
     throw new Error(
-      'Native CLI packaging includes the E2B hosted capability; install e2b@2.51.0 alongside @robota-sdk/agent-cli before building.',
+      'Native CLI packaging includes the E2B hosted capability; install e2b@2.64.0 alongside @robota-sdk/agent-cli before building.',
       { cause },
     );
   }
