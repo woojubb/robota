@@ -16,7 +16,7 @@ function fixture() {
   const write = (file, data) => writeFileSync(path.join(root, file), typeof data === 'string' ? data : `${JSON.stringify(data)}\n`);
   const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
   const commit = () => { git('add', '.'); git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture'); };
-  write('package.json', { name: 'scope-fixture', private: true, packageManager: 'pnpm@8.15.4' });
+  write('package.json', { name: 'scope-fixture', private: true, packageManager: 'pnpm@10.34.9' });
   write('pnpm-workspace.yaml', 'packages:\n  - packages/*\n  - apps/*\n');
   write('.npmrc', 'link-workspace-packages=false\n');
   write('packages/agent-core/package.json', { name: '@fixture/core', version: '1.0.0', devDependencies: { '@fixture/extra': 'workspace:*' } });

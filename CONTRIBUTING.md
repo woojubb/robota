@@ -15,7 +15,7 @@ Requirements:
 
 - **Node.js 22** — 22.23.5 or a later 22.x release (the root `engines` field; `.nvmrc` and Volta pin
   22.23.5).
-- **pnpm 8.15.4** (the root `packageManager` field).
+- **pnpm 10.34.9** (the root `packageManager` field).
 
 ```bash
 git clone __PROJECT_REPOSITORY_URL__

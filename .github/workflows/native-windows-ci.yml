@@ -50,8 +50,6 @@ jobs:
         with:
           ref: ${{ github.event_name == 'schedule' && 'develop' || github.sha }}
       - uses: pnpm/action-setup@v6
-        with:
-          version: 8.15.4
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc

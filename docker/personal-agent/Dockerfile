@@ -14,10 +14,10 @@ COPY . .
 RUN --mount=type=secret,id=extra-ca,required=false \
   set -eu; \
   if [ -f /run/secrets/extra-ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/extra-ca; fi; \
-  npm install --global --no-audit --no-fund pnpm@8.15.4; \
+  npm install --global --no-audit --no-fund "$(node -p 'require("./package.json").packageManager')"; \
   pnpm install --frozen-lockfile --filter "robota-personal-agent..."; \
   pnpm --filter "robota-personal-agent^..." build; \
-  pnpm --filter robota-personal-agent deploy --prod /out
+  pnpm --filter robota-personal-agent deploy --prod --legacy /out
 
 FROM node:22-bookworm-slim
 

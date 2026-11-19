@@ -37,7 +37,7 @@ During implementation, check each meaningful behavior early with a fast, focused
 
 - The owner works on both macOS and Linux; shell commands must be portable or check `uname -s`.
 - `.agents/skills/` in product code is a product feature (Robota loads a user project's skills), not this harness.
-- This repository pins pnpm 8.15.4. The external `worktree-deps` workflow applies to pnpm 9/10, so use the pinned native pnpm workflow and remove clean completed worktrees directly.
+- This repository pins pnpm 10.34.9. Use the external `worktree-deps` workflow for scoped local installs and completed-worktree cleanup.
 
 ## Ask first
 

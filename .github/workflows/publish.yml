@@ -75,8 +75,6 @@ jobs:
           echo "RELEASE_SOURCE_COMMIT=$tag_commit" >> "$GITHUB_ENV"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@v6
-        with:
-          version: 8.15.4
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
