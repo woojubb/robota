@@ -180,7 +180,14 @@ export function withdrawPeer(
   owner: IPeerEntry,
 ): void {
   const canonical = `${sessionId}${ENTRY_SUFFIX}`;
-  for (const file of readdirSync(options.guardedDirectory)) {
+  let files: string[];
+  try {
+    files = readdirSync(options.guardedDirectory);
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return;
+    throw error;
+  }
+  for (const file of files) {
     if (
       file !== canonical &&
       !(
