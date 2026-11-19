@@ -58,6 +58,8 @@ overrides:
   proxy-addr: '>=2.0.8 <3.0.0'
   smol-toml: '>=1.9.0 <2.0.0'
   zod@^4.0.0: '>=4.6.7 <5.0.0'
+  app-builder-lib>minimatch: ^11.0.9
+  '@electron/universal>minimatch': ^11.0.9
 
 patchedDependencies:
   nostr-tools@2.25.2:
@@ -209,8 +211,8 @@ importers:
         specifier: ^8.18.1
         version: 8.18.1
       electron:
-        specifier: ^43.5.0
-        version: 43.5.0
+        specifier: ^43.8.12
+        version: 43.8.12
       electron-builder:
         specifier: 26.15.7
         version: 26.15.7(electron-builder-squirrel-windows@26.15.7)
@@ -3820,7 +3822,7 @@ packages:
       debug: 4.4.3
       dir-compare: 4.2.0
       fs-extra: 11.4.0
-      minimatch: 9.0.9
+      minimatch: 11.0.9
       plist: 3.1.1
     transitivePeerDependencies:
       - supports-color
@@ -5395,6 +5397,10 @@ packages:
     engines: {node: '>=18.0.0'}
     dependencies:
       minipass: 7.1.3
+    dev: true
+
+  /@isaacs/nonrecursive-glob-match@1.1.0:
+    resolution: {integrity: sha512-GPm/Dbvk5RLmhRnxXIa7nTpK0xtl4E0wj0MslsuNiJ1FIROU+2+9lgUC/dgF7Ey4QCWhfEsgxilMRMCdHPfDfw==}
     dev: true
 
   /@istanbuljs/load-nyc-config@1.1.0:
@@ -10759,7 +10765,7 @@ packages:
       js-yaml: 4.3.2
       json5: 2.2.3
       lazy-val: 1.0.5
-      minimatch: 10.2.5
+      minimatch: 11.0.9
       pkijs: 3.4.0
       plist: 3.1.1
       proper-lockfile: 4.1.2
@@ -11340,6 +11346,13 @@ packages:
     resolution: {integrity: sha512-hGfVzPxthbf3+2yjg/RBs60cB0FhqBS/zvdV/4wn4/BmN0bNMMHPc4V/BbFieqf1TKAGGAHnY4eSjajCl0f2Xg==}
     dependencies:
       balanced-match: 1.0.2
+    dev: true
+
+  /brace-expansion@5.0.13:
+    resolution: {integrity: sha512-Vh3dmFbc4wZeox7M9I/0L9GfFd83Su4+yCck/OF9Gi/P/dAHn0RT7X4K9R7gMNMhDck3DvhR6QXsnQdjjgwNvQ==}
+    engines: {node: 20 || >=22}
+    dependencies:
+      balanced-match: 4.0.4
     dev: true
 
   /brace-expansion@5.0.9:
@@ -12762,8 +12775,8 @@ packages:
       - supports-color
     dev: true
 
-  /electron@43.5.0:
-    resolution: {integrity: sha512-nV2aWuKatmUrxrAWP2pNIynNX7dy83TCAz+6KnsbK7hDVLE+6fa2iouOtir41AboZTa+J5w2UgicWHAqUaaUJw==}
+  /electron@43.8.12:
+    resolution: {integrity: sha512-j/yQT+d31UqY0MwEy1AZDBCd7DNyPyAK1P4z2y5L4yDJUktvauL0KskC786Vsil/20zTmqVhpWm7taPK6pL0Ww==}
     engines: {node: '>= 22.12.0'}
     hasBin: true
     dependencies:
@@ -17322,6 +17335,14 @@ packages:
     engines: {node: 18 || 20 || >=22}
     dependencies:
       brace-expansion: 5.0.9
+    dev: true
+
+  /minimatch@11.0.9:
+    resolution: {integrity: sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==}
+    engines: {node: 20 || >=22}
+    dependencies:
+      '@isaacs/nonrecursive-glob-match': 1.1.0
+      brace-expansion: 5.0.13
     dev: true
 
   /minimatch@3.1.5:

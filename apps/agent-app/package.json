@@ -35,7 +35,7 @@
     "@robota-sdk/agent-session": "npm:@robota-sdk/agent-session@3.2.8",
     "@robota-sdk/agent-ui-web": "npm:@robota-sdk/agent-ui-web@3.4.0",
     "@types/ws": "^8.18.1",
-    "electron": "^43.5.0",
+    "electron": "^43.8.12",
     "electron-builder": "26.15.7",
     "playwright": "^1.49.1",
     "typescript": "^6.0.3",
