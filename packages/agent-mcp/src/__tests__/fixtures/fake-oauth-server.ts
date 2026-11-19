@@ -39,6 +39,7 @@ export interface IFakeOAuthServer {
     tokenEndpoint?: string;
     authorizationServers?: string[];
     publishResourceMetadata?: boolean;
+    rootResourceMetadata?: boolean;
     tokenRedirect?: string;
     issParameter?: 'match' | 'other' | 'omit';
     promisesIss?: boolean;
@@ -160,11 +161,15 @@ export function createFakeOAuthServer(): IFakeOAuthServer {
     }
     if (url.origin === 'https://mcp.example.test') {
       if (
-        url.pathname === '/.well-known/oauth-protected-resource/mcp' &&
+        (url.pathname === '/.well-known/oauth-protected-resource/mcp'
+          ? overrides.rootResourceMetadata !== true
+          : url.pathname === '/.well-known/oauth-protected-resource' &&
+            overrides.rootResourceMetadata === true) &&
         overrides.publishResourceMetadata !== false
       ) {
         return json({
-          resource: overrides.resource ?? MCP_URL,
+          resource:
+            overrides.resource ?? (overrides.rootResourceMetadata === true ? url.origin : MCP_URL),
           authorization_servers: overrides.authorizationServers ?? [AS_URL],
           scopes_supported: ['files:read'],
         });

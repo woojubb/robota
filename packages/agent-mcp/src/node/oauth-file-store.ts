@@ -47,6 +47,7 @@ const OPTIONAL_STRINGS = [
   'refreshToken',
   'scope',
   'tokenEndpointAuthMethod',
+  'signInId',
 ] as const;
 const REQUIRED_STRINGS = [
   'issuer',

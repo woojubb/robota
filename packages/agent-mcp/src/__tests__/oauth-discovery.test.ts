@@ -55,6 +55,104 @@ describe('OAuth discovery', () => {
     expect(await reasonOf(discover(server))).toBe('resource-mismatch');
   });
 
+  it('accepts origin metadata discovered at the root for an endpoint below it', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.rootResourceMetadata = true;
+    const info = await discover(server);
+    expect(info.resource).toBe('https://mcp.example.test');
+    expect(info.issuer).toBe(AS_URL);
+  });
+
+  it('also accepts root metadata that names the exact endpoint', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.rootResourceMetadata = true;
+    server.overrides.resource = MCP_URL;
+    expect((await discover(server)).resource).toBe(MCP_URL);
+  });
+
+  it.each([
+    [
+      `${MCP_URL}?tenant=alpha`,
+      'https://mcp.example.test/.well-known/oauth-protected-resource/mcp?tenant=alpha',
+    ],
+    [`${MCP_URL}/`, 'https://mcp.example.test/.well-known/oauth-protected-resource/mcp/'],
+    [
+      'https://mcp.example.test/?tenant=alpha',
+      'https://mcp.example.test/.well-known/oauth-protected-resource?tenant=alpha',
+    ],
+  ])('uses the endpoint-specific metadata for %s', async (endpoint, metadataUrl) => {
+    const server = createFakeOAuthServer();
+    const requests: string[] = [];
+    const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input);
+      requests.push(url.href);
+      if (url.href === metadataUrl)
+        return Response.json({ resource: endpoint, authorization_servers: [AS_URL] });
+      if (url.pathname === '/.well-known/oauth-protected-resource' && url.search === '') {
+        return Response.json({
+          resource: url.origin,
+          authorization_servers: ['https://other-auth.example.test/'],
+        });
+      }
+      if (url.pathname.startsWith('/.well-known/oauth-protected-resource'))
+        return new Response(null, { status: 404 });
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const info = await discover({ ...server, fetch }, {}, { serverUrl: endpoint });
+    expect(info.resource).toBe(endpoint);
+    expect(info.issuer).toBe(AS_URL);
+    expect(requests).toContain(metadataUrl);
+    expect(requests).not.toContain('https://mcp.example.test/.well-known/oauth-protected-resource');
+  });
+
+  it('does not accept an origin or sibling from a path document or challenge link', async () => {
+    const path = createFakeOAuthServer();
+    path.overrides.resource = 'https://mcp.example.test';
+    expect(await reasonOf(discover(path))).toBe('resource-mismatch');
+
+    const linked = createFakeOAuthServer();
+    linked.overrides.rootResourceMetadata = true;
+    expect(
+      await reasonOf(
+        discover(
+          linked,
+          {},
+          {
+            resourceMetadataUrl: 'https://mcp.example.test/.well-known/oauth-protected-resource',
+          },
+        ),
+      ),
+    ).toBe('resource-mismatch');
+
+    const root = createFakeOAuthServer();
+    root.overrides.rootResourceMetadata = true;
+    root.overrides.resource = 'https://mcp.example.test/other';
+    expect(await reasonOf(discover(root))).toBe('resource-mismatch');
+    root.overrides.resource = 'https://other.example.test';
+    expect(await reasonOf(discover(root))).toBe('resource-mismatch');
+  });
+
+  it.each([401, 403, 429])(
+    'does not fall back to root after a metadata HTTP %s',
+    async (status) => {
+      const server = createFakeOAuthServer();
+      server.overrides.rootResourceMetadata = true;
+      const requests: string[] = [];
+      const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(input instanceof Request ? input.url : input);
+        requests.push(url.href);
+        if (url.pathname === '/.well-known/oauth-protected-resource/mcp') {
+          return new Response(null, { status });
+        }
+        return server.fetch(input, init);
+      }) as typeof globalThis.fetch;
+      expect(await reasonOf(discover({ ...server, fetch }))).toBe('discovery-failed');
+      expect(requests).not.toContain(
+        'https://mcp.example.test/.well-known/oauth-protected-resource',
+      );
+    },
+  );
+
   it('refuses authorization server metadata naming another issuer', async () => {
     const server = createFakeOAuthServer();
     server.overrides.issuer = 'https://evil.example.test/';

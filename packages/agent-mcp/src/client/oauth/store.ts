@@ -25,6 +25,8 @@ export interface IMCPOAuthCredentialKey {
 }
 
 export interface IMCPOAuthCredential {
+  /** Opaque identity for one sign-in, retained through its token refreshes. */
+  readonly signInId?: string;
   readonly issuer: string;
   readonly authorizationEndpoint: string;
   readonly tokenEndpoint: string;

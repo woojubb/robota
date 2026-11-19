@@ -1,51 +1,114 @@
 /**
- * The lock-file implementation of the refresh lock port (`client/oauth/refresh-lock.ts`): one
- * refresh at a time per credential, across every process that shares the credential directory.
+ * The Node refresh lock: one holder per credential across processes sharing its directory.
+ * A live or unidentifiable owner is never displaced; a provably exited owner can be recovered.
  */
 
 import { randomBytes } from 'node:crypto';
-import { linkSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  linkSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
-import { ensureOwnerOnlyDirectory } from '@robota-sdk/agent-core/node';
+import {
+  classifyProcessOwner,
+  ensureOwnerOnlyDirectory,
+  readCurrentProcessIdentity,
+} from '@robota-sdk/agent-core/node';
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 
 import { MCPOAuthError } from '../client/oauth/errors.js';
 import { credentialKeyDigest } from './oauth-file-store.js';
 
+import type { IProcessIdentity } from '@robota-sdk/agent-core/node';
 import type { IMCPOAuthRefreshLock } from '../client/oauth/refresh-lock.js';
 
-/** The file operations the lock uses; a test replaces one to interleave two holders exactly. */
+/** The filesystem operations used by the guard; a test can interleave a recovery. */
 export interface IFileOAuthRefreshLockFs {
-  /** Create `path` holding `content`, failing with `EEXIST` when it exists. */
+  createDirectory(path: string): void;
+  removeDirectory(path: string): void;
   createExclusive(path: string, content: string): void;
   read(path: string): string;
-  mtimeMs(path: string): number;
   rename(from: string, to: string): void;
-  /** Create `to` as another name of `from`, failing with `EEXIST` when `to` exists. */
-  link(from: string, to: string): void;
   unlink(path: string): void;
+  /** @deprecated Age does not prove that an owner has exited. */
+  mtimeMs(path: string): number;
+  /** @deprecated Guard recovery does not link lock files. */
+  link(from: string, to: string): void;
 }
 
 const NODE_FS: IFileOAuthRefreshLockFs = {
+  createDirectory: (path) => mkdirSync(path, { mode: 0o700 }),
+  removeDirectory: (path) => rmdirSync(path),
   createExclusive: (path, content) => writeFileSync(path, content, { flag: 'wx', mode: 0o600 }),
   read: (path) => readFileSync(path, 'utf8'),
-  mtimeMs: (path) => statSync(path).mtimeMs,
   rename: (from, to) => renameSync(from, to),
-  link: (from, to) => linkSync(from, to),
   unlink: (path) => unlinkSync(path),
+  mtimeMs: (path) => statSync(path).mtimeMs,
+  link: (from, to) => linkSync(from, to),
 };
 
 export interface IFileOAuthRefreshLockOptions {
-  /** A lock older than this was left by a process that died holding it. */
+  /** @deprecated Age alone cannot establish that the lock holder has exited. */
   readonly staleMs?: number;
   readonly timeoutMs?: number;
   readonly pollMs?: number;
   readonly fs?: Partial<IFileOAuthRefreshLockFs>;
 }
 
-const DEFAULT_STALE_MS = 60_000;
+interface IGuardOwner {
+  readonly token: string;
+  readonly identity: IProcessIdentity;
+}
+
+const OWNER_FILE = 'owner.json';
+const TOKEN = /^[a-f0-9]{32}$/u;
+const IDENTITY_FIELDS = ['startTime', 'bootId', 'pidNamespace', 'hostname', 'machineId'] as const;
 const DEFAULT_TIMEOUT_MS = 90_000;
 const DEFAULT_POLL_MS = 50;
+
+function readOwner(fs: IFileOAuthRefreshLockFs, path: string): IGuardOwner | undefined {
+  try {
+    const parsed: unknown = JSON.parse(fs.read(join(path, OWNER_FILE)));
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
+    const record = parsed as Record<string, unknown>;
+    const identity = record['identity'];
+    if (
+      typeof record['token'] !== 'string' ||
+      !TOKEN.test(record['token']) ||
+      typeof identity !== 'object' ||
+      identity === null ||
+      Array.isArray(identity)
+    )
+      return undefined;
+    const values = identity as Record<string, unknown>;
+    if (
+      typeof values['pid'] !== 'number' ||
+      !Number.isSafeInteger(values['pid']) ||
+      values['pid'] <= 0
+    )
+      return undefined;
+    if (
+      IDENTITY_FIELDS.some((field) => {
+        const value = values[field];
+        return (
+          value !== undefined &&
+          (typeof value !== 'string' || value.length === 0 || value.length > 256)
+        );
+      })
+    )
+      return undefined;
+    return { token: record['token'], identity: values as unknown as IProcessIdentity };
+  } catch {
+    return undefined;
+  }
+}
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -63,84 +126,60 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * A lock file created exclusively beside the credentials, holding a random token that names its
- * holder. A lock older than `staleMs` was left by a process that died holding it and is taken over.
- *
- * Nothing removes a lock by path alone: between judging a lock and removing it, another process may
- * have replaced it with a fresh one of its own, and deleting that would let two refreshes run. So a
- * lock is first renamed aside — which no one else can then touch — and removed only when the file
- * set aside is the very one judged (same token and time for a takeover, the holder's own token for
- * a release). Anything else is put back under its name without replacing a lock created meanwhile.
+ * An OS guard serializes the entire operation, including recovery and release. The fixed path is
+ * a non-empty directory, so an older file-lock implementation cannot read it as a lock file.
+ * Mixed lock versions are unsupported: an older operation already in flight may still move it.
+ * Unknown and legacy owners stay closed.
  */
 export function createFileOAuthRefreshLock(
   directory: string,
   options: IFileOAuthRefreshLockOptions = {},
 ): IMCPOAuthRefreshLock {
-  const staleMs = options.staleMs ?? DEFAULT_STALE_MS;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pollMs = options.pollMs ?? DEFAULT_POLL_MS;
   const fs: IFileOAuthRefreshLockFs = { ...NODE_FS, ...options.fs };
 
-  /** Remove `path` only if, once set aside, it is still the lock `isExpected` describes. */
-  const removeIf = (path: string, isExpected: (aside: string) => boolean): void => {
-    const aside = `${path}.${randomBytes(8).toString('hex')}.aside`;
+  const tryAcquire = (path: string, owner: IGuardOwner): boolean => {
     try {
-      fs.rename(path, aside);
-    } catch {
-      return; // allow-fallback: already gone — released or taken over by someone else.
-    }
-    let expected = false;
-    try {
-      expected = isExpected(aside);
-    } catch {
-      // allow-fallback: unreadable means unproven; it is put back, not removed.
-    }
-    if (!expected) {
-      try {
-        fs.link(aside, path);
-      } catch {
-        // allow-fallback: a newer lock already holds the name; it is never replaced.
-      }
-    }
-    try {
-      fs.unlink(aside);
-    } catch {
-      // allow-fallback: nothing more to clean up.
-    }
-  };
-
-  const tryAcquire = (path: string, token: string): boolean => {
-    try {
-      fs.createExclusive(path, token);
-      return true;
+      fs.createDirectory(path);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
         throw new MCPOAuthError('store-failed');
       }
+      const previous = readOwner(fs, path);
+      if (previous !== undefined && classifyProcessOwner(previous.identity) === 'gone') {
+        try {
+          fs.rename(path, `${path}.${previous.token}.stale`);
+        } catch {
+          // A competing recovery or a replacement leaves the guard closed.
+        }
+      }
+      return false;
     }
-    let observed: { token: string; mtimeMs: number };
     try {
-      observed = { token: fs.read(path), mtimeMs: fs.mtimeMs(path) };
+      fs.createExclusive(join(path, OWNER_FILE), JSON.stringify(owner));
     } catch {
-      return false; // allow-fallback: released between the two calls; the next attempt decides.
+      try {
+        fs.removeDirectory(path);
+      } catch {
+        // An incomplete guard stays closed until offline recovery.
+      }
+      throw new MCPOAuthError('store-failed');
     }
-    if (Date.now() - observed.mtimeMs > staleMs) {
-      removeIf(
-        path,
-        (aside) => fs.read(aside) === observed.token && fs.mtimeMs(aside) === observed.mtimeMs,
-      );
-    }
-    return false;
+    return true;
   };
 
   const release = (path: string, token: string): void => {
+    if (readOwner(fs, path)?.token !== token) return;
+    const retired = `${path}.${token}.released`;
     try {
-      // Cheap first look: a lock that is not ours is never even moved.
-      if (fs.read(path) !== token) return;
+      fs.rename(path, retired);
+      if (readOwner(fs, retired)?.token !== token) return;
+      fs.unlink(join(retired, OWNER_FILE));
+      fs.removeDirectory(retired);
     } catch {
-      return; // allow-fallback: already gone — taken over as stale.
+      // A guard that cannot be safely released stays closed or remains as a sidecar.
     }
-    removeIf(path, (aside) => fs.read(aside) === token);
   };
 
   return {
@@ -150,18 +189,45 @@ export function createFileOAuthRefreshLock(
       } catch {
         throw new MCPOAuthError('store-failed');
       }
-      const path = join(directory, `${credentialKeyDigest(key)}.lock`);
-      const token = randomBytes(16).toString('hex');
+      const digest = credentialKeyDigest(key);
+      const path = join(directory, `${digest}.lock`);
+      const operation = createProcessOperationLock(directory);
+      const owner: IGuardOwner = {
+        token: randomBytes(16).toString('hex'),
+        identity: readCurrentProcessIdentity(),
+      };
       const deadline = Date.now() + timeoutMs;
-      while (!tryAcquire(path, token)) {
-        if (Date.now() >= deadline) throw new MCPOAuthError('lock-timeout');
-        await sleep(pollMs, signal);
+      let result:
+        { acquired: false } | { acquired: true; value: Awaited<ReturnType<typeof critical>> } = {
+        acquired: false,
+      };
+      while (!result.acquired) {
+        if (signal?.aborted === true) throw new MCPOAuthError('cancelled');
+        let guard: ReturnType<typeof operation.tryAcquire>;
+        try {
+          guard = operation.tryAcquire(digest);
+        } catch {
+          throw new MCPOAuthError('store-failed');
+        }
+        if (guard !== undefined) {
+          try {
+            if (tryAcquire(path, owner)) {
+              try {
+                result = { acquired: true, value: await critical() };
+              } finally {
+                release(path, owner.token);
+              }
+            }
+          } finally {
+            guard.release();
+          }
+        }
+        if (!result.acquired) {
+          if (Date.now() >= deadline) throw new MCPOAuthError('lock-timeout');
+          await sleep(pollMs, signal);
+        }
       }
-      try {
-        return await critical();
-      } finally {
-        release(path, token);
-      }
+      return result.value;
     },
   };
 }
