@@ -70,6 +70,41 @@ describe('OAuth discovery', () => {
     expect((await discover(server)).resource).toBe(MCP_URL);
   });
 
+  it.each([
+    [
+      `${MCP_URL}?tenant=alpha`,
+      'https://mcp.example.test/.well-known/oauth-protected-resource/mcp?tenant=alpha',
+    ],
+    [`${MCP_URL}/`, 'https://mcp.example.test/.well-known/oauth-protected-resource/mcp/'],
+    [
+      'https://mcp.example.test/?tenant=alpha',
+      'https://mcp.example.test/.well-known/oauth-protected-resource?tenant=alpha',
+    ],
+  ])('uses the endpoint-specific metadata for %s', async (endpoint, metadataUrl) => {
+    const server = createFakeOAuthServer();
+    const requests: string[] = [];
+    const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input);
+      requests.push(url.href);
+      if (url.href === metadataUrl)
+        return Response.json({ resource: endpoint, authorization_servers: [AS_URL] });
+      if (url.pathname === '/.well-known/oauth-protected-resource' && url.search === '') {
+        return Response.json({
+          resource: url.origin,
+          authorization_servers: ['https://other-auth.example.test/'],
+        });
+      }
+      if (url.pathname.startsWith('/.well-known/oauth-protected-resource'))
+        return new Response(null, { status: 404 });
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const info = await discover({ ...server, fetch }, {}, { serverUrl: endpoint });
+    expect(info.resource).toBe(endpoint);
+    expect(info.issuer).toBe(AS_URL);
+    expect(requests).toContain(metadataUrl);
+    expect(requests).not.toContain('https://mcp.example.test/.well-known/oauth-protected-resource');
+  });
+
   it('does not accept an origin or sibling from a path document or challenge link', async () => {
     const path = createFakeOAuthServer();
     path.overrides.resource = 'https://mcp.example.test';

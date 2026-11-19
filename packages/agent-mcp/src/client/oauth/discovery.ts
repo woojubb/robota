@@ -113,13 +113,16 @@ async function discoverResourceMetadata(
     if (metadata === undefined) throw new MCPOAuthError('discovery-failed');
     return { metadata, originFallback: false };
   }
-  const path = resource.pathname.endsWith('/') ? resource.pathname.slice(0, -1) : resource.pathname;
+  const path = resource.pathname === '/' ? '' : resource.pathname;
   const candidates = [
-    ...(path === ''
+    ...(path === '' && resource.search === ''
       ? []
       : [
           {
-            url: new URL(`/.well-known/oauth-protected-resource${path}`, resource),
+            url: new URL(
+              `/.well-known/oauth-protected-resource${path}${resource.search}`,
+              resource,
+            ),
             originFallback: false,
           },
         ]),
