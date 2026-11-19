@@ -9,16 +9,18 @@ import type { IPayloadLogger } from './interfaces/payload-logger';
 
 // Mock OpenAI SDK
 vi.mock('openai', () => {
-  const MockOpenAI = vi.fn().mockImplementation(() => ({
-    chat: {
-      completions: {
+  const MockOpenAI = vi.fn().mockImplementation(function () {
+    return {
+      chat: {
+        completions: {
+          create: vi.fn(),
+        },
+      },
+      responses: {
         create: vi.fn(),
       },
-    },
-    responses: {
-      create: vi.fn(),
-    },
-  }));
+    };
+  });
   return { default: MockOpenAI };
 });
 

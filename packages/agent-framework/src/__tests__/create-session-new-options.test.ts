@@ -29,7 +29,7 @@ vi.mock('@robota-sdk/agent-session', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-session');
   return {
     ...actual,
-    Session: vi.fn().mockImplementation((options: Record<string, unknown>) => {
+    Session: vi.fn().mockImplementation(function (options: Record<string, unknown>) {
       sessionCtorCalls.push(options);
       // Return a minimal mock session
       return {
@@ -41,7 +41,9 @@ vi.mock('@robota-sdk/agent-session', async () => {
         injectMessage: vi.fn(),
       };
     }),
-    FileSessionLogger: vi.fn().mockImplementation(() => ({})),
+    FileSessionLogger: vi.fn().mockImplementation(function () {
+      return {};
+    }),
   };
 });
 
@@ -49,12 +51,14 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    ConversationAgent: vi.fn().mockImplementation(() => ({
-      run: vi.fn().mockResolvedValue('mock AI response'),
-      getHistory: vi.fn().mockReturnValue([]),
-      clearHistory: vi.fn(),
-      injectMessage: vi.fn(),
-    })),
+    ConversationAgent: vi.fn().mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue('mock AI response'),
+        getHistory: vi.fn().mockReturnValue([]),
+        clearHistory: vi.fn(),
+        injectMessage: vi.fn(),
+      };
+    }),
     runHooks: vi.fn().mockResolvedValue({ blocked: false }),
   };
 });

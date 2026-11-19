@@ -64,6 +64,7 @@ function providerExecutor(cwd: string): SystemCommandExecutor {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
   for (const home of homes.splice(0)) rmSync(home, { recursive: true, force: true });
 });
 

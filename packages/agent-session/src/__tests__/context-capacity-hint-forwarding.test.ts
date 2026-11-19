@@ -25,7 +25,7 @@ const capturedConfigs: IAgentConfig[] = [];
 
 vi.mock('@robota-sdk/agent-core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@robota-sdk/agent-core')>()),
-  ConversationAgent: vi.fn().mockImplementation((config: IAgentConfig) => {
+  ConversationAgent: vi.fn().mockImplementation(function (config: IAgentConfig) {
     capturedConfigs.push(config);
     return { name: config.name };
   }),
@@ -39,7 +39,15 @@ const MOCK_ENFORCER = {
 
 function build(options: ISessionOptions): IAgentConfig {
   capturedConfigs.length = 0;
-  buildConversationAgent(options, MOCK_ENFORCER, [], MOCK_PROVIDER, 'test-model', 'sys', MOCK_EVENT_SERVICE);
+  buildConversationAgent(
+    options,
+    MOCK_ENFORCER,
+    [],
+    MOCK_PROVIDER,
+    'test-model',
+    'sys',
+    MOCK_EVENT_SERVICE,
+  );
   expect(capturedConfigs).toHaveLength(1);
   return capturedConfigs[0]!;
 }

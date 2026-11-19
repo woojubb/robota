@@ -22,10 +22,12 @@ import { OpenAIProvider } from '../provider';
 import type { IToolSchema, ILogger, TUniversalMessage } from '@robota-sdk/agent-core';
 
 vi.mock('openai', () => {
-  const MockOpenAI = vi.fn().mockImplementation(() => ({
-    chat: { completions: { create: vi.fn() } },
-    responses: { create: vi.fn() },
-  }));
+  const MockOpenAI = vi.fn().mockImplementation(function () {
+    return {
+      chat: { completions: { create: vi.fn() } },
+      responses: { create: vi.fn() },
+    };
+  });
   return { default: MockOpenAI };
 });
 

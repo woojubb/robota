@@ -4,7 +4,9 @@ import type { IProviderDefinitionConfig, TUniversalMessage } from '@robota-sdk/a
 const create = vi.fn();
 
 vi.mock('@anthropic-ai/sdk', () => ({
-  default: vi.fn().mockImplementation(() => ({ messages: { create } })),
+  default: vi.fn().mockImplementation(function () {
+    return { messages: { create } };
+  }),
 }));
 
 import { createAnthropicProviderDefinition } from '../provider-definition.js';

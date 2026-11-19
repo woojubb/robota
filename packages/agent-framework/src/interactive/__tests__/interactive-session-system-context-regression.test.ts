@@ -66,44 +66,50 @@ vi.mock('../../plugins/index.js', () => ({
   createHostBundlePluginLoader: vi.fn().mockImplementation(() => ({
     loadPluginsSync: vi.fn().mockReturnValue([]),
   })),
-  BundlePluginLoader: vi.fn().mockImplementation(() => ({
-    loadPluginsSync: vi.fn().mockReturnValue([]),
-  })),
+  BundlePluginLoader: vi.fn().mockImplementation(function () {
+    return {
+      loadPluginsSync: vi.fn().mockReturnValue([]),
+    };
+  }),
 }));
 
 vi.mock('@robota-sdk/agent-session', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-session');
   return {
     ...actual,
-    Session: vi.fn().mockImplementation(() => ({
-      getSessionId: vi.fn().mockReturnValue('test-session-id'),
-      getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
-      run: vi.fn().mockResolvedValue('mock response'),
-      abort: vi.fn(),
-      assertInputAllowed: vi.fn(),
-      getConversationSnapshot(
-        this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
-      ) {
-        return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
-      },
-      getHistory: vi.fn().mockReturnValue([]),
-      clearHistory: vi.fn(),
-      injectMessage: vi.fn(),
-      getContextState: vi.fn().mockReturnValue({
-        usedTokens: 5000,
-        maxTokens: 200000,
-        usedPercentage: 2.5,
-        remainingPercentage: 97.5,
-      }),
-      getPermissionMode: vi.fn().mockReturnValue('default'),
-      setPermissionMode: vi.fn(),
-      getSystemMessage: vi.fn().mockReturnValue('system prompt'),
-      getToolSchemas: vi.fn().mockReturnValue([]),
-      getMessageCount: vi.fn().mockReturnValue(0),
-      getSessionAllowedTools: vi.fn().mockReturnValue([]),
-      compact: vi.fn(),
-    })),
-    FileSessionLogger: vi.fn().mockImplementation(() => ({})),
+    Session: vi.fn().mockImplementation(function () {
+      return {
+        getSessionId: vi.fn().mockReturnValue('test-session-id'),
+        getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
+        run: vi.fn().mockResolvedValue('mock response'),
+        abort: vi.fn(),
+        assertInputAllowed: vi.fn(),
+        getConversationSnapshot(
+          this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+        ) {
+          return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+        },
+        getHistory: vi.fn().mockReturnValue([]),
+        clearHistory: vi.fn(),
+        injectMessage: vi.fn(),
+        getContextState: vi.fn().mockReturnValue({
+          usedTokens: 5000,
+          maxTokens: 200000,
+          usedPercentage: 2.5,
+          remainingPercentage: 97.5,
+        }),
+        getPermissionMode: vi.fn().mockReturnValue('default'),
+        setPermissionMode: vi.fn(),
+        getSystemMessage: vi.fn().mockReturnValue('system prompt'),
+        getToolSchemas: vi.fn().mockReturnValue([]),
+        getMessageCount: vi.fn().mockReturnValue(0),
+        getSessionAllowedTools: vi.fn().mockReturnValue([]),
+        compact: vi.fn(),
+      };
+    }),
+    FileSessionLogger: vi.fn().mockImplementation(function () {
+      return {};
+    }),
   };
 });
 
@@ -111,18 +117,20 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    ConversationAgent: vi.fn().mockImplementation(() => ({
-      run: vi.fn().mockResolvedValue('mock AI response'),
-      assertInputAllowed: vi.fn(),
-      getConversationSnapshot(
-        this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
-      ) {
-        return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
-      },
-      getHistory: vi.fn().mockReturnValue([]),
-      clearHistory: vi.fn(),
-      injectMessage: vi.fn(),
-    })),
+    ConversationAgent: vi.fn().mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue('mock AI response'),
+        assertInputAllowed: vi.fn(),
+        getConversationSnapshot(
+          this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+        ) {
+          return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+        },
+        getHistory: vi.fn().mockReturnValue([]),
+        clearHistory: vi.fn(),
+        injectMessage: vi.fn(),
+      };
+    }),
     runHooks: vi.fn().mockResolvedValue({ blocked: false }),
   };
 });

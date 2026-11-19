@@ -10,13 +10,15 @@ import type {
 import { DEFAULT_DEEPSEEK_PROVIDER_BASE_URL, DeepSeekProvider } from './index';
 
 vi.mock('openai', () => {
-  const MockOpenAI = vi.fn().mockImplementation(() => ({
-    chat: {
-      completions: {
-        create: vi.fn(),
+  const MockOpenAI = vi.fn().mockImplementation(function () {
+    return {
+      chat: {
+        completions: {
+          create: vi.fn(),
+        },
       },
-    },
-  }));
+    };
+  });
   return { default: MockOpenAI };
 });
 
