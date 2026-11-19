@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -57,7 +58,7 @@ async function open(fixtureName: string, pinned: boolean, apps: boolean): Promis
       allowedRoot: root,
       generation: '1',
       executables: [{ command: process.execPath, args: [[fixture]] }],
-      environment: { HOME: root },
+      environment: { HOME: root, ...(process.platform === 'win32' ? { SYSTEMROOT: process.env.SystemRoot ?? process.env.SYSTEMROOT ?? '' } : {}) },
     },
   });
   const admitted = await adapter.admit({ definition, activation });
@@ -71,6 +72,19 @@ async function open(fixtureName: string, pinned: boolean, apps: boolean): Promis
   });
   return session;
 }
+
+it.skipIf(process.platform !== 'win32')('compares minimal child environments', () => {
+  const systemRoot = Object.entries(process.env).find(([key]) => key.toUpperCase() === 'SYSTEMROOT')?.[1] ?? '';
+  expect(systemRoot).not.toBe('');
+  for (const [name, env] of [
+    ['empty', { HOME: '.', SYSTEMROOT: '' }],
+    ['selected', { HOME: '.', SYSTEMROOT: systemRoot }],
+    ['mixed-case', { HOME: '.', SYSTEMROOT: '', SystemRoot: systemRoot }],
+  ] as const) {
+    const result = spawnSync(process.execPath, ['-e', "process.stdout.write('ready')"], { env, encoding: 'utf8', timeout: 5000 });
+    process.stdout.write(`Windows child probe ${JSON.stringify({ name, status: result.status, signal: result.signal, error: result.error?.message, stderr: result.stderr?.slice(0, 700) })}\n`);
+  }
+});
 
 describe.each([
   ['legacy', 'apps-legacy-stdio-server.mjs', false],

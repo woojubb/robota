@@ -41,7 +41,7 @@ it('reads a 16 MiB raw binary resource through the exact admitted stdio child an
       allowedRoot: root,
       generation: '1',
       executables: [{ command: process.execPath, args: [[fixture]] }],
-      environment: { HOME: root },
+      environment: { HOME: root, ...(process.platform === 'win32' ? { SYSTEMROOT: process.env.SystemRoot ?? process.env.SYSTEMROOT ?? '' } : {}) },
     },
   });
   const admitted = await adapter.admit({ definition, activation });
