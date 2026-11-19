@@ -164,7 +164,9 @@
       "katex": ">=0.18.2 <1.0.0",
       "proxy-addr": ">=2.0.8 <3.0.0",
       "smol-toml": ">=1.9.0 <2.0.0",
-      "zod@^4.0.0": ">=4.6.7 <5.0.0"
+      "zod@^4.0.0": ">=4.6.7 <5.0.0",
+      "app-builder-lib>minimatch": "^11.0.9",
+      "@electron/universal>minimatch": "^11.0.9"
     },
     "patchedDependencies": {
       "nostr-tools@2.25.2": "patches/nostr-tools@2.25.2.patch"
