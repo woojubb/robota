@@ -89,7 +89,7 @@
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.12"
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "publishConfig": {

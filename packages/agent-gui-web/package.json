@@ -43,8 +43,8 @@
     "rimraf": "^5.0.10",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
-    "vite": "^6.0.7",
-    "vitest": "^3.2.6",
+    "vite": "^7.3.8",
+    "vitest": "^4.1.12",
     "ws": "^8.21.1"
   },
   "volta": {

@@ -28,7 +28,7 @@ jobs:
       CI_VALIDATION: 'true'
       IS_PULL_REQUEST: 'true'
       FIXTURE_PRODUCT: cedar
-      VITEST_MAX_FORKS: 2
+      VITEST_MAX_WORKERS: 2
       NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v7
