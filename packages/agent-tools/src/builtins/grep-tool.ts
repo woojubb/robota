@@ -98,7 +98,7 @@ async function grepFileTool(args: TGrepArgs, options: IGrepToolOptions): Promise
 
   try {
     new RegExp(pattern);
-  } catch (err) {
+  } catch {
     const result: IToolInvocationResult = {
       success: false,
       output: '',
