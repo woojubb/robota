@@ -80,8 +80,8 @@
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^20.19.43",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.73.0",
+    "@typescript-eslint/parser": "^8.73.0",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitest/coverage-v8": "^4.1.12",
     "dependency-cruiser": "^17.4.3",
@@ -167,7 +167,9 @@
       "zod@^4.0.0": ">=4.6.7 <5.0.0",
       "source-map-js": ">=1.2.2 <2.0.0",
       "miniflare>sharp": "0.35.5",
-      "undici@>=7.0.0 <7.30.1": ">=7.30.1 <8.0.0"
+      "undici@>=7.0.0 <7.30.1": ">=7.30.1 <8.0.0",
+      "app-builder-lib>minimatch": "^11.0.9",
+      "@electron/universal>minimatch": "^11.0.9"
     },
     "patchedDependencies": {
       "nostr-tools@2.25.2": "patches/nostr-tools@2.25.2.patch"
