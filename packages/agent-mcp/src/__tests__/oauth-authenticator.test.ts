@@ -419,6 +419,151 @@ describe('OAuth authenticator', () => {
     expect(server.tokenCalls()).toBe(0);
   });
 
+  it('does not reuse a completed challenge after the next sign-in', async () => {
+    const server = createFakeOAuthServer();
+    const oldMetadata = 'https://mcp.example.test/old-resource-document';
+    let oldMetadataRequests = 0;
+    const fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (String(input) === oldMetadata) {
+        oldMetadataRequests += 1;
+        return Response.json({ resource: MCP_URL, authorization_servers: [AS_URL] });
+      }
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const { store, authenticator } = setup({ ...server, fetch });
+    await store.set(KEY, credential({ resource: 'https://mcp.example.test' }));
+    const authorization = await authorize(authenticator);
+    expect(
+      await authenticator.onRejected({
+        status: 401,
+        authorization,
+        wwwAuthenticate: `Bearer resource_metadata="${oldMetadata}"`,
+      }),
+    ).toBe('retry');
+    expect((await failure(authorize(authenticator))).reason).toBe('login-required');
+    await store.set(
+      KEY,
+      credential({
+        resource: 'https://mcp.example.test',
+        accessToken: 'at-initial',
+        refreshToken: undefined,
+        signInId: 'fresh-sign-in',
+      }),
+    );
+    expect(await authorize(authenticator)).toEqual({ Authorization: 'Bearer at-initial' });
+    expect(oldMetadataRequests).toBe(1);
+    await expect(store.get(KEY)).resolves.toMatchObject({ signInId: 'fresh-sign-in' });
+  });
+
+  it('does not apply an old metadata link to a sign-in after a transient failure', async () => {
+    const server = createFakeOAuthServer();
+    const oldMetadata = 'https://mcp.example.test/old-resource-document';
+    let oldMetadataRequests = 0;
+    const fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (String(input) === oldMetadata) {
+        oldMetadataRequests += 1;
+        return new Response(null, { status: 503 });
+      }
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const { store, authenticator } = setup({ ...server, fetch });
+    await store.set(KEY, credential({ signInId: 'first-sign-in' }));
+    const authorization = await authorize(authenticator);
+    expect(
+      await authenticator.onRejected({
+        status: 401,
+        authorization,
+        wwwAuthenticate: `Bearer resource_metadata="${oldMetadata}"`,
+      }),
+    ).toBe('retry');
+    expect((await failure(authorize(authenticator))).reason).toBe('discovery-failed');
+    server.overrides.rootResourceMetadata = true;
+    await store.set(
+      KEY,
+      credential({
+        resource: 'https://mcp.example.test',
+        accessToken: 'at-fresh-login',
+        signInId: 'fresh-sign-in',
+      }),
+    );
+    expect(await authorize(authenticator)).toEqual({ Authorization: 'Bearer at-fresh-login' });
+    expect(oldMetadataRequests).toBe(1);
+    await expect(store.get(KEY)).resolves.toMatchObject({ signInId: 'fresh-sign-in' });
+  });
+
+  it('does not apply an old metadata link to a sign-in during discovery', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.rootResourceMetadata = true;
+    const oldMetadata = 'https://mcp.example.test/old-resource-document';
+    const directory = temporaryDirectory();
+    const signIn = createFileOAuthCredentialStore(directory);
+    let replaced = false;
+    const fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (String(input) === oldMetadata) {
+        return Response.json({ resource: MCP_URL, authorization_servers: [AS_URL] });
+      }
+      if (!replaced && String(input).startsWith('https://auth.example.test/.well-known/')) {
+        replaced = true;
+        await signIn.set(
+          KEY,
+          credential({
+            resource: 'https://mcp.example.test',
+            accessToken: 'at-fresh-login',
+            signInId: 'fresh-sign-in',
+          }),
+        );
+      }
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const { store, authenticator } = setup({ ...server, fetch }, directory);
+    await store.set(KEY, credential({ signInId: 'first-sign-in' }));
+    const authorization = await authorize(authenticator);
+    expect(
+      await authenticator.onRejected({
+        status: 401,
+        authorization,
+        wwwAuthenticate: `Bearer resource_metadata="${oldMetadata}"`,
+      }),
+    ).toBe('retry');
+    expect(await authorize(authenticator)).toEqual({ Authorization: 'Bearer at-fresh-login' });
+    await expect(store.get(KEY)).resolves.toMatchObject({ signInId: 'fresh-sign-in' });
+  });
+
+  it('keeps rediscovery pending while a cancelled request is unwinding', async () => {
+    const server = createFakeOAuthServer();
+    server.validRefreshTokens.add('rt-initial');
+    let entered!: () => void;
+    let finish!: () => void;
+    const waiting = new Promise<void>((resolve) => (entered = resolve));
+    const gate = new Promise<void>((resolve) => (finish = resolve));
+    let first = true;
+    const fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (first && String(input).includes('/.well-known/oauth-protected-resource')) {
+        first = false;
+        entered();
+        await gate;
+        if (init?.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+      }
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const { store, authenticator } = setup({ ...server, fetch });
+    await store.set(KEY, credential());
+    const authorization = await authorize(authenticator);
+    server.overrides.rootResourceMetadata = true;
+    expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
+    const controller = new AbortController();
+    const cancelled = authenticator.authorize({ ...request, signal: controller.signal });
+    await waiting;
+    controller.abort();
+    await expect(cancelled).rejects.toMatchObject({ name: 'AbortError' });
+    try {
+      expect((await failure(authorize(authenticator))).reason).toBe('login-required');
+      expect(server.tokenCalls()).toBe(0);
+    } finally {
+      finish();
+    }
+  });
+
   it('does not use a concurrent refresh after the resource changed', async () => {
     const server = createFakeOAuthServer();
     const directory = temporaryDirectory();
@@ -485,7 +630,7 @@ describe('OAuth authenticator', () => {
     const authorization = await authorize(authenticator);
     server.overrides.rootResourceMetadata = true;
     expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
-    expect(await authorize(authenticator)).toEqual({ Authorization: 'Bearer at-1' });
+    expect(await authorize(authenticator)).toEqual({ Authorization: 'Bearer at-initial' });
     await expect(store.get(KEY)).resolves.toMatchObject({ signInId: 'second-sign-in' });
     expect(notices).toEqual([]);
   });

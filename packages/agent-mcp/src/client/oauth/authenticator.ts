@@ -82,6 +82,12 @@ const MAX_SCOPE_NOTICE_LENGTH = 512;
 interface IIssued {
   readonly generation: number;
   readonly accessToken: string;
+  readonly signInId: string | undefined;
+}
+
+interface IChallenge {
+  readonly signInId: string | undefined;
+  readonly resourceMetadataUrl?: string;
 }
 
 /** Whether the credential still has the values observed before a network discovery. */
@@ -144,9 +150,9 @@ export function createOAuthAuthenticator(
   const now = options.now ?? Date.now;
   const skew = options.expirySkewMs ?? DEFAULT_EXPIRY_SKEW_MS;
   /** The access token a server refused; the stored one is not usable while it is still that. */
-  let refused: string | undefined;
-  /** Set by a 401, consumed by the next load: rediscover before refreshing. */
-  let rediscover: { resourceMetadataUrl?: string } | undefined;
+  let refused: { accessToken: string; signInId: string | undefined } | undefined;
+  /** Set by a 401 and retained until rediscovery or a terminal sign-in request completes. */
+  let rediscover: IChallenge | undefined;
   let loginNoticeShown = false;
 
   const loginRequired = async (clear: boolean): Promise<never> => {
@@ -166,7 +172,8 @@ export function createOAuthAuthenticator(
     return now() >= credential.expiresAt - margin;
   };
   const usable = (credential: IMCPOAuthCredential): boolean =>
-    credential.accessToken !== refused && !expired(credential);
+    (credential.accessToken !== refused?.accessToken || credential.signInId !== refused.signInId) &&
+    !expired(credential);
 
   const refresh = async (
     credential: IMCPOAuthCredential,
@@ -231,44 +238,47 @@ export function createOAuthAuthenticator(
   };
 
   const load = async (signal: AbortSignal): Promise<IMCPOAuthCredential> => {
-    const challenge = rediscover;
-    rediscover = undefined;
-    let stored: IMCPOAuthCredential | undefined;
-    try {
-      stored = await options.store.get(key);
-    } catch (error) {
-      if (challenge !== undefined) rediscover ??= challenge;
-      throw error;
+    const pending = rediscover;
+    let challenge = pending;
+    const clearPending = (): void => {
+      if (!signal.aborted && rediscover === pending) rediscover = undefined;
+    };
+    const stored = await options.store.get(key);
+    if (stored === undefined) {
+      clearPending();
+      return loginRequired(false);
     }
-    if (stored === undefined) return loginRequired(false);
+    if (challenge !== undefined && challenge.signInId !== stored.signInId) {
+      challenge = { signInId: stored.signInId };
+    }
     if (challenge === undefined && usable(stored)) return stored;
     let observed = stored;
     for (let attempt = 0; attempt < MAX_DISCOVERY_RETRIES; attempt += 1) {
       // Discovery is network work and cannot hold the cross-process credential lock.
       let server: Awaited<ReturnType<typeof discoverMCPOAuthServer>> | undefined;
       if (challenge !== undefined) {
-        try {
-          server = await discoverMCPOAuthServer({
-            serverUrl: options.serverUrl,
-            config: options.config,
-            fetch: createOAuthFetch(options.network, signal),
-            ...(challenge.resourceMetadataUrl === undefined
-              ? {}
-              : { resourceMetadataUrl: challenge.resourceMetadataUrl }),
-          });
-        } catch (error) {
-          rediscover ??= challenge;
-          throw error;
-        }
+        server = await discoverMCPOAuthServer({
+          serverUrl: options.serverUrl,
+          config: options.config,
+          fetch: createOAuthFetch(options.network, signal),
+          ...(challenge.resourceMetadataUrl === undefined
+            ? {}
+            : { resourceMetadataUrl: challenge.resourceMetadataUrl }),
+        });
       }
       let result: { kind: 'ready' | 'retry'; credential: IMCPOAuthCredential };
       try {
         result = await options.lock.withLock(
           key,
           async () => {
+            if (signal.aborted) throw new MCPOAuthError('cancelled');
             const current = await options.store.get(key);
+            if (signal.aborted) throw new MCPOAuthError('cancelled');
             if (current === undefined) return loginRequired(false);
             if (server !== undefined && !sameCredential(current, observed)) {
+              if (challenge !== undefined && current.signInId !== challenge.signInId) {
+                challenge = { signInId: current.signInId };
+              }
               return { kind: 'retry', credential: current } as const;
             }
             if (
@@ -287,13 +297,15 @@ export function createOAuthAuthenticator(
           signal,
         );
       } catch (error) {
-        if (challenge !== undefined) rediscover ??= challenge;
+        if (error instanceof MCPOAuthError && error.reason === 'login-required') clearPending();
         throw error;
       }
-      if (result.kind === 'ready') return result.credential;
+      if (result.kind === 'ready') {
+        clearPending();
+        return result.credential;
+      }
       observed = result.credential;
     }
-    if (challenge !== undefined) rediscover ??= challenge;
     throw new MCPOAuthError('discovery-failed');
   };
 
@@ -315,7 +327,7 @@ export function createOAuthAuthenticator(
       }
       latestGeneration = Math.max(latestGeneration, generation);
       const headers = Object.freeze({ Authorization: `Bearer ${value.accessToken}` });
-      issued.set(headers, { generation, accessToken: value.accessToken });
+      issued.set(headers, { generation, accessToken: value.accessToken, signInId: value.signInId });
       return headers;
     },
     onRejected: async (rejection: IMCPAuthorizationRejection) => {
@@ -335,9 +347,10 @@ export function createOAuthAuthenticator(
       if (rejection.status !== HTTP_UNAUTHORIZED) return 'fail';
       // A token already replaced: the retry joins its replacement.
       if (sent.generation < latestGeneration) return 'retry';
-      if (refused !== sent.accessToken) {
-        refused = sent.accessToken;
+      if (refused?.accessToken !== sent.accessToken || refused.signInId !== sent.signInId) {
+        refused = { accessToken: sent.accessToken, signInId: sent.signInId };
         rediscover = {
+          signInId: sent.signInId,
           ...(challenge.resourceMetadataUrl === undefined
             ? {}
             : { resourceMetadataUrl: challenge.resourceMetadataUrl }),
