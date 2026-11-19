@@ -243,11 +243,16 @@ every request to that server only. The package provides:
 A definition that asks for authentication the host cannot provide stays listed and is refused by name;
 it is never connected with its static headers alone.
 
-The file refresh lock recovers only a holder it can prove has exited. An unreadable guard, a guard
-from a different host, or a lock left by an older version can instead report `lock-timeout`. To
-recover one, first stop every process that shares the credential directory on every host, then
-remove the affected `.lock` entry from that directory. Keep the `.json` credential files. Restart
-only after all users of the directory have stopped; deleting a live guard breaks coordination.
+The file refresh lock uses a native operating-system guard on macOS, Linux and Windows local
+filesystems; hosts using another platform or shared filesystem must provide their own lock. Before
+upgrading, stop all processes that share the credential directory, and do not use it concurrently
+from older versions of the file lock.
+
+The lock recovers only a holder it can prove has exited. An unreadable guard, a guard from a
+different host, or a lock left by an older version can instead report `lock-timeout`. To recover
+one, first stop every process that shares the credential directory on every host, then remove the
+affected `.lock` entry from that directory. Keep the `.json` credential files. Deleting a live
+guard breaks coordination.
 
 ## Node adapters
 

@@ -21,6 +21,7 @@ import {
   ensureOwnerOnlyDirectory,
   readCurrentProcessIdentity,
 } from '@robota-sdk/agent-core/node';
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 
 import { MCPOAuthError } from '../client/oauth/errors.js';
 import { credentialKeyDigest } from './oauth-file-store.js';
@@ -125,9 +126,10 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * The fixed path is a non-empty directory. Older implementations treat a directory as unreadable
- * and cannot steal it by age. A recovered owner's non-empty tombstone remains in place so a delayed
- * second recovery cannot rename a newer holder over it. Unknown and legacy owners stay closed.
+ * An OS guard serializes the entire operation, including recovery and release. The fixed path is
+ * a non-empty directory, so an older file-lock implementation cannot read it as a lock file.
+ * Mixed lock versions are unsupported: an older operation already in flight may still move it.
+ * Unknown and legacy owners stay closed.
  */
 export function createFileOAuthRefreshLock(
   directory: string,
@@ -187,26 +189,45 @@ export function createFileOAuthRefreshLock(
       } catch {
         throw new MCPOAuthError('store-failed');
       }
-      const path = join(directory, `${credentialKeyDigest(key)}.lock`);
+      const digest = credentialKeyDigest(key);
+      const path = join(directory, `${digest}.lock`);
+      const operation = createProcessOperationLock(directory);
       const owner: IGuardOwner = {
         token: randomBytes(16).toString('hex'),
         identity: readCurrentProcessIdentity(),
       };
       const deadline = Date.now() + timeoutMs;
-      let acquired = false;
-      while (!acquired) {
+      let result:
+        { acquired: false } | { acquired: true; value: Awaited<ReturnType<typeof critical>> } = {
+        acquired: false,
+      };
+      while (!result.acquired) {
         if (signal?.aborted === true) throw new MCPOAuthError('cancelled');
-        acquired = tryAcquire(path, owner);
-        if (!acquired) {
+        let guard: ReturnType<typeof operation.tryAcquire>;
+        try {
+          guard = operation.tryAcquire(digest);
+        } catch {
+          throw new MCPOAuthError('store-failed');
+        }
+        if (guard !== undefined) {
+          try {
+            if (tryAcquire(path, owner)) {
+              try {
+                result = { acquired: true, value: await critical() };
+              } finally {
+                release(path, owner.token);
+              }
+            }
+          } finally {
+            guard.release();
+          }
+        }
+        if (!result.acquired) {
           if (Date.now() >= deadline) throw new MCPOAuthError('lock-timeout');
           await sleep(pollMs, signal);
         }
       }
-      try {
-        return await critical();
-      } finally {
-        release(path, owner.token);
-      }
+      return result.value;
     },
   };
 }

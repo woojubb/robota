@@ -14,8 +14,11 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { readCurrentProcessIdentity } from '@robota-sdk/agent-core/node';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -782,6 +785,60 @@ describe('OAuth refresh lock', () => {
       createFileOAuthRefreshLock(directory).withLock(KEY, async () => 'next'),
     ).resolves.toBe('next');
   });
+
+  it('keeps a separate process out until the holder exits', async () => {
+    const directory = temporaryDirectory();
+    const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
+    const module = pathToFileURL(
+      fileURLToPath(new URL('../node/oauth-refresh-lock.ts', import.meta.url)),
+    ).href;
+    const script = [
+      `import { createFileOAuthRefreshLock } from ${JSON.stringify(module)};`,
+      `const key = ${JSON.stringify(KEY)};`,
+      `await createFileOAuthRefreshLock(${JSON.stringify(directory)}).withLock(key, async () => {`,
+      `  process.stdout.write('held\\n');`,
+      `  await new Promise((resolve) => process.stdin.once('data', resolve));`,
+      `});`,
+      `process.exit(0);`,
+    ].join('\n');
+    const child = spawn(process.execPath, ['--import', tsx, '--input-type=module', '-e', script], {
+      cwd: fileURLToPath(new URL('../..', import.meta.url)),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let stderr = '';
+    child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString('utf8')));
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error(`holder did not start: ${stderr}`)),
+          5_000,
+        );
+        child.stdout.on('data', (chunk: Buffer) => {
+          if (!chunk.toString('utf8').includes('held')) return;
+          clearTimeout(timeout);
+          resolve();
+        });
+        child.once('exit', (code) => {
+          clearTimeout(timeout);
+          reject(new Error(`holder exited before acquiring (${code}): ${stderr}`));
+        });
+      });
+      const contender = createFileOAuthRefreshLock(directory, {
+        staleMs: 0,
+        timeoutMs: 100,
+        pollMs: 5,
+      });
+      expect((await failure(contender.withLock(KEY, async () => 'overlap'))).reason).toBe(
+        'lock-timeout',
+      );
+      const exited = new Promise<number | null>((resolve) => child.once('exit', resolve));
+      child.stdin.end('release\n');
+      expect(await exited).toBe(0);
+      await expect(contender.withLock(KEY, async () => 'next')).resolves.toBe('next');
+    } finally {
+      child.kill();
+    }
+  }, 15_000);
 
   it('recovers a provably exited owner', async () => {
     const directory = temporaryDirectory();
