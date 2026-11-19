@@ -15,8 +15,8 @@ pnpm build
 
 ### Requirements
 
-- **Node.js 22** — 22.14 or a later 22.x release (the root `engines` field; Volta and `.nvmrc` pin
-  22.14.0)
+- **Node.js 22** — 22.23.5 or a later 22.x release (the root `engines` field; Volta and `.nvmrc` pin
+  22.23.5)
 - **pnpm 8.15.4** (the root `packageManager` field)
 - **Module system**: ES modules only (`"type": "module"`)
 

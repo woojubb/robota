@@ -90,6 +90,25 @@ describe('announcing and withdrawing', () => {
 
     expect(listPeers(opts)).toEqual([]);
   });
+
+  it('withdraws safely when its registry directory has already been removed', () => {
+    const guardedDirectory = scratch();
+    const opts = { guardedDirectory, readStartTime: starts({ 100: 'T1' }) };
+    const owner = announcePeer(opts, { sessionId: 'session_a', pid: 100 });
+    rmSync(guardedDirectory, { recursive: true });
+
+    expect(() => withdrawPeer(opts, 'session_a', owner)).not.toThrow();
+  });
+
+  it('reports a registry path that is no longer a directory', () => {
+    const guardedDirectory = scratch();
+    const opts = { guardedDirectory, readStartTime: starts({ 100: 'T1' }) };
+    const owner = announcePeer(opts, { sessionId: 'session_a', pid: 100 });
+    rmSync(guardedDirectory, { recursive: true });
+    writeFileSync(guardedDirectory, 'not a directory');
+
+    expect(() => withdrawPeer(opts, 'session_a', owner)).toThrow();
+  });
 });
 
 describe('telling a live session from a crashed one', () => {
