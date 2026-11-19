@@ -52,7 +52,7 @@ async function setup(mode: string) {
       allowedRoot: root,
       generation: '1',
       executables: [{ command: process.execPath, args: [[fixturePath, mode]] }],
-      environment: { HOME: root, ...(process.platform === 'win32' ? { SYSTEMROOT: process.env.SystemRoot ?? process.env.SYSTEMROOT ?? '' } : {}) },
+      environment: { HOME: root },
     },
   });
   const admission = await adapter.admit({ definition, activation: request });
