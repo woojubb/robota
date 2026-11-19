@@ -759,15 +759,17 @@ async function connectExternalWorkflowPeers(sourceRoot, outputDirectory, package
         const specifier = alias ? entry.specifier : `npm:${name}@${entry.specifier}`;
         product ??= JSON.parse(await readFile(path.join(outputDirectory, dir, 'package.json'), 'utf8'));
         product[section][mapped] = specifier;
-        lock.importers[dir][section][mapped] = { ...entry, specifier, version: `/${name}@${entry.version}` };
+        lock.importers[dir][section][mapped] = { ...entry, specifier, version: `${name}@${entry.version}` };
       }
     }
     if (product) await writeFile(path.join(outputDirectory, dir, 'package.json'), `${JSON.stringify(product, null, 2)}\n`);
   }
-  for (const [key, snapshot] of Object.entries(original.packages ?? {})) {
-    if (!key.includes(PRODUCT_SCOPE) && !JSON.stringify(snapshot).includes(PRODUCT_SCOPE)) continue;
-    delete lock.packages[replaceRegexScope(key, scope)];
-    lock.packages[key] = snapshot;
+  for (const section of ['packages', 'snapshots']) {
+    for (const [key, entry] of Object.entries(original[section] ?? {})) {
+      if (!key.includes(PRODUCT_SCOPE) && !JSON.stringify(entry).includes(PRODUCT_SCOPE)) continue;
+      delete lock[section][replaceRegexScope(key, scope)];
+      lock[section][key] = entry;
+    }
   }
   if (!manifest.devDependencies?.['@robota-sdk/workflows']) {
     await writeFile(lockPath, stringify(lock));
@@ -780,10 +782,10 @@ async function connectExternalWorkflowPeers(sourceRoot, outputDirectory, package
   if (registryArtifact && (valid(artifactSpec) !== artifactSpec || (sourceImporter.version !== artifactSpec && !sourceImporter.version.startsWith(`${artifactSpec}(`)))) {
     throw new Error('Workflow registry dependency must use an exact locked version.');
   }
-  const workflow = registryArtifact
-    ? original.packages[`/@robota-sdk/workflows@${sourceImporter.version}`]
-    : original.packages[sourceImporter.version];
-  if (!workflow) throw new Error('Workflow artifact is missing from the source lockfile.');
+  const artifactVersion = registryArtifact ? artifactSpec : sourceImporter.version.split('(')[0];
+  const workflow = original.packages[`@robota-sdk/workflows@${artifactVersion}`];
+  const workflowSnapshot = original.snapshots[`@robota-sdk/workflows@${sourceImporter.version}`];
+  if (!workflow || !workflowSnapshot) throw new Error('Workflow artifact is missing from the source lockfile.');
   const importer = lock.importers['packages/agent-cli'];
   importer.devDependencies['@robota-sdk/workflows'] = original.importers['packages/agent-cli'].devDependencies['@robota-sdk/workflows'];
   const peerAliases = {};
@@ -793,7 +795,7 @@ async function connectExternalWorkflowPeers(sourceRoot, outputDirectory, package
     const version = entry?.specifier?.replace(`npm:${peer}@`, '');
     if (!productName || entry?.specifier !== `npm:${peer}@${version}` || valid(version) !== version ||
         !satisfies(version, workflow.peerDependencies[peer]) ||
-        !(workflow.dependencies[peer] === version || workflow.dependencies[peer]?.startsWith(`${version}(`)))
+        !(workflowSnapshot.dependencies[peer] === version || workflowSnapshot.dependencies[peer]?.startsWith(`${version}(`)))
       throw new Error(`Workflow peer ${peer} must use a supported, pinned registry SDK.`);
     peerAliases[peer] = productName;
     manifest.devDependencies[peer] = entry.specifier;

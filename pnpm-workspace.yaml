@@ -7,3 +7,16 @@ packages:
   - 'examples/capabilities/*'
   # dev-tooling tier: disposable live-verification scripts (src/ gitignored)
   - 'scratch'
+
+strictDepBuilds: true
+allowBuilds:
+  '@google/genai@1.52.0': true
+  '@homebridge/node-pty-prebuilt-multiarch@0.14.1': true
+  '@parcel/watcher@2.6.0': true
+  '@swc/core@1.15.46': true
+  'better-sqlite3@11.10.0': true
+  'electron-winstaller@5.4.0': true
+  'esbuild@0.28.1 || 0.28.2': true
+  'koffi@3.3.1': true
+  'unrs-resolver@1.12.2': true
+  'workerd@1.20260811.1': true
