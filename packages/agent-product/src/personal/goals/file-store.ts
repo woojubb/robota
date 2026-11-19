@@ -2,9 +2,21 @@
  * A goal store in an owner-only directory: `goals.json` and `feed.json`, each rewritten atomically,
  * and one `runs/<goal>.json` per goal holding its recent runs. The feed and each goal's run history
  * keep a bounded number of entries, so an agent that runs for years does not grow without limit.
+ * A host must serialize reads and writes when multiple processes share this directory.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import type { IFeedItem, IGoal, IGoalRun, IGoalStore } from './types.js';
 
@@ -13,14 +25,35 @@ const FEED_ID = /^feed-[a-z0-9]{1,40}$/;
 const FEED_LIMIT = 500;
 const RUNS_PER_GOAL = 100;
 
+function syncDirectory(path: string): void {
+  if (process.platform === 'win32') return;
+  const fd = openSync(path, 'r');
+  try {
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function readJson<T>(path: string, empty: T): T {
   return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as T) : empty;
 }
 
-function writeAtomic(path: string, value: unknown): void {
+function writeAtomic(path: string, value: unknown, durable = false): void {
   const temporary = `${path}.${process.pid}.tmp`;
-  writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  if (durable) {
+    const fd = openSync(temporary, 'w', 0o600);
+    try {
+      writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+  } else {
+    writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  }
   renameSync(temporary, path);
+  if (durable) syncDirectory(dirname(path));
 }
 
 const newestFirst = <T extends { readonly id: string }>(items: T[], at: (item: T) => string): T[] =>
@@ -46,26 +79,71 @@ function boundedFeed(items: IFeedItem[]): IFeedItem[] {
 }
 
 export function createFileGoalStore(directory: string): IGoalStore {
+  const created: string[] = [];
+  for (let path = directory; !existsSync(path); path = dirname(path)) created.push(path);
   mkdirSync(join(directory, 'runs'), { recursive: true, mode: 0o700 });
+  for (const path of created) syncDirectory(dirname(path));
   const goalsPath = join(directory, 'goals.json');
   const feedPath = join(directory, 'feed.json');
+  const feedRecoveryPath = join(directory, 'feed-recovery.json');
+  const feedCommitPath = join(directory, 'feed-commit-uncertain.json');
+  let failedCommit: string | undefined;
+  let knownCommit: string | undefined;
   const runsPath = (goalId: string): string => {
     if (!GOAL_ID.test(goalId)) throw new Error(`Invalid goal id: ${goalId}`);
     return join(directory, 'runs', `${goalId}.json`);
   };
   const goals = (): Record<string, IGoal> => readJson(goalsPath, {});
-  const feed = (): Record<string, IFeedItem> => readJson(feedPath, {});
+  const readRecovery = (path: string): { readonly id: string; readonly previous: object } => {
+    const recovery = readJson<unknown>(path, undefined);
+    if (typeof recovery !== 'object' || recovery === null || Array.isArray(recovery))
+      throw new Error('The feed recovery record is invalid');
+    const previous = (recovery as { previous?: unknown }).previous;
+    const id = (recovery as { id?: unknown }).id;
+    if (typeof previous !== 'object' || previous === null || Array.isArray(previous))
+      throw new Error('The feed recovery record is invalid');
+    if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/u.test(id))
+      throw new Error('The feed recovery record is invalid');
+    return { id, previous };
+  };
+  const restoreFeed = (path: string): void => {
+    writeAtomic(feedPath, readRecovery(path).previous, true);
+    rmSync(path);
+    syncDirectory(directory);
+  };
+  const recoverFeed = (): void => {
+    if (existsSync(feedCommitPath)) {
+      const { id } = readRecovery(feedCommitPath);
+      if (failedCommit === id) {
+        restoreFeed(feedCommitPath);
+        failedCommit = undefined;
+      } else if (knownCommit === id) {
+        rmSync(feedCommitPath);
+        knownCommit = undefined;
+      } else {
+        throw new Error(
+          'The feed commit outcome is uncertain; stop all agents and recover the state folder',
+        );
+      }
+    }
+    if (existsSync(feedRecoveryPath)) restoreFeed(feedRecoveryPath);
+  };
+  const feed = (): Record<string, IFeedItem> => {
+    recoverFeed();
+    return readJson(feedPath, {});
+  };
 
   return {
+    ...(process.platform === 'win32' ? {} : { durableFeedWrites: true as const }),
     listGoals: async () => Object.values(goals()),
     getGoal: async (id) => own(goals(), id),
     putGoal: async (goal) => {
       if (!GOAL_ID.test(goal.id)) throw new Error(`Invalid goal id: ${goal.id}`);
-      writeAtomic(goalsPath, { ...goals(), [goal.id]: goal });
+      writeAtomic(goalsPath, { ...goals(), [goal.id]: goal }, true);
     },
     deleteGoal: async (id) => {
       const { [id]: _removed, ...rest } = goals();
-      writeAtomic(goalsPath, rest);
+      writeAtomic(goalsPath, rest, true);
       rmSync(runsPath(id), { force: true });
     },
     putRun: async (run) => {
@@ -74,13 +152,48 @@ export function createFileGoalStore(directory: string): IGoalStore {
       writeAtomic(
         path,
         newestFirst([...runs, run], (item) => item.startedAt).slice(0, RUNS_PER_GOAL),
+        true,
       );
     },
     listRuns: async (goalId, limit) => readJson<IGoalRun[]>(runsPath(goalId), []).slice(0, limit),
     putFeedItem: async (item) => {
       if (!FEED_ID.test(item.id)) throw new Error(`Invalid feed item id: ${item.id}`);
-      const items = boundedFeed(Object.values({ ...feed(), [item.id]: item }));
-      writeAtomic(feedPath, Object.fromEntries(items.map((entry) => [entry.id, entry])));
+      const previous = feed();
+      const items = boundedFeed(Object.values({ ...previous, [item.id]: item }));
+      const next = Object.fromEntries(items.map((entry) => [entry.id, entry]));
+      const waitingPost = !Object.hasOwn(previous, item.id) && isWaiting(item);
+      const recoveryId = randomUUID();
+      if (waitingPost) writeAtomic(feedRecoveryPath, { id: recoveryId, previous }, true);
+      try {
+        writeAtomic(feedPath, next, true);
+        if (waitingPost) {
+          renameSync(feedRecoveryPath, feedCommitPath);
+          failedCommit = recoveryId;
+          syncDirectory(directory);
+          failedCommit = undefined;
+          knownCommit = recoveryId;
+          try {
+            rmSync(feedCommitPath);
+            syncDirectory(directory);
+            knownCommit = undefined;
+          } catch {
+            // A confirmed commit remains closed to other hosts until cleanup succeeds.
+          }
+        }
+      } catch (error) {
+        try {
+          if (
+            existsSync(feedRecoveryPath) ||
+            (failedCommit === recoveryId && existsSync(feedCommitPath))
+          )
+            recoverFeed();
+          else if (JSON.stringify(readJson(feedPath, {})) === JSON.stringify(next))
+            writeAtomic(feedPath, previous, true);
+        } catch {
+          // Retain the recovery record until the feed can be restored.
+        }
+        throw error;
+      }
     },
     getFeedItem: async (id) => own(feed(), id),
     listFeed: async (limit) =>

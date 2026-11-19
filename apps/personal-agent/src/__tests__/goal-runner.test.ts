@@ -1,11 +1,12 @@
 import { GoalBook, createMemoryGoalStore } from '@robota-sdk/agent-product/personal';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createApprovalRegistry } from '../approvals.js';
 import { createChannelTurns } from '../channel-turns.js';
 import { createGoalRunner, describeCall } from '../goal-runner.js';
 
 import type { TRunSession } from '../goal-runner.js';
+import type { IToolWithEventService } from '@robota-sdk/agent-core';
 
 type THandler = (event: never) => void;
 
@@ -14,7 +15,7 @@ type THandler = (event: never) => void;
  * (answered, refused by a backstop, or aborted) before it ends its turn, as a real session does.
  */
 function promptingSession(
-  request: { toolName: string; toolArgs: Record<string, unknown> } = {
+  request: { toolName: string; toolArgs: Record<string, unknown>; executionId?: string } = {
     toolName: 'BrowserSubmit',
     toolArgs: { method: 'POST', url: 'https://shop.example/buy' },
   },
@@ -75,6 +76,425 @@ describe('connector action approvals', () => {
       argumentsJson: JSON.stringify({ body: 'x'.repeat(400), to: 'recipient@example.invalid' }),
     },
   };
+
+  it('refuses the prompt and reports failure if the approval cannot be posted', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const post = vi.spyOn(book, 'post').mockRejectedValueOnce(new Error('feed unavailable'));
+    const stub = promptingSession();
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    const goal = await book.create({ title: 'Buy', instructions: 'Buy the ticket.' });
+    try {
+      await runner.runDue();
+      await runner.settled();
+      expect((await book.get(goal.id))?.status).toBe('failed');
+      expect((await book.runs(goal.id))[0]?.report).toMatch(/approval could not be shown/u);
+      expect((await book.feed()).some((item) => item.approval?.state === 'pending')).toBe(false);
+    } finally {
+      post.mockRestore();
+      await runner.stop();
+    }
+  });
+
+  it('refuses a channel prompt and tells the person if the approval cannot be posted', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const post = vi.spyOn(book, 'post').mockRejectedValueOnce(new Error('feed unavailable'));
+    const stub = promptingSession();
+    const channel = createChannelTurns({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    try {
+      expect(await channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Buy it')).toMatch(
+        /approval could not be shown/u,
+      );
+      expect((await book.feed()).some((item) => item.approval?.state === 'pending')).toBe(false);
+    } finally {
+      post.mockRestore();
+      await channel.stop();
+    }
+  });
+
+  it('does not expire a channel approval while its posted card is being registered', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const original = book.post.bind(book);
+    let release!: () => void;
+    let reached!: () => void;
+    let registered!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const ready = new Promise<void>((resolve) => {
+      registered = resolve;
+    });
+    const post = vi.spyOn(book, 'post').mockImplementation(async (item) => {
+      const posted = await original(item);
+      if (item.kind === 'approval') {
+        reached();
+        await gate;
+      }
+      return posted;
+    });
+    const stub = promptingSession();
+    const approvals = createApprovalRegistry(book);
+    approvals.onRegistered(() => registered());
+    const channel = createChannelTurns({ book, approvals, openSession: () => stub.session });
+    const turn = channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Buy it');
+    try {
+      await waiting;
+      const item = (await book.feed())[0]!;
+      await expect(approvals.answer(item.id, true)).rejects.toThrow(/being prepared/u);
+      expect((await book.feedItem(item.id))?.approval?.state).toBe('pending');
+      release();
+      await ready;
+      expect((await approvals.answer(item.id, true)).approval?.state).toBe('approved');
+      expect(await turn).toBe('Bought.');
+    } finally {
+      release();
+      await Promise.allSettled([turn]);
+      post.mockRestore();
+      await channel.stop();
+    }
+  });
+
+  it.each(['failure', 'different detail'] as const)(
+    'never resolves a prompt as approved when its record has a %s',
+    async (scenario) => {
+      const book = new GoalBook({ store: createMemoryGoalStore() });
+      const item = await book.post({
+        kind: 'approval',
+        title: 'Action',
+        body: '',
+        approval: { tool: 'ConnectorAct', detail: 'send to alice', state: 'pending' },
+      });
+      const resolvePermission = vi.fn();
+      const approvals = createApprovalRegistry(book);
+      approvals.register(item, {
+        session: { resolvePermission },
+        promptId: 'prompt',
+        recordAnswer: async () => {
+          if (scenario === 'failure') throw new Error('cannot save');
+          return {
+            ...item,
+            approval: { ...item.approval!, state: 'approved', detail: 'send to bob' },
+          };
+        },
+      });
+      await expect(approvals.answer(item.id, true)).rejects.toThrow();
+      expect(resolvePermission).toHaveBeenCalledWith('prompt', false);
+      expect(resolvePermission).not.toHaveBeenCalledWith('prompt', true);
+      await approvals.settleFailed();
+      expect((await book.feedItem(item.id))?.approval?.state).toBe('expired');
+    },
+  );
+
+  it('does not expire an approval while another answer is being recorded', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const item = await book.post({
+      kind: 'approval',
+      title: 'Action',
+      body: '',
+      approval: { tool: 'ConnectorAct', detail: 'send to alice', state: 'pending' },
+    });
+    const resolvePermission = vi.fn();
+    const approvals = createApprovalRegistry(book);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    approvals.register(item, {
+      session: { resolvePermission },
+      promptId: 'prompt',
+      recordAnswer: async (approve) => {
+        reached();
+        await gate;
+        return book.setApproval(item.id, approve ? 'approved' : 'denied');
+      },
+    });
+    const first = approvals.answer(item.id, true);
+    try {
+      await waiting;
+      await expect(approvals.answer(item.id, true)).rejects.toThrow(/being answered/u);
+      expect((await book.feedItem(item.id))?.approval?.state).toBe('pending');
+      release();
+      expect((await first).approval?.state).toBe('approved');
+      expect(resolvePermission).toHaveBeenCalledOnce();
+      expect(resolvePermission).toHaveBeenCalledWith('prompt', true);
+    } finally {
+      release();
+      await Promise.allSettled([first]);
+    }
+  });
+
+  it('retries expiration when recording an answer and the first cleanup both fail', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const item = await book.post({
+      kind: 'approval',
+      title: 'Action',
+      body: '',
+      approval: { tool: 'ConnectorAct', detail: 'send to alice', state: 'pending' },
+    });
+    const write = vi.spyOn(book, 'cancelApproval').mockRejectedValueOnce(new Error('busy'));
+    const approvals = createApprovalRegistry(book);
+    approvals.register(item, {
+      session: { resolvePermission: vi.fn() },
+      promptId: 'prompt',
+      recordAnswer: async () => {
+        throw new Error('cannot save answer');
+      },
+    });
+    try {
+      await expect(approvals.answer(item.id, true)).rejects.toThrow('cannot save answer');
+      await approvals.settleFailed();
+      await approvals.settleFailed();
+      expect((await book.feedItem(item.id))?.approval?.state).toBe('expired');
+    } finally {
+      write.mockRestore();
+    }
+  });
+
+  it('drains a channel approval that is still being posted when the channel stops', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const original = book.post.bind(book);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const post = vi.spyOn(book, 'post').mockImplementation(async (item) => {
+      if (item.kind === 'approval') {
+        reached();
+        await gate;
+      }
+      return original(item);
+    });
+    const stub = promptingSession();
+    const channel = createChannelTurns({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    const turn = channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Buy it');
+    let stopping: Promise<void> | undefined;
+    try {
+      await waiting;
+      let stopped = false;
+      stopping = channel.stop().then(() => {
+        stopped = true;
+      });
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      expect(stopped).toBe(false);
+      release();
+      await stopping;
+      await turn;
+      expect((await book.feed()).find((item) => item.kind === 'approval')?.approval?.state).toBe(
+        'expired',
+      );
+    } finally {
+      release();
+      await Promise.allSettled([turn, ...(stopping === undefined ? [] : [stopping])]);
+      post.mockRestore();
+      await channel.stop();
+    }
+  });
+
+  it('expires a posted card if shutdown begins before its registration completes', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const original = book.post.bind(book);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const post = vi.spyOn(book, 'post').mockImplementation(async (item) => {
+      const posted = await original(item);
+      if (item.kind === 'approval') {
+        reached();
+        await gate;
+      }
+      return posted;
+    });
+    const stub = promptingSession();
+    const abort = vi.spyOn(stub.session, 'abort').mockImplementation(() => undefined);
+    const approvals = createApprovalRegistry(book);
+    const channel = createChannelTurns({ book, approvals, openSession: () => stub.session });
+    const turn = channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Buy it');
+    let stopping: Promise<void> | undefined;
+    try {
+      await waiting;
+      await approvals.shutdown();
+      stopping = channel.stop();
+      release();
+      await stopping;
+      await turn;
+      expect((await book.feed()).find((item) => item.kind === 'approval')?.approval?.state).toBe(
+        'expired',
+      );
+    } finally {
+      release();
+      await Promise.allSettled([turn, ...(stopping === undefined ? [] : [stopping])]);
+      post.mockRestore();
+      abort.mockRestore();
+      await channel.stop();
+    }
+  });
+
+  it('cancels and drains a channel answer being recorded during shutdown', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const original = book.setApproval.bind(book);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const write = vi.spyOn(book, 'setApproval').mockImplementation(async (...args) => {
+      if (args[1] === 'approved') {
+        reached();
+        await gate;
+      }
+      return original(...args);
+    });
+    const stub = promptingSession();
+    const resolve = vi.spyOn(stub.session, 'resolvePermission');
+    const approvals = createApprovalRegistry(book);
+    const channel = createChannelTurns({ book, approvals, openSession: () => stub.session });
+    const turn = channel.runTurn({ channel: 'test', conversationId: 'owner' }, 'Buy it');
+    let answer: Promise<unknown> | undefined;
+    let stopping: Promise<void> | undefined;
+    try {
+      const item = await pendingApproval(book);
+      answer = approvals.answer(item.id, true).catch((error: unknown) => error);
+      await waiting;
+      stopping = channel.stop();
+      const early = await Promise.race([
+        stopping.then(() => true),
+        new Promise<false>((resolveEarly) => setTimeout(() => resolveEarly(false), 100)),
+      ]);
+      expect(early).toBe(false);
+      release();
+      await stopping;
+      expect(await answer).toBeInstanceOf(Error);
+      expect(resolve).not.toHaveBeenCalledWith('prompt-1', true);
+      expect((await book.feedItem(item.id))?.approval?.state).toBe('expired');
+      await turn;
+    } finally {
+      release();
+      await Promise.allSettled([
+        turn,
+        ...(answer === undefined ? [] : [answer]),
+        ...(stopping === undefined ? [] : [stopping]),
+      ]);
+      write.mockRestore();
+      resolve.mockRestore();
+      await channel.stop();
+    }
+  });
+
+  it('binds the displayed case call and its recorded approval to the execution', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const args = {
+      connector: 'mail',
+      tool: 'send',
+      argumentsJson: '{"to":"first@example.invalid"}',
+    };
+    const stub = promptingSession({
+      toolName: 'ConnectorAct',
+      toolArgs: args,
+      executionId: 'call-one',
+    });
+    const accepted: { id: string; call: unknown; recorded: Promise<unknown> }[] = [];
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+      shape: async () => ({
+        instructions: 'Case context.',
+        onlyTools: ['ConnectorAct'],
+        caseAction: {
+          tool: {} as IToolWithEventService,
+          approved: (id, call, recorded) => accepted.push({ id, call, recorded }),
+        },
+      }),
+    });
+    await book.create({
+      title: 'Case',
+      instructions: 'Continue.',
+      readOnly: true,
+      caseId: 'case-test',
+    });
+    try {
+      await runner.runDue();
+      const approval = await pendingApproval(book);
+      expect(approval.approval?.detail).toContain('first@example.invalid');
+      args.argumentsJson = '{"to":"later@example.invalid"}';
+      await runner.answer(approval.id, true);
+      await runner.settled();
+      expect(accepted).toHaveLength(1);
+      expect(accepted[0]).toMatchObject({
+        id: 'call-one',
+        call: { connector: 'mail', tool: 'send', argumentsJson: '{"to":"first@example.invalid"}' },
+      });
+      expect(await accepted[0]!.recorded).toMatchObject({ approval: { state: 'approved' } });
+    } finally {
+      await runner.stop();
+    }
+  });
+
+  it('refuses a case action when the prompt lacks an execution identity', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession({
+      toolName: 'ConnectorAct',
+      toolArgs: { connector: 'mail', tool: 'send' },
+    });
+    const accepted: unknown[] = [];
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+      shape: async () => ({
+        instructions: 'Case context.',
+        onlyTools: ['ConnectorAct'],
+        caseAction: {
+          tool: {} as IToolWithEventService,
+          approved: (...args) => accepted.push(args),
+        },
+      }),
+    });
+    await book.create({
+      title: 'Case',
+      instructions: 'Continue.',
+      readOnly: true,
+      caseId: 'case-test',
+    });
+    try {
+      await runner.runDue();
+      expect((await firstFeedItem(book)).kind).toBe('notice');
+      await runner.settled();
+      expect(accepted).toEqual([]);
+    } finally {
+      await runner.stop();
+    }
+  });
 
   it('shows the complete short call even if an extra URL is present', () => {
     const detail = describeCall('ConnectorAct', {
@@ -294,6 +714,165 @@ async function pendingApproval(book: GoalBook) {
 }
 
 describe('goal runner', () => {
+  it.each(['completes', 'fails'] as const)(
+    'does not open a session when interrupted preparation %s',
+    async (preparation) => {
+      const book = new GoalBook({ store: createMemoryGoalStore() });
+      let release!: () => void;
+      let reached!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const preparing = new Promise<void>((resolve) => {
+        reached = resolve;
+      });
+      const openSession = vi.fn(() => promptingSession().session);
+      const runner = createGoalRunner({
+        book,
+        approvals: createApprovalRegistry(book),
+        openSession,
+        shape: async () => {
+          reached();
+          await gate;
+          if (preparation === 'fails') throw new Error('The case is unavailable');
+          return undefined;
+        },
+      });
+      const goal = await book.create({ title: 'Prepare', instructions: 'Look.' });
+      try {
+        await runner.runDue();
+        await preparing;
+        runner.interrupt(goal.id);
+        const settling = runner.settled(goal.id);
+        release();
+        await settling;
+        expect(openSession).not.toHaveBeenCalled();
+        expect((await book.runs(goal.id))[0]?.outcome).toBe('interrupted');
+      } finally {
+        release();
+        await runner.stop();
+      }
+    },
+  );
+
+  it('settles the interrupted goal without waiting for an unrelated claim', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession();
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    const runningGoal = await book.create({ title: 'Running', instructions: 'Buy tickets' });
+    await runner.runDue();
+    await pendingApproval(book);
+    const otherGoal = await book.create({ title: 'Other', instructions: 'Do something else' });
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const claimed = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const original = book.startRun.bind(book);
+    const start = vi.spyOn(book, 'startRun').mockImplementation(async (...args) => {
+      const run = await original(...args);
+      if (args[0] === otherGoal.id) {
+        reached();
+        await gate;
+      }
+      return run;
+    });
+    const scheduling = runner.runDue();
+    try {
+      await claimed;
+      runner.interrupt(runningGoal.id);
+      const settled = await Promise.race([
+        runner.settled(runningGoal.id).then(() => true),
+        new Promise<false>((resolve) => setTimeout(() => resolve(false), 100)),
+      ]);
+      expect(settled).toBe(true);
+      expect((await book.get(runningGoal.id))?.status).toBe('done');
+    } finally {
+      runner.interrupt(otherGoal.id);
+      release();
+      await Promise.allSettled([scheduling]);
+      start.mockRestore();
+      await runner.stop();
+    }
+  });
+
+  it('does not approve when the prompt backstop fires while the answer is recorded', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession();
+    const resolve = vi.spyOn(stub.session, 'resolvePermission');
+    const original = book.setWaiting.bind(book);
+    const waiting = vi.spyOn(book, 'setWaiting').mockImplementation(async (id, value) => {
+      await original(id, value);
+      if (!value) stub.backstop();
+    });
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    try {
+      await book.create({ title: 'Buy', instructions: 'Buy tickets' });
+      await runner.runDue();
+      const approval = await pendingApproval(book);
+      await expect(runner.answer(approval.id, true)).rejects.toThrow(/cancelled/u);
+      await runner.settled();
+      expect(resolve).not.toHaveBeenCalledWith('prompt-1', true);
+      expect((await book.feedItem(approval.id))?.approval?.state).toBe('expired');
+    } finally {
+      waiting.mockRestore();
+      await runner.stop();
+    }
+  });
+
+  it('expires a prompt settled before its approval finishes posting', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const stub = promptingSession();
+    const original = book.post.bind(book);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const posted = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const write = vi.spyOn(book, 'post').mockImplementation(async (item) => {
+      const result = await original(item);
+      if (item.kind === 'approval') {
+        reached();
+        await gate;
+      }
+      return result;
+    });
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    try {
+      await book.create({ title: 'Buy', instructions: 'Buy tickets' });
+      await runner.runDue();
+      await posted;
+      stub.backstop();
+      release();
+      await runner.settled();
+      expect((await book.feed()).find((item) => item.kind === 'approval')?.approval?.state).toBe(
+        'expired',
+      );
+    } finally {
+      release();
+      write.mockRestore();
+      await runner.stop();
+    }
+  });
+
   it("interrupts a run in progress, as a person's Stop does, and keeps running goals afterwards", async () => {
     const book = new GoalBook({ store: createMemoryGoalStore() });
     let stub = promptingSession();
@@ -409,8 +988,8 @@ describe('goal runner stopping', () => {
     expect(submitted).toBe(0);
     expect((await book.runs(goal.id))[0]).toEqual(
       expect.objectContaining({
-        outcome: 'failed',
-        report: 'The run failed: the agent was stopping',
+        outcome: 'interrupted',
+        report: 'The run was stopped.',
       }),
     );
   });

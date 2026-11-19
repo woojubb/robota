@@ -192,10 +192,11 @@ describe('a question in the feed', () => {
     view(fakeApi({}, card({ ...QUESTION, options: [], allowsReply: true })).api);
     const reply = await screen.findByRole('textbox', { name: 'Your reply' });
     const questionCard = reply.closest('li')!;
-    expect(within(questionCard).getAllByRole('button').map((button) => button.textContent)).toEqual([
-      'Send reply',
-      'Open thread',
-    ]);
+    expect(
+      within(questionCard)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Send reply', 'Open thread']);
   });
 
   it('says why an answer was refused, on the card', async () => {
@@ -210,6 +211,36 @@ describe('a question in the feed', () => {
       expect(screen.getByText('That is not one of the choices offered')).toBeTruthy(),
     );
     expect((screen.getByRole('button', { name: 'No' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('shows the saved answer and the conflict when a retry chose something else', async () => {
+    let recovered = false;
+    const { api } = fakeApi({
+      feed: async () => [
+        card(
+          recovered
+            ? {
+                ...QUESTION,
+                state: 'answered',
+                answer: { choice: 'Yes, it was me', at: '2026-11-16T02:00:00Z' },
+              }
+            : QUESTION,
+        ),
+      ],
+      answerQuestion: async () => {
+        recovered = true;
+        throw new ApiError(
+          409,
+          'An earlier answer was saved. Review the recorded answer on this card.',
+        );
+      },
+    });
+    view(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'No' }));
+    await waitFor(() => expect(screen.getByText(/You answered: Yes, it was me/u)).toBeTruthy());
+    expect(
+      screen.getByText('An earlier answer was saved. Review the recorded answer on this card.'),
+    ).toBeTruthy();
   });
 
   it('shows a question whose case closed first as no longer waiting, and lets the person dismiss it', async () => {

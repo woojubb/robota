@@ -22,6 +22,16 @@ export interface IGoal {
   readonly connectorId?: string;
   /** The case this goal gives a turn on, when it is one: found by this id, and run again for each answer. */
   readonly caseId?: string;
+  /** An accepted case answer awaiting a turn, owned by the agent holding its authority snapshot. */
+  readonly pendingCaseAnswer?: { readonly feedItemId: string; readonly ownerId: string };
+  /** The agent and answer associated with a claimed case turn. */
+  readonly activeCaseRun?: {
+    readonly runId: string;
+    readonly ownerId: string;
+    readonly answerId: string;
+  };
+  /** The most recent case answer whose turn has started. */
+  readonly lastCaseAnswerId?: string;
   readonly status: TGoalStatus;
   /** When the goal is next due (ISO 8601); absent when it is not scheduled. */
   readonly nextRunAt?: string;
@@ -44,6 +54,10 @@ export type TGoalRunOutcome = 'done' | 'failed' | 'interrupted';
 export interface IGoalRun {
   readonly id: string;
   readonly goalId: string;
+  readonly caseAnswerId?: string;
+  readonly caseOwnerId?: string;
+  readonly resumeAfterShutdown?: true;
+  readonly caseReport?: 'pending' | 'recorded' | 'quiet';
   readonly startedAt: string;
   readonly endedAt?: string;
   readonly outcome?: TGoalRunOutcome;
@@ -101,6 +115,8 @@ export interface IFeedItem {
 
 /** Where goals, their runs and the feed live; a host supplies one per principal. */
 export interface IGoalStore {
+  /** The file store synchronizes feed replacements before exposing them to a host. */
+  readonly durableFeedWrites?: true;
   listGoals(): Promise<readonly IGoal[]>;
   getGoal(id: string): Promise<IGoal | undefined>;
   putGoal(goal: IGoal): Promise<void>;
@@ -108,7 +124,7 @@ export interface IGoalStore {
   putRun(run: IGoalRun): Promise<void>;
   /** A goal's runs, newest first. */
   listRuns(goalId: string, limit: number): Promise<readonly IGoalRun[]>;
-  putFeedItem(item: IFeedItem): Promise<void>;
+  putFeedItem(item: IFeedItem, options?: { readonly cancelApproved?: boolean }): Promise<void>;
   getFeedItem(id: string): Promise<IFeedItem | undefined>;
   /** Feed items, newest first. */
   listFeed(limit: number): Promise<readonly IFeedItem[]>;

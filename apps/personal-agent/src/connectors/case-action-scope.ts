@@ -2,9 +2,12 @@
 import { randomUUID } from 'node:crypto';
 import {
   accessSync,
+  closeSync,
   constants,
+  fsyncSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
   readdirSync,
   realpathSync,
@@ -48,6 +51,8 @@ export interface ICaseActionScope {
   errorRevision(connectorId: string): string;
   /** Mark a disconnect immediately and keep the marker locked until the attempt ends. */
   beginDisconnect(connectorId: string): { complete(): void; release(): void };
+  /** Serialize the final synchronous dispatch with the start of a connection change. */
+  withDispatch<T>(connectorId: string, work: () => T): T;
   /** Fence interrupted or completed disconnects before reopening settings. Caller holds the lock. */
   settleDisconnects(connectorId: string, disconnected?: boolean): Promise<void>;
   transitioning(connectorId: string): boolean;
@@ -94,6 +99,26 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
   const legacyPath = join(dirname(canonical), `.${basename(canonical)}-connector-settings.sqlite`);
   const recoveryDirectory = join(dirname(canonical), `.${basename(canonical)}-recovery`);
   const transitionDirectory = join(dirname(canonical), `.${basename(canonical)}-transitions`);
+  const fallbackTransitions = join(canonical, '.connection-transitions');
+  const abandonedMarkers = new Set<string>();
+  const syncDirectory = (path: string): void => {
+    if (process.platform === 'win32') return;
+    const fd = openSync(path, 'r');
+    try {
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+  };
+  const writeDurable = (path: string, text: string): void => {
+    const fd = openSync(path, 'wx', 0o600);
+    try {
+      writeFileSync(fd, text);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+  };
   const guardText = 'case-action-directory-lock-v1\n';
   const migrationMessage =
     'Connector settings need offline migration. Stop every agent using this state folder and follow the case-request recovery instructions in the Personal Agent guide.';
@@ -241,8 +266,11 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
     const temporary = join(path, `.${randomUUID()}.tmp`);
     try {
       mkdirSync(path, { recursive: true, mode: 0o700 });
-      writeFileSync(temporary, `${JSON.stringify(next)}\n`, { mode: 0o600 });
+      writeDurable(temporary, `${JSON.stringify(next)}\n`);
       renameSync(temporary, join(path, 'scope.json'));
+      syncDirectory(path);
+      syncDirectory(canonical);
+      syncDirectory(dirname(canonical));
     } catch {
       throw new ConnectorRefusedError('The case action settings could not be saved');
     } finally {
@@ -258,19 +286,32 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
     try {
       // If a disconnect marker could not be created, authority cannot be confirmed.
       accessSync(dirname(canonical), constants.W_OK);
+      let primary: string[] = [];
       try {
         accessSync(transitionDirectory, constants.W_OK);
+        primary = readdirSync(transitionDirectory)
+          .filter(
+            (name) =>
+              name.startsWith(`${connectorId}.`) &&
+              (name.endsWith('.active') || name.endsWith('.done') || name.endsWith('.interrupted')),
+          )
+          .map((name) => join(transitionDirectory, name));
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-        throw error;
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
-      return readdirSync(transitionDirectory)
-        .filter(
-          (name) =>
-            name.startsWith(`${connectorId}.`) &&
-            (name.endsWith('.active') || name.endsWith('.done') || name.endsWith('.interrupted')),
-        )
-        .map((name) => join(transitionDirectory, name));
+      let fallback: string[] = [];
+      try {
+        fallback = readdirSync(fallbackTransitions)
+          .filter(
+            (name) =>
+              name.startsWith(`${connectorId}.`) &&
+              (name.endsWith('.active') || name.endsWith('.done') || name.endsWith('.interrupted')),
+          )
+          .map((name) => join(fallbackTransitions, name));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+      return [...primary, ...fallback];
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
       throw new ConnectorRefusedError('Connector transition settings cannot be read');
@@ -350,8 +391,9 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
     const path = pendingPath(connectorId);
     const temporary = `${path}.${randomUUID()}.tmp`;
     try {
-      writeFileSync(temporary, `${JSON.stringify(pending)}\n`, { mode: 0o600 });
+      writeDurable(temporary, `${JSON.stringify(pending)}\n`);
       renameSync(temporary, path);
+      syncDirectory(dirname(path));
     } catch {
       throw new ConnectorRefusedError('The pending case action setting could not be saved');
     } finally {
@@ -413,45 +455,121 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       throw new ConnectorRefusedError('The case action recovery setting cannot be read');
     }
   };
-  const beginDisconnect = (connectorId: string): { complete(): void; release(): void } => {
-    ensureLegacyGuard();
+  const withDispatch = <T>(connectorId: string, work: () => T): T => {
     pathOf(connectorId);
-    const token = randomUUID();
-    const prefix = join(transitionDirectory, `${connectorId}.${token}`);
-    const marker = `${prefix}.active`;
+    const gate = tryDirectoryLock(
+      join(dirname(canonical), `.${basename(canonical)}-${connectorId}.dispatch.lock`),
+    );
+    if (gate === undefined)
+      throw new ConnectorRefusedError('The connector is starting an action; try again');
     try {
-      mkdirSync(transitionDirectory, { recursive: true, mode: 0o700 });
-      if (tryDirectoryLock(marker) === undefined) throw new Error('marker already exists');
-    } catch {
-      throw new ConnectorRefusedError('The connector transition could not be secured');
+      return work();
+    } finally {
+      gate.release();
     }
-    let completed = false;
-    return {
-      complete: () => {
-        renameSync(marker, `${prefix}.done`);
-        completed = true;
-      },
-      release: () => {
-        if (!completed) renameSync(marker, `${prefix}.interrupted`);
-      },
-    };
   };
+  const beginDisconnect = (connectorId: string): { complete(): void; release(): void } =>
+    withDispatch(connectorId, () => {
+      const token = randomUUID();
+      const sync = (path: string): void => {
+        if (process.platform === 'win32') return;
+        const fd = openSync(path, 'r');
+        try {
+          fsyncSync(fd);
+        } finally {
+          closeSync(fd);
+        }
+      };
+      const createMarker = (folder: string, path: string): void => {
+        mkdirSync(folder, { recursive: true, mode: 0o700 });
+        const guard = tryDirectoryLock(path);
+        if (guard === undefined) throw new Error('marker already exists');
+        try {
+          sync(join(path, 'owner.json'));
+          sync(path);
+          sync(folder);
+          sync(dirname(folder));
+        } catch (error) {
+          try {
+            guard.release();
+          } catch {
+            abandonedMarkers.add(path);
+          }
+          throw error;
+        }
+      };
+      let prefix = join(transitionDirectory, `${connectorId}.${token}`);
+      let marker = `${prefix}.active`;
+      try {
+        ensureLegacyGuard();
+        createMarker(transitionDirectory, marker);
+      } catch {
+        prefix = join(fallbackTransitions, `${connectorId}.${token}`);
+        marker = `${prefix}.active`;
+        try {
+          createMarker(fallbackTransitions, marker);
+        } catch {
+          throw new ConnectorRefusedError(
+            'The connection change did not start. Restore access to the state folder and retry on this agent. If it remains blocked, stop every agent and follow the case-request recovery instructions.',
+          );
+        }
+      }
+      let completed = false;
+      return {
+        complete: () => {
+          renameSync(marker, `${prefix}.done`);
+          completed = true;
+        },
+        release: () => {
+          if (!completed) renameSync(marker, `${prefix}.interrupted`);
+        },
+      };
+    });
   const settleDisconnects = async (connectorId: string, disconnected = false): Promise<void> => {
     recoverPending(connectorId);
     const markers = transitionPaths(connectorId);
     if (markers.length === 0 && !disconnected) return;
     try {
+      const pairedFailures = new Set(
+        markers
+          .filter(
+            (marker) =>
+              dirname(marker) === fallbackTransitions &&
+              (marker.endsWith('.done') || (disconnected && marker.endsWith('.interrupted'))),
+          )
+          .map((marker) =>
+            join(
+              transitionDirectory,
+              `${basename(marker).replace(/\.(?:done|interrupted)$/u, '')}.active`,
+            ),
+          ),
+      );
       for (const marker of markers) {
         if (marker.endsWith('.done')) continue;
-        if (disconnected && (marker.endsWith('.interrupted') || ownerHasExited(marker))) continue;
+        if (
+          disconnected &&
+          (marker.endsWith('.interrupted') ||
+            abandonedMarkers.has(marker) ||
+            pairedFailures.has(marker) ||
+            ownerHasExited(marker))
+        )
+          continue;
         throw new ConnectorRefusedError(
           'The connector change is still in progress or was interrupted',
         );
       }
       const current = read(connectorId);
       if (current.revision !== '0')
-        write(connectorId, { ...current, revision: randomUUID(), generation: randomUUID() });
-      for (const marker of markers) removeDirectoryGuard(marker);
+        write(connectorId, {
+          ...current,
+          revision: randomUUID(),
+          generation: randomUUID(),
+          ...(disconnected && { tools: [] }),
+        });
+      for (const marker of markers) {
+        removeDirectoryGuard(marker);
+        abandonedMarkers.delete(marker);
+      }
     } catch (error) {
       if (error instanceof ConnectorRefusedError) throw error;
       throw new ConnectorRefusedError('The connector transition could not be settled');
@@ -542,6 +660,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
     },
     errorRevision,
     beginDisconnect,
+    withDispatch,
     settleDisconnects,
     transitioning,
     stageAllow,

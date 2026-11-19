@@ -33,10 +33,54 @@ function clock(start = Date.UTC(2026, 10, 14, 9, 0, 0)) {
   return { now: () => new Date(now), advance: (minutes: number) => (now += minutes * 60_000) };
 }
 
+it('assigns distinct approval ids to separate books at the same instant', async () => {
+  const { store, dir } = fileStore();
+  const now = clock().now;
+  const first = new GoalBook({ store, now });
+  const second = new GoalBook({ store: createFileGoalStore(dir), now });
+  const entry = (detail: string) => ({
+    kind: 'approval' as const,
+    title: 'Case',
+    body: '',
+    approval: { tool: 'ConnectorAct', detail, state: 'pending' as const },
+  });
+  const alice = await first.post(entry('alice'));
+  const bob = await second.post(entry('bob'));
+  expect(alice.id).not.toBe(bob.id);
+  expect((await first.feedItem(alice.id))?.approval?.detail).toBe('alice');
+  expect((await second.feedItem(bob.id))?.approval?.detail).toBe('bob');
+});
+
 describe.each([
   ['memory', () => createMemoryGoalStore()],
   ['file', () => fileStore().store],
 ])('goal book over a %s store', (_name, makeStore) => {
+  it('does not recover a later case run using an earlier run identity', async () => {
+    const book = new GoalBook({ store: makeStore() });
+    const first = await book.enqueueCaseAnswer({
+      caseId: 'case-one',
+      feedItemId: 'feed-one',
+      ownerId: 'owner',
+      title: 'Case',
+      instructions: 'Review.',
+    });
+    const oldRun = await book.startRun(first.id, { ownerId: 'owner' });
+    expect(await book.recoverCaseOwner(first.id, 'owner', 'owner', oldRun.id)).toBe(true);
+    await book.enqueueCaseAnswer({
+      caseId: 'case-one',
+      feedItemId: 'feed-two',
+      ownerId: 'owner',
+      title: 'Case',
+      instructions: 'Review.',
+    });
+    const newRun = await book.startRun(first.id, { ownerId: 'owner' });
+    expect(await book.recoverCaseOwner(first.id, 'owner', 'owner', oldRun.id)).toBe(false);
+    expect((await book.get(first.id))?.activeCaseRun?.runId).toBe(newRun.id);
+    expect(
+      (await book.runs(first.id)).find((run) => run.id === newRun.id)?.endedAt,
+    ).toBeUndefined();
+  });
+
   it('makes a new goal due at once and a repeating one due again after its interval', async () => {
     const time = clock();
     const book = new GoalBook({ store: makeStore(), now: time.now });
@@ -209,6 +253,67 @@ describe.each([
     expect((await restarted.feedItem(item.id))?.approval?.state).toBe('expired');
     expect((await restarted.due()).map((due) => due.id)).toEqual([goal.id]);
   });
+
+  it('recovers only the selected interrupted goal and its approval', async () => {
+    const book = new GoalBook({ store: makeStore(), now: clock().now });
+    const first = await book.create({ title: 'First', instructions: 'x' });
+    const second = await book.create({ title: 'Second', instructions: 'x' });
+    const items = [];
+    for (const goal of [first, second]) {
+      await book.startRun(goal.id);
+      await book.setWaiting(goal.id, true);
+      items.push(
+        await book.post({
+          kind: 'approval',
+          title: goal.title,
+          body: 'waiting',
+          goalId: goal.id,
+          approval: { tool: 'BrowserSubmit', detail: 'POST', state: 'pending' },
+        }),
+      );
+    }
+    expect(await book.recoverGoal(first.id)).toBe(true);
+    expect((await book.get(first.id))?.status).toBe('active');
+    expect((await book.get(second.id))?.status).toBe('waiting');
+    expect((await book.feedItem(items[0]!.id))?.approval?.state).toBe('expired');
+    expect((await book.feedItem(items[1]!.id))?.approval?.state).toBe('pending');
+    expect(await book.recoverGoal(first.id)).toBe(false);
+  });
+
+  it.each(['all', 'one'] as const)(
+    'settles every unfinished run while recovering %s goals',
+    async (mode) => {
+      const book = new GoalBook({ store: makeStore(), now: clock().now });
+      const goal = await book.create({ title: 'Interrupted', instructions: 'x' });
+      await book.startRun(goal.id);
+      await book.startRun(goal.id);
+      if (mode === 'all') await book.recover();
+      else await book.recoverGoal(goal.id);
+      const runs = await book.runs(goal.id);
+      expect(runs).toHaveLength(2);
+      expect(runs.map((run) => run.outcome)).toEqual(['interrupted', 'interrupted']);
+      expect((await book.get(goal.id))?.status).toBe('active');
+    },
+  );
+
+  it.each(['all', 'one'] as const)(
+    'settles an unfinished run even when its goal is still active: %s',
+    async (mode) => {
+      const store = makeStore();
+      const book = new GoalBook({ store, now: clock().now });
+      const goal = await book.create({ title: 'Interrupted', instructions: 'x' });
+      await store.putRun({
+        id: 'run-orphan',
+        goalId: goal.id,
+        startedAt: goal.createdAt,
+        actions: [],
+      });
+      if (mode === 'all') await book.recover();
+      else await book.recoverGoal(goal.id);
+      expect((await book.runs(goal.id))[0]?.outcome).toBe('interrupted');
+      expect((await book.get(goal.id))?.status).toBe('active');
+    },
+  );
 
   it('refuses a goal without instructions, a bad interval, and secrets', async () => {
     const book = new GoalBook({ store: makeStore(), now: clock().now });

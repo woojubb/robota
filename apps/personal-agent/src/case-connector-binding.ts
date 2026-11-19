@@ -15,7 +15,12 @@ import { join } from 'node:path';
 
 import { ConnectorRefusedError } from '@robota-sdk/agent-product/personal';
 
-import type { CaseBook, ConnectorBook } from '@robota-sdk/agent-product/personal';
+import type {
+  CaseBook,
+  ConnectorBook,
+  ICase,
+  IConnector,
+} from '@robota-sdk/agent-product/personal';
 import type { ICaseActionScope } from './connectors/case-action-scope.js';
 
 export interface ICaseConnectorBinding {
@@ -29,6 +34,12 @@ export interface ICaseConnectorAuthority {
   readonly generation: string;
 }
 
+export interface ICaseAuthorityState {
+  readonly case: ICase;
+  readonly binding: ICaseConnectorAuthority;
+  readonly connector: IConnector;
+}
+
 export interface ICaseConnectorBindings {
   get(caseId: string): Promise<ICaseConnectorBinding | undefined>;
   set(
@@ -39,6 +50,11 @@ export interface ICaseConnectorBindings {
   fence(caseId: string, revision: string): Promise<ICaseConnectorBinding | undefined>;
   /** Take a snapshot under both locks. It must be rechecked at effect dispatch. */
   authoritySnapshot(caseId: string): Promise<ICaseConnectorAuthority | undefined>;
+  /** Synchronously use the current authority while both locks are held; the boxed value is not awaited. */
+  withAuthority<T>(
+    caseId: string,
+    use: (state: ICaseAuthorityState | undefined) => { readonly value: T },
+  ): Promise<{ readonly value: T }>;
   /** Clear a case on closure while the caller holds the shared settings lock. */
   closeLocked(caseId: string): Promise<void>;
   /** Revoke references before a connector record is removed; caller holds the shared lock. */
@@ -207,28 +223,42 @@ export function createCaseConnectorBindings(options: {
       }
     }
   };
-  return {
-    authoritySnapshot: async (caseId) => {
-      for (let attempt = 0; attempt <= 100; attempt += 1) {
-        const result = await options.scope.tryExclusive(() =>
-          options.writes.tryExclusive(async () => {
-            if ((await options.cases.get(caseId))?.state !== 'open' || hasRecovery(caseId))
-              return undefined;
+  const withAuthority = async <T>(
+    caseId: string,
+    use: (state: ICaseAuthorityState | undefined) => { readonly value: T },
+  ): Promise<{ readonly value: T }> => {
+    for (let attempt = 0; attempt <= 100; attempt += 1) {
+      const result = await options.scope.tryExclusive(() =>
+        options.writes.tryExclusive(async () => {
+          let state: ICaseAuthorityState | undefined;
+          const found = await options.cases.get(caseId);
+          if (found?.state === 'open' && !hasRecovery(caseId)) {
             const current = read(caseId);
-            if (
-              current?.connectorId === undefined ||
-              (await options.connectors.get(current.connectorId)) === undefined
-            )
-              return undefined;
-            return { connectorId: current.connectorId, generation: current.generation };
-          }),
-        );
-        if (result.acquired && result.value.acquired) return result.value.value;
-        if (attempt === 100) throw new ConnectorRefusedError('Case authority is busy; try again');
-        await new Promise<void>((resolve) => setTimeout(resolve, 50));
-      }
-      throw new ConnectorRefusedError('Case authority cannot be locked');
-    },
+            if (current?.connectorId !== undefined) {
+              const connector = await options.connectors.get(current.connectorId);
+              if (connector !== undefined) {
+                state = {
+                  case: found,
+                  binding: { connectorId: current.connectorId, generation: current.generation },
+                  connector,
+                };
+              }
+            }
+          }
+          // Never await the caller's value while either lock is held.
+          return { value: use(state).value };
+        }),
+      );
+      if (result.acquired && result.value.acquired) return result.value.value;
+      if (attempt === 100) throw new ConnectorRefusedError('Case authority is busy; try again');
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    }
+    throw new ConnectorRefusedError('Case authority cannot be locked');
+  };
+  return {
+    withAuthority,
+    authoritySnapshot: async (caseId) =>
+      (await withAuthority(caseId, (state) => ({ value: state?.binding }))).value,
     get: (caseId) =>
       options.scope.exclusive(async () => {
         const found = await options.cases.get(caseId);

@@ -47,6 +47,7 @@ export type {
   IAnswerInput,
   IAskInput,
   ICaseAskedEvent,
+  ICaseAnswerEvent,
   ICaseBookOptions,
   IOpenCaseInput,
 } from './cases/case-book.js';
@@ -218,6 +219,7 @@ export { CONNECTOR_AUTHS, CONNECTOR_KINDS } from './connectors/types.js';
 export type {
   IConnector,
   IConnectorCallResult,
+  IConnectorDispatchRequest,
   IConnectorProtocol,
   IConnectorStatus,
   IConnectorToolHints,
@@ -225,6 +227,7 @@ export type {
   IDisconnectOutcome,
   ISignInContext,
   TConnectorAuth,
+  TConnectorDispatchAdmission,
   TConnectorKind,
   TConnectorState,
   TRevocation,

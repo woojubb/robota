@@ -15,6 +15,7 @@ import { createSessionCommandModule } from '@robota-sdk/agent-product/command';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
+import { CASE_TOOL_NAMES, CONNECTOR_TOOL_NAMES } from '@robota-sdk/agent-product/personal';
 
 import { createPersonalGoalSessionStore, createPersonalSessionStore } from './session-stores.js';
 
@@ -71,6 +72,10 @@ export interface IExtraSessionOptions {
    * beyond those is caught by the test that names what each such session is offered.
    */
   readonly onlyTools?: readonly string[];
+  /** Replace the existing connector action for this session with a case-scoped implementation. */
+  readonly caseAction?: IToolWithEventService;
+  /** Replace case mutations with implementations scoped to this answer. */
+  readonly caseTools?: readonly IToolWithEventService[];
   /** Where its transcript is kept: among the person's chats, or with the goal runs' audit (the default). */
   readonly keepWith?: 'chats' | 'goals';
 }
@@ -109,9 +114,47 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
     ...createDefaultTools({ cwd: workspace }).map((tool) => tool.getName()),
     ...(options.tools ?? []).map((tool) => tool.getName()),
   ];
-  const openSession = (extra: IExtraSessionOptions): TPersonalSession =>
-    runtime.createSession({
+  const openSession = (extra: IExtraSessionOptions): TPersonalSession => {
+    let additionalTools = options.tools;
+    if (extra.caseAction !== undefined) {
+      const name = CONNECTOR_TOOL_NAMES.act;
+      if (
+        extra.caseAction.getName() !== name ||
+        extra.onlyTools?.includes(name) !== true ||
+        extra.deniedTools?.includes(name) === true ||
+        (options.tools ?? []).filter((tool) => tool.getName() === name).length !== 1
+      )
+        throw new Error('A case action must replace the existing connector action');
+      additionalTools = [
+        ...(options.tools ?? []).filter((tool) => tool.getName() !== name),
+        extra.caseAction,
+      ];
+    }
+    if (extra.caseTools !== undefined) {
+      const names = Object.values(CASE_TOOL_NAMES);
+      const replacements = extra.caseTools.map((tool) => tool.getName());
+      if (
+        replacements.length !== names.length ||
+        new Set(replacements).size !== names.length ||
+        names.some(
+          (name) =>
+            !replacements.includes(name) ||
+            extra.onlyTools?.includes(name) !== true ||
+            extra.deniedTools?.includes(name) === true ||
+            (additionalTools ?? []).filter((tool) => tool.getName() === name).length !== 1,
+        )
+      )
+        throw new Error('Case tools must replace the existing case tools');
+      additionalTools = [
+        ...(additionalTools ?? []).filter(
+          (tool) => !names.includes(tool.getName() as (typeof names)[number]),
+        ),
+        ...extra.caseTools,
+      ];
+    }
+    return runtime.createSession({
       ...base,
+      ...(additionalTools !== undefined && { additionalTools: [...additionalTools] }),
       sessionStore: extra.keepWith === 'chats' ? runtime.sessionStore : goalSessionStore,
       sessionName: extra.sessionName,
       permissionMode: extra.permissionMode,
@@ -126,5 +169,6 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
         .filter((text) => text !== undefined)
         .join('\n\n'),
     });
+  };
   return { runtime, chatRecipe, workspace, openSession };
 }

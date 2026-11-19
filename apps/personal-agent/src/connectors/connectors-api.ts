@@ -285,24 +285,19 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
     outcome: Awaited<ReturnType<typeof registry.disconnect>>;
     secured: Promise<boolean>;
   }> => {
-    let transition: ReturnType<ICaseActionScope['beginDisconnect']> | undefined;
-    try {
-      transition = caseActions.beginDisconnect(id);
-    } catch {
-      // Credential removal and sync shutdown still proceed if the guard cannot be written.
-    }
+    const transition = caseActions.beginDisconnect(id);
     let outcome: Awaited<ReturnType<typeof registry.disconnect>>;
     let released = true;
     try {
       outcome = await registry.disconnect(id);
       try {
-        transition?.complete();
+        transition.complete();
       } catch {
         // An interrupted marker stays closed until this disconnect is completed again.
       }
     } finally {
       try {
-        transition?.release();
+        transition.release();
       } catch {
         released = false;
       }

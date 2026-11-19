@@ -60,7 +60,9 @@ Alt+Up/Down on it, to move it). On a narrow screen it opens from the menu button
 
 - **It asks before consequential actions.** Anything that would send data to a site (a form, a
   purchase) is held, and goes out only when you approve that exact request, showing its method and
-  address. A goal that hits such an action waits in your Feed.
+  address. A goal that hits such an action waits in your Feed. The Feed records your decision; the
+  goal history records the run's outcome. After an interruption, check the service to confirm whether
+  a request arrived.
 - **Its browser is its own.** It cannot reach your local network or private addresses, every redirect
   is checked, and pages are read as information, never as instructions. It does not hold reads: do
   not ask it to put private information into a web address. The globe button in the chat opens
@@ -164,6 +166,11 @@ What the agent may do is shown per tool, in three groups: **Reads** it may use o
 (anything that changes or sends) held for your approval every time, and **Blocked**. The groups follow
 what the service says about each tool, and a tool that says nothing counts as a write. A select next to
 each tool records your own decision over that; **Blocked** holds the tools you set to *Never allow*.
+Case requests remain read-only on Windows while the required approval storage guarantees are unavailable.
+Windows syncs answer recovery files but does not sync their parent directories, so recovery after an
+abrupt power loss has weaker guarantees than recovery after an ordinary process restart.
+After an unclean Windows process exit, the agent may be unable to verify that a lock is unused; stop
+every agent and use the offline recovery steps below before restarting.
 
 Turn on **sync** on a connected card to have the agent check it every 15 minutes, hour, 6 hours or day
 (or press **Check now**). Each check is a goal of its own: it reads what is new and files the durable
@@ -174,6 +181,11 @@ use the browser, or change what you told the agent. Turning sync off ends the ch
 reports; the facts already filed stay in your Library. **Disconnect** deletes the sign-in and asks the
 service to revoke it; **Remove** also deletes the connector itself. When your Library holds facts the
 connector pulled, both ask whether to keep or forget them.
+Disconnecting also clears that service's case-request tool choices; choose them again if needed after
+reconnecting.
+If a connection change cannot be secured, the disconnect or removal does not start. Restore access to
+the state folder and retry on the same agent. If it remains blocked or that agent is unavailable, stop
+every agent and follow the offline recovery steps below.
 
 A service on your own network is refused by default, like the agent's browser. To reach one, list its
 exact host names in `PERSONAL_AGENT_CONNECTOR_HOSTS` (comma-separated, for example `mail.lan`) and restart
@@ -196,6 +208,13 @@ If an interrupted connection change keeps the settings closed, choose **Finish d
 machine restart or a failure on another machine, the agent may be unable to prove that the old lock is
 unused. In that case the settings stay closed and may need offline recovery:
 
+If the feed reports an uncertain commit, stop all agents and preserve `goals/feed.json`,
+`goals/feed-commit-uncertain.json`, and the case records. Compare the current and previous feed with the
+cases before choosing which version to restore; do not delete the recovery record until they agree.
+If a case answer needs manual recovery, stop all agents and preserve `cases/`, `goals/` and
+`case-answer-outbox/`. Restore them together from a matching backup or obtain help reconciling the
+records; do not delete the answer recovery record while its outcome is uncertain.
+
 1. Stop every agent and container that can access the state folder. Close any unfinished sign-in pages.
    Do not restart an agent until the recovery command completes. If you cannot ensure that all agents
    have stopped and cannot resume, leave the settings closed. If sync must not run after restart, turn
@@ -203,10 +222,18 @@ unused. In that case the settings stay closed and may need offline recovery:
    sign-in) before restarting. Otherwise a scheduled sync may start before you disconnect.
 2. Set `PERSONAL_AGENT_RECOVERY_STATE_DIR` below to the actual state folder (`--state-dir`, then
    `PERSONAL_AGENT_STATE_DIR`, or `~/.robota/personal` by default), and run the command. It moves all
-   case-request settings, case-service choices, pending choices, case-write locks and connection-change
+   case-request settings, case-service choices, pending choices, case-write, goal-write and feed-write locks and connection-change
    markers into a new owner-only folder inside the state folder. It installs a marker that stops older
    agents changing case-request settings, but does not stop them changing connections. It clears
    case-request choices for **all** connectors and cases; it does not remove cases, sign-ins or tokens.
+   Approved case-action records are kept separately in the owner-only `case-approvals` folder; this
+   recovery leaves them in place. They contain the action details shown at approval.
+   Pending approval cancellation records are retained and reconciled when one agent is active.
+   An unfinished feed recovery record is kept and applied when the feed is next read.
+   An unfinished case answer is also retained and reconciled under the shared case lock. A follow-up
+   adopted from a stopped agent starts read-only because its action permissions are not restored.
+   Interrupted work is recovered when only one agent can be confirmed active. An agent that cannot
+   confirm another agent has stopped leaves its pending work untouched until offline recovery.
    If the command fails, fix the error and run it again before restarting.
 
    ```sh
@@ -218,12 +245,13 @@ unused. In that case the settings stay closed and may need offline recovery:
    const backup = fs.mkdtempSync(path.join(state, 'case-action-recovery-'));
    for (const name of fs.readdirSync(state)) {
      const settings = ['case-action-scope', 'case-connector-bindings', '.case-action-scope-recovery',
-       '.case-action-scope-transitions'].includes(name);
+       '.case-action-scope-transitions', '.agent-presence'].includes(name);
      const lock = name.startsWith('.case-action-scope-') && /\.lock(?:\.|$)/.test(name);
      const oldLock = name.startsWith('.case-action-scope-connector-settings.sqlite');
      const caseLock = name.startsWith('.cases-connector-settings.lock') ||
        name.startsWith('.cases-connector-settings.sqlite');
-     if (settings || lock || oldLock || caseLock)
+     const workLock = name.startsWith('.feed-write.lock') || name.startsWith('.goal-write.lock');
+     if (settings || lock || oldLock || caseLock || workLock)
        fs.renameSync(path.join(state, name), path.join(backup, name));
    }
    for (const name of ['.case-action-scope-connector-settings.sqlite',
@@ -236,7 +264,38 @@ unused. In that case the settings stay closed and may need offline recovery:
    NODE
    ```
 
-3. Start the upgraded agent. Disconnect the affected connector normally before reconnecting it, and
+   On Windows, run the equivalent command in PowerShell, replacing the state folder if needed:
+
+   ```powershell
+   $env:PERSONAL_AGENT_RECOVERY_STATE_DIR = Join-Path $HOME '.robota\personal'
+   @'
+   const fs = require('node:fs');
+   const path = require('node:path');
+   const state = fs.realpathSync(process.env.PERSONAL_AGENT_RECOVERY_STATE_DIR);
+   const backup = fs.mkdtempSync(path.join(state, 'case-action-recovery-'));
+   for (const name of fs.readdirSync(state)) {
+     const settings = ['case-action-scope', 'case-connector-bindings', '.case-action-scope-recovery',
+       '.case-action-scope-transitions', '.agent-presence'].includes(name);
+     const lock = name.startsWith('.case-action-scope-') && /\.lock(?:\.|$)/.test(name);
+     const oldLock = name.startsWith('.case-action-scope-connector-settings.sqlite');
+     const caseLock = name.startsWith('.cases-connector-settings.lock') ||
+       name.startsWith('.cases-connector-settings.sqlite');
+     const workLock = name.startsWith('.feed-write.lock') || name.startsWith('.goal-write.lock');
+     if (settings || lock || oldLock || caseLock || workLock)
+       fs.renameSync(path.join(state, name), path.join(backup, name));
+   }
+   for (const name of ['.case-action-scope-connector-settings.sqlite',
+     '.cases-connector-settings.sqlite']) {
+     const guard = path.join(state, name);
+     fs.mkdirSync(guard, { mode: 0o700 });
+     fs.writeFileSync(path.join(guard, 'format'), 'case-action-directory-lock-v1\n', { mode: 0o600 });
+   }
+   console.log(`Moved case-request state to ${backup}`);
+   '@ | node
+   ```
+
+3. Start only one upgraded agent first. Let its interrupted work recover and check the Feed and Goals
+   before starting any other agents. Disconnect the affected connector normally before reconnecting it, and
    choose its case-request tools again only when needed. The moved files are a recovery record, not
    current settings; restoring them would also restore old choices.
 

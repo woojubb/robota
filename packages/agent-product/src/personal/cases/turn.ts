@@ -3,7 +3,7 @@
  * what it is told, and the only tools it has. The turn runs as a goal of its own (the host's goal
  * runner); this is the part that knows about cases. The notes and the history were written from
  * content other people wrote, so the turn reads them as data and takes its direction from the
- * person's answer alone, and it can do nothing that acts outside the agent's own notes.
+ * person's answer alone; a host may separately offer an individually approved, scoped action.
  */
 import { WIKI_TOOL_NAMES } from '../knowledge/tools.js';
 import { CONNECTOR_TOOL_NAMES } from '../connectors/tools.js';
@@ -12,10 +12,8 @@ import { CASE_TOOL_NAMES } from './tools.js';
 import type { ICase, ICaseEvent } from './types.js';
 
 /**
- * The only tools a case turn has: it may look at the connector and the library to check something
- * related, and keep the case (note, ask, close). It cannot change a service, keep a fact, reach the web,
- * the files or the browser, or set up goals. It is a list of what is allowed, not of what is withheld: a
- * tool added later is then not offered until it is named.
+ * The tools a case turn has by default: it may look at the connector and the library to check
+ * something related, and keep the case. A host may add its own scoped action separately.
  */
 export function caseTurnTools(): string[] {
   return [
@@ -62,7 +60,10 @@ function latestExchange(history: readonly ICaseEvent[]):
  * come after the label that says so, and the directions come after them; only the case id and the
  * person's own answer stand before it.
  */
-export function caseTurnInstructions(found: ICase): string {
+export function caseTurnInstructions(
+  found: ICase,
+  options: { readonly allowApprovedActions?: boolean } = {},
+): string {
   const exchange = latestExchange(found.history);
   if (exchange === undefined)
     return `The case (case id ${found.id}) has no answer from the person to act on. Say so in one line and do nothing else.`;
@@ -84,7 +85,9 @@ export function caseTurnInstructions(found: ICase): string {
     'Record what the answer means with CaseNote, using this case id.',
     'Then ask exactly one follow-up question with CaseAsk when something still needs the person, or close the case with CaseClose and a one-sentence resolution when it is settled.',
     'Use at most a few reads of the connector or the library to check something related, and only when the answer calls for it.',
-    'You cannot change anything at a service and must not try; you can only change your own notes.',
+    options.allowApprovedActions === true
+      ? 'For this answer you may propose only a scoped ConnectorAct call when the person asked for it. Each call waits for the person to approve its complete details.'
+      : 'You cannot change anything at a service and must not try; you can only change your own notes.',
     'End with one plain sentence telling the person what you decided.',
   ].join('\n');
 }

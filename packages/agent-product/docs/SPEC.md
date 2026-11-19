@@ -568,8 +568,8 @@ waiting on, and what happened. An item that already has a case gets that case ba
 second one, and a case no question was ever put on (an interrupted run opened it) is handed back as not yet
 asked, so the next run asks it instead of leaving it for good. The question shows in the feed as its own kind
 of item, never an approval, with the notes as its evidence; the person answers with one of the choices offered
-or, where the question allows it, in their own words, once, and the answer is recorded on the case and gives the agent one read-only turn on it, which takes its
-direction from the answer alone and can only read, note, ask one follow-up question or close the case. A question
+or, where the question allows it, in their own words, once, and the answer is recorded on the case and gives the agent one turn on it, which takes its
+direction from the answer alone. The turn is read-only by default; a host may separately offer an owner-scoped connector action that requires approval for each call. A question
 whose case closed first can no longer be answered, and a case closed after an answer shows its resolution on the
 card that carried that answer instead of posting anything new, so a close the person would want to know of is not
 left in the thread alone. A case touches only the agent's own record and the feed, so a
@@ -618,7 +618,7 @@ has three tools whatever is connected: one lists, one reads, one writes. A tool 
 said so or the service declared it read-only; a declaration is the service's claim, so a tool that declares
 nothing is a write. Reading proceeds on its own, in read-only runs too. A write is held for the person in
 every mode and no allow rule answers it; the reading path refuses a tool that writes, and a tool the person
-blocked is never called. What a service returns reaches the model as data from the service, never as
+blocked is never called. A host can require admission at the external handoff; a protocol without that guarantee refuses the action. What a service returns reaches the model as data from the service, never as
 instructions.
 
 A connector is kept current by a goal tied to it, not by a scheduler or per-service code of its own. Its

@@ -341,6 +341,7 @@ export function createMcpConnectorProtocol(
 
   return {
     id: 'mcp',
+    admitsToolDispatch: true,
 
     async status(connector): Promise<IConnectorStatus> {
       const runtime = runtimes.get(connector.id);
@@ -475,8 +476,16 @@ export function createMcpConnectorProtocol(
     async call(connector, tool, args, callOptions): Promise<IConnectorCallResult> {
       try {
         const supervisor = await connectionOf(connector);
+        if (
+          callOptions?.admitDispatch !== undefined &&
+          supervisor.forwardsDispatchAdmission !== true
+        )
+          throw new Error('This connection cannot admit a tool dispatch');
         const result = await supervisor.callTool(tool, args as TToolParameters, {
           ...(callOptions?.signal !== undefined && { signal: callOptions.signal }),
+          ...(callOptions?.admitDispatch !== undefined && {
+            admitDispatch: callOptions.admitDispatch,
+          }),
         });
         return {
           text: renderContent(
