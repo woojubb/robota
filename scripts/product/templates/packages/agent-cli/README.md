@@ -81,7 +81,7 @@ beside the binary. Native addon builds require a matching macOS, Linux or Window
 binary re-enters its embedded entry for workers and the daemon. The caller owns signing and desktop
 packaging. The browser asset root, when provided, must be an absolute directory packaged by the
 consumer; a consumer host without one does not serve the SDK's built-in monitor assets.
-Install `e2b@2.51.0` alongside the CLI before calling the native builder. Native compilation embeds
+Install `e2b@2.64.0` alongside the CLI before calling the native builder. Native compilation embeds
 the complete hosted capability, including E2B; the resulting binary needs no adjacent SDK package.
 
 ## First run
@@ -608,16 +608,17 @@ measurements.
 
 Hosted posture requires current signed admission for a separate task worker and company broker.
 The stock E2B executor is an explicitly installed capability for the npm/Node CLI. Local npm
-installation does not install or load the E2B SDK. Enable stock hosting in the same project:
+installation does not install or load the E2B SDK. Hosted execution on Node.js requires version
+22.19.0 or later. Enable stock hosting in the same project:
 
 ```sh
-npm install @robota-sdk/agent-cli e2b@2.51.0
+npm install @robota-sdk/agent-cli e2b@2.64.0
 ```
 
 For a global CLI installation, install both into the same global prefix:
 
 ```sh
-npm install --global @robota-sdk/agent-cli e2b@2.51.0
+npm install --global @robota-sdk/agent-cli e2b@2.64.0
 ```
 
 Existing E2B helpers remain exported from the CLI package; their asynchronous provider operations
