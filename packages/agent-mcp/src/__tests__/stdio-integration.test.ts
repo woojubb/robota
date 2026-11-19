@@ -1,7 +1,9 @@
+import { execFile } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createStdioAdapter } from '../node/stdio.js';
@@ -18,6 +20,10 @@ import { FakeSupervisorClock, fixtureTimeouts } from './supervisor-test-helpers.
 const fixturePath = fileURLToPath(
   new URL('../../examples/stdio-fixture-server.mjs', import.meta.url),
 );
+const examplePath = fileURLToPath(
+  new URL('../../examples/verify-stdio-transport.ts', import.meta.url),
+);
+const execFileAsync = promisify(execFile);
 
 async function setup(mode: string, selectedEnvironment: Record<string, string> = {}) {
   const root = await mkdtemp(join(tmpdir(), 'mcp-stdio-test-'));
@@ -72,6 +78,40 @@ async function setup(mode: string, selectedEnvironment: Record<string, string> =
 const STARTUP_BUDGET_MS = 10_000;
 
 describe('bounded stdio lifecycle with the SDK client', () => {
+  it.each([
+    ['--allowed', 'result=called; discovered=true; spawned=true; shutdownClean=true'],
+    ['--denied', 'result=denied; spawned=false; secretLeaked=false'],
+  ])(
+    'runs the documented stdio example with %s',
+    async (mode, expected) => {
+      const root = await mkdtemp(join(tmpdir(), 'mcp-stdio-example-'));
+      try {
+        const { stdout } = await execFileAsync(
+          process.execPath,
+          ['--import', import.meta.resolve('tsx'), '--conditions=source', examplePath, mode],
+          {
+            cwd: root,
+            env: {
+              HOME: root,
+              PRODUCT_USER_STATE_DIR: join(root, 'state'),
+              TMPDIR: root,
+              TEMP: root,
+              TMP: root,
+              ...(process.platform === 'win32'
+                ? { SystemRoot: process.env.SystemRoot ?? process.env.SYSTEMROOT ?? '' }
+                : {}),
+            },
+            timeout: 15_000,
+          },
+        );
+        expect(stdout.trim()).toBe(expected);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    },
+    20_000,
+  );
+
   it('passes selected environment names without inheriting other host values', async () => {
     vi.stubEnv('ROBOTA_UNSELECTED_TEST_ONLY', 'not-for-the-child');
     let fixture: Awaited<ReturnType<typeof setup>> | undefined;
