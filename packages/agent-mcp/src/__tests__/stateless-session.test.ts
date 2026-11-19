@@ -617,7 +617,12 @@ describe('explicit stateless MCP session', () => {
         allowedRoot: root,
         generation: '1',
         executables: [{ command: process.execPath, args: [[fixture]] }],
-        environment: { HOME: root },
+        environment: {
+          HOME: root,
+          ...(process.platform === 'win32'
+            ? { SystemRoot: process.env.SystemRoot ?? process.env.SYSTEMROOT ?? '' }
+            : {}),
+        },
       },
     });
     const admitted = await adapter.admit({ definition, activation });

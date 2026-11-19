@@ -224,7 +224,8 @@ and its activation request to `createStdioAdapter({ admission, authority }).admi
 `@robota-sdk/agent-mcp/node`) before opening a
 session; the adapter rechecks activation and authority before every spawn. The child inherits no ambient
 environment values: the SDK's default environment keys are present only with host-selected values or
-empty strings. Cancelling or timing out an active stdio request closes the direct child, because the
+empty strings. On Windows, a host starting a Node stdio server must explicitly select `SystemRoot` in
+that environment. Cancelling or timing out an active stdio request closes the direct child, because the
 SDK provides no cancellation acknowledgment; grandchild processes are outside this transport's
 guarantee. See the runnable [`--allowed` / `--denied` example](examples/verify-stdio-transport.ts).
 

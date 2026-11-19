@@ -33,7 +33,13 @@ if (mode === 'stall') {
                   ? JSON.stringify(server.getClientVersion())
                   : mode === 'client-capabilities'
                     ? JSON.stringify(server.getClientCapabilities())
-                    : 'pong',
+                    : mode === 'environment'
+                      ? JSON.stringify({
+                          selected: process.env.Path ?? null,
+                          upper: process.env.PATH ?? null,
+                          ambient: process.env.ROBOTA_UNSELECTED_TEST_ONLY ?? null,
+                        })
+                      : 'pong',
         },
       ],
     };
