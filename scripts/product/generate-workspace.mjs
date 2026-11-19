@@ -604,7 +604,7 @@ function workingSourceProvenance(sourceRoot) {
 }
 
 function validateNpmrc(content, relativeFile) {
-  const allowed = new Set(['workspace-concurrency', 'link-workspace-packages', 'prefer-workspace-packages', 'shared-workspace-lockfile', 'auto-install-peers', 'strict-peer-dependencies', 'public-hoist-pattern', 'node-linker', 'resolution-mode', 'save-exact', 'engine-strict']);
+  const allowed = new Set(['workspace-concurrency', 'link-workspace-packages', 'prefer-workspace-packages', 'shared-workspace-lockfile', 'auto-install-peers', 'strict-peer-dependencies', 'strict-dep-builds', 'public-hoist-pattern', 'node-linker', 'resolution-mode', 'save-exact', 'engine-strict']);
   const settings = [];
   for (const line of content.split(/\r?\n/u)) {
     const trimmed = line.trim();

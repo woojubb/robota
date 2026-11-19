@@ -54,7 +54,7 @@ async function tinyCommittedSource(root) {
   await writeFile(path.join(source, 'apps/agent-app/package.json'), '{"name":"@robota-sdk/agent-app","version":"1.0.0","description":"Robota","author":"Robota"}\n');
   await writeFile(path.join(source, 'packages/agent-cli/tsdown.config.ts'), 'const define = {}; export default { define };\n');
   await writeFile(path.join(source, 'packages/agent-cli/scripts/build-bun.mjs'), 'Bun.build({ define: {} });\n');
-  await writeFile(path.join(source, '.npmrc'), 'workspace-concurrency=2\n');
+  await writeFile(path.join(source, '.npmrc'), 'workspace-concurrency=2\nstrict-dep-builds=true\n');
   execFileSync('git', ['init', '-q', source]);
   execFileSync('git', ['-C', source, 'add', '.']);
   execFileSync('git', ['-C', source, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture']);
@@ -74,7 +74,7 @@ it('generates only a clean committed tree with non-secret npmrc, version, bin an
   await generateWorkspaceFromConfig({ sourceRoot: source, outDir: out, config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode: 'clean-tree' });
   const provenance = JSON.parse(await readFile(path.join(out, '.product/source.json'), 'utf8'));
   expect(provenance).toMatchObject({ mode: 'clean-tree', commit: expect.stringMatching(/^[a-f0-9]{40}$/u), tree: expect.stringMatching(/^[a-f0-9]{40}$/u) });
-  expect(await readFile(path.join(out, '.npmrc'), 'utf8')).toBe('workspace-concurrency=2\n');
+  expect(await readFile(path.join(out, '.npmrc'), 'utf8')).toBe('workspace-concurrency=2\nstrict-dep-builds=true\n');
   expect(JSON.parse(await readFile(path.join(out, 'packages/agent-cli/package.json'), 'utf8'))).toMatchObject({ version: '9.8.7' });
   expect(JSON.parse(await readFile(path.join(out, 'packages/agent-cli/package.json'), 'utf8'))).not.toHaveProperty('bin');
   expect(JSON.parse(await readFile(path.join(out, 'apps/agent-app/package.json'), 'utf8'))).toMatchObject({ version: '9.8.7', author: 'Cedar', description: 'Cedar desktop app' });
