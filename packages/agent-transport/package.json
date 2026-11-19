@@ -206,7 +206,7 @@
     "multicast-dns": "^7.2.5",
     "node-datachannel": "^0.33.4",
     "nostr-tools": "^2.25.2",
-    "rimraf": "^5.0.10",
+    "rimraf": "^6.1.4",
     "tsdown": "^0.22.14",
     "tsx": "^4.23.1",
     "typescript": "^6.0.3",

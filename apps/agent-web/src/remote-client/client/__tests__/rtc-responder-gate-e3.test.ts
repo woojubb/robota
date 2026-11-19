@@ -153,6 +153,7 @@ describe('ResponderGate reconnect', () => {
       send: (frame) => gate.onInbound(JSON.stringify(frame)),
       timeoutMs: 1000,
     });
+    const hostRejection = expect(hostCtrl.result).rejects.toThrow('reconnect handshake timed out');
     const { channel, closed } = stubChannel((frame) => hostCtrl.onFrame(frame as TReconnectFrame));
     const onReject = jest.fn();
     gate = new ResponderGate({cryptoContext: testIdentity,
@@ -166,5 +167,6 @@ describe('ResponderGate reconnect', () => {
 
     await waitFor(() => expect(onReject).toHaveBeenCalledTimes(1));
     expect(closed()).toBe(true);
+    await hostRejection;
   });
 });

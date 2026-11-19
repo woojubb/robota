@@ -91,7 +91,7 @@
     "@robota-sdk/agent-session-analytics": "workspace:^",
     "@robota-sdk/agent-transport": "workspace:^",
     "openai": "^6.0.0",
-    "rimraf": "^5.0.10",
+    "rimraf": "^6.1.4",
     "tsdown": "^0.22.14",
     "tsx": "^4.23.1",
     "typescript": "^6.0.3",

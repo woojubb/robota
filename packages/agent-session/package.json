@@ -87,7 +87,7 @@
   },
   "devDependencies": {
     "eslint": "^8.57.1",
-    "rimraf": "^5.0.10",
+    "rimraf": "^6.1.4",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
     "vitest": "^4.1.12"
