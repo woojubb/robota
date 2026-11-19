@@ -19,7 +19,7 @@ const fixturePath = fileURLToPath(
   new URL('../../examples/stdio-fixture-server.mjs', import.meta.url),
 );
 
-async function setup(mode: string) {
+async function setup(mode: string, selectedEnvironment: Record<string, string> = {}) {
   const root = await mkdtemp(join(tmpdir(), 'mcp-stdio-test-'));
   const definition = {
     name: 'fixture',
@@ -52,7 +52,13 @@ async function setup(mode: string) {
       allowedRoot: root,
       generation: '1',
       executables: [{ command: process.execPath, args: [[fixturePath, mode]] }],
-      environment: { HOME: root },
+      environment: {
+        HOME: root,
+        ...(process.platform === 'win32'
+          ? { SystemRoot: process.env.SystemRoot ?? process.env.SYSTEMROOT ?? '' }
+          : {}),
+        ...selectedEnvironment,
+      },
     },
   });
   const admission = await adapter.admit({ definition, activation: request });
@@ -66,6 +72,32 @@ async function setup(mode: string) {
 const STARTUP_BUDGET_MS = 10_000;
 
 describe('bounded stdio lifecycle with the SDK client', () => {
+  it('passes selected environment names without inheriting other host values', async () => {
+    vi.stubEnv('ROBOTA_UNSELECTED_TEST_ONLY', 'not-for-the-child');
+    let fixture: Awaited<ReturnType<typeof setup>> | undefined;
+    try {
+      fixture = await setup('environment', { Path: 'host-selected' });
+      const session = await openMcpSession({
+        serverId: 'fixture',
+        transport: fixture.transport,
+        timeouts: { startupMs: 3_000, perCallMs: 3_000 },
+      });
+      try {
+        const result = await session.callTool('ping', {});
+        expect(JSON.parse(String(result.content[0]?.['text']))).toEqual({
+          selected: 'host-selected',
+          upper: process.platform === 'win32' ? 'host-selected' : '',
+          ambient: null,
+        });
+      } finally {
+        await session.close();
+      }
+    } finally {
+      vi.unstubAllEnvs();
+      if (fixture !== undefined) await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
   it('discovers, calls, captures negotiation, drains stderr, and observes child close', async () => {
     const fixture = await setup('stderr');
     try {
