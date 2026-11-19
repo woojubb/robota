@@ -83,9 +83,9 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "^2.3.0",
-    "@modelcontextprotocol/node": "^2.1.0",
-    "@modelcontextprotocol/server": "^2.3.0",
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@modelcontextprotocol/node": "^2.1.2",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@robota-sdk/agent-provider": "workspace:^",
     "@robota-sdk/agent-provider-replay": "workspace:^",
     "@robota-sdk/agent-session-analytics": "workspace:^",
