@@ -47,17 +47,6 @@ runs:
         "$qualifier"
         pnpm --filter './packages/agent-keyring' smoke:bun
         pnpm --filter './packages/agent-transport' smoke:bun:link
-        diagnostic_failed=0
-        for workers in 2 1; do
-          echo "::group::Diagnose Windows framework timing with $workers worker(s)"
-          if VITEST_MAX_WORKERS="$workers" pnpm --filter './packages/agent-framework' exec vitest run --reporter=verbose --testTimeout=20000 src/__tests__/trusted-project-cwd.test.ts src/git/__tests__/project-status-read.test.ts src/interactive/__tests__/pending-execution-restore.test.ts src/interactive/__tests__/session-divergence.test.ts; then
-            echo "Diagnostic passed with $workers worker(s)"
-          else
-            diagnostic_failed=1
-          fi
-          echo "::endgroup::"
-        done
         if [ "${#test_filters[@]}" -gt 0 ]; then
           pnpm -r "${test_filters[@]}" --workspace-concurrency=1 --if-present run test
         fi
-        [ "$diagnostic_failed" -eq 0 ]
