@@ -41,7 +41,12 @@ const adapter = createStdioAdapter({
     allowedRoot: root,
     generation: '1',
     executables: [{ command: process.execPath, args: [[fixturePath, 'normal']] }],
-    environment: { HOME: root },
+    environment: {
+      HOME: root,
+      ...(process.platform === 'win32'
+        ? { SystemRoot: process.env.SystemRoot ?? process.env.SYSTEMROOT ?? '' }
+        : {}),
+    },
   },
 });
 

@@ -37,16 +37,8 @@ module.exports = {
   },
   rules: {
     '@typescript-eslint/no-explicit-any': 'error',
-    '@typescript-eslint/ban-types': [
-      'warn',
-      {
-        types: {
-          any: '❌ Avoid `any` in shipped source. Prefer specific types/SSOT types, and validate external inputs. Note: disabling no-explicit-any in src/ is prohibited; tests are exempt.',
-          '{}': false,
-        },
-        extendDefaults: true,
-      },
-    ],
+    '@typescript-eslint/no-wrapper-object-types': 'warn',
+    '@typescript-eslint/no-unsafe-function-type': 'warn',
     '@typescript-eslint/no-unused-vars': [
       'error',
       {
@@ -131,7 +123,8 @@ module.exports = {
         'eslint-comments/no-restricted-disable': [
           'error',
           '@typescript-eslint/no-explicit-any',
-          '@typescript-eslint/ban-types',
+          '@typescript-eslint/no-wrapper-object-types',
+          '@typescript-eslint/no-unsafe-function-type',
         ],
       },
     },
@@ -193,7 +186,8 @@ module.exports = {
         '@typescript-eslint/no-unused-vars': 'off',
         'no-unused-vars': 'off',
         '@typescript-eslint/no-explicit-any': 'off',
-        '@typescript-eslint/ban-types': 'off',
+        '@typescript-eslint/no-wrapper-object-types': 'off',
+        '@typescript-eslint/no-unsafe-function-type': 'off',
         'no-console': 'warn',
         complexity: 'off',
         'max-lines': 'off',
