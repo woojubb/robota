@@ -91,7 +91,9 @@ authoritative, so each guarantee below is stated, and held, once.
   URL together, so a shadowing definition cannot use another's sign-in; a refresh goes only to the
   endpoint the tokens came from and runs once per credential across processes, because a rotating
   refresh token spent twice signs the user out — and a refused refresh never clears a token someone
-  else rotated in meanwhile. Signing out deletes the credential before asking the stored issuer to
+  else rotated in meanwhile. The file lock displaces a holder only when its process is provably
+  gone, because elapsed time alone cannot distinguish a stalled holder from an exited one. Signing
+  out deletes the credential before asking the stored issuer to
   revoke it, so an authorization server that is down or refuses cannot keep the user signed in. A
   sign-in state shown to the user is a fixed word, never derived from a token. Storage is a
   get/set/delete port with that coordination on the caller's side, so a keychain can replace files
