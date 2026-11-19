@@ -7,6 +7,7 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { WebSocket } from 'ws';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { WsTransport } from '../ws-transport-configurable.js';
 
@@ -50,7 +51,7 @@ function emittingSession(label: string): IEmittingSession {
 interface IFakeBinding extends ISessionBinding<IProtocolSession> {
   readonly session: IEmittingSession;
   readonly role: TSessionBindingRole;
-  readonly release: ReturnType<typeof vi.fn>;
+  readonly release: Mock<ISessionBinding<IProtocolSession>['release']>;
   /** Listeners on the session when `release` ran: the handler must have unsubscribed first. */
   listenersAtRelease?: number;
 }

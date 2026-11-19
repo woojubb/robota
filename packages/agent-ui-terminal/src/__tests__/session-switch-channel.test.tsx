@@ -20,6 +20,7 @@ import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { render } from 'ink-testing-library';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import App from '../App.js';
 import { ScreenReaderProvider } from '../screen-reader-context.js';
@@ -68,10 +69,10 @@ interface IFakeChannel {
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
   handleInput: ReturnType<typeof vi.fn>;
-  abort: ReturnType<typeof vi.fn>;
-  cancelQueue: ReturnType<typeof vi.fn>;
+  abort: Mock<ITuiAppChannelPort['abort']>;
+  cancelQueue: Mock<ITuiAppChannelPort['cancelQueue']>;
   shutdown: ReturnType<typeof vi.fn>;
-  selectExecutionWorkspaceEntry: ReturnType<typeof vi.fn>;
+  selectExecutionWorkspaceEntry: Mock<ITuiAppChannelPort['selectExecutionWorkspaceEntry']>;
   readExecutionWorkspaceDetail: ReturnType<typeof vi.fn>;
   getSession: () => unknown;
   getRegistry: () => unknown;
@@ -123,11 +124,11 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel & ITuiA
     start: vi.fn(async () => {}),
     stop: vi.fn(async () => {}),
     handleInput: vi.fn(async () => {}),
-    abort: vi.fn(),
-    cancelQueue: vi.fn(),
+    abort: vi.fn<ITuiAppChannelPort['abort']>(),
+    cancelQueue: vi.fn<ITuiAppChannelPort['cancelQueue']>(),
     stopWaitingSelfPacedLoop: vi.fn(async () => {}),
     shutdown: vi.fn(async () => {}),
-    selectExecutionWorkspaceEntry: vi.fn(),
+    selectExecutionWorkspaceEntry: vi.fn<ITuiAppChannelPort['selectExecutionWorkspaceEntry']>(),
     readExecutionWorkspaceDetail: vi.fn(async (entryId: string) => ({ entryId, records: [] })),
     getSession: () => fakeSession,
     getRegistry: () => fakeRegistry,
@@ -227,7 +228,7 @@ function createCliAdapter(settingsPath: string): ITuiCliAdapter {
 describe('App session-switch channel ownership', () => {
   let cwd: string;
   let created: IFakeChannel[];
-  let createChannel: ReturnType<typeof vi.fn>;
+  let createChannel: Mock<React.ComponentProps<typeof App>['createChannel']>;
   let initialStartError: Error | undefined;
   let initialStartIntent: boolean;
 
@@ -236,7 +237,7 @@ describe('App session-switch channel ownership', () => {
     created = [];
     initialStartError = undefined;
     initialStartIntent = false;
-    createChannel = vi.fn((resumeSessionId?: string) => {
+    createChannel = vi.fn<React.ComponentProps<typeof App>['createChannel']>((resumeSessionId) => {
       const fake = createFakeChannel(resumeSessionId);
       if (created.length === 0 && initialStartError !== undefined) {
         fake.start.mockRejectedValueOnce(initialStartError);
@@ -873,7 +874,7 @@ describe('picking a session the store will not claim', () => {
   let directory: string;
   let store: IInteractiveSessionStore;
   let created: (IFakeChannel & ITuiAppChannelPort)[];
-  let createChannel: ReturnType<typeof vi.fn>;
+  let createChannel: Mock<React.ComponentProps<typeof App>['createChannel']>;
   /** Runs inside the factory just before the claim of the picked session, as a writer arriving late would. */
   let beforeClaim: (() => void) | undefined;
 
@@ -915,7 +916,7 @@ describe('picking a session the store will not claim', () => {
     store.save(stored(CURRENT_ID, '2026-06-12T00:00:00.000Z'));
     created = [];
     beforeClaim = undefined;
-    createChannel = vi.fn((resumeSessionId?: string) => {
+    createChannel = vi.fn<React.ComponentProps<typeof App>['createChannel']>((resumeSessionId) => {
       if (resumeSessionId === HELD_ID) {
         beforeClaim?.();
         // What the new channel's session does while it is built: claim the record it resumes.

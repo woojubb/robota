@@ -15,16 +15,18 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    ConversationAgent: vi.fn().mockImplementation(() => ({
-      run: vi.fn().mockResolvedValue('mock response'),
-      getHistory: vi.fn().mockReturnValue([]),
-      clearHistory: vi.fn(),
-      injectMessage: vi.fn(),
-      getFullHistory: vi.fn().mockReturnValue([]),
-      addHistoryEntry: vi.fn(),
-      ensureReady: vi.fn().mockResolvedValue(undefined),
-      setModel: setModelSpy,
-    })),
+    ConversationAgent: vi.fn().mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue('mock response'),
+        getHistory: vi.fn().mockReturnValue([]),
+        clearHistory: vi.fn(),
+        injectMessage: vi.fn(),
+        getFullHistory: vi.fn().mockReturnValue([]),
+        addHistoryEntry: vi.fn(),
+        ensureReady: vi.fn().mockResolvedValue(undefined),
+        setModel: setModelSpy,
+      };
+    }),
   };
 });
 

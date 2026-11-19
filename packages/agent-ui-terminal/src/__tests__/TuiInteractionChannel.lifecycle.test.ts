@@ -64,9 +64,11 @@ vi.mock('@robota-sdk/agent-framework', async () => {
     ...actual,
     InteractiveSession: vi.fn().mockImplementation(makeMockSession),
     buildRuntimeSession: vi.fn().mockImplementation(makeMockSession),
-    CommandRegistry: vi.fn().mockImplementation(() => ({
-      addModule: vi.fn(),
-    })),
+    CommandRegistry: vi.fn().mockImplementation(function () {
+      return {
+        addModule: vi.fn(),
+      };
+    }),
   };
 });
 

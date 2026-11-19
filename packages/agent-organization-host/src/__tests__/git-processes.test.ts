@@ -186,7 +186,7 @@ describe('real worker/broker Git races and cross-store crash recovery', () => {
       candidateOid: f.first,
     };
     const published = await f.apply(winner, winner, 'git.publish', parameters);
-    expect(published.status).toBe(200);
+    expect(published.status, `refused: ${published.body?.refused ?? 'no reason'}`).toBe(200);
     const oid = published.body!.receipt!.value.value.oid;
     expect(
       (await f.apply(loser, loser, 'git.publish', { ...parameters, candidateOid: f.second }))

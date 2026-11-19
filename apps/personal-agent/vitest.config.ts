@@ -7,7 +7,7 @@ import { resourceCeiling } from '../../vitest.shared';
 export default mergeConfig(
   resourceCeiling,
   defineConfig({
-    resolve: { conditions: ['source'] },
+    resolve: { conditions: ['source'], dedupe: ['@robota-sdk/agent-core'] },
     ssr: { resolve: { conditions: ['source'], externalConditions: ['source'] } },
     test: {
       globals: true,

@@ -12,7 +12,7 @@ const scripted = vi.hoisted(() => ({
 vi.mock('@robota-sdk/agent-provider/anthropic', async () => {
   const { createScriptedProvider } = await import('@robota-sdk/agent-core/testing');
   return {
-    AnthropicProvider: vi.fn(() => {
+    AnthropicProvider: vi.fn(function () {
       const double = createScriptedProvider([{ text: 'Hello from the test agent' }]);
       scripted.chatOptions = double.chatOptions as typeof scripted.chatOptions;
       return double.provider;

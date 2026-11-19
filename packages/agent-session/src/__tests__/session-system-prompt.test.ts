@@ -21,7 +21,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    ConversationAgent: vi.fn().mockImplementation((config: Record<string, unknown>) => {
+    ConversationAgent: vi.fn().mockImplementation(function (config: Record<string, unknown>) {
       capturedConfig = config;
       return {
         run: vi.fn().mockImplementation(async (_message: string, options?: unknown) => {

@@ -17,6 +17,7 @@
 
 import { HandoffDestination, HandoffSource } from '@robota-sdk/agent-interface/session-mobility';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { createHandoffComposition } from '../handoff/handoff-composition-root.js';
 
@@ -86,7 +87,7 @@ function wire(
 
 describe('handoff decode — an intact payload that is not a record never stages', () => {
   let destination: HandoffDestination;
-  let persist: ReturnType<typeof vi.fn>;
+  let persist: Mock<() => boolean>;
 
   beforeEach(() => {
     persist = vi.fn(() => true);

@@ -5,6 +5,7 @@
 
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import {
   ATTACHED_SURFACE_MAX_PENDING_BYTES,
@@ -13,7 +14,7 @@ import {
 import { createSessionMessageHandler } from '../session-message-handler.js';
 
 import type { TClientMessage, TServerMessage } from '../wire-messages.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
+import type { IInteractiveSession, ISessionProjectRead } from '@robota-sdk/agent-interface/session';
 
 type TListener = (...args: unknown[]) => void;
 
@@ -22,7 +23,7 @@ function createSession(): IInteractiveSession & {
   listenerCount: (event: string) => number;
   // `Partial<ISessionProjectRead>` — not part of `IInteractiveSession`, so it is assigned
   // ad hoc (below) rather than passed to `createTestInteractiveSession`'s strict literal.
-  readProjectStatus: ReturnType<typeof vi.fn>;
+  readProjectStatus: Mock<ISessionProjectRead['readProjectStatus']>;
 } {
   const listeners = new Map<string, Set<TListener>>();
   const session = createTestInteractiveSession({
@@ -48,7 +49,7 @@ function createSession(): IInteractiveSession & {
     }) as IInteractiveSession['off'],
   });
   return Object.assign(session, {
-    readProjectStatus: vi.fn().mockResolvedValue({ kind: 'not-a-repository' }),
+    readProjectStatus: vi.fn<ISessionProjectRead['readProjectStatus']>().mockResolvedValue({ kind: 'not-a-repository' }),
     emit: (event: string, ...args: unknown[]) => {
       listeners.get(event)?.forEach((handler) => handler(...args));
     },

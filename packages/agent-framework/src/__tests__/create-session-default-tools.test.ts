@@ -32,7 +32,7 @@ vi.mock('@robota-sdk/agent-session', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-session');
   return {
     ...actual,
-    Session: vi.fn().mockImplementation((options: Record<string, unknown>) => {
+    Session: vi.fn().mockImplementation(function (options: Record<string, unknown>) {
       sessionCtorCalls.push(options);
       return {
         getSessionId: vi.fn().mockReturnValue('test-session-id'),
@@ -43,7 +43,9 @@ vi.mock('@robota-sdk/agent-session', async () => {
         injectMessage: vi.fn(),
       };
     }),
-    FileSessionLogger: vi.fn().mockImplementation(() => ({})),
+    FileSessionLogger: vi.fn().mockImplementation(function () {
+      return {};
+    }),
   };
 });
 
