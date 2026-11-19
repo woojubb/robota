@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { createServeSessionDirectory } from '@robota-sdk/agent-framework';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
@@ -25,7 +26,7 @@ interface IFake {
   readonly id: string;
   activity: 'working' | 'needs-input' | 'idle' | undefined;
   loops: ISessionLoopState[];
-  shutdown: ReturnType<typeof vi.fn>;
+  shutdown: Mock<() => Promise<void>>;
 }
 
 const built: Array<Record<string, unknown>> = [];

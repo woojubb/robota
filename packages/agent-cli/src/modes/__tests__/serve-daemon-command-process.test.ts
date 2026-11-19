@@ -174,11 +174,12 @@ function attachClient(
   };
 }
 
-function settingsAdapter(): NonNullable<ICommandHostAdapters['settings']> & {
-  write: ReturnType<typeof vi.fn>;
-  delete: ReturnType<typeof vi.fn>;
-} {
-  return { read: () => ({}), write: vi.fn(), delete: vi.fn(() => true) };
+function settingsAdapter() {
+  return {
+    read: () => ({}),
+    write: vi.fn<NonNullable<ICommandHostAdapters['settings']>['write']>(),
+    delete: vi.fn(() => true),
+  };
 }
 
 describe('a command in a served runtime', () => {

@@ -1,11 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { ConsolePayloadLogger } from './console-payload-logger';
 import type { ILogger } from '@robota-sdk/agent-core';
 import type { IOpenAILogData } from '../types/api-types';
 
 function createMockLogger(): ILogger & {
-  group: ReturnType<typeof vi.fn>;
-  groupEnd: ReturnType<typeof vi.fn>;
+  group: Mock<NonNullable<ILogger['group']>>;
+  groupEnd: Mock<NonNullable<ILogger['groupEnd']>>;
 } {
   return {
     info: vi.fn(),
@@ -13,8 +14,8 @@ function createMockLogger(): ILogger & {
     error: vi.fn(),
     debug: vi.fn(),
     log: vi.fn(),
-    group: vi.fn(),
-    groupEnd: vi.fn(),
+    group: vi.fn<NonNullable<ILogger['group']>>(),
+    groupEnd: vi.fn<NonNullable<ILogger['groupEnd']>>(),
   };
 }
 

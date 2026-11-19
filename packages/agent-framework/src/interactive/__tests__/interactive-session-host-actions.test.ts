@@ -75,15 +75,11 @@ function createSession(
   });
 }
 
-function stubSettings(initial: Record<string, unknown> = {}): {
-  read: () => Record<string, never>;
-  write: ReturnType<typeof vi.fn>;
-  delete: ReturnType<typeof vi.fn>;
-} {
+function stubSettings(initial: Record<string, unknown> = {}) {
   return {
     read: () => ({ ...initial }) as Record<string, never>,
-    write: vi.fn(),
-    delete: vi.fn().mockReturnValue(true),
+    write: vi.fn<NonNullable<ICommandHostAdapters['settings']>['write']>(),
+    delete: vi.fn<() => boolean>().mockReturnValue(true),
   };
 }
 
