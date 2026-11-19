@@ -58,9 +58,11 @@ function positiveIntEnv(name: string, fallback: number): number {
 }
 
 const MAX_WORKERS = positiveIntEnv('VITEST_MAX_WORKERS', 4);
+const workerOverride = process.env.VITEST_MAX_WORKERS;
 // Vitest reads this variable again after resolving the config.
-if (process.env.VITEST_MAX_WORKERS !== undefined)
+if (workerOverride?.trim() && Number(workerOverride) === MAX_WORKERS)
   process.env.VITEST_MAX_WORKERS = String(MAX_WORKERS);
+else delete process.env.VITEST_MAX_WORKERS;
 const WORKER_HEAP_MB = positiveIntEnv('VITEST_WORKER_HEAP_MB', 512);
 
 /**
