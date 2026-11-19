@@ -16,7 +16,6 @@
     "deploy": "pnpm exec tsx ../../scripts/product/build-site.mjs blog --deploy"
   },
   "dependencies": {
-    "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.3",
     "astro": "^7.4.13",
     "rehype-autolink-headings": "^7.1.0",
