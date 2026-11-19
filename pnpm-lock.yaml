@@ -1646,6 +1646,12 @@ importers:
       '@modelcontextprotocol/core':
         specifier: ^2.4.0
         version: 2.4.0
+      '@robota-sdk/agent-os':
+        specifier: workspace:^
+        version: link:../agent-os
+      koffi:
+        specifier: 3.3.1
+        version: 3.3.1
     devDependencies:
       '@modelcontextprotocol/node':
         specifier: ^2.1.2
