@@ -21,10 +21,12 @@ const create = vi.fn();
 
 vi.mock('openai', async (importOriginal) => {
   const actual = await importOriginal<typeof import('openai')>();
-  const MockOpenAI = vi.fn().mockImplementation(() => ({
-    chat: { completions: { create } },
-    responses: { create },
-  }));
+  const MockOpenAI = vi.fn().mockImplementation(function () {
+    return {
+      chat: { completions: { create } },
+      responses: { create },
+    };
+  });
   return { ...actual, default: MockOpenAI };
 });
 

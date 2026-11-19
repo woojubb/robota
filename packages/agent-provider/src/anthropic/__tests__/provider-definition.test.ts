@@ -3,10 +3,12 @@ import { AnthropicProvider } from '../provider.js';
 import { createAnthropicProviderDefinition } from '../provider-definition.js';
 
 vi.mock('../provider.js', () => {
-  const MockAnthropicProvider = vi.fn().mockImplementation((options: object) => ({
-    name: 'anthropic',
-    options,
-  }));
+  const MockAnthropicProvider = vi.fn().mockImplementation(function (options: object) {
+    return {
+      name: 'anthropic',
+      options,
+    };
+  });
   return { AnthropicProvider: MockAnthropicProvider };
 });
 

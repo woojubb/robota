@@ -1,5 +1,6 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { TransportRegistry } from '../transport-registry.js';
 import { bindTransportAdapter } from '../bind-transport-adapter.js';
@@ -8,6 +9,8 @@ import { createMemoryTransportSettingsRepository } from '../memory-transport-set
 import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
 
+type TConfigureTransport = NonNullable<IConfigurableTransport<IInteractiveSession>['configure']>;
+
 /**
  * Persisted options reach a transport, or startup says why they cannot; and the registry
  * reads/writes settings through an injected repository, so no test here touches a filesystem.
@@ -15,16 +18,16 @@ import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transpo
 function configurableTransport(
   name: string,
   over: Partial<Omit<IConfigurableTransport<IInteractiveSession>, 'configure'>> & {
-    configure?: ReturnType<typeof vi.fn>;
+    configure?: Mock<TConfigureTransport>;
   } = {},
-): IConfigurableTransport<IInteractiveSession> & { configure: ReturnType<typeof vi.fn> } {
+): IConfigurableTransport<IInteractiveSession> & { configure: Mock<TConfigureTransport> } {
   return {
     name,
     lifecycle: Object.freeze({ kind: 'service' as const }),
     defaultEnabled: true,
     optionsSchema: { port: { type: 'number', description: 'port' } },
     validateOptions: (options) => typeof options['port'] !== 'string',
-    configure: vi.fn(),
+    configure: vi.fn<TConfigureTransport>(),
     attach: vi.fn(),
     start: vi.fn(async () => {}),
     stop: vi.fn(async () => {}),

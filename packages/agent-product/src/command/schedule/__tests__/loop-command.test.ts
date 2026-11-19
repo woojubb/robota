@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { executeLoopCommand } from '../loop-command.js';
 
 import type { ILoopInvocationContext } from '../loop-command.js';
+import type { IUserInteraction } from '@robota-sdk/agent-core';
 import { createTestAgentJobHost } from '@robota-sdk/agent-framework/testing';
 
 /**
@@ -403,8 +405,8 @@ describe('fixed in-session loop', () => {
  * model: nobody is there to say yes to a loop that can run for a week.
  */
 describe('/loop asks before starting on its own', () => {
-  function askResolving(value: 'start' | 'cancel'): ReturnType<typeof vi.fn> {
-    return vi.fn().mockResolvedValue({ type: 'answer', values: [value] });
+  function askResolving(value: 'start' | 'cancel'): Mock<IUserInteraction['ask']> {
+    return vi.fn<IUserInteraction['ask']>().mockResolvedValue({ type: 'answer', values: [value] });
   }
 
   it('asks before creating a bare self-paced loop, and creates it on Start', async () => {
@@ -419,11 +421,11 @@ describe('/loop asks before starting on its own', () => {
     const result = await executeLoopCommand(host, vi.fn(), '', options, { ui: { ask }, source: 'user' });
 
     expect(ask).toHaveBeenCalledTimes(1);
-    const request = ask.mock.calls[0]![0] as { title: string; options: Array<{ value: string }> };
+    const request = ask.mock.calls[0]![0];
     expect(request.title).toContain('Start a loop that keeps working on its own for up to 7 days');
     expect(request.title).toContain('Tend the current task.');
     expect(request.title).not.toContain('Check CI when it finishes.');
-    expect(request.options.map((option) => option.value)).toEqual(['start', 'cancel']);
+    expect(request.options?.map((option) => option.value)).toEqual(['start', 'cancel']);
     expect(createSelfPacedLoop).toHaveBeenCalledWith('Tend the current task.\nCheck CI when it finishes.', {
       useDefaultPrompt: true,
     });

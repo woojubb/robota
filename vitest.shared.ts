@@ -31,7 +31,7 @@ import { defineConfig } from 'vitest/config';
  *
  * ## What the numbers are
  *
- * `maxForks` bounds how many workers run at once; combined with `workspace-concurrency=4` in
+ * `maxWorkers` bounds how many workers run at once; combined with `workspace-concurrency=4` in
  * `.npmrc` it bounds the PRODUCT, which is the quantity that actually overran.
  *
  * `--max-old-space-size` bounds what one worker may hold. 512 MB is roughly 3x the measured
@@ -45,13 +45,7 @@ import { defineConfig } from 'vitest/config';
  * editing this file.
  */
 
-/**
- * Read a positive-integer override, falling back to the default on anything else.
- *
- * Without this, `VITEST_MAX_FORKS=auto` yields `NaN` and `--max-old-space-size=NaN`, which node
- * accepts and interprets as no limit — the override would silently restore the very default this
- * file exists to remove. A bad value must degrade to the safe number, never to an unbounded one.
- */
+/** Invalid overrides fall back to a finite resource ceiling. */
 function positiveIntEnv(name: string, fallback: number): number {
   const raw = process.env[name];
   if (raw === undefined || raw.trim() === '') return fallback;
@@ -63,7 +57,12 @@ function positiveIntEnv(name: string, fallback: number): number {
   return parsed;
 }
 
-const MAX_FORKS = positiveIntEnv('VITEST_MAX_FORKS', 4);
+const MAX_WORKERS = positiveIntEnv('VITEST_MAX_WORKERS', 4);
+const workerOverride = process.env.VITEST_MAX_WORKERS;
+// Vitest reads this variable again after resolving the config.
+if (workerOverride?.trim() && Number(workerOverride) === MAX_WORKERS)
+  process.env.VITEST_MAX_WORKERS = String(MAX_WORKERS);
+else delete process.env.VITEST_MAX_WORKERS;
 const WORKER_HEAP_MB = positiveIntEnv('VITEST_WORKER_HEAP_MB', 512);
 
 /**
@@ -165,12 +164,8 @@ process.on('exit', () => {
 export const resourceCeiling = defineConfig({
   test: {
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        maxForks: MAX_FORKS,
-        execArgv: [`--max-old-space-size=${WORKER_HEAP_MB}`],
-      },
-    },
+    maxWorkers: MAX_WORKERS,
+    execArgv: [`--max-old-space-size=${WORKER_HEAP_MB}`],
   },
 });
 

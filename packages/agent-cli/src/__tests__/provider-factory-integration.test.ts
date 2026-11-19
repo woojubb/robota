@@ -55,11 +55,13 @@ function createProviderFromSettings(
 }
 
 vi.mock('@robota-sdk/agent-provider/anthropic', () => {
-  const MockAnthropicProvider = vi.fn().mockImplementation((options: unknown) => ({
-    name: 'anthropic',
-    version: 'test',
-    options,
-  }));
+  const MockAnthropicProvider = vi.fn().mockImplementation(function (options: unknown) {
+    return {
+      name: 'anthropic',
+      version: 'test',
+      options,
+    };
+  });
   return {
     AnthropicProvider: MockAnthropicProvider,
     createAnthropicProviderDefinition: () => ({
@@ -83,11 +85,13 @@ vi.mock('@robota-sdk/agent-provider/anthropic', () => {
 });
 
 vi.mock('@robota-sdk/agent-provider/openai', () => {
-  const MockOpenAIProvider = vi.fn().mockImplementation((options: unknown) => ({
-    name: 'openai',
-    version: 'test',
-    options,
-  }));
+  const MockOpenAIProvider = vi.fn().mockImplementation(function (options: unknown) {
+    return {
+      name: 'openai',
+      version: 'test',
+      options,
+    };
+  });
   return {
     OpenAIProvider: MockOpenAIProvider,
     createOpenAIProviderDefinition: () => ({
@@ -113,11 +117,13 @@ vi.mock('@robota-sdk/agent-provider/openai', () => {
 });
 
 vi.mock('@robota-sdk/agent-provider/deepseek', () => {
-  const MockDeepSeekProvider = vi.fn().mockImplementation((options: unknown) => ({
-    name: 'deepseek',
-    version: 'test',
-    options,
-  }));
+  const MockDeepSeekProvider = vi.fn().mockImplementation(function (options: unknown) {
+    return {
+      name: 'deepseek',
+      version: 'test',
+      options,
+    };
+  });
   return {
     DeepSeekProvider: MockDeepSeekProvider,
     createDeepSeekProviderDefinition: () => ({
@@ -152,11 +158,13 @@ vi.mock('@robota-sdk/agent-provider/deepseek', () => {
 });
 
 vi.mock('@robota-sdk/agent-provider/gemma', () => {
-  const MockGemmaProvider = vi.fn().mockImplementation((options: unknown) => ({
-    name: 'gemma',
-    version: 'test',
-    options,
-  }));
+  const MockGemmaProvider = vi.fn().mockImplementation(function (options: unknown) {
+    return {
+      name: 'gemma',
+      version: 'test',
+      options,
+    };
+  });
   return {
     GemmaProvider: MockGemmaProvider,
     createGemmaProviderDefinition: () => ({
@@ -184,11 +192,13 @@ vi.mock('@robota-sdk/agent-provider/gemma', () => {
 });
 
 vi.mock('@robota-sdk/agent-provider/qwen', () => {
-  const MockQwenProvider = vi.fn().mockImplementation((options: unknown) => ({
-    name: 'qwen',
-    version: 'test',
-    options,
-  }));
+  const MockQwenProvider = vi.fn().mockImplementation(function (options: unknown) {
+    return {
+      name: 'qwen',
+      version: 'test',
+      options,
+    };
+  });
   return {
     QwenProvider: MockQwenProvider,
     createQwenProviderDefinition: () => ({
@@ -223,11 +233,13 @@ vi.mock('@robota-sdk/agent-provider/qwen', () => {
 });
 
 vi.mock('@robota-sdk/agent-provider/gemini', () => {
-  const MockGeminiProvider = vi.fn().mockImplementation((options: unknown) => ({
-    name: 'gemini',
-    version: 'test',
-    options,
-  }));
+  const MockGeminiProvider = vi.fn().mockImplementation(function (options: unknown) {
+    return {
+      name: 'gemini',
+      version: 'test',
+      options,
+    };
+  });
   return {
     GeminiProvider: MockGeminiProvider,
     createGeminiProviderDefinition: () => ({

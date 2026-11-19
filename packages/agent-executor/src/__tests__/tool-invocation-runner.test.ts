@@ -8,6 +8,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { BackgroundTaskManager } from '../background-tasks/background-task-manager.js';
 import { createToolInvocationBackgroundTaskRunner } from '../background-tasks/tool-invocation-runner.js';
@@ -70,7 +71,7 @@ function createNeverSettlingProcessRunner(): IBackgroundTaskRunner<'process'> {
 
 interface ITestAdoptedWork {
   settled: Promise<IToolResult>;
-  abort: ReturnType<typeof vi.fn>;
+  abort: Mock<(reason: string) => Promise<void>>;
   resolve: (result: IToolResult) => void;
   reject: (error: unknown) => void;
 }
@@ -82,7 +83,7 @@ function createTestAdoptedWork(): ITestAdoptedWork {
     resolveFn = resolve;
     rejectFn = reject;
   });
-  return { settled, abort: vi.fn(() => Promise.resolve()), resolve: resolveFn, reject: rejectFn };
+  return { settled, abort: vi.fn<(reason: string) => Promise<void>>(() => Promise.resolve()), resolve: resolveFn, reject: rejectFn };
 }
 
 /** Collects every emitted event into a plain array — simpler to type-narrow than `vi.fn().mock.calls`. */

@@ -21,6 +21,7 @@ import {
 import { render } from 'ink-testing-library';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import App from '../App.js';
 import { localPickerDecisions } from '../session-picker-decisions.js';
@@ -225,13 +226,13 @@ describe('resuming an unverified record from the picker', () => {
   let cwd: string;
   let channels: IFakeChannel[];
   let hostSessions: readonly ISessionListingEntry[] | undefined;
-  let createChannel: ReturnType<typeof vi.fn>;
+  let createChannel: Mock<React.ComponentProps<typeof App>['createChannel']>;
 
   beforeEach(() => {
     cwd = mkdtempSync(join(tmpdir(), 'agent-unverified-resume-'));
     channels = [];
     hostSessions = undefined;
-    createChannel = vi.fn(() => {
+    createChannel = vi.fn<React.ComponentProps<typeof App>['createChannel']>(() => {
       const channel = fakeChannel(hostSessions);
       channels.push(channel);
       return channel;
@@ -480,7 +481,7 @@ describe('resuming an unverified record from the picker', () => {
   it('keeps the digest when a failed switch is retried', async () => {
     const store = sealingStore(cwd);
     let attempts = 0;
-    createChannel = vi.fn(() => {
+    createChannel = vi.fn<React.ComponentProps<typeof App>['createChannel']>(() => {
       attempts += 1;
       if (attempts === 2) throw new Error('boom');
       const channel = fakeChannel();
@@ -782,7 +783,7 @@ describe('a startup resume', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  function startWith(createChannel: ReturnType<typeof vi.fn>, acceptedDigest?: string) {
+  function startWith(createChannel: React.ComponentProps<typeof App>['createChannel'], acceptedDigest?: string) {
     return render(
       <App
         cwd={cwd}

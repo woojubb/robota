@@ -28,8 +28,8 @@ jest.mock('../../hooks/useRtcSession', () => ({
 
 // agent-ui-web's CommonJS build requires these ESM-only packages, which Jest cannot load. No case here renders
 // markdown, so a stub is enough.
-jest.mock('react-markdown', () => ({ __esModule: true, default: () => null }));
-jest.mock('remark-gfm', () => ({ __esModule: true, default: () => undefined }));
+jest.mock('react-markdown', () => ({ __esModule: true, default: () => null }), { virtual: true });
+jest.mock('remark-gfm', () => ({ __esModule: true, default: () => undefined }), { virtual: true });
 
 import { RemoteClient } from '../RemoteClient';
 

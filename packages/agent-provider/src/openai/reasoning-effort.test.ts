@@ -16,10 +16,12 @@ import {
 
 // Mock OpenAI SDK (mirror provider.test.ts so chat() never hits the network).
 vi.mock('openai', () => {
-  const MockOpenAI = vi.fn().mockImplementation(() => ({
-    chat: { completions: { create: vi.fn() } },
-    responses: { create: vi.fn() },
-  }));
+  const MockOpenAI = vi.fn().mockImplementation(function () {
+    return {
+      chat: { completions: { create: vi.fn() } },
+      responses: { create: vi.fn() },
+    };
+  });
   return { default: MockOpenAI };
 });
 

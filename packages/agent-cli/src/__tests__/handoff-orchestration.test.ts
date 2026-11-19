@@ -15,6 +15,7 @@
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import {
   HandoffDestination,
@@ -92,12 +93,12 @@ function wire(destination: HandoffDestination) {
 }
 
 describe('two in-process sessions, a full transfer, and the source read-only afterwards', () => {
-  let readOnly: ReturnType<typeof vi.fn>;
+  let readOnly: Mock<() => void>;
   let destination: HandoffDestination;
   let source: HandoffSource;
 
   beforeEach(() => {
-    readOnly = vi.fn();
+    readOnly = vi.fn<() => void>();
     destination = new HandoffDestination({
       composition,
       deviceId: 'laptop',

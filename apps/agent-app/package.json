@@ -39,7 +39,7 @@
     "electron-builder": "26.15.7",
     "playwright": "^1.49.1",
     "typescript": "^6.0.3",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.12"
   },
   "dependencies": {
     "@robota-sdk/agent-cli": "workspace:^",

@@ -13,7 +13,10 @@ export function createMcpPinnedFetch(endpoint: string, policy: IEgressPolicy, de
   const openings = new Set<Promise<Response>>();
   const active = new Set<() => Promise<void>>();
 
-  async function open(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  async function open(
+    input: Parameters<typeof globalThis.fetch>[0],
+    init?: RequestInit,
+  ): Promise<Response> {
     const inputUrl = input instanceof Request ? input.url : String(input);
     if (inputUrl !== endpoint) throw new MCPTransportEgressRefusedError('endpoint-mismatch');
     const request = new AbortController();

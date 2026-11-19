@@ -6,7 +6,9 @@ const sdk = vi.hoisted(() => ({ create: vi.fn() }));
 
 // The provider builds its SDK client from the API key; every client it builds shares one spy.
 vi.mock('@anthropic-ai/sdk', () => ({
-  default: vi.fn().mockImplementation(() => ({ messages: { create: sdk.create } })),
+  default: vi.fn().mockImplementation(function () {
+    return { messages: { create: sdk.create } };
+  }),
 }));
 
 const { AnthropicProvider } = await import('../provider');

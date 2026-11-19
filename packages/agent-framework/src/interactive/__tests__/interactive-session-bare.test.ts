@@ -52,9 +52,11 @@ vi.mock('../../plugins/index.js', () => ({
   createHostBundlePluginLoader: vi.fn().mockImplementation(() => ({
     loadPluginsSync: mockLoadPluginsSync,
   })),
-  BundlePluginLoader: vi.fn().mockImplementation(() => ({
-    loadPluginsSync: mockLoadPluginsSync,
-  })),
+  BundlePluginLoader: vi.fn().mockImplementation(function () {
+    return {
+      loadPluginsSync: mockLoadPluginsSync,
+    };
+  }),
 }));
 
 // Mock agent-sessions so we don't need real file I/O
@@ -62,15 +64,19 @@ vi.mock('@robota-sdk/agent-session', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-session');
   return {
     ...actual,
-    Session: vi.fn().mockImplementation(() => ({
-      getSessionId: vi.fn().mockReturnValue('test-session-id'),
-      run: vi.fn().mockResolvedValue('mock response'),
-      abort: vi.fn(),
-      getHistory: vi.fn().mockReturnValue([]),
-      clearHistory: vi.fn(),
-      injectMessage: vi.fn(),
-    })),
-    FileSessionLogger: vi.fn().mockImplementation(() => ({})),
+    Session: vi.fn().mockImplementation(function () {
+      return {
+        getSessionId: vi.fn().mockReturnValue('test-session-id'),
+        run: vi.fn().mockResolvedValue('mock response'),
+        abort: vi.fn(),
+        getHistory: vi.fn().mockReturnValue([]),
+        clearHistory: vi.fn(),
+        injectMessage: vi.fn(),
+      };
+    }),
+    FileSessionLogger: vi.fn().mockImplementation(function () {
+      return {};
+    }),
   };
 });
 
@@ -79,12 +85,14 @@ vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
   return {
     ...actual,
-    ConversationAgent: vi.fn().mockImplementation(() => ({
-      run: vi.fn().mockResolvedValue('mock AI response'),
-      getHistory: vi.fn().mockReturnValue([]),
-      clearHistory: vi.fn(),
-      injectMessage: vi.fn(),
-    })),
+    ConversationAgent: vi.fn().mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue('mock AI response'),
+        getHistory: vi.fn().mockReturnValue([]),
+        clearHistory: vi.fn(),
+        injectMessage: vi.fn(),
+      };
+    }),
     runHooks: vi.fn().mockResolvedValue({ blocked: false }),
   };
 });
@@ -240,7 +248,9 @@ describe('createInteractiveSession — bare mode', () => {
 
     // Config loading is always needed even in bare mode
     expect(mockLoadConfigWithHookSources).toHaveBeenCalledTimes(1);
-    expect(mockLoadConfigWithHookSources).toHaveBeenCalledWith([], { SYNTHETIC_PROVIDER_KEY: 'fixture-only' });
+    expect(mockLoadConfigWithHookSources).toHaveBeenCalledWith([], {
+      SYNTHETIC_PROVIDER_KEY: 'fixture-only',
+    });
   });
 });
 
@@ -326,7 +336,12 @@ describe('initializeInteractiveSessionAsync — skipConfiguredHooks reaches the 
 
     constructed.mockClear();
     await initializeInteractiveSessionAsync(
-      { host: testHost, cwd: SESSION_CWD, provider: createMockProvider(), skipConfiguredHooks: true },
+      {
+        host: testHost,
+        cwd: SESSION_CWD,
+        provider: createMockProvider(),
+        skipConfiguredHooks: true,
+      },
       deps,
     );
     expect(JSON.stringify(constructed.mock.calls[0]?.[0]?.hooks ?? {})).not.toContain('HOOKMARK');
