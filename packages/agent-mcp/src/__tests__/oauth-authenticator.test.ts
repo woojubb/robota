@@ -135,18 +135,6 @@ describe('OAuth credential store', () => {
     const error = await failure(store.get(other));
     expect(error.reason).toBe('store-failed');
   });
-
-  it('refuses a record with a malformed grant identity', async () => {
-    const directory = temporaryDirectory();
-    const store = createFileOAuthCredentialStore(directory);
-    await store.set(KEY, credential());
-    const path = join(directory, `${credentialKeyDigest(KEY)}.json`);
-    writeFileSync(
-      path,
-      JSON.stringify({ version: 1, key: KEY, credential: credential({ grantId: 'bad' }) }),
-    );
-    expect((await failure(store.get(KEY))).reason).toBe('store-failed');
-  });
 });
 
 describe('OAuth authenticator', () => {
@@ -162,7 +150,7 @@ describe('OAuth authenticator', () => {
     const server = createFakeOAuthServer();
     server.validRefreshTokens.add('rt-initial');
     const { store, authenticator } = setup(server);
-    await store.set(KEY, credential({ expiresAt: NOW - 1, grantId: 'a'.repeat(64) }));
+    await store.set(KEY, credential({ expiresAt: NOW - 1 }));
     const all = await Promise.all(Array.from({ length: 8 }, () => authorize(authenticator)));
     expect(new Set(all.map((headers) => headers['Authorization']))).toEqual(
       new Set(['Bearer at-1']),
@@ -170,10 +158,7 @@ describe('OAuth authenticator', () => {
     expect(server.tokenCalls('refresh_token')).toBe(1);
     const token = server.requests.find((r) => r.url.endsWith('/token'))!;
     expect(new URLSearchParams(token.body).get('resource')).toBe(MCP_URL);
-    await expect(store.get(KEY)).resolves.toMatchObject({
-      refreshToken: 'rt-1',
-      grantId: 'a'.repeat(64),
-    });
+    await expect(store.get(KEY)).resolves.toMatchObject({ refreshToken: 'rt-1' });
   });
 
   it('refreshes with the origin resource exactly as it was authorized', async () => {
@@ -435,17 +420,16 @@ describe('OAuth authenticator', () => {
     const server = createFakeOAuthServer();
     const directory = temporaryDirectory();
     const signIn = createFileOAuthCredentialStore(directory);
-    const grantId = 'a'.repeat(64);
     let refreshed = false;
     const fetch = (async (input: string | URL, init?: RequestInit) => {
       if (!refreshed && String(input).startsWith('https://auth.example.test/.well-known/')) {
         refreshed = true;
-        await signIn.set(KEY, credential({ grantId, accessToken: 'at-refreshed' }));
+        await signIn.set(KEY, credential({ accessToken: 'at-refreshed' }));
       }
       return server.fetch(input, init);
     }) as typeof globalThis.fetch;
     const { store, authenticator } = setup({ ...server, fetch }, directory);
-    await store.set(KEY, credential({ grantId }));
+    await store.set(KEY, credential());
     const authorization = await authorize(authenticator);
     server.overrides.rootResourceMetadata = true;
     expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
@@ -453,11 +437,36 @@ describe('OAuth authenticator', () => {
     await expect(store.get(KEY)).resolves.toBeUndefined();
   });
 
+  it('rediscovers after a new sign-in if metadata changes while discovery is in flight', async () => {
+    const server = createFakeOAuthServer();
+    const directory = temporaryDirectory();
+    const signIn = createFileOAuthCredentialStore(directory);
+    let replaced = false;
+    const fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (!replaced && String(input).startsWith('https://auth.example.test/.well-known/')) {
+        replaced = true;
+        await signIn.set(
+          KEY,
+          credential({ resource: 'https://mcp.example.test', accessToken: 'at-fresh-login' }),
+        );
+        server.overrides.rootResourceMetadata = false;
+      }
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const { store, authenticator } = setup({ ...server, fetch }, directory);
+    await store.set(KEY, credential());
+    const authorization = await authorize(authenticator);
+    server.overrides.rootResourceMetadata = true;
+    expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
+    expect((await failure(authorize(authenticator))).reason).toBe('login-required');
+    expect(server.tokenCalls()).toBe(0);
+    await expect(store.get(KEY)).resolves.toBeUndefined();
+  });
+
   it('keeps a sign-in made after the 401 when the authorization server moved to it', async () => {
     const server = createFakeOAuthServer();
     const directory = temporaryDirectory();
     const fresh = credential({
-      grantId: 'b'.repeat(64),
       issuer: 'https://other-auth.example.test/',
       tokenEndpoint: 'https://other-auth.example.test/token',
       accessToken: 'at-fresh-login',
@@ -472,7 +481,7 @@ describe('OAuth authenticator', () => {
       return server.fetch(input, init);
     }) as typeof globalThis.fetch;
     const { store, authenticator, notices } = setup({ ...server, fetch }, directory);
-    await store.set(KEY, credential({ grantId: 'a'.repeat(64) }));
+    await store.set(KEY, credential());
     const authorization = await authorize(authenticator);
     server.overrides.authorizationServers = ['https://other-auth.example.test/'];
     expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');

@@ -173,7 +173,6 @@ describe('OAuth sign-in', () => {
       accessToken: expect.stringMatching(/^at-/),
       refreshToken: expect.stringMatching(/^rt-/),
       resource: MCP_URL,
-      grantId: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
     if (process.platform !== 'win32') {
       expect(statSync(directory).mode & 0o777).toBe(0o700);
@@ -247,8 +246,6 @@ describe('OAuth sign-in', () => {
     expect(first.opened[0]!.searchParams.get('state')).not.toBe(
       second.opened[0]!.searchParams.get('state'),
     );
-    const key = oauthCredentialKey('identity-1', MCP_URL);
-    expect((await first.store.get(key))?.grantId).not.toBe((await second.store.get(key))?.grantId);
   });
 
   it('uses a pre-registered client on its fixed port, and keeps its secret with the tokens', async () => {

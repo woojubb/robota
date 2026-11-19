@@ -25,8 +25,6 @@ export interface IMCPOAuthCredentialKey {
 }
 
 export interface IMCPOAuthCredential {
-  /** Stable for one sign-in, including its subsequent token refreshes. */
-  readonly grantId?: string;
   readonly issuer: string;
   readonly authorizationEndpoint: string;
   readonly tokenEndpoint: string;

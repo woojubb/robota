@@ -87,7 +87,6 @@ interface IIssued {
 /** Whether the credential still has the values observed before a network discovery. */
 function sameCredential(a: IMCPOAuthCredential, b: IMCPOAuthCredential): boolean {
   const fields = [
-    'grantId',
     'issuer',
     'authorizationEndpoint',
     'tokenEndpoint',
@@ -269,16 +268,7 @@ export function createOAuthAuthenticator(
             const current = await options.store.get(key);
             if (current === undefined) return loginRequired(false);
             if (server !== undefined && !sameCredential(current, observed)) {
-              const sameGrant =
-                current.grantId !== undefined && current.grantId === observed.grantId;
-              if (!sameGrant) {
-                const newGrant =
-                  current.grantId !== undefined && current.grantId !== observed.grantId;
-                return {
-                  kind: newGrant && usable(current) ? 'ready' : 'retry',
-                  credential: current,
-                } as const;
-              }
+              return { kind: 'retry', credential: current } as const;
             }
             if (
               server !== undefined &&
