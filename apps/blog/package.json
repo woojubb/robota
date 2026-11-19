@@ -5,7 +5,7 @@
   "version": "0.0.2",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.23.4"
   },
   "scripts": {
     "dev": "astro dev",
@@ -16,9 +16,9 @@
     "deploy": "pnpm exec tsx ../../scripts/product/build-site.mjs blog --deploy"
   },
   "dependencies": {
-    "@astrojs/rss": "^4.0.18",
+    "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.3",
-    "astro": "^7.3.3",
+    "astro": "^7.4.13",
     "rehype-autolink-headings": "^7.1.0",
     "rehype-pretty-code": "^0.14.4",
     "remark-toc": "^9.0.0",
