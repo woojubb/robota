@@ -68,7 +68,7 @@
     "@modelcontextprotocol/server": "^2.4.0",
     "@robota-sdk/agent-core": "workspace:^",
     "@types/node": "^20.10.0",
-    "rimraf": "^5.0.10",
+    "rimraf": "^6.1.4",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
     "vitest": "^4.1.12"

@@ -76,8 +76,8 @@
     "@arethetypeswrong/cli": "^0.18.5",
     "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.1",
-    "@stryker-mutator/core": "^9.6.1",
-    "@stryker-mutator/vitest-runner": "^9.6.1",
+    "@stryker-mutator/core": "^10.1.1",
+    "@stryker-mutator/vitest-runner": "^10.1.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^20.19.43",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
@@ -89,7 +89,7 @@
     "eslint": "^8.57.1",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
-    "glob": "^13.0.6",
+    "glob": "^14.0.6",
     "husky": "^9.1.7",
     "marked": "^9.1.6",
     "prettier": "^3.9.6",
@@ -164,7 +164,11 @@
       "katex": ">=0.18.2 <1.0.0",
       "proxy-addr": ">=2.0.8 <3.0.0",
       "smol-toml": ">=1.9.0 <2.0.0",
-      "zod@^4.0.0": ">=4.6.7 <5.0.0"
+      "zod@^4.0.0": ">=4.6.7 <5.0.0",
+      "@jest/reporters>glob": "^14.0.6",
+      "jest-config>glob": "^14.0.6",
+      "jest-runtime>glob": "^14.0.6",
+      "@stryker-mutator/core>minimatch": "^11.0.9"
     },
     "patchedDependencies": {
       "nostr-tools@2.25.2": "patches/nostr-tools@2.25.2.patch"

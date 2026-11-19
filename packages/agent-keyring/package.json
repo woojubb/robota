@@ -56,7 +56,7 @@
   "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.19.43",
-    "rimraf": "^5.0.10",
+    "rimraf": "^6.1.4",
     "tsdown": "^0.22.14",
     "vitest": "^4.1.12"
   },
