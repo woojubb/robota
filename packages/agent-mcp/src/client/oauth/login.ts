@@ -8,8 +8,8 @@
  *   this sign-in's redirect address; a dynamic registration for that redirect address, which says
  *   whether it is a native or a web application; else the sign-in is refused and the person is told to
  *   register a client.
- * - The authorization request carries PKCE, a random `state` and the canonical server URL as the
- *   RFC 8707 resource indicator, and any extra parameters the config names (never one of these); the redirect is accepted only with that `state`
+ * - The authorization request carries PKCE, a random `state` and the validated RFC 8707 resource
+ *   indicator, and any extra parameters the config names (never one of these); the redirect is accepted only with that `state`
  *   (`callback.ts`) and, when it carries an RFC 9207 `iss`, only from the discovered issuer.
  * - With `readRedirect`, nothing listens: the user pastes the redirect URL their browser was sent
  *   to, and it is held to the same rules. The code alone is worthless without this process's PKCE
@@ -37,7 +37,7 @@ import {
   loopbackRedirectUri,
 } from './callback.js';
 import { checkAuthorizationParams } from '../../definition/oauth-params.js';
-import { discoverMCPOAuthServer } from './discovery.js';
+import { canonicalServerUrl, discoverMCPOAuthServer } from './discovery.js';
 import { MCPOAuthError, asOAuthError } from './errors.js';
 import { createOAuthFetch } from './network.js';
 
@@ -313,7 +313,7 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
   let callback = await redirectReceiver(input, state);
   try {
     const client = await clientFor(input, server, callback.redirectUri, fetchFn);
-    const resource = new URL(server.resource);
+    const resource = server.resource;
     let authorization: { authorizationUrl: URL; codeVerifier: string };
     try {
       authorization = await startAuthorization(server.issuer, {
@@ -392,7 +392,10 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
       },
       (input.now ?? Date.now)(),
     );
-    const key = { securityIdentity: input.securityIdentity, serverUrl: server.resource };
+    const key = {
+      securityIdentity: input.securityIdentity,
+      serverUrl: canonicalServerUrl(input.serverUrl),
+    };
     await input.lock.withLock(key, () => input.store.set(key, credential), input.signal);
     return {
       issuer: server.issuer,

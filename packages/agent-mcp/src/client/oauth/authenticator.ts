@@ -160,6 +160,7 @@ export function createOAuthAuthenticator(
     };
     let tokens: OAuthTokens;
     try {
+      if (!URL.canParse(credential.resource)) throw new MCPOAuthError('refresh-failed');
       tokens = await refreshAuthorization(credential.issuer, {
         // Only the stored endpoint: what a later discovery says is not where this token goes.
         metadata: {
@@ -173,7 +174,7 @@ export function createOAuthAuthenticator(
         },
         clientInformation: client,
         refreshToken,
-        resource: new URL(credential.resource),
+        resource: credential.resource,
         fetchFn: createOAuthFetch(options.network, signal),
       });
     } catch (error) {
@@ -231,7 +232,8 @@ export function createOAuthAuthenticator(
         if (current === undefined) return loginRequired(false);
         if (
           server !== undefined &&
-          (!sameUrl(server.issuer, current.issuer) ||
+          (server.resource !== current.resource ||
+            !sameUrl(server.issuer, current.issuer) ||
             !sameUrl(server.metadata.token_endpoint, current.tokenEndpoint))
         ) {
           return loginRequired(true);

@@ -55,6 +55,48 @@ describe('OAuth discovery', () => {
     expect(await reasonOf(discover(server))).toBe('resource-mismatch');
   });
 
+  it('accepts origin metadata discovered at the root for an endpoint below it', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.rootResourceMetadata = true;
+    const info = await discover(server);
+    expect(info.resource).toBe('https://mcp.example.test');
+    expect(info.issuer).toBe(AS_URL);
+  });
+
+  it('also accepts root metadata that names the exact endpoint', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.rootResourceMetadata = true;
+    server.overrides.resource = MCP_URL;
+    expect((await discover(server)).resource).toBe(MCP_URL);
+  });
+
+  it('does not accept an origin or sibling from a path document or challenge link', async () => {
+    const path = createFakeOAuthServer();
+    path.overrides.resource = 'https://mcp.example.test';
+    expect(await reasonOf(discover(path))).toBe('resource-mismatch');
+
+    const linked = createFakeOAuthServer();
+    linked.overrides.rootResourceMetadata = true;
+    expect(
+      await reasonOf(
+        discover(
+          linked,
+          {},
+          {
+            resourceMetadataUrl: 'https://mcp.example.test/.well-known/oauth-protected-resource',
+          },
+        ),
+      ),
+    ).toBe('resource-mismatch');
+
+    const root = createFakeOAuthServer();
+    root.overrides.rootResourceMetadata = true;
+    root.overrides.resource = 'https://mcp.example.test/other';
+    expect(await reasonOf(discover(root))).toBe('resource-mismatch');
+    root.overrides.resource = 'https://other.example.test';
+    expect(await reasonOf(discover(root))).toBe('resource-mismatch');
+  });
+
   it('refuses authorization server metadata naming another issuer', async () => {
     const server = createFakeOAuthServer();
     server.overrides.issuer = 'https://evil.example.test/';

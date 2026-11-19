@@ -36,7 +36,7 @@ import type { IMCPOAuthConfig } from '../../definition/types.js';
 
 /** What sign-in and refresh need to know about a server's authorization server. */
 export interface IMCPOAuthServerInfo {
-  /** The canonical server URL, sent as the RFC 8707 resource indicator. */
+  /** The validated resource identifier sent as the RFC 8707 resource indicator. */
   readonly resource: string;
   readonly issuer: string;
   readonly metadata: AuthorizationServerMetadata;
@@ -103,7 +103,7 @@ async function fetchResourceMetadata(
 async function discoverResourceMetadata(
   resource: URL,
   input: IMCPOAuthDiscoveryInput,
-): Promise<OAuthProtectedResourceMetadata> {
+): Promise<{ metadata: OAuthProtectedResourceMetadata; originFallback: boolean }> {
   if (input.resourceMetadataUrl !== undefined) {
     const linked = parseHttps(input.resourceMetadataUrl);
     if (linked.origin !== resource.origin) {
@@ -111,16 +111,23 @@ async function discoverResourceMetadata(
     }
     const metadata = await fetchResourceMetadata(linked, input.fetch);
     if (metadata === undefined) throw new MCPOAuthError('discovery-failed');
-    return metadata;
+    return { metadata, originFallback: false };
   }
   const path = resource.pathname.endsWith('/') ? resource.pathname.slice(0, -1) : resource.pathname;
   const candidates = [
-    ...(path === '' ? [] : [new URL(`/.well-known/oauth-protected-resource${path}`, resource)]),
-    new URL('/.well-known/oauth-protected-resource', resource),
+    ...(path === ''
+      ? []
+      : [
+          {
+            url: new URL(`/.well-known/oauth-protected-resource${path}`, resource),
+            originFallback: false,
+          },
+        ]),
+    { url: new URL('/.well-known/oauth-protected-resource', resource), originFallback: true },
   ];
   for (const candidate of candidates) {
-    const metadata = await fetchResourceMetadata(candidate, input.fetch);
-    if (metadata !== undefined) return metadata;
+    const metadata = await fetchResourceMetadata(candidate.url, input.fetch);
+    if (metadata !== undefined) return { metadata, originFallback: candidate.originFallback };
   }
   throw new MCPOAuthError('discovery-failed');
 }
@@ -194,7 +201,8 @@ export async function discoverMCPOAuthServer(
   input: IMCPOAuthDiscoveryInput,
 ): Promise<IMCPOAuthServerInfo> {
   try {
-    const resource = canonicalServerUrl(input.serverUrl);
+    const serverUrl = canonicalServerUrl(input.serverUrl);
+    let resource = serverUrl;
     let issuer: string;
     let metadata: AuthorizationServerMetadata;
     let advertised: readonly string[] | undefined;
@@ -204,10 +212,17 @@ export async function discoverMCPOAuthServer(
         input.fetch,
       ));
     } else {
-      const resourceMetadata = await discoverResourceMetadata(new URL(resource), input);
-      if (!sameUrl(resourceMetadata.resource, resource)) {
+      const discovered = await discoverResourceMetadata(new URL(serverUrl), input);
+      const resourceMetadata = discovered.metadata;
+      if (
+        !sameUrl(resourceMetadata.resource, serverUrl) &&
+        !(
+          discovered.originFallback && sameUrl(resourceMetadata.resource, new URL(serverUrl).origin)
+        )
+      ) {
         throw new MCPOAuthError('resource-mismatch');
       }
+      resource = resourceMetadata.resource;
       const authorizationServer = resourceMetadata.authorization_servers?.[0];
       if (authorizationServer === undefined) throw new MCPOAuthError('discovery-failed');
       const server = parseHttps(authorizationServer);

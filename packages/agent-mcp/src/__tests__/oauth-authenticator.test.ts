@@ -30,10 +30,7 @@ import type { TMCPOAuthNotice } from '../client/oauth/authenticator.js';
 import type { IMCPOAuthCredential } from '../client/oauth/store.js';
 import type { IFakeOAuthServer } from './fixtures/fake-oauth-server.js';
 import { createNodeHttpEgress } from '../node/http-egress.js';
-import {
-  createFileOAuthCredentialStore,
-  credentialKeyDigest,
-} from '../node/oauth-file-store.js';
+import { createFileOAuthCredentialStore, credentialKeyDigest } from '../node/oauth-file-store.js';
 import { createNodeOAuthNetwork } from '../node/oauth-network.js';
 import { createFileOAuthRefreshLock } from '../node/oauth-refresh-lock.js';
 
@@ -162,6 +159,36 @@ describe('OAuth authenticator', () => {
     await expect(store.get(KEY)).resolves.toMatchObject({ refreshToken: 'rt-1' });
   });
 
+  it('refreshes with the origin resource exactly as it was authorized', async () => {
+    const server = createFakeOAuthServer();
+    server.validRefreshTokens.add('rt-initial');
+    const { store, authenticator } = setup(server);
+    await store.set(KEY, credential({ resource: 'https://mcp.example.test', expiresAt: NOW - 1 }));
+    await authorize(authenticator);
+    const token = server.requests.find((request) => request.url.endsWith('/token'))!;
+    expect(new URLSearchParams(token.body).get('resource')).toBe('https://mcp.example.test');
+  });
+
+  it('refuses to refresh a credential with an invalid resource', async () => {
+    const server = createFakeOAuthServer();
+    const { store, authenticator } = setup(server);
+    await store.set(KEY, credential({ resource: 'not a URL', expiresAt: NOW - 1 }));
+    expect((await failure(authorize(authenticator))).reason).toBe('refresh-failed');
+    expect(server.tokenCalls()).toBe(0);
+  });
+
+  it('requires a new sign-in when rediscovery changes the resource indicator', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.rootResourceMetadata = true;
+    const { store, authenticator } = setup(server);
+    await store.set(KEY, credential({ resource: 'https://mcp.example.test' }));
+    const authorization = await authorize(authenticator);
+    server.overrides.resource = MCP_URL;
+    expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
+    expect((await failure(authorize(authenticator))).reason).toBe('login-required');
+    expect(server.tokenCalls()).toBe(0);
+  });
+
   it('refreshes once across two store readers sharing the lock', async () => {
     const server = createFakeOAuthServer();
     server.validRefreshTokens.add('rt-initial');
@@ -240,7 +267,9 @@ describe('OAuth authenticator', () => {
           : {}),
       });
     }) as typeof globalThis.fetch;
-    const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ lookup: server.lookup, fetch: mcpFetch }) });
+    const adapter = createStreamableHttpAdapter({
+      egress: createNodeHttpEgress({ lookup: server.lookup, fetch: mcpFetch }),
+    });
     const admitted = await adapter.admit({
       url: MCP_URL,
       authenticationRequired: true,

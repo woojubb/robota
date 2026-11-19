@@ -128,6 +128,23 @@ async function failure(promise: Promise<unknown>): Promise<MCPOAuthError> {
 }
 
 describe('OAuth sign-in', () => {
+  it('uses the origin resource but keeps the credential bound to the endpoint', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.rootResourceMetadata = true;
+    const { result, store, opened, locked } = login(server);
+    await result;
+    expect(opened[0]!.searchParams.get('resource')).toBe('https://mcp.example.test');
+    const token = server.requests.find((request) => request.url.endsWith('/token'))!;
+    expect(new URLSearchParams(token.body).get('resource')).toBe('https://mcp.example.test');
+    expect(locked).toEqual([MCP_URL]);
+    await expect(store.get(oauthCredentialKey('identity-1', MCP_URL))).resolves.toMatchObject({
+      resource: 'https://mcp.example.test',
+    });
+    await expect(
+      store.get(oauthCredentialKey('identity-1', 'https://mcp.example.test/other')),
+    ).resolves.toBeUndefined();
+  });
+
   it('registers, authorizes with PKCE, state and resource, and stores a bearer credential', async () => {
     const server = createFakeOAuthServer();
     const { result, store, opened, directory, locked } = login(server);
