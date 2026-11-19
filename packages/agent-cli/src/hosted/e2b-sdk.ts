@@ -12,6 +12,10 @@ function isMissingE2BPackage(error: unknown): boolean {
 }
 
 export async function loadE2BSdk(): Promise<typeof import('e2b/dist/index.mjs')> {
+  const [major = 0, minor = 0] = process.versions.node.split('.').map(Number);
+  if (process.versions['bun'] === undefined && (major < 22 || (major === 22 && minor < 19))) {
+    throw new Error('E2B SDK 2.64.0 requires Node.js 22.19.0 or later for hosted execution.');
+  }
   try {
     // eslint-disable-next-line no-restricted-syntax -- The optional hosted SDK must not load during local startup.
     const sdk = await import('e2b/dist/index.mjs');
@@ -30,14 +34,14 @@ export async function loadE2BSdk(): Promise<typeof import('e2b/dist/index.mjs')>
       } catch (resolution) {
         if (isMissingE2BPackage(resolution)) {
           throw new Error(
-            'E2B SDK is not installed. Install e2b@2.51.0 alongside the CLI in the same project or global installation prefix; host execution is refused.',
+            'E2B SDK is not installed. Install e2b@2.64.0 alongside the CLI in the same project or global installation prefix; host execution is refused.',
             { cause },
           );
         }
       }
     }
     throw new Error(
-      'E2B SDK failed to load. Repair or reinstall e2b@2.51.0 alongside the CLI in the same project or global installation prefix; host execution is refused.',
+      'E2B SDK failed to load. Repair or reinstall e2b@2.64.0 alongside the CLI in the same project or global installation prefix; host execution is refused.',
       { cause },
     );
   }

@@ -168,7 +168,9 @@
       "@jest/reporters>glob": "^14.0.6",
       "jest-config>glob": "^14.0.6",
       "jest-runtime>glob": "^14.0.6",
-      "@stryker-mutator/core>minimatch": "^11.0.9"
+      "@stryker-mutator/core>minimatch": "^11.0.9",
+      "app-builder-lib>minimatch": "^11.0.9",
+      "@electron/universal>minimatch": "^11.0.9"
     },
     "patchedDependencies": {
       "nostr-tools@2.25.2": "patches/nostr-tools@2.25.2.patch"
