@@ -74,6 +74,7 @@ export interface IMCPOAuthAuthenticator extends IMCPClientAuthenticator {
 const DEFAULT_EXPIRY_SKEW_MS = 60_000;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
+const MAX_DISCOVERY_RETRIES = 3;
 /** Scope tokens as RFC 6749 §3.3 allows them, space-separated; anything else is not shown. */
 const SCOPE_LIST = /^[\x21\x23-\x5b\x5d-\x7e]+(?: [\x21\x23-\x5b\x5d-\x7e]+)*$/;
 const MAX_SCOPE_NOTICE_LENGTH = 512;
@@ -81,6 +82,29 @@ const MAX_SCOPE_NOTICE_LENGTH = 512;
 interface IIssued {
   readonly generation: number;
   readonly accessToken: string;
+}
+
+/** Whether the credential still has the values observed before a network discovery. */
+function sameCredential(a: IMCPOAuthCredential, b: IMCPOAuthCredential): boolean {
+  const fields = [
+    'issuer',
+    'authorizationEndpoint',
+    'tokenEndpoint',
+    'tokenEndpointAuthMethod',
+    'resource',
+    'clientId',
+    'clientSecret',
+    'accessToken',
+    'refreshToken',
+    'expiresAt',
+    'issuedAt',
+    'scope',
+  ] as const;
+  if (fields.some((field) => a[field] !== b[field])) return false;
+  const first = a.tokenEndpointAuthMethods;
+  const second = b.tokenEndpointAuthMethods;
+  if (first === undefined || second === undefined) return first === second;
+  return first.length === second.length && first.every((method, index) => method === second[index]);
 }
 
 function challengeOf(wwwAuthenticate: string | undefined): {
@@ -211,11 +235,13 @@ export function createOAuthAuthenticator(
     const stored = await options.store.get(key);
     if (stored === undefined) return loginRequired(false);
     if (challenge === undefined && usable(stored)) return stored;
-    // Rediscovery is network, so it runs before the lock; what it is compared with is read under it.
-    const server =
-      challenge === undefined
-        ? undefined
-        : await discoverMCPOAuthServer({
+    let observed = stored;
+    for (let attempt = 0; attempt < MAX_DISCOVERY_RETRIES; attempt += 1) {
+      // Discovery is network work and cannot hold the cross-process credential lock.
+      let server: Awaited<ReturnType<typeof discoverMCPOAuthServer>> | undefined;
+      if (challenge !== undefined) {
+        try {
+          server = await discoverMCPOAuthServer({
             serverUrl: options.serverUrl,
             config: options.config,
             fetch: createOAuthFetch(options.network, signal),
@@ -223,26 +249,39 @@ export function createOAuthAuthenticator(
               ? {}
               : { resourceMetadataUrl: challenge.resourceMetadataUrl }),
           });
-    return options.lock.withLock(
-      key,
-      async () => {
-        // Read again under the lock: another holder may have refreshed, or the user signed in
-        // again, while this one waited. Only what is stored now is compared, refreshed or cleared.
-        const current = await options.store.get(key);
-        if (current === undefined) return loginRequired(false);
-        if (
-          server !== undefined &&
-          (server.resource !== current.resource ||
-            !sameUrl(server.issuer, current.issuer) ||
-            !sameUrl(server.metadata.token_endpoint, current.tokenEndpoint))
-        ) {
-          return loginRequired(true);
+        } catch (error) {
+          rediscover ??= challenge;
+          throw error;
         }
-        if (usable(current)) return current;
-        return refresh(current, signal);
-      },
-      signal,
-    );
+      }
+      const result = await options.lock.withLock(
+        key,
+        async () => {
+          const current = await options.store.get(key);
+          if (current === undefined) return loginRequired(false);
+          if (server !== undefined && !sameCredential(current, observed)) {
+            return { kind: usable(current) ? 'ready' : 'retry', credential: current } as const;
+          }
+          if (
+            server !== undefined &&
+            (server.resource !== current.resource ||
+              !sameUrl(server.issuer, current.issuer) ||
+              !sameUrl(server.metadata.token_endpoint, current.tokenEndpoint))
+          ) {
+            return loginRequired(true);
+          }
+          return {
+            kind: 'ready',
+            credential: usable(current) ? current : await refresh(current, signal),
+          } as const;
+        },
+        signal,
+      );
+      if (result.kind === 'ready') return result.credential;
+      observed = result.credential;
+    }
+    if (challenge !== undefined) rediscover ??= challenge;
+    throw new MCPOAuthError('discovery-failed');
   };
 
   const cache = new MCPSingleFlightCache(async (signal) => {

@@ -352,6 +352,27 @@ describe('OAuth authenticator', () => {
     expect(notices).toEqual([{ kind: 'login-required', serverId: 'files' }]);
   });
 
+  it('retries discovery after a temporary metadata failure before refreshing', async () => {
+    const server = createFakeOAuthServer();
+    server.validRefreshTokens.add('rt-initial');
+    let unavailable = true;
+    const fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (unavailable && String(input).includes('/.well-known/oauth-protected-resource/mcp')) {
+        return new Response(null, { status: 429 });
+      }
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const { store, authenticator } = setup({ ...server, fetch });
+    await store.set(KEY, credential());
+    const authorization = await authorize(authenticator);
+    expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
+    expect((await failure(authorize(authenticator))).reason).toBe('discovery-failed');
+    unavailable = false;
+    server.overrides.authorizationServers = ['https://other-auth.example.test/'];
+    expect((await failure(authorize(authenticator))).reason).toBe('login-required');
+    expect(server.tokenCalls()).toBe(0);
+  });
+
   it('keeps a sign-in made after the 401 when the authorization server moved to it', async () => {
     const server = createFakeOAuthServer();
     const directory = temporaryDirectory();
@@ -379,6 +400,39 @@ describe('OAuth authenticator', () => {
     expect(notices).toEqual([]);
   });
 
+  it.each([
+    ['a new access token', 'at-fresh-login', 'at-fresh-login'],
+    ['the same access token', 'at-initial', 'at-1'],
+  ])(
+    'keeps a new sign-in with %s while rediscovery is in flight',
+    async (_case, accessToken, expected) => {
+      const server = createFakeOAuthServer();
+      server.overrides.rootResourceMetadata = true;
+      server.validRefreshTokens.add('rt-initial');
+      const directory = temporaryDirectory();
+      const signIn = createFileOAuthCredentialStore(directory);
+      let replaced = false;
+      const fetch = (async (input: string | URL, init?: RequestInit) => {
+        if (!replaced && String(input).startsWith('https://auth.example.test/.well-known/')) {
+          replaced = true;
+          await signIn.set(KEY, credential({ resource: MCP_URL, accessToken }));
+          server.overrides.resource = MCP_URL;
+        }
+        return server.fetch(input, init);
+      }) as typeof globalThis.fetch;
+      const { store, authenticator, notices } = setup({ ...server, fetch }, directory);
+      await store.set(KEY, credential({ resource: 'https://mcp.example.test' }));
+      const authorization = await authorize(authenticator);
+      expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
+      expect(await authorize(authenticator)).toEqual({ Authorization: `Bearer ${expected}` });
+      await expect(store.get(KEY)).resolves.toMatchObject({
+        resource: MCP_URL,
+        accessToken: expected,
+      });
+      expect(notices).toEqual([]);
+    },
+  );
+
   it('keeps tokens and secrets out of every error and notice', async () => {
     const server = createFakeOAuthServer();
     const { store, authenticator, notices } = setup(server);
@@ -389,6 +443,32 @@ describe('OAuth authenticator', () => {
     const error = await failure(authorize(authenticator));
     const text = `${error.message} ${String(error.stack)} ${JSON.stringify(notices)}`;
     expect(text).not.toMatch(/rt-secret|cs-secret|at-initial|leaked-secret/);
+  });
+
+  it('retains a changing sign-in when rediscovery cannot settle', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.rootResourceMetadata = true;
+    server.validRefreshTokens.add('rt-initial');
+    const directory = temporaryDirectory();
+    const signIn = createFileOAuthCredentialStore(directory);
+    let changes = 0;
+    const fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (changes < 3 && String(input).startsWith('https://auth.example.test/.well-known/')) {
+        changes += 1;
+        const resource = changes % 2 === 1 ? MCP_URL : 'https://mcp.example.test';
+        await signIn.set(KEY, credential({ resource }));
+        server.overrides.resource = resource;
+      }
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const { store, authenticator, notices } = setup({ ...server, fetch }, directory);
+    await store.set(KEY, credential({ resource: 'https://mcp.example.test' }));
+    const authorization = await authorize(authenticator);
+    expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
+    expect((await failure(authorize(authenticator))).reason).toBe('discovery-failed');
+    await expect(store.get(KEY)).resolves.toMatchObject({ resource: MCP_URL });
+    expect(notices).toEqual([]);
+    expect(await authorize(authenticator)).toEqual({ Authorization: 'Bearer at-1' });
   });
 });
 

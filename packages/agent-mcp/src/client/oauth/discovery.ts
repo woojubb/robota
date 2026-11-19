@@ -92,7 +92,7 @@ async function fetchResourceMetadata(
   const response = await fetch(url, {
     headers: { 'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION, Accept: 'application/json' },
   });
-  if (response.status >= 400 && response.status < 500) return undefined;
+  if (response.status === 404) return undefined;
   if (!response.ok) throw new MCPOAuthError('discovery-failed');
   const parsed = OAuthProtectedResourceMetadataSchema.safeParse(await readJson(response));
   if (!parsed.success) throw new MCPOAuthError('response-invalid');

@@ -132,6 +132,27 @@ describe('OAuth discovery', () => {
     expect(await reasonOf(discover(root))).toBe('resource-mismatch');
   });
 
+  it.each([401, 403, 429])(
+    'does not fall back to root after a metadata HTTP %s',
+    async (status) => {
+      const server = createFakeOAuthServer();
+      server.overrides.rootResourceMetadata = true;
+      const requests: string[] = [];
+      const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(input instanceof Request ? input.url : input);
+        requests.push(url.href);
+        if (url.pathname === '/.well-known/oauth-protected-resource/mcp') {
+          return new Response(null, { status });
+        }
+        return server.fetch(input, init);
+      }) as typeof globalThis.fetch;
+      expect(await reasonOf(discover({ ...server, fetch }))).toBe('discovery-failed');
+      expect(requests).not.toContain(
+        'https://mcp.example.test/.well-known/oauth-protected-resource',
+      );
+    },
+  );
+
   it('refuses authorization server metadata naming another issuer', async () => {
     const server = createFakeOAuthServer();
     server.overrides.issuer = 'https://evil.example.test/';
