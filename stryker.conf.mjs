@@ -74,9 +74,8 @@ const config = {
   testRunner: 'vitest',
   vitest: {
     configFile: `packages/${target.package}/vitest.config.ts`,
-    // Run vitest with the package as its working directory so the config's `src/**` include globs
-    // resolve inside the package (otherwise vitest runs from the sandbox root and finds no tests).
     dir: `packages/${target.package}`,
+    pool: 'forks',
   },
   mutate: target.mutate,
   // perTest coverage runs only the tests that cover each mutant — the main speed lever.
