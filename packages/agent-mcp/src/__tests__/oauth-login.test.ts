@@ -173,6 +173,7 @@ describe('OAuth sign-in', () => {
       accessToken: expect.stringMatching(/^at-/),
       refreshToken: expect.stringMatching(/^rt-/),
       resource: MCP_URL,
+      signInId: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
     if (process.platform !== 'win32') {
       expect(statSync(directory).mode & 0o777).toBe(0o700);
@@ -245,6 +246,10 @@ describe('OAuth sign-in', () => {
     await second.result;
     expect(first.opened[0]!.searchParams.get('state')).not.toBe(
       second.opened[0]!.searchParams.get('state'),
+    );
+    const key = oauthCredentialKey('identity-1', MCP_URL);
+    expect((await first.store.get(key))?.signInId).not.toBe(
+      (await second.store.get(key))?.signInId,
     );
   });
 

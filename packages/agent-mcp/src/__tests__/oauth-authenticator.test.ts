@@ -150,7 +150,7 @@ describe('OAuth authenticator', () => {
     const server = createFakeOAuthServer();
     server.validRefreshTokens.add('rt-initial');
     const { store, authenticator } = setup(server);
-    await store.set(KEY, credential({ expiresAt: NOW - 1 }));
+    await store.set(KEY, credential({ expiresAt: NOW - 1, signInId: 'first-sign-in' }));
     const all = await Promise.all(Array.from({ length: 8 }, () => authorize(authenticator)));
     expect(new Set(all.map((headers) => headers['Authorization']))).toEqual(
       new Set(['Bearer at-1']),
@@ -158,7 +158,10 @@ describe('OAuth authenticator', () => {
     expect(server.tokenCalls('refresh_token')).toBe(1);
     const token = server.requests.find((r) => r.url.endsWith('/token'))!;
     expect(new URLSearchParams(token.body).get('resource')).toBe(MCP_URL);
-    await expect(store.get(KEY)).resolves.toMatchObject({ refreshToken: 'rt-1' });
+    await expect(store.get(KEY)).resolves.toMatchObject({
+      refreshToken: 'rt-1',
+      signInId: 'first-sign-in',
+    });
   });
 
   it('refreshes with the origin resource exactly as it was authorized', async () => {
@@ -461,6 +464,30 @@ describe('OAuth authenticator', () => {
     expect((await failure(authorize(authenticator))).reason).toBe('login-required');
     expect(server.tokenCalls()).toBe(0);
     await expect(store.get(KEY)).resolves.toBeUndefined();
+  });
+
+  it('preserves a new sign-in with otherwise identical credentials', async () => {
+    const server = createFakeOAuthServer();
+    server.validRefreshTokens.add('rt-initial');
+    const directory = temporaryDirectory();
+    const signIn = createFileOAuthCredentialStore(directory);
+    let replaced = false;
+    const fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (!replaced && String(input).startsWith('https://auth.example.test/.well-known/')) {
+        replaced = true;
+        await signIn.set(KEY, credential({ signInId: 'second-sign-in' }));
+        server.overrides.rootResourceMetadata = false;
+      }
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const { store, authenticator, notices } = setup({ ...server, fetch }, directory);
+    await store.set(KEY, credential({ signInId: 'first-sign-in' }));
+    const authorization = await authorize(authenticator);
+    server.overrides.rootResourceMetadata = true;
+    expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
+    expect(await authorize(authenticator)).toEqual({ Authorization: 'Bearer at-1' });
+    await expect(store.get(KEY)).resolves.toMatchObject({ signInId: 'second-sign-in' });
+    expect(notices).toEqual([]);
   });
 
   it('keeps a sign-in made after the 401 when the authorization server moved to it', async () => {

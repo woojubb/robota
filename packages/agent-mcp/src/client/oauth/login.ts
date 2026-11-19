@@ -376,6 +376,7 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
     const credential = credentialFromTokens(
       tokens,
       {
+        signInId: randomHex(32),
         issuer: server.issuer,
         authorizationEndpoint: server.metadata.authorization_endpoint,
         tokenEndpoint: server.metadata.token_endpoint,

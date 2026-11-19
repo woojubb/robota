@@ -87,6 +87,7 @@ interface IIssued {
 /** Whether the credential still has the values observed before a network discovery. */
 function sameCredential(a: IMCPOAuthCredential, b: IMCPOAuthCredential): boolean {
   const fields = [
+    'signInId',
     'issuer',
     'authorizationEndpoint',
     'tokenEndpoint',
