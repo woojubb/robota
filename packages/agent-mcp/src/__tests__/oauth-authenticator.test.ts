@@ -27,6 +27,7 @@ import { createStreamableHttpAdapter } from '../client/transport.js';
 import { AS_URL, MCP_URL, createFakeOAuthServer } from './fixtures/fake-oauth-server.js';
 
 import type { TMCPOAuthNotice } from '../client/oauth/authenticator.js';
+import type { IMCPOAuthRefreshLock } from '../client/oauth/refresh-lock.js';
 import type { IMCPOAuthCredential } from '../client/oauth/store.js';
 import type { IFakeOAuthServer } from './fixtures/fake-oauth-server.js';
 import { createNodeHttpEgress } from '../node/http-egress.js';
@@ -67,6 +68,7 @@ function setup(
   server: IFakeOAuthServer,
   directory = temporaryDirectory(),
   now: () => number = () => NOW,
+  lock?: IMCPOAuthRefreshLock,
 ) {
   const store = createFileOAuthCredentialStore(directory);
   const notices: TMCPOAuthNotice[] = [];
@@ -76,7 +78,7 @@ function setup(
     serverUrl: MCP_URL,
     config: {},
     store,
-    lock: createFileOAuthRefreshLock(directory, { pollMs: 5 }),
+    lock: lock ?? createFileOAuthRefreshLock(directory, { pollMs: 5 }),
     network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
     notify: (notice) => notices.push(notice),
     now,
@@ -133,6 +135,18 @@ describe('OAuth credential store', () => {
     const error = await failure(store.get(other));
     expect(error.reason).toBe('store-failed');
   });
+
+  it('refuses a record with a malformed grant identity', async () => {
+    const directory = temporaryDirectory();
+    const store = createFileOAuthCredentialStore(directory);
+    await store.set(KEY, credential());
+    const path = join(directory, `${credentialKeyDigest(KEY)}.json`);
+    writeFileSync(
+      path,
+      JSON.stringify({ version: 1, key: KEY, credential: credential({ grantId: 'bad' }) }),
+    );
+    expect((await failure(store.get(KEY))).reason).toBe('store-failed');
+  });
 });
 
 describe('OAuth authenticator', () => {
@@ -148,7 +162,7 @@ describe('OAuth authenticator', () => {
     const server = createFakeOAuthServer();
     server.validRefreshTokens.add('rt-initial');
     const { store, authenticator } = setup(server);
-    await store.set(KEY, credential({ expiresAt: NOW - 1 }));
+    await store.set(KEY, credential({ expiresAt: NOW - 1, grantId: 'a'.repeat(64) }));
     const all = await Promise.all(Array.from({ length: 8 }, () => authorize(authenticator)));
     expect(new Set(all.map((headers) => headers['Authorization']))).toEqual(
       new Set(['Bearer at-1']),
@@ -156,7 +170,10 @@ describe('OAuth authenticator', () => {
     expect(server.tokenCalls('refresh_token')).toBe(1);
     const token = server.requests.find((r) => r.url.endsWith('/token'))!;
     expect(new URLSearchParams(token.body).get('resource')).toBe(MCP_URL);
-    await expect(store.get(KEY)).resolves.toMatchObject({ refreshToken: 'rt-1' });
+    await expect(store.get(KEY)).resolves.toMatchObject({
+      refreshToken: 'rt-1',
+      grantId: 'a'.repeat(64),
+    });
   });
 
   it('refreshes with the origin resource exactly as it was authorized', async () => {
@@ -373,10 +390,74 @@ describe('OAuth authenticator', () => {
     expect(server.tokenCalls()).toBe(0);
   });
 
+  it('retries discovery after the credential lock fails', async () => {
+    const server = createFakeOAuthServer();
+    server.validRefreshTokens.add('rt-initial');
+    const directory = temporaryDirectory();
+    const original = createFileOAuthRefreshLock(directory, { pollMs: 5 });
+    let failLock = true;
+    const lock: IMCPOAuthRefreshLock = {
+      withLock: (key, critical, signal) => {
+        if (failLock) {
+          failLock = false;
+          return Promise.reject(new MCPOAuthError('lock-timeout'));
+        }
+        return original.withLock(key, critical, signal);
+      },
+    };
+    const { store, authenticator } = setup(server, directory, () => NOW, lock);
+    await store.set(KEY, credential());
+    const authorization = await authorize(authenticator);
+    server.overrides.rootResourceMetadata = true;
+    expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
+    expect((await failure(authorize(authenticator))).reason).toBe('lock-timeout');
+    expect((await failure(authorize(authenticator))).reason).toBe('login-required');
+    expect(server.tokenCalls()).toBe(0);
+  });
+
+  it('retries discovery after the credential store fails', async () => {
+    const server = createFakeOAuthServer();
+    server.validRefreshTokens.add('rt-initial');
+    const { store, authenticator, directory } = setup(server);
+    await store.set(KEY, credential());
+    const authorization = await authorize(authenticator);
+    server.overrides.rootResourceMetadata = true;
+    expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
+    const path = join(directory, `${credentialKeyDigest(KEY)}.json`);
+    writeFileSync(path, 'invalid');
+    expect((await failure(authorize(authenticator))).reason).toBe('store-failed');
+    await store.set(KEY, credential());
+    expect((await failure(authorize(authenticator))).reason).toBe('login-required');
+    expect(server.tokenCalls()).toBe(0);
+  });
+
+  it('does not use a concurrent refresh after the resource changed', async () => {
+    const server = createFakeOAuthServer();
+    const directory = temporaryDirectory();
+    const signIn = createFileOAuthCredentialStore(directory);
+    const grantId = 'a'.repeat(64);
+    let refreshed = false;
+    const fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (!refreshed && String(input).startsWith('https://auth.example.test/.well-known/')) {
+        refreshed = true;
+        await signIn.set(KEY, credential({ grantId, accessToken: 'at-refreshed' }));
+      }
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const { store, authenticator } = setup({ ...server, fetch }, directory);
+    await store.set(KEY, credential({ grantId }));
+    const authorization = await authorize(authenticator);
+    server.overrides.rootResourceMetadata = true;
+    expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
+    expect((await failure(authorize(authenticator))).reason).toBe('login-required');
+    await expect(store.get(KEY)).resolves.toBeUndefined();
+  });
+
   it('keeps a sign-in made after the 401 when the authorization server moved to it', async () => {
     const server = createFakeOAuthServer();
     const directory = temporaryDirectory();
     const fresh = credential({
+      grantId: 'b'.repeat(64),
       issuer: 'https://other-auth.example.test/',
       tokenEndpoint: 'https://other-auth.example.test/token',
       accessToken: 'at-fresh-login',
@@ -391,7 +472,7 @@ describe('OAuth authenticator', () => {
       return server.fetch(input, init);
     }) as typeof globalThis.fetch;
     const { store, authenticator, notices } = setup({ ...server, fetch }, directory);
-    await store.set(KEY, credential());
+    await store.set(KEY, credential({ grantId: 'a'.repeat(64) }));
     const authorization = await authorize(authenticator);
     server.overrides.authorizationServers = ['https://other-auth.example.test/'];
     expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');

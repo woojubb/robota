@@ -47,6 +47,7 @@ const OPTIONAL_STRINGS = [
   'refreshToken',
   'scope',
   'tokenEndpointAuthMethod',
+  'grantId',
 ] as const;
 const REQUIRED_STRINGS = [
   'issuer',
@@ -65,6 +66,9 @@ function readCredential(value: unknown): IMCPOAuthCredential | undefined {
   if (!isRecord(value)) return undefined;
   if (REQUIRED_STRINGS.some((field) => typeof value[field] !== 'string')) return undefined;
   if (OPTIONAL_STRINGS.some((f) => value[f] !== undefined && typeof value[f] !== 'string')) {
+    return undefined;
+  }
+  if (typeof value['grantId'] === 'string' && !/^[a-f0-9]{64}$/u.test(value['grantId'])) {
     return undefined;
   }
   for (const field of ['expiresAt', 'issuedAt'] as const) {

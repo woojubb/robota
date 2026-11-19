@@ -87,6 +87,7 @@ interface IIssued {
 /** Whether the credential still has the values observed before a network discovery. */
 function sameCredential(a: IMCPOAuthCredential, b: IMCPOAuthCredential): boolean {
   const fields = [
+    'grantId',
     'issuer',
     'authorizationEndpoint',
     'tokenEndpoint',
@@ -232,7 +233,13 @@ export function createOAuthAuthenticator(
   const load = async (signal: AbortSignal): Promise<IMCPOAuthCredential> => {
     const challenge = rediscover;
     rediscover = undefined;
-    const stored = await options.store.get(key);
+    let stored: IMCPOAuthCredential | undefined;
+    try {
+      stored = await options.store.get(key);
+    } catch (error) {
+      if (challenge !== undefined) rediscover ??= challenge;
+      throw error;
+    }
     if (stored === undefined) return loginRequired(false);
     if (challenge === undefined && usable(stored)) return stored;
     let observed = stored;
@@ -254,29 +261,44 @@ export function createOAuthAuthenticator(
           throw error;
         }
       }
-      const result = await options.lock.withLock(
-        key,
-        async () => {
-          const current = await options.store.get(key);
-          if (current === undefined) return loginRequired(false);
-          if (server !== undefined && !sameCredential(current, observed)) {
-            return { kind: usable(current) ? 'ready' : 'retry', credential: current } as const;
-          }
-          if (
-            server !== undefined &&
-            (server.resource !== current.resource ||
-              !sameUrl(server.issuer, current.issuer) ||
-              !sameUrl(server.metadata.token_endpoint, current.tokenEndpoint))
-          ) {
-            return loginRequired(true);
-          }
-          return {
-            kind: 'ready',
-            credential: usable(current) ? current : await refresh(current, signal),
-          } as const;
-        },
-        signal,
-      );
+      let result: { kind: 'ready' | 'retry'; credential: IMCPOAuthCredential };
+      try {
+        result = await options.lock.withLock(
+          key,
+          async () => {
+            const current = await options.store.get(key);
+            if (current === undefined) return loginRequired(false);
+            if (server !== undefined && !sameCredential(current, observed)) {
+              const sameGrant =
+                current.grantId !== undefined && current.grantId === observed.grantId;
+              if (!sameGrant) {
+                const newGrant =
+                  current.grantId !== undefined && current.grantId !== observed.grantId;
+                return {
+                  kind: newGrant && usable(current) ? 'ready' : 'retry',
+                  credential: current,
+                } as const;
+              }
+            }
+            if (
+              server !== undefined &&
+              (server.resource !== current.resource ||
+                !sameUrl(server.issuer, current.issuer) ||
+                !sameUrl(server.metadata.token_endpoint, current.tokenEndpoint))
+            ) {
+              return loginRequired(true);
+            }
+            return {
+              kind: 'ready',
+              credential: usable(current) ? current : await refresh(current, signal),
+            } as const;
+          },
+          signal,
+        );
+      } catch (error) {
+        if (challenge !== undefined) rediscover ??= challenge;
+        throw error;
+      }
       if (result.kind === 'ready') return result.credential;
       observed = result.credential;
     }
