@@ -133,7 +133,13 @@ export class MCPStdioTransport implements Transport {
     if (!(await this.revalidate())) throw new MCPStdioError('authority');
     if (this.closePromise !== undefined) throw new MCPStdioError('start');
     const environment: Record<string, string> = Object.create(null) as Record<string, string>;
-    for (const key of DEFAULT_INHERITED_ENV_VARS) environment[key] = this.snapshot.env[key] ?? '';
+    const selected = Object.keys(this.snapshot.env);
+    for (const key of DEFAULT_INHERITED_ENV_VARS) {
+      const present = selected.some((name) =>
+        process.platform === 'win32' ? name.toUpperCase() === key.toUpperCase() : name === key,
+      );
+      if (!present) environment[key] = '';
+    }
     for (const [key, value] of Object.entries(this.snapshot.env)) environment[key] = value;
     try {
       // A server is a configured program: in secure mode it gets its own session, so it cannot reach

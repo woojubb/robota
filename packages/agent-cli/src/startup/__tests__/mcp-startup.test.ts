@@ -41,6 +41,15 @@ function tempRoot(prefix: string): string {
   return root;
 }
 
+function nodeFixtureEnvironment(home: string): Record<string, string> {
+  return {
+    HOME: home,
+    ...(process.platform === 'win32'
+      ? { SYSTEMROOT: process.env.SYSTEMROOT ?? process.env.SystemRoot ?? '' }
+      : {}),
+  };
+}
+
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
@@ -111,7 +120,7 @@ describe('composeMcpClientForStartup', () => {
           allowedRoot: cwd,
           generation: 'host-1',
           executables: [{ command: process.execPath, args: [args] }],
-          environment: { HOME: userHome },
+          environment: nodeFixtureEnvironment(userHome),
         },
       },
     });
@@ -181,7 +190,7 @@ describe('composeMcpClientForStartup', () => {
             allowedRoot: cwd,
             generation: 'host-1',
             executables: [{ command: process.execPath, args: [args] }],
-            environment: { HOME: userHome },
+            environment: nodeFixtureEnvironment(userHome),
           },
         },
       });
@@ -243,7 +252,7 @@ describe('composeMcpClientForStartup', () => {
             allowedRoot: cwd,
             generation: 'host-1',
             executables: [{ command: process.execPath, args: [args] }],
-            environment: { HOME: userHome },
+            environment: nodeFixtureEnvironment(userHome),
           },
         },
       });
@@ -299,7 +308,7 @@ describe('composeMcpClientForStartup', () => {
               allowedRoot: cwd,
               generation: 'host-1',
               executables: [{ command: process.execPath, args: [args] }],
-              environment: { HOME: userHome },
+              environment: nodeFixtureEnvironment(userHome),
             },
           },
         });
@@ -364,7 +373,7 @@ describe('composeMcpClientForStartup', () => {
             allowedRoot: cwd,
             generation: 'host-1',
             executables: [{ command: process.execPath, args: [args] }],
-            environment: { HOME: userHome },
+            environment: nodeFixtureEnvironment(userHome),
           },
         },
       });
@@ -417,7 +426,7 @@ describe('composeMcpClientForStartup', () => {
             allowedRoot: cwd,
             generation: 'host-1',
             executables: [{ command: process.execPath, args: [args] }],
-            environment: { HOME: userHome },
+            environment: nodeFixtureEnvironment(userHome),
           },
         },
       });
@@ -919,7 +928,7 @@ it.each([false, true])(
           allowedRoot: source,
           generation: 'host-fixture',
           executables: [{ command: process.execPath, args: [args] }],
-          environment: { HOME: userHome },
+          environment: nodeFixtureEnvironment(userHome),
         },
       },
     });
@@ -985,7 +994,7 @@ it.each(['disable', 'uninstall', 'update'] as const)(
             allowedRoot: source,
             generation: 'host-pinned',
             executables: [{ command: process.execPath, args: [args] }],
-            environment: { HOME: userHome },
+            environment: nodeFixtureEnvironment(userHome),
           },
         },
       });
