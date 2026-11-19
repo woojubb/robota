@@ -31,7 +31,7 @@ import { defineConfig } from 'vitest/config';
  *
  * ## What the numbers are
  *
- * `maxForks` bounds how many workers run at once; combined with `workspace-concurrency=4` in
+ * `maxWorkers` bounds how many workers run at once; combined with `workspace-concurrency=4` in
  * `.npmrc` it bounds the PRODUCT, which is the quantity that actually overran.
  *
  * `--max-old-space-size` bounds what one worker may hold. 512 MB is roughly 3x the measured
