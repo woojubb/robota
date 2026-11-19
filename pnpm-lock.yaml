@@ -47,7 +47,8 @@ overrides:
   brace-expansion@<1.1.18: '>=1.1.18 <2.0.0'
   brace-expansion@>=2.0.0 <2.1.4: '>=2.1.4 <3.0.0'
   brace-expansion@>=4.0.0 <5.0.9: '>=5.0.9 <6.0.0'
-  hono: '>=4.13.11 <5.0.0'
+  hono: '>=4.13.16 <5.0.0'
+  '@hono/node-server': '>=2.1.6 <3.0.0'
   svgo: '>=4.1.0 <5.0.0'
   postcss@>=8.5.10 <8.5.23: '>=8.5.23 <9.0.0'
   builder-util-runtime@<9.7.0: '>=9.7.0 <10.0.0'
@@ -182,7 +183,7 @@ importers:
         version: link:../../packages/agent-local-host
       '@robota-sdk/agent-transport':
         specifier: npm:@robota-sdk/agent-transport@3.4.3
-        version: 3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
+        version: 3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.2)(@modelcontextprotocol/server@2.4.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.19)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       '@robota-sdk/product-config':
         specifier: npm:@robota-sdk/product-config@3.2.2
         version: 3.2.2
@@ -446,8 +447,8 @@ importers:
         specifier: ^1.52.0
         version: 1.52.0
       '@hono/node-server':
-        specifier: ^2.0.11
-        version: 2.0.11(hono@4.13.14)
+        specifier: '>=2.1.6 <3.0.0'
+        version: 2.1.9(hono@4.13.19)
       '@robota-sdk/agent-core':
         specifier: workspace:^
         version: link:../../packages/agent-core
@@ -482,8 +483,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/personal-gui-web
       hono:
-        specifier: '>=4.13.11 <5.0.0'
-        version: 4.13.14
+        specifier: '>=4.13.16 <5.0.0'
+        version: 4.13.19
       openai:
         specifier: ^6.0.0
         version: 6.0.0(ws@8.21.1)(zod@4.6.7)
@@ -760,10 +761,10 @@ importers:
         version: 3.3.1(@robota-sdk/agent-core@3.3.3)
       '@robota-sdk/agent-transport':
         specifier: ^3.4.0
-        version: 3.4.1(hono@4.13.14)(ws@8.21.1)(zod@4.6.7)
+        version: 3.4.1(hono@4.13.19)(ws@8.21.1)(zod@4.6.7)
       hono:
-        specifier: '>=4.13.11 <5.0.0'
-        version: 4.13.14
+        specifier: '>=4.13.16 <5.0.0'
+        version: 4.13.19
       ws:
         specifier: ^8.21.1
         version: 8.21.1
@@ -1135,23 +1136,23 @@ importers:
         specifier: ^1.52.0
         version: 1.52.0
       '@hono/node-server':
-        specifier: ^2.0.11
-        version: 2.0.11(hono@4.13.14)
+        specifier: '>=2.1.6 <3.0.0'
+        version: 2.1.9(hono@4.13.19)
       '@marcbachmann/cel-js':
         specifier: ^7.5.3
         version: 7.6.1
       '@modelcontextprotocol/client':
-        specifier: ^2.3.0
-        version: 2.3.0
+        specifier: ^2.4.0
+        version: 2.4.0
       '@modelcontextprotocol/core':
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.4.0
+        version: 2.4.0
       '@modelcontextprotocol/node':
-        specifier: ^2.1.0
-        version: 2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14)
+        specifier: ^2.1.2
+        version: 2.1.2(@modelcontextprotocol/server@2.4.0)
       '@modelcontextprotocol/server':
-        specifier: ^2.3.0
-        version: 2.3.0
+        specifier: ^2.4.0
+        version: 2.4.0
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
@@ -1189,8 +1190,8 @@ importers:
         specifier: ^3.3.3
         version: 3.3.3
       hono:
-        specifier: '>=4.13.11 <5.0.0'
-        version: 4.13.14
+        specifier: '>=4.13.16 <5.0.0'
+        version: 4.13.19
       ink:
         specifier: ^7.1.1
         version: 7.1.1(@types/react@19.2.17)(react@19.2.8)
@@ -1306,10 +1307,10 @@ importers:
         version: 3.3.2(@robota-sdk/agent-core@3.3.3)
       '@robota-sdk/agent-transport':
         specifier: npm:@robota-sdk/agent-transport@3.4.3
-        version: 3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
+        version: 3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.2)(@modelcontextprotocol/server@2.4.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.19)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       '@robota-sdk/agent-ui-terminal':
         specifier: npm:@robota-sdk/agent-ui-terminal@3.2.8
-        version: 3.2.8(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
+        version: 3.2.8(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.2)(@modelcontextprotocol/server@2.4.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.19)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       '@robota-sdk/product-config':
         specifier: npm:@robota-sdk/product-config@3.2.2
         version: 3.2.2
@@ -1467,14 +1468,14 @@ importers:
         version: 4.6.7
     devDependencies:
       '@modelcontextprotocol/client':
-        specifier: ^2.3.0
-        version: 2.3.0
+        specifier: ^2.4.0
+        version: 2.4.0
       '@modelcontextprotocol/node':
-        specifier: ^2.1.0
-        version: 2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14)
+        specifier: ^2.1.2
+        version: 2.1.2(@modelcontextprotocol/server@2.4.0)
       '@modelcontextprotocol/server':
-        specifier: ^2.3.0
-        version: 2.3.0
+        specifier: ^2.4.0
+        version: 2.4.0
       '@robota-sdk/agent-provider':
         specifier: workspace:^
         version: link:../agent-provider
@@ -1526,7 +1527,7 @@ importers:
         version: 3.3.6
       '@robota-sdk/agent-transport':
         specifier: npm:@robota-sdk/agent-transport@3.4.3
-        version: 3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
+        version: 3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.2)(@modelcontextprotocol/server@2.4.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.19)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       '@robota-sdk/product-config':
         specifier: npm:@robota-sdk/product-config@3.2.2
         version: 3.2.2
@@ -1640,21 +1641,21 @@ importers:
   packages/agent-mcp:
     dependencies:
       '@modelcontextprotocol/client':
-        specifier: ^2.3.0
-        version: 2.3.0
+        specifier: ^2.4.0
+        version: 2.4.0
       '@modelcontextprotocol/core':
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.4.0
+        version: 2.4.0
     devDependencies:
       '@modelcontextprotocol/node':
-        specifier: ^2.1.0
-        version: 2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14)
+        specifier: ^2.1.2
+        version: 2.1.2(@modelcontextprotocol/server@2.4.0)
       '@modelcontextprotocol/sdk':
-        specifier: ^1.29.0
-        version: 1.29.0(zod@4.6.7)
+        specifier: ^1.32.0
+        version: 1.32.2(zod@4.6.7)
       '@modelcontextprotocol/server':
-        specifier: ^2.3.0
-        version: 2.3.0
+        specifier: ^2.4.0
+        version: 2.4.0
       '@robota-sdk/agent-core':
         specifier: workspace:^
         version: link:../agent-core
@@ -2068,14 +2069,14 @@ importers:
         specifier: 1.9.0
         version: 1.9.0(zod@4.6.7)
       '@modelcontextprotocol/client':
-        specifier: ^2.3.0
-        version: 2.3.0
+        specifier: ^2.4.0
+        version: 2.4.0
       '@modelcontextprotocol/node':
-        specifier: ^2.1.0
-        version: 2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14)
+        specifier: ^2.1.2
+        version: 2.1.2(@modelcontextprotocol/server@2.4.0)
       '@modelcontextprotocol/server':
-        specifier: ^2.3.0
-        version: 2.3.0
+        specifier: ^2.4.0
+        version: 2.4.0
       '@robota-sdk/agent-keyring':
         specifier: workspace:^
         version: link:../agent-keyring
@@ -2092,8 +2093,8 @@ importers:
         specifier: ^11.0.12
         version: 11.0.12
       hono:
-        specifier: '>=4.13.11 <5.0.0'
-        version: 4.13.14
+        specifier: '>=4.13.16 <5.0.0'
+        version: 4.13.19
       multicast-dns:
         specifier: ^7.2.5
         version: 7.2.5
@@ -4537,22 +4538,13 @@ packages:
       prebuild-install: 7.1.3
     dev: true
 
-  /@hono/node-server@1.19.17(hono@4.13.14):
-    resolution: {integrity: sha512-dSneS5qhiauZWGDCeK4o695Xd9nUNjviSZCMQrj10eetr8Uln1ucn6bbphOM6UynAMMtNIzZNSpL9vnASJwrPQ==}
-    engines: {node: '>=18.14.1'}
-    peerDependencies:
-      hono: '>=4.13.11 <5.0.0'
-    dependencies:
-      hono: 4.13.14
-
-  /@hono/node-server@2.0.11(hono@4.13.14):
-    resolution: {integrity: sha512-bjD221KPLoJTWUwso1J6fGKiTXEUFedG/s0visavY4zakFPkeGURMRNly+FhBHs7T8Dz4qHaZIMX9ZoJHSJtKA==}
+  /@hono/node-server@2.1.9(hono@4.13.19):
+    resolution: {integrity: sha512-Sk4NQd3GFY0WZWCzndwFMPwJhtD0y9qjsQ+pjID0/03nK9pxyBCUoUHCho8QYBLBVhi0ssL8UkNPHqbgSOFPIQ==}
     engines: {node: '>=20'}
     peerDependencies:
-      hono: '>=4.13.11 <5.0.0'
+      hono: '>=4.13.16 <5.0.0'
     dependencies:
-      hono: 4.13.14
-    dev: false
+      hono: 4.13.19
 
   /@humanfs/core@0.19.2:
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -5923,11 +5915,11 @@ packages:
       '@chevrotain/types': 11.1.2
     dev: false
 
-  /@modelcontextprotocol/client@2.3.0:
-    resolution: {integrity: sha512-pbHtGj6EeFCHngFE8gtNPaKrsj8Mb1IMw45BLcaPML/m2WTxI7pyYmeNQvaux88Lw8BSO5r7nyRbUyIkICmGrg==}
+  /@modelcontextprotocol/client@2.4.0:
+    resolution: {integrity: sha512-LgrD2OphHuG12vfKFKz6SOnq7bKHQmhGJIAYdD+MZBn2npHEyry6uD8zvktodtl5CQM85MO0anUyD9JwmUmxww==}
     engines: {node: '>=20'}
     dependencies:
-      '@modelcontextprotocol/core': 2.3.0
+      '@modelcontextprotocol/core': 2.4.0
       cross-spawn: 7.0.6
       eventsource: 3.0.7
       eventsource-parser: 3.1.1
@@ -5935,35 +5927,24 @@ packages:
       pkce-challenge: 5.0.1
       zod: 4.6.7
 
-  /@modelcontextprotocol/core@2.0.0:
-    resolution: {integrity: sha512-pJCEwGG7Lfr/+PQp9ZTwKXNeO5wzbfKL7H3MYpCorM4oFBoQrdjnBgEoqG+RjhsvS1FKrDbKux+M1HhlnGWqcA==}
-    engines: {node: '>=20'}
-    dependencies:
-      zod: 4.6.7
-    dev: false
-
-  /@modelcontextprotocol/core@2.3.0:
-    resolution: {integrity: sha512-09BHFaNVBe5pB2AhzCfLj0cqmsKLERvZQ4FblzP90UMGLaXVqdZPByFjURwsUYCmxonUW2yAwgTTvle+8O2/8w==}
+  /@modelcontextprotocol/core@2.4.0:
+    resolution: {integrity: sha512-z8QBKqdfXLPzkLQuG4xp8hrVEMm1PZ1IgxMN2sMbJiFiAKOWXnAzogXn2W4aqIBlP1ea6U5yiqVquvUNM1Cj6Q==}
     engines: {node: '>=20'}
     dependencies:
       zod: 4.6.7
 
-  /@modelcontextprotocol/node@2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14):
-    resolution: {integrity: sha512-6xg3iWVcOfiL8Y7rI6xUqXD0lI2AY5q3djsa/cOi1IJUSwx06t0gvhSwU/6mIIohrFlt40/ANUG56DQ0HLhILQ==}
+  /@modelcontextprotocol/node@2.1.2(@modelcontextprotocol/server@2.4.0):
+    resolution: {integrity: sha512-IIcIqBpr6NCQQs5DgJTgvbSOAw+3iaR/uquqg+e0nXCdudfjPg/80x0TseUnQx14AUAtE4fsJCEpJKPyb6WPVA==}
     engines: {node: '>=20'}
     peerDependencies:
-      '@modelcontextprotocol/server': ^2.1.0
-      hono: '>=4.13.11 <5.0.0'
-    peerDependenciesMeta:
-      hono:
-        optional: true
+      '@modelcontextprotocol/server': ^2.4.0
     dependencies:
-      '@hono/node-server': 1.19.17(hono@4.13.14)
-      '@modelcontextprotocol/server': 2.3.0
-      hono: 4.13.14
+      '@hono/node-server': 2.1.9(hono@4.13.19)
+      '@modelcontextprotocol/server': 2.4.0
+      hono: 4.13.19
 
-  /@modelcontextprotocol/sdk@1.29.0(zod@4.6.7):
-    resolution: {integrity: sha512-zo37mZA9hJWpULgkRpowewez1y6ML5GsXJPY8FI0tBBCd77HEvza4jDqRKOXgHNn867PVGCyTdzqpz0izu5ZjQ==}
+  /@modelcontextprotocol/sdk@1.32.2(zod@4.6.7):
+    resolution: {integrity: sha512-SWsVtH/0vULSQStoZ6xxH2K09Li8fXYTMC64ZeogCdpZ3XSi1eCPOByV1OpuJxuI3OcmHhosDWYyii07tpPsLw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
@@ -5972,17 +5953,17 @@ packages:
       '@cfworker/json-schema':
         optional: true
     dependencies:
-      '@hono/node-server': 1.19.17(hono@4.13.14)
+      '@hono/node-server': 2.1.9(hono@4.13.19)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
       eventsource: 3.0.7
-      eventsource-parser: 3.1.0
+      eventsource-parser: 3.1.1
       express: 5.2.1
       express-rate-limit: 8.5.2(express@5.2.1)
-      hono: 4.13.14
+      hono: 4.13.19
       jose: 6.2.3
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -5993,11 +5974,11 @@ packages:
       - supports-color
     dev: true
 
-  /@modelcontextprotocol/server@2.3.0:
-    resolution: {integrity: sha512-+6b0LdsQLmHsvS7J6sQJ4weTpzUn61fU1JKS+321/+IyDYoHW5CR2Tgqcs6GgAAQvlesCo6yX3xttgmx+XGtJw==}
+  /@modelcontextprotocol/server@2.4.0:
+    resolution: {integrity: sha512-rgR9yxSaAJ+bcsi/XroT/S2AfPiIWloXAnrdfYSCms9ivVju0ishu/wW0J21Ho6+ZOR1r7RyeRbjiRuF87ix5Q==}
     engines: {node: '>=20'}
     dependencies:
-      '@modelcontextprotocol/core': 2.3.0
+      '@modelcontextprotocol/core': 2.4.0
       zod: 4.6.7
 
   /@napi-rs/keyring-darwin-arm64@2.1.2:
@@ -7080,8 +7061,8 @@ packages:
     peerDependencies:
       '@robota-sdk/agent-core': ^3.3.3
     dependencies:
-      '@modelcontextprotocol/client': 2.3.0
-      '@modelcontextprotocol/core': 2.3.0
+      '@modelcontextprotocol/client': 2.4.0
+      '@modelcontextprotocol/core': 2.4.0
       '@robota-sdk/agent-core': 3.3.3
     dev: true
 
@@ -7306,7 +7287,7 @@ packages:
       zod: 4.6.7
     dev: true
 
-  /@robota-sdk/agent-transport@3.4.1(hono@4.13.14)(ws@8.21.1)(zod@4.6.7):
+  /@robota-sdk/agent-transport@3.4.1(hono@4.13.19)(ws@8.21.1)(zod@4.6.7):
     resolution: {integrity: sha512-LqiArkVzy+GJ/NwlA/keWAbEVD096qGpfWXS4ux6LFlvHaduZ8dzaprSTHwyvr7qKIQF8ICfET8DLZvBJIfL+g==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
@@ -7316,7 +7297,7 @@ packages:
       '@robota-sdk/agent-keyring': ^3.2.1
       '@robota-sdk/agent-remote-pairing': ^3.2.3
       bittorrent-dht: ^11.0.12
-      hono: '>=4.13.11 <5.0.0'
+      hono: '>=4.13.16 <5.0.0'
       multicast-dns: ^7.2.5
       node-datachannel: ^0.33.4
       nostr-tools: ^2.25.2
@@ -7350,13 +7331,13 @@ packages:
     dependencies:
       '@robota-sdk/agent-core': 3.3.0
       '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.3.0)
-      hono: 4.13.14
+      hono: 4.13.19
       jose: 6.2.3
       ws: 8.21.1
       zod: 4.6.7
     dev: false
 
-  /@robota-sdk/agent-transport@3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7):
+  /@robota-sdk/agent-transport@3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.2)(@modelcontextprotocol/server@2.4.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.19)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7):
     resolution: {integrity: sha512-xD3fLZeu5gGvFPFVonjenCD977WZT/TOAjeArRrm/ooTEF0nGn/aUNyIj6+te9EzPnc7hb6B29ADMXtFN/KUCQ==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
@@ -7366,7 +7347,7 @@ packages:
       '@robota-sdk/agent-keyring': ^3.2.2
       '@robota-sdk/agent-remote-pairing': ^3.3.0
       bittorrent-dht: ^11.0.12
-      hono: '>=4.13.11 <5.0.0'
+      hono: '>=4.13.16 <5.0.0'
       multicast-dns: ^7.2.5
       node-datachannel: ^0.33.4
       nostr-tools: ^2.25.2
@@ -7399,14 +7380,14 @@ packages:
         optional: true
     dependencies:
       '@agentclientprotocol/sdk': 1.9.0(zod@4.6.7)
-      '@modelcontextprotocol/node': 2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14)
-      '@modelcontextprotocol/server': 2.3.0
+      '@modelcontextprotocol/node': 2.1.2(@modelcontextprotocol/server@2.4.0)
+      '@modelcontextprotocol/server': 2.4.0
       '@robota-sdk/agent-core': 3.3.3
       '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.3)
       '@robota-sdk/agent-keyring': 3.2.2
       '@robota-sdk/agent-remote-pairing': 3.3.0
       bittorrent-dht: 11.0.12
-      hono: 4.13.14
+      hono: 4.13.19
       jose: 6.2.3
       multicast-dns: 7.2.5
       node-datachannel: 0.33.6
@@ -7414,14 +7395,14 @@ packages:
       ws: 8.21.1
       zod: 4.6.7
 
-  /@robota-sdk/agent-ui-terminal@3.2.8(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7):
+  /@robota-sdk/agent-ui-terminal@3.2.8(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.2)(@modelcontextprotocol/server@2.4.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.19)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7):
     resolution: {integrity: sha512-uNqUfL9nCZ9owzhhEsVrMAd19XuxgBKd/nW7UxCC3L794DUbQkPGQh9K8UmKTWJi9gD/W/v4yM4DNGjGBcsCQg==}
     engines: {node: '>=22.12.0'}
     dependencies:
       '@robota-sdk/agent-core': 3.3.3
       '@robota-sdk/agent-framework': 3.3.6
       '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.3)
-      '@robota-sdk/agent-transport': 3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
+      '@robota-sdk/agent-transport': 3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.2)(@modelcontextprotocol/server@2.4.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.19)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       chalk: 5.6.2
       ink: 7.1.1(@types/react@19.2.17)(react@19.2.8)
       marked: 9.1.6
@@ -7455,7 +7436,7 @@ packages:
     dependencies:
       '@robota-sdk/agent-core': 3.3.3
       '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.3)
-      '@robota-sdk/agent-transport': 3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
+      '@robota-sdk/agent-transport': 3.4.3(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.2)(@modelcontextprotocol/server@2.4.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.19)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       lucide-react: 1.26.0(react@19.2.8)
       pretendard: 1.3.9
       react: 19.2.8
@@ -13490,10 +13471,6 @@ packages:
     resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
     dev: false
 
-  /eventsource-parser@3.1.0:
-    resolution: {integrity: sha512-kJezFj9YFAMLeORyi7aCLxLbD5/qWMQnoMVlVPyHIll7lgRJCc3JVln9Vgl9nwQi0YkMnhdGTMNn7CkRRAptMg==}
-    engines: {node: '>=18.0.0'}
-
   /eventsource-parser@3.1.1:
     resolution: {integrity: sha512-EKN1vKAMcZ8MlYMpaNuxN6R9yakzH6uajHcHVTqWJzvu5pWw9DyhbP35HH8MVBQ+dZjAfDxk+A8NiR9KWaXiyQ==}
     engines: {node: '>=18.0.0'}
@@ -13502,7 +13479,7 @@ packages:
     resolution: {integrity: sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==}
     engines: {node: '>=18.0.0'}
     dependencies:
-      eventsource-parser: 3.1.0
+      eventsource-parser: 3.1.1
 
   /execa@5.1.1:
     resolution: {integrity: sha512-8uSpZZocAZRBAPIEINJj3Lo9HyGitllczc27Eh5YYojjMFMn8yHMDMaUHE2Jqfq05D/wucwI4JGURyXt1vchyg==}
@@ -14592,8 +14569,8 @@ packages:
   /highlight.js@10.7.3:
     resolution: {integrity: sha512-tzcUFauisWKNHaRkN4Wjl/ZA07gENAjFl3J/c480dprkGTg5EQstgaNFqBfUqCq54kZRIEcreTsAgF/m2quD7A==}
 
-  /hono@4.13.14:
-    resolution: {integrity: sha512-yhRLQ21U6qa9Hsu2N7Qcbh8tE+WKEcoErjIo56LeSGiGXGp9sA7UpE86Ui9uexb61KakiGwuHMn2QdV7w6i6kQ==}
+  /hono@4.13.19:
+    resolution: {integrity: sha512-KmXvQAXwcAHV+muzbIwoJ23niEB5nMoDVr9WcRkU8mvjUECm/1+7v4Jgp7P7a+H6MLFrh+vXrGonGrGS+RQfkA==}
     engines: {node: '>=16.9.0'}
 
   /hookable@6.1.1:
