@@ -89,6 +89,21 @@ function source(relative: string): string {
 }
 
 describe('optional E2B capability', () => {
+  it.each(['22.12.0', '22.18.9'])(
+    'refuses stock hosted execution on unsupported Node %s before loading the SDK',
+    async (version) => {
+      const result = await probe(`
+        Object.defineProperty(process.versions, 'node', { value: ${JSON.stringify(version)} });
+        const { loadE2BSdk } = await import(${source('hosted/e2b-sdk.ts')});
+        try { await loadE2BSdk(); process.exitCode = 2; }
+        catch (error) { console.log(error.message); }
+      `);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain('requires Node.js 22.19.0 or later');
+    },
+    40_000,
+  );
+
   it('imports public helpers without resolving the optional SDK', async () => {
     const result = await probe(`
       const api = await import(${source('index.ts')});
@@ -123,7 +138,7 @@ describe('optional E2B capability', () => {
       );
       expect(result.status, result.stderr).toBe(0);
       expect(JSON.parse(result.stdout)).toMatchObject({
-        message: expect.stringMatching(/E2B.*not installed.*e2b@2\.51\.0/u),
+        message: expect.stringMatching(/E2B.*not installed.*e2b@2\.64\.0/u),
       });
       expect(fixture.requests()).toBe(0);
     } finally {
