@@ -136,7 +136,9 @@ function normalizeScheduling(
       continue;
     }
     const [id, entry] = parsed.data;
-    const dependsOn = (entry.dependsOn ?? []).sort();
+    const dependsOn = entry.dependsOn ?? [];
+    const hasUnknownDependency = dependsOn.some((dependency) => !knownIds.has(dependency));
+    if (!hasUnknownDependency) dependsOn.sort();
     const resources = entry.resources?.sort((left, right) => {
       const a = `${left.key}\u0000${left.access}`;
       const b = `${right.key}\u0000${right.access}`;
@@ -144,7 +146,7 @@ function normalizeScheduling(
     });
     if (
       !knownIds.has(id) ||
-      dependsOn.some((dependency) => !knownIds.has(dependency)) ||
+      hasUnknownDependency ||
       resources?.some((resource) => !resource.key.trim())
     )
       sortable = false;

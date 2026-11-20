@@ -481,6 +481,31 @@ describe('provider-free journal continuation', () => {
     ).toBe(true);
   });
 
+  it('does not mix refusal reasons when unknown dependency order changes', async () => {
+    const policy =
+      (reverse: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
+      (calls) => ({
+        scheduling: new Map([
+          [
+            calls[0].id,
+            {
+              dependsOn: reverse ? ['missing-a', 'missing-z'] : ['missing-z', 'missing-a'],
+            },
+          ],
+        ]),
+      });
+    const source = fixture(undefined, undefined, undefined, policy(false));
+    const saved = await stoppedAt('tool-result', true, source);
+    const first = saved.records.find((record) => record.kind === 'tool-result');
+    if (first?.kind !== 'tool-result') throw new Error('Missing refusal');
+    expect(first.result.error).toContain('missing-z');
+    const fresh = fixture(undefined, undefined, undefined, policy(true));
+    await expect(fresh.agent.resumeToolCalls(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
   it.each(['default entry', 'undefined access'] as const)(
     'normalizes %s alongside an invalid resource declaration',
     async (variant) => {
