@@ -1,39 +1,38 @@
 import { z } from 'zod';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
+import { isSnapshotableUniversalValue } from '../utils/universal-value-equal';
 import type { IJournalToolBatchPolicy } from '../interfaces/execution-journal';
-import type { IToolCallScheduling } from '../interfaces/tool';
 import type { IToolExecutionBatchContext } from './tool-execution-batch-types';
 
-const scheduling = z
-  .object({
-    dependsOn: z.array(z.string()),
-    resources: z
-      .array(
-        z
-          .object({
-            key: z.union([z.string(), z.number(), z.boolean(), z.null()]),
-            access: z.union([z.string(), z.number(), z.boolean(), z.null()]),
-          })
-          .strict(),
-      )
-      .optional(),
-  })
-  .strict();
+const validScheduling = z.array(
+  z.tuple([
+    z.string(),
+    z.object({
+      dependsOn: z.array(z.string()).default([]),
+      resources: z
+        .array(z.object({ key: z.string(), access: z.enum(['read', 'write']) }))
+        .optional(),
+    }),
+  ]),
+);
 const policy = z
   .object({
     version: z.literal(1),
     mode: z.enum(['parallel', 'sequential']),
     maxConcurrency: z.number().int().min(1),
     continueOnError: z.boolean(),
-    scheduling: z
-      .array(z.tuple([z.string(), scheduling]))
-      .refine((entries) => new Set(entries.map(([id]) => id)).size === entries.length)
-      .optional(),
+    scheduling: z.array(z.tuple([z.unknown(), z.unknown()])).optional(),
   })
   .strict();
 
 /** Parse durable policy at the journal boundary, rejecting unsupported or ambiguous versions. */
 export function parseBatchPolicy(value: unknown): IJournalToolBatchPolicy {
+  if (!isSnapshotableUniversalValue(value)) {
+    throw new ExecutionRecoveryError(
+      'EXECUTION_RECOVERY_INVALID',
+      'Tool batch policy cannot be represented in the journal',
+    );
+  }
   const parsed = policy.safeParse(value);
   if (!parsed.success) {
     throw new ExecutionRecoveryError(
@@ -42,23 +41,19 @@ export function parseBatchPolicy(value: unknown): IJournalToolBatchPolicy {
     );
   }
   const result = parsed.data;
-  for (const [, entry] of result.scheduling ?? []) {
-    entry.dependsOn.sort();
-    if (
-      entry.resources?.every(
-        (resource) =>
-          typeof resource.key === 'string' &&
-          (resource.access === 'read' || resource.access === 'write'),
-      )
-    ) {
-      entry.resources.sort((left, right) => {
+  const valid = validScheduling.safeParse(result.scheduling);
+  if (valid.success && new Set(valid.data.map(([id]) => id)).size === valid.data.length) {
+    for (const [, entry] of valid.data) {
+      entry.dependsOn.sort();
+      entry.resources?.sort((left, right) => {
         const a = `${left.key}\u0000${left.access}`;
         const b = `${right.key}\u0000${right.access}`;
         return a < b ? -1 : a > b ? 1 : 0;
       });
     }
+    valid.data.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+    result.scheduling = valid.data;
   }
-  result.scheduling?.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
   return result;
 }
 
@@ -73,20 +68,18 @@ export function snapshotBatchPolicy(batch: IToolExecutionBatchContext): IJournal
         ? count
         : Math.min(count, Math.max(1, Math.floor(requested)));
   try {
+    const supplied = batch.scheduling === undefined ? undefined : Array.from(batch.scheduling);
+    const valid = validScheduling.safeParse(supplied);
+    const schedulingEntries = valid.success ? valid.data : supplied;
+    if (!isSnapshotableUniversalValue(schedulingEntries))
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_INVALID',
+        'Tool batch policy cannot be recorded',
+      );
+    // A cyclic policy cannot be recovered by the journal reader's JSON comparison.
+    JSON.stringify(schedulingEntries);
     const detachedScheduling =
-      batch.scheduling === undefined
-        ? undefined
-        : new Map<string, IToolCallScheduling>(
-            Array.from(batch.scheduling, ([id, value]) => [
-              id,
-              {
-                dependsOn: [...(value.dependsOn ?? [])],
-                ...(value.resources !== undefined && {
-                  resources: value.resources.map(({ key, access }) => ({ key, access })),
-                }),
-              },
-            ]),
-          );
+      schedulingEntries === undefined ? undefined : new Map(structuredClone(schedulingEntries));
     const snapshot = parseBatchPolicy({
       version: 1,
       mode: batch.mode,

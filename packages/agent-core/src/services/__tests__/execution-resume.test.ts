@@ -358,27 +358,52 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).toHaveBeenCalledTimes(2);
   });
 
-  it('preserves the scheduler refusal for an invalid resource declaration during recovery', async () => {
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-      const resource: { key: string; access: 'read' | 'write' } = {
-        key: 'shared',
-        access: 'write',
+  it.each(['invalid access', 'missing access', 'null resource', 'undefined resource'] as const)(
+    'preserves the scheduler refusal for %s during recovery',
+    async (invalid) => {
+      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+        const resource: { key: string; access: 'read' | 'write' } = {
+          key: 'shared',
+          access: 'write',
+        };
+        const declaration: IToolCallScheduling = { resources: [resource] };
+        if (invalid === 'invalid access') Object.assign(resource, { access: 'invalid' });
+        if (invalid === 'missing access') Reflect.deleteProperty(resource, 'access');
+        if (invalid === 'null resource') Object.assign(declaration, { resources: [null] });
+        if (invalid === 'undefined resource')
+          Object.assign(declaration, { resources: [undefined] });
+        return { scheduling: new Map([[calls[0].id, declaration]]) };
       };
-      Object.assign(resource, { access: 'invalid' });
-      return { scheduling: new Map([[calls[0].id, { resources: [resource] }]]) };
-    };
-    const source = fixture(undefined, undefined, undefined, policy);
-    const saved = await stoppedAt('tool-result', true, source);
-    expect(source.effect).not.toHaveBeenCalled();
-    const fresh = fixture(undefined, undefined, undefined, policy);
-    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
-    expect(fresh.effect).not.toHaveBeenCalled();
-    expect(result.receipts).toHaveLength(2);
-    expect(
-      result.receipts?.every(
-        (receipt) => receipt.result.metadata?.errorCode === 'tool_call_skipped',
+      const source = fixture(undefined, undefined, undefined, policy);
+      const saved = await stoppedAt('tool-result', true, source);
+      expect(source.effect).not.toHaveBeenCalled();
+      const recorded = saved.records.find((record) => record.kind === 'tool-result');
+      if (recorded?.kind !== 'tool-result') throw new Error('Missing refusal');
+      const fresh = fixture(undefined, undefined, undefined, policy);
+      const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+      expect(fresh.effect).not.toHaveBeenCalled();
+      expect(result.receipts).toHaveLength(2);
+      expect(
+        result.receipts?.every(
+          (receipt) =>
+            receipt.result.metadata?.errorCode === 'tool_call_skipped' &&
+            receipt.result.error === recorded.result.error,
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it('accepts a frozen valid policy and uses a detached copy for execution', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      scheduling: new Map(
+        calls.map((call) => [call.id, Object.freeze({ resources: Object.freeze([]) })]),
       ),
-    ).toBe(true);
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-intent', true, source);
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
   });
 
   it('keeps legacy batches unbound while recovering under the equivalent host policy', async () => {

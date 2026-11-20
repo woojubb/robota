@@ -42,19 +42,8 @@ export interface IJournalToolBatchPolicy {
   mode: 'parallel' | 'sequential';
   maxConcurrency: number;
   continueOnError: boolean;
-  scheduling?: Array<
-    [
-      string,
-      {
-        dependsOn: string[];
-        /** Invalid scalar declarations are retained so the scheduler can refuse them normally. */
-        resources?: Array<{
-          key: string | number | boolean | null;
-          access: string | number | boolean | null;
-        }>;
-      },
-    ]
-  >;
+  /** Invalid declarations are retained so the scheduler can produce its ordinary refusal. */
+  scheduling?: Array<[unknown, unknown]>;
 }
 
 export interface IExecutionContinuationState {
