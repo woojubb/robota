@@ -342,10 +342,11 @@ describe('no-input execution continuation', () => {
       retainHistory: false,
       cache: { enabled: true, maxEntries: 10, ttlMs: 60_000 },
     });
-    await source.agent.run('same input');
+    await source.agent.run('same input', { toolChoice: 'none' });
     const { records, journal } = journalFixture();
     await expect(
       source.agent.run('same input', {
+        toolChoice: 'none',
         executionJournal: {
           append: async (record) => {
             await journal.append(record);
