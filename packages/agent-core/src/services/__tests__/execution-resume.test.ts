@@ -584,6 +584,26 @@ describe('provider-free journal continuation', () => {
     expect(records.some((record) => record.kind === 'tool-intent')).toBe(false);
   });
 
+  it('rejects a saved policy whose array would lose execution-relevant properties', async () => {
+    const saved = await stoppedAt('tool-intent', true);
+    const intent = saved.records.find((record) => record.kind === 'tool-intent');
+    if (intent?.kind !== 'tool-intent') throw new Error('Missing intent');
+    const entry = intent.batchPolicy?.scheduling?.[0]?.[1];
+    if (
+      !entry ||
+      typeof entry !== 'object' ||
+      !('resources' in entry) ||
+      !Array.isArray(entry.resources)
+    )
+      throw new Error('Missing resources');
+    Object.assign(entry.resources, { map: 1 });
+    const fresh = fixture();
+    await expect(fresh.agent.resumeToolCalls(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_INVALID',
+    });
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
   it('keeps legacy batches unbound while recovering under the equivalent host policy', async () => {
     const saved = await stoppedAt('tool-intent', true);
     for (const record of saved.records) {

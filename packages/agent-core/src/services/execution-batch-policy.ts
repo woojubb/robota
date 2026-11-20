@@ -181,7 +181,7 @@ export function parseBatchPolicy(
   value: unknown,
   callIds: readonly (string | undefined)[],
 ): IJournalToolBatchPolicy {
-  if (!isSnapshotableUniversalValue(value)) {
+  if (!isSnapshotableUniversalValue(value) || !isPolicyData(value)) {
     throw new ExecutionRecoveryError(
       'EXECUTION_RECOVERY_INVALID',
       'Tool batch policy cannot be represented in the journal',
