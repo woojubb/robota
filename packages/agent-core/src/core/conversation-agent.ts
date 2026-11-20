@@ -45,11 +45,9 @@ import type {
 } from '../interfaces/agent';
 import type { IEventService, IAgentEventData } from '../interfaces/event-service';
 import type { IHistoryEntry } from '../interfaces/messages';
-import type {
-  IAIProvider,
-  IToolSchema,
-  IProviderRegistrationOptions,
-} from '../interfaces/provider';
+import type { IToolSchema, IProviderRegistrationOptions } from '../interfaces/provider';
+import type { TExecutionProvider } from '../interfaces/managed-provider';
+import { isManagedRunProvider, ManagedRunUnavailableError } from '../interfaces/managed-provider';
 import type {
   IToolExecutionContext,
   IToolExecutionResult,
@@ -200,6 +198,7 @@ export class ConversationAgent
     const options = { ...value, toolResponses: structuredClone(value.toolResponses) };
     this.assertNotDestroyed();
     return this.runQueue.run(options.signal, async () => {
+      this.assertProviderRunnable();
       await this.ensureFullyInitialized();
       const result = await this.executionService.resume(this.conversationId, options, this.config);
       if (!result.success) throw result.error ?? new Error('Execution continuation failed');
@@ -215,6 +214,7 @@ export class ConversationAgent
     const options = { ...value, toolResponses: structuredClone(value.toolResponses) };
     this.assertNotDestroyed();
     return this.runQueue.run(options.signal, async () => {
+      this.assertProviderRunnable();
       await this.ensureFullyInitialized();
       return this.executionService.resumeToolCalls(this.conversationId, options);
     });
@@ -237,6 +237,7 @@ export class ConversationAgent
   async run(input: string, options: IRunOptions = {}): Promise<unknown> {
     this.assertNotDestroyed();
     return this.runQueue.run(options.signal, async () => {
+      this.assertProviderRunnable();
       await this.ensureFullyInitialized();
       try {
         if (options.output) {
@@ -268,6 +269,7 @@ export class ConversationAgent
     // (return or throw), because the conversation history is being written throughout.
     const release = await this.runQueue.acquire(options.signal);
     try {
+      this.assertProviderRunnable();
       await this.ensureFullyInitialized();
       if (options.output) {
         const spec = normalizeStructuredOutput(options.output);
@@ -289,6 +291,13 @@ export class ConversationAgent
   private resetEphemeralHistory(): void {
     if (this.config.retainHistory === false) {
       this.clearHistory();
+    }
+  }
+
+  private assertProviderRunnable(): void {
+    const provider = this.aiProviders.getCurrentProviderInstance();
+    if (provider && isManagedRunProvider(provider)) {
+      throw new ManagedRunUnavailableError(provider.name);
     }
   }
 
@@ -382,7 +391,7 @@ export class ConversationAgent
   }
 
   swapDefaultProvider(
-    newProvider: IAIProvider,
+    newProvider: TExecutionProvider,
     model: string,
     options: IProviderRegistrationOptions = {},
   ): void {

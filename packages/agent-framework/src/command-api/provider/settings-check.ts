@@ -3,7 +3,7 @@ import {
   getProviderCredentialRequirement,
   hasUsableSecretReference,
   type IProviderCredentialRequirement,
-  type IProviderDefinition,
+  type TProviderDefinition,
   type TEnvResolver,
   type TProviderCredentialField,
   type TProviderCredentialReference,
@@ -23,7 +23,7 @@ export type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
  */
 export function checkSettingsDocument(
   settings: TProviderSettingsDocument,
-  providerDefinitions: readonly IProviderDefinition[] = [],
+  providerDefinitions: readonly TProviderDefinition[] = [],
   environment?: TProviderEnvironment,
 ): TSettingsCheck {
   const resolve: TEnvResolver = resolveProviderEnvironment(environment);
@@ -32,7 +32,7 @@ export function checkSettingsDocument(
 
 function hasUsableProviderConfig(
   settings: TProviderSettingsDocument,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   resolve: TEnvResolver,
 ): boolean {
   if (typeof settings.currentProvider === 'string') {
@@ -51,7 +51,7 @@ function hasUsableProviderConfig(
 function isUsableProviderProfile(
   type: string | undefined,
   profile: { apiKey?: string; apiKeyRef?: TProviderCredentialReference } | undefined,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   resolve: TEnvResolver,
 ): boolean {
   if (!profile) return false;
@@ -71,7 +71,7 @@ function isUsableProviderProfile(
 
 function hasUsableRequiredProviderCredential(
   profile: { apiKey?: string },
-  definition: IProviderDefinition,
+  definition: TProviderDefinition,
   requirement: IProviderCredentialRequirement,
   resolve: TEnvResolver,
 ): boolean {
@@ -83,7 +83,7 @@ function hasUsableRequiredProviderCredential(
 function resolveProviderCredentialValue(
   field: TProviderCredentialField,
   profile: { apiKey?: string },
-  definition: IProviderDefinition,
+  definition: TProviderDefinition,
 ): string | undefined {
   return profile[field] ?? definition.defaults?.[field];
 }

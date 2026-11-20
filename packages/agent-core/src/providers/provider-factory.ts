@@ -8,12 +8,13 @@ import type { TEnvResolver } from '../utils/env-resolver.js';
 
 import type {
   IProviderDefinition,
+  TProviderDefinition,
   IProviderDefinitionConfig,
   IProviderCredentialRequirement,
   TProviderCredentialField,
   TProviderCredentialReference,
 } from '../interfaces/provider-definition.js';
-import type { IAIProvider } from '../interfaces/provider.js';
+import type { TExecutionProvider } from '../interfaces/managed-provider.js';
 import type { TUniversalValue } from '../interfaces/types.js';
 
 /**
@@ -39,7 +40,7 @@ export function normalizeProviderConfig(
     timeout?: number;
     options?: Record<string, TUniversalValue>;
   },
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   resolve: TEnvResolver,
 ): IProviderDefinitionConfig {
   const defaults = findProviderDefinition(providerDefinitions, settings.name)?.defaults ?? {};
@@ -82,14 +83,14 @@ export function normalizeProviderConfig(
 }
 
 /**
- * Construct an {@link IAIProvider} from a resolved config against the injected provider-definition
+ * Construct a provider from a resolved config against the injected provider-definition
  * registry, enforcing the definition's credential requirement. Throws a typed error naming the supported
  * provider types when the requested provider is not in the registry.
  */
-export function createProviderFromConfig(
+export function createProviderFromConfig<P extends TExecutionProvider>(
   settings: IProviderDefinitionConfig,
-  providerDefinitions: readonly IProviderDefinition[],
-): IAIProvider {
+  providerDefinitions: readonly IProviderDefinition<P>[],
+): P {
   if (settings.apiKeyRef !== undefined && !settings.apiKey) {
     throw new Error(
       `Provider ${settings.name} requires host credential resolution before construction`,

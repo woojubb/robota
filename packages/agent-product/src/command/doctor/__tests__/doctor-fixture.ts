@@ -12,7 +12,7 @@ import {
 import { createNodeDoctorDeps, inspectPathFacts } from '../doctor-node-deps.js';
 
 import type { IDoctorDeps, IDoctorInputs } from '../doctor-types.js';
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { TProviderDefinition } from '@robota-sdk/agent-core';
 
 export const MARKERS = {
   env: 'sk-doctor-marker-env-1a2b3c',
@@ -39,8 +39,8 @@ export interface IDoctorFixture {
 
 /** A provider definition whose SDK-embedded host is declared through `endpoint`, like anthropic. */
 export function fixtureProviderDefinition(
-  overrides: Partial<IProviderDefinition> = {},
-): IProviderDefinition {
+  overrides: Partial<TProviderDefinition> = {},
+): TProviderDefinition {
   return {
     type: 'fixture',
     displayName: 'Fixture',
@@ -55,7 +55,7 @@ export function fixtureProviderDefinition(
 
 interface IDoctorFixtureOptions {
   env?: Record<string, string | undefined>;
-  providerDefinitions?: readonly IProviderDefinition[];
+  providerDefinitions?: readonly TProviderDefinition[];
   reachable?: boolean;
   resolvable?: readonly string[];
   guarantee?: 'posix-mode' | 'windows-acl';

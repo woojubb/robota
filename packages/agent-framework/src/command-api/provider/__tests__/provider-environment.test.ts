@@ -24,7 +24,7 @@ import { testProviderProfileCommand } from '../provider-command-probe.js';
 import { buildProviderProfilesSnapshot } from '../provider-profile-summary.js';
 import { buildProviderSetupPatch, validateProviderProfile } from '../provider-settings.js';
 
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IManagedRunProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import type { IProviderCommandModuleOptions } from '../provider-command-types.js';
 import type { TSettingsSource } from '../../../config/settings-source.js';
 
@@ -54,6 +54,29 @@ function documentSource(document: object): TSettingsSource {
 afterEach(() => {
   vi.unstubAllEnvs();
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
+
+describe('managed provider profiles', () => {
+  it('uses the same settings and definition registry for a managed provider', () => {
+    const provider: IManagedRunProvider = {
+      kind: 'managed-run',
+      name: 'managed',
+      version: 'test',
+      run: vi.fn(),
+      validateConfig: () => true,
+    };
+    const definition: IProviderDefinition<IManagedRunProvider> = {
+      type: 'managed',
+      createProvider: () => provider,
+    };
+    const source = documentSource({
+      currentProvider: 'personal',
+      providers: { personal: { type: 'managed', model: 'test-model' } },
+    });
+    expect(
+      createProviderFromSettings([source], undefined, { providerDefinitions: [definition] }),
+    ).toBe(provider);
+  });
 });
 
 describe('resolveProviderEnvironment', () => {

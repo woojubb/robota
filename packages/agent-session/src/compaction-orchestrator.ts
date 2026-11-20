@@ -8,6 +8,8 @@
 import {
   callJournaledProvider,
   createAbortError,
+  isManagedRunProvider,
+  ManagedRunUnavailableError,
   randomId,
   runHooks,
 } from '@robota-sdk/agent-core';
@@ -17,7 +19,7 @@ import { requireHookTypeExecutors } from './require-hook-type-executors.js';
 
 import type { TCompactTrigger } from './session-types.js';
 import type {
-  IAIProvider,
+  TExecutionProvider,
   IExecutionJournal,
   TUniversalMessage,
   THooksConfig,
@@ -110,7 +112,7 @@ export class CompactionOrchestrator {
    *   empty summary — callers must leave the conversation history untouched in every such case
    */
   async compact(
-    provider: IAIProvider,
+    provider: TExecutionProvider,
     history: TUniversalMessage[],
     instructions?: string,
     signal?: AbortSignal,
@@ -122,6 +124,7 @@ export class CompactionOrchestrator {
     // returned a summary for an already-cancelled turn — and the caller replaces the conversation
     // with whatever this returns, so a cancel could still clear it and inject an empty summary.
     signal?.throwIfAborted();
+    if (isManagedRunProvider(provider)) throw new ManagedRunUnavailableError(provider.name);
     // This used to `return ''`, contradicting the contract two lines of docblock above it
     // ("always a non-empty string") — and the caller wrote that empty string over the conversation as
     // a summary. Deciding that an empty conversation is a no-op is the CALLER's judgement, made

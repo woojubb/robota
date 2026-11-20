@@ -6,7 +6,7 @@
  *
  * `IProviderModelCatalogEntry` carried three payloads with nothing in common — which models EXIST
  * (dynamic, per-account, refreshable), what a model CAN DO (static, versioned with the adapter), and
- * what a model COSTS (static, versioned with vendor pricing) — hanging off `IProviderDefinition`, a
+ * what a model COSTS (static, versioned with vendor pricing) — hanging off `TProviderDefinition`, a
  * registry artifact the provider instance never holds. So nothing at runtime could read any of it,
  * and the live-refresh path could not have populated the static halves anyway: it builds entries from
  * a models-list endpoint that returns ids and nothing else.

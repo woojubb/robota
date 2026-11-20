@@ -19,7 +19,7 @@ import type {
 } from './permission-types.js';
 import type { ISessionLogger } from './session-logger.js';
 import type {
-  IAIProvider,
+  TExecutionProvider,
   TProviderOwnership,
   IAgentConfig,
   IExecutionJournal,
@@ -66,7 +66,7 @@ export interface ISessionOptions {
    */
   wrapAddedTools?: (tools: IToolWithEventService[]) => IToolWithEventService[];
   /** Pre-constructed AI provider */
-  provider: IAIProvider;
+  provider: TExecutionProvider;
   /** Defaults to owned; a borrowed provider is closed by its external owner. */
   providerOwnership?: TProviderOwnership;
   /** Pre-built system message string */

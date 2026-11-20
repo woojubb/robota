@@ -14,11 +14,11 @@
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 
 import type { IProviderProfileSettings } from './provider-settings.js';
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { TProviderDefinition } from '@robota-sdk/agent-core';
 import type { IModelCatalogEntry, IModelListGroup, IModelListSnapshot } from '@robota-sdk/agent-interface/session';
 
 /** The provider's plain display name — never its internal `type` id, unless nothing else is known. */
-function providerLabel(definition: IProviderDefinition | undefined, profile: IProviderProfileSettings): string {
+function providerLabel(definition: TProviderDefinition | undefined, profile: IProviderProfileSettings): string {
   return definition?.displayName ?? profile.type ?? 'Unknown provider';
 }
 
@@ -33,7 +33,7 @@ function providerLabel(definition: IProviderDefinition | undefined, profile: IPr
  */
 function modelsForProfile(
   profile: IProviderProfileSettings,
-  definition: IProviderDefinition | undefined,
+  definition: TProviderDefinition | undefined,
 ): IModelCatalogEntry[] {
   const catalog = definition?.modelCatalog;
   const catalogEntries =
@@ -71,7 +71,7 @@ export function buildModelListSnapshot(
   providers: Record<string, IProviderProfileSettings> | undefined,
   currentProfileName: string | undefined,
   currentModel: string,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   allowedProviders?: readonly string[],
 ): IModelListSnapshot {
   const all = providers ?? {};

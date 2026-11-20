@@ -2,13 +2,11 @@ import { AbstractManager } from '../abstracts/abstract-manager';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { Validator } from '../utils/validation';
+import { isManagedRunProvider } from '../interfaces/managed-provider';
 
 import type { IAIProviderManager } from '../interfaces/manager';
-import type {
-  IAIProvider,
-  IProviderRegistrationOptions,
-  TProviderOwnership,
-} from '../interfaces/provider';
+import type { IProviderRegistrationOptions, TProviderOwnership } from '../interfaces/provider';
+import type { TExecutionProvider } from '../interfaces/managed-provider';
 
 /**
  * AI Provider Manager - manages AI provider instances
@@ -17,9 +15,12 @@ import type {
  * @internal
  */
 export class AIProviders extends AbstractManager implements IAIProviderManager {
-  private providers = new Map<string, { provider: IAIProvider; ownership: TProviderOwnership }>();
+  private providers = new Map<
+    string,
+    { provider: TExecutionProvider; ownership: TProviderOwnership }
+  >();
   private retirements = new Set<Promise<void>>();
-  private closing = new WeakMap<IAIProvider, Promise<void>>();
+  private closing = new WeakMap<TExecutionProvider, Promise<void>>();
   private currentProvider: string | undefined;
   private currentModel: string | undefined;
 
@@ -53,7 +54,7 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
     logger.debug('AIProviders disposed');
   }
 
-  private retire(name: string, provider: IAIProvider): void {
+  private retire(name: string, provider: TExecutionProvider): void {
     if (this.closing.has(provider)) return;
     const retirement = Promise.resolve()
       .then(() => provider.close?.())
@@ -75,7 +76,7 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
    */
   addProvider(
     name: string,
-    provider: IAIProvider,
+    provider: TExecutionProvider,
     options: IProviderRegistrationOptions = {},
   ): void {
     this.ensureInitialized();
@@ -95,7 +96,11 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
       throw new ValidationError('Provider must have a valid name');
     }
 
-    if (typeof provider.chat !== 'function') {
+    if (isManagedRunProvider(provider)) {
+      if (typeof provider.run !== 'function') {
+        throw new ValidationError('Managed provider must have a run method');
+      }
+    } else if (typeof provider.chat !== 'function') {
       throw new ValidationError('Provider must have a chat method');
     }
 
@@ -120,7 +125,8 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
     logger.debug(`AI provider "${name}" registered successfully`, {
       providerName: name,
       version: provider.version,
-      supportsStreaming: typeof provider.chatStream === 'function',
+      supportsStreaming:
+        !isManagedRunProvider(provider) && typeof provider.chatStream === 'function',
     });
   }
 
@@ -152,7 +158,7 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
   /**
    * Get registered provider by name
    */
-  getProvider(name: string): IAIProvider | undefined {
+  getProvider(name: string): TExecutionProvider | undefined {
     this.ensureInitialized();
     return this.providers.get(name)?.provider;
   }
@@ -160,7 +166,7 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
   /**
    * Get all registered providers
    */
-  getProviders(): Record<string, IAIProvider> {
+  getProviders(): Record<string, TExecutionProvider> {
     this.ensureInitialized();
     return Object.fromEntries([...this.providers].map(([name, entry]) => [name, entry.provider]));
   }
@@ -217,7 +223,7 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
   /**
    * Get current provider instance
    */
-  getCurrentProviderInstance(): IAIProvider | undefined {
+  getCurrentProviderInstance(): TExecutionProvider | undefined {
     if (!this.isConfigured() || !this.currentProvider) {
       return undefined;
     }
@@ -236,11 +242,11 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
   /**
    * Get providers by pattern
    */
-  getProvidersByPattern(pattern: string | RegExp): Record<string, IAIProvider> {
+  getProvidersByPattern(pattern: string | RegExp): Record<string, TExecutionProvider> {
     this.ensureInitialized();
 
     const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
-    const result: Record<string, IAIProvider> = {};
+    const result: Record<string, TExecutionProvider> = {};
 
     for (const [name, registration] of this.providers) {
       if (regex.test(name)) {
@@ -263,7 +269,11 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
     }
 
     const provider = this.providers.get(name)?.provider;
-    return !!(provider && typeof provider.chatStream === 'function');
+    return !!(
+      provider &&
+      !isManagedRunProvider(provider) &&
+      typeof provider.chatStream === 'function'
+    );
   }
 
   /**

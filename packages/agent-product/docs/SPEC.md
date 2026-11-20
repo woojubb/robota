@@ -38,7 +38,8 @@ boundary has three parts:
 - Provider resolution order: an injected override wins, else a provider is constructed from
   `profile.providerSettings` via `agent-core`'s pure provider factory, else no provider is
   constructed and the caller must supply one when building the runtime. An unknown provider name
-  throws, naming the supported types, rather than silently producing no provider.
+  throws, naming the supported types, rather than silently producing no provider; a managed provider
+  without a qualified execution path cannot be silently replaced by another runtime provider.
 - Preset resolution uses an instance-scoped registry built over built-ins plus the profile's
   presets — unless the profile supplies its own registry, which wins outright. This lets a shell
   that must resolve a preset before it can even construct the profile (because the preset carries

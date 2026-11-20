@@ -2,7 +2,7 @@ import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sd
 import { suggestProviderProfileName } from '@robota-sdk/agent-framework';
 
 import type {
-  IProviderDefinition,
+  TProviderDefinition,
   IProviderSetupHelpLink,
   IProviderSetupStepDefinition,
   TProviderSetupField,
@@ -56,7 +56,7 @@ export type TProviderSetupFlowSubmitResult =
 
 export function createProviderSetupFlow(
   type: TProviderSetupType,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   options: IProviderSetupFlowOptions = {},
 ): IProviderSetupFlowState {
   const definition = getProviderSetupDefinition(type, providerDefinitions);
@@ -78,7 +78,7 @@ export function createProviderSetupFlow(
 }
 
 export function formatProviderSetupSelectionPrompt(
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
 ): string {
   if (providerDefinitions.length === 0) {
     return '  No providers are available.';
@@ -95,7 +95,7 @@ export function formatProviderSetupSelectionPrompt(
 
 export function resolveProviderSetupSelection(
   rawValue: string,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
 ): TProviderSetupType {
   const value = rawValue.trim();
   const selectedValue = value.length > 0 ? value : '1';
@@ -151,7 +151,7 @@ export function submitProviderSetupValue(
 export async function runProviderSetupPromptFlow(
   type: TProviderSetupType,
   promptInput: TPromptInput,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   options: IProviderSetupFlowOptions = {},
 ): Promise<IProviderSetupInput> {
   let state = createProviderSetupFlow(type, providerDefinitions, options);
@@ -190,7 +190,7 @@ const CATEGORY_BADGES: Record<string, string> = {
   'local-free': '[Local/Free]',
 };
 
-export function formatProviderSetupChoiceLabel(definition: IProviderDefinition): string {
+export function formatProviderSetupChoiceLabel(definition: TProviderDefinition): string {
   const badge =
     definition.category !== undefined ? `${CATEGORY_BADGES[definition.category] ?? ''} ` : '';
   const name =
@@ -234,8 +234,8 @@ export function validateProviderSetupValue(
 
 function getProviderSetupDefinition(
   type: TProviderSetupType,
-  providerDefinitions: readonly IProviderDefinition[],
-): IProviderDefinition {
+  providerDefinitions: readonly TProviderDefinition[],
+): TProviderDefinition {
   const definition = findProviderDefinition(providerDefinitions, type);
   if (definition === undefined) {
     throw new Error(
@@ -245,7 +245,7 @@ function getProviderSetupDefinition(
   return definition;
 }
 
-function getProviderSetupSteps(definition: IProviderDefinition): IProviderSetupPromptStep[] {
+function getProviderSetupSteps(definition: TProviderDefinition): IProviderSetupPromptStep[] {
   if (definition.setupSteps !== undefined) {
     return [...definition.setupSteps];
   }

@@ -84,6 +84,17 @@ export type {
   IProviderRegistrationOptions,
   TProviderOptionValueBase,
 } from './provider';
+export type {
+  TManagedToolBatch,
+  IManagedToolReceipt,
+  IManagedTurnInput,
+  TManagedTurnEvent,
+  TManagedTurnResult,
+  IManagedTurnHost,
+  IManagedRunProvider,
+  TExecutionProvider,
+} from './managed-provider';
+export { isManagedRunProvider, ManagedRunUnavailableError } from './managed-provider';
 export { isModelEffort, MODEL_EFFORT_VALUES } from './provider';
 export type {
   IOutboundTraceContext,
@@ -116,6 +127,7 @@ export type {
   TProviderCredentialResolver,
   IProviderCredentialRequirement,
   IProviderDefinition,
+  TProviderDefinition,
   IProviderModelCatalog,
   IProviderModelCatalogEntry,
   IProviderProbeResult,

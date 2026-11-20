@@ -1,5 +1,6 @@
 import { requireExecutionRoot } from './execution-root.js';
 import { TurnClaim } from './turn-claim.js';
+import { isManagedRunProvider, ManagedRunUnavailableError } from '@robota-sdk/agent-core';
 
 import type { ContextWindowTracker, TAutoCompactThreshold } from './context-window-tracker.js';
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
@@ -9,6 +10,7 @@ import type { ISystemPromptManifest } from '@robota-sdk/agent-interface/session'
 import type {
   ConversationAgent,
   IAIProvider,
+  TExecutionProvider,
   IContextWindowState,
   IHistoryEntry,
   IToolSchema,
@@ -29,7 +31,7 @@ export abstract class SessionBase {
   protected abstract activePresetId: string;
   protected abstract parallelSubagentsEnabled: boolean;
   protected abstract readonly sessionId: string;
-  protected abstract readonly aiProvider: IAIProvider;
+  protected abstract readonly aiProvider: TExecutionProvider;
   protected abstract readonly toolSchemas: IToolSchema[];
   protected abstract model: string;
   protected abstract systemMessage: string;
@@ -350,8 +352,16 @@ export abstract class SessionBase {
     return this.agent.getOfferedToolSchemas();
   }
 
-  /** The provider the session sends its turns to now; a provider switch replaces it. */
+  /** Legacy model-step accessor; refuses a managed provider instead of exposing a fake chat method. */
   getProvider(): IAIProvider {
+    if (isManagedRunProvider(this.aiProvider)) {
+      throw new ManagedRunUnavailableError(this.aiProvider.name);
+    }
+    return this.aiProvider;
+  }
+
+  /** Current provider of either execution kind. */
+  getExecutionProvider(): TExecutionProvider {
     return this.aiProvider;
   }
 

@@ -15,6 +15,8 @@ import type { IToolSchema } from './tool-schema';
 import type { IModelRef } from './role-model';
 import type { IOutboundTraceContext } from './trace-context';
 import type { TUniversalValue } from './universal-value';
+import { isManagedRunProvider } from './managed-provider';
+import type { TExecutionProvider } from './managed-provider';
 
 export type {
   IProviderCapabilities,
@@ -338,10 +340,11 @@ export interface IAIProvider {
 /**
  * Resolve provider-neutral capability state for a provider instance.
  *
- * Defined here (not in `./provider-capabilities`) because it takes an `IAIProvider`, which is
- * declared in this module; `./provider-capabilities` has no dependency back on `./provider`.
+ * Model-step providers may report capabilities. Managed providers do not yet expose a verified
+ * capability declaration, so none is claimed on their behalf.
  */
-export function getProviderCapabilities(provider: IAIProvider): IProviderCapabilities {
+export function getProviderCapabilities(provider: TExecutionProvider): IProviderCapabilities {
+  if (isManagedRunProvider(provider)) return createDefaultProviderCapabilities(false);
   const supportsTools =
     typeof provider.supportsTools === 'function' ? provider.supportsTools() : false;
   return provider.getCapabilities?.() ?? createDefaultProviderCapabilities(supportsTools);

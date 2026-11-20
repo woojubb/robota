@@ -1,9 +1,9 @@
 import type { ICacheOptions } from './cache';
 import type { IUserInteraction } from './interaction';
 import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
+import type { TExecutionProvider } from './managed-provider';
 import type {
   TProviderConfigValue,
-  IAIProvider,
   TModelEffortSelection,
   TToolChoice,
   TProviderOwnership,
@@ -87,7 +87,7 @@ export interface IAgentProviderConfig {
 export interface IAgentConfig {
   id?: string;
   name: string;
-  aiProviders: IAIProvider[];
+  aiProviders: TExecutionProvider[];
   /** Registration names whose close responsibility differs from the owned default. */
   providerOwnership?: Readonly<Record<string, TProviderOwnership>>;
   defaultModel: {

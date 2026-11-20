@@ -42,6 +42,7 @@ export type {
   TProviderCredentialResolver,
   IProviderCredentialRequirement,
   IProviderDefinition,
+  TProviderDefinition,
   IProviderModelCatalog,
   IProviderModelCatalogEntry,
   IProviderProbeResult,

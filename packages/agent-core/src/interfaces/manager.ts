@@ -1,4 +1,5 @@
-import type { IAIProvider, IToolSchema, IProviderRegistrationOptions } from './provider';
+import type { IToolSchema, IProviderRegistrationOptions } from './provider';
+import type { TExecutionProvider } from './managed-provider';
 import type {
   ITool,
   IToolResult,
@@ -28,7 +29,11 @@ export interface IAIProviderManager {
   /**
    * Register an AI provider
    */
-  addProvider(name: string, provider: IAIProvider, options?: IProviderRegistrationOptions): void;
+  addProvider(
+    name: string,
+    provider: TExecutionProvider,
+    options?: IProviderRegistrationOptions,
+  ): void;
 
   /**
    * Remove an AI provider
@@ -38,12 +43,12 @@ export interface IAIProviderManager {
   /**
    * Get registered provider by name
    */
-  getProvider(name: string): IAIProvider | undefined;
+  getProvider(name: string): TExecutionProvider | undefined;
 
   /**
    * Get all registered providers
    */
-  getProviders(): Record<string, IAIProvider>;
+  getProviders(): Record<string, TExecutionProvider>;
 
   /**
    * Set current provider and model

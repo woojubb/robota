@@ -9,7 +9,7 @@ import { runHooks, createLogger } from '@robota-sdk/agent-core';
 import type { TSessionLogData } from './session-logger.js';
 import type { ISessionOptions } from './session-types.js';
 import type {
-  IAIProvider,
+  TExecutionProvider,
   TSessionEndReason,
   THooksConfig,
   IHookInput,
@@ -23,7 +23,7 @@ const logger = createLogger('SessionLifecycle');
  * Which hosted tools a provider runs is decided where it is constructed, never here.
  */
 export function configureProvider(
-  provider: IAIProvider,
+  provider: TExecutionProvider,
   _options: ISessionOptions,
   log: (event: string, data: TSessionLogData) => void,
 ): void {

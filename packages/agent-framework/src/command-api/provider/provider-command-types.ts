@@ -2,7 +2,7 @@ import type { TProviderEnvironment } from './provider-environment.js';
 import type { TProviderSettingsDocument } from './provider-settings.js';
 import type { IOrgPolicy } from '../org-policy/org-policy-types.js';
 import type {
-  IProviderDefinition,
+  TProviderDefinition,
   ICredentialKey,
   TProviderCredentialResolver,
 } from '@robota-sdk/agent-core';
@@ -31,7 +31,7 @@ export interface IProviderCommandSettingsAdapter {
 }
 
 export interface IProviderCommandModuleOptions {
-  providerDefinitions: readonly IProviderDefinition[];
+  providerDefinitions: readonly TProviderDefinition[];
   settings: IProviderCommandSettingsAdapter;
   orgPolicy?: IOrgPolicy;
   connectionHost?: IProviderConnectionHost;

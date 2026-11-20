@@ -20,7 +20,7 @@ import { resolveProviderEnvironment } from './provider-environment.js';
 
 import type { TProviderEnvironment } from './provider-environment.js';
 import type { IProviderProfileSettings } from './provider-settings.js';
-import type { IProviderDefinition, TProviderCredentialField } from '@robota-sdk/agent-core';
+import type { TProviderDefinition, TProviderCredentialField } from '@robota-sdk/agent-core';
 import type {
   ISettingsProviderProfile,
   ISettingsProvidersSection,
@@ -28,14 +28,14 @@ import type {
 
 /** The provider's plain display name — never its internal `type` id, unless nothing else is known. */
 function providerLabel(
-  definition: IProviderDefinition | undefined,
+  definition: TProviderDefinition | undefined,
   profile: IProviderProfileSettings,
 ): string {
   return definition?.displayName ?? profile.type ?? 'Unknown provider';
 }
 
 /** The catalog's display name for a configured model id, falling back to the raw id. */
-function modelLabel(modelId: string, definition: IProviderDefinition | undefined): string {
+function modelLabel(modelId: string, definition: TProviderDefinition | undefined): string {
   const catalog = definition?.modelCatalog;
   const entries =
     catalog !== undefined && catalog.status !== 'unavailable' ? (catalog.entries ?? []) : [];
@@ -44,7 +44,7 @@ function modelLabel(modelId: string, definition: IProviderDefinition | undefined
 
 function credentialValue(
   profile: IProviderProfileSettings,
-  definition: IProviderDefinition | undefined,
+  definition: TProviderDefinition | undefined,
   field: TProviderCredentialField,
 ): string | undefined {
   const raw = profile[field] ?? definition?.defaults?.[field];
@@ -58,7 +58,7 @@ function credentialValue(
  */
 function connectionState(
   profile: IProviderProfileSettings,
-  definition: IProviderDefinition | undefined,
+  definition: TProviderDefinition | undefined,
   environment: TProviderEnvironment | undefined,
 ): string | undefined {
   // A stored reference is resolved by the host, not diagnosed as an absent manually entered key.
@@ -82,7 +82,7 @@ function connectionState(
 export function buildProviderProfilesSnapshot(
   providers: Record<string, IProviderProfileSettings> | undefined,
   currentProfileName: string | undefined,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   allowedProviders?: readonly string[],
   /** What `$ENV:` references resolve against (the host's startup snapshot); absent, every reference reads as unset. */
   environment?: TProviderEnvironment,

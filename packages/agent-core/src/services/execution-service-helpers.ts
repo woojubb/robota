@@ -10,6 +10,7 @@ import { type ConversationStore } from '../managers/conversation-history-manager
 
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
+import { isManagedRunProvider, ManagedRunUnavailableError } from '../interfaces/managed-provider';
 import type { IAgentConfig, IAssistantMessage, IToolMessage } from '../interfaces/agent';
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
@@ -101,6 +102,7 @@ export function resolveProviderAndTools(
   if (!currentInfo || !currentInfo.provider || !provider) {
     throw new Error('[EXECUTION] Provider is required');
   }
+  if (isManagedRunProvider(provider)) throw new ManagedRunUnavailableError(provider.name);
   const registeredTools = tools.getTools();
   const aiProviderInfo = {
     providerName: currentInfo.provider,

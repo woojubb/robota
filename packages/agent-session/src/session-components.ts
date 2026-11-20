@@ -7,7 +7,7 @@ import { PermissionEnforcer } from './permission-enforcer.js';
 import type { ISessionOptions } from './session-types.js';
 import type {
   IAgentConfig,
-  IAIProvider,
+  TExecutionProvider,
   IEventService,
   IToolWithEventService,
   TPermissionMode,
@@ -89,7 +89,7 @@ export function buildConversationAgent(
   options: ISessionOptions,
   permissionEnforcer: PermissionEnforcer,
   tools: IToolWithEventService[],
-  provider: IAIProvider,
+  provider: TExecutionProvider,
   model: string,
   systemMessage: string,
   eventService: IEventService,
