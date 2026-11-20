@@ -865,6 +865,26 @@ describe('provider-free journal continuation', () => {
     },
   );
 
+  it('rejects duplicate records that share one object but disagree on reference aliasing', async () => {
+    const saved = await stoppedAt('model-response', true);
+    await fixture().agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    const record = saved.records.find((item) => item.kind === 'tool-result');
+    if (!record || record.kind !== 'tool-result') throw new Error('Missing result');
+    const shared = { value: 1 };
+    record.result.result = { a: shared, b: shared };
+    saved.records.push({
+      ...record,
+      result: { ...record.result, result: { a: shared, b: { value: 1 } } },
+    });
+    const fresh = fixture();
+    await expect(
+      fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_INVALID',
+    });
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
   it('refuses to append an old batch into unrelated live history', async () => {
     const saved = await stoppedAt('tool-intent');
     const fresh = fixture();

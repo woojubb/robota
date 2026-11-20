@@ -10,6 +10,7 @@ import {
   TOOL_BODY_EVENTS,
   TOOL_PERMISSION_EVENTS,
   snapshotToolProvenance,
+  wasToolResultAdmitted,
   withToolProvenance,
 } from '@robota-sdk/agent-core';
 import { canonicaliseToolArguments } from './tool-argument-canonicalisation.js';
@@ -103,18 +104,25 @@ export function wrapToolWithPermission(
   const originalExecuteWithAdmission = tool.executeWithAdmission?.bind(tool);
   const provenance = snapshotToolProvenance(tool.provenance);
   const onToolExecution: IToolWrapperDeps['onToolExecution'] = (event) => {
-    try {
-      if (event.type !== 'end' || !provenance) return enforcer.onToolExecution?.(event);
-      const observation = withToolProvenance(
-        { success: event.success ?? false, parts: event.toolResultParts },
-        provenance,
-      );
-      enforcer.onToolExecution?.({ ...event, toolResultParts: observation.parts });
-    } catch (error) {
+    const report = (error: unknown) =>
       logger.warn(
         'tool execution observation failed',
         error instanceof Error ? error : new Error(String(error)),
       );
+    try {
+      const observed =
+        event.type === 'end' && provenance
+          ? {
+              ...event,
+              toolResultParts: withToolProvenance(
+                { success: event.success ?? false, parts: event.toolResultParts },
+                provenance,
+              ).parts,
+            }
+          : event;
+      void Promise.resolve(enforcer.onToolExecution?.(observed)).catch(report);
+    } catch (error) {
+      report(error);
     }
   };
   // What this session gave the tool with `setEventService`. The tool instance may be shared with
@@ -297,6 +305,7 @@ export function wrapToolWithPermission(
       };
       let outcome: 'success' | 'failure' | 'interrupted' = 'failure';
       let result: IToolResult;
+      let alreadyAdmitted = false;
       try {
         // A call without a context was not made by an agent, so it has no session to carry.
         const toolContext =
@@ -317,6 +326,7 @@ export function wrapToolWithPermission(
         }
         if (beforeEffect) {
           try {
+            alreadyAdmitted = wasToolResultAdmitted(result);
             const { success, data, parts, error, metadata, view } = result;
             const settled = structuredClone({ success, data, parts, error, metadata });
             JSON.stringify(settled);
@@ -354,7 +364,7 @@ export function wrapToolWithPermission(
       }
 
       // Truncate oversized tool output (matches 30K char limit)
-      const truncatedResult = truncateToolResult(result);
+      const truncatedResult = alreadyAdmitted ? result : truncateToolResult(result);
 
       if (truncatedResult !== result && typeof result.data === 'string') {
         enforcer.terminal.writeLine(

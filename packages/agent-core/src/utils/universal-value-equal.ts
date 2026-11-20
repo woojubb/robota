@@ -58,8 +58,8 @@ export function isUniversalValueEqual(left: unknown, right: unknown): boolean {
   const forward = new WeakMap<object, object>();
   const reverse = new WeakMap<object, object>();
   const equal = (a: unknown, b: unknown): boolean => {
-    if (Object.is(a, b)) return true;
-    if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+    if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null)
+      return Object.is(a, b);
     if (forward.has(a) || reverse.has(b)) return forward.get(a) === b && reverse.get(b) === a;
     forward.set(a, b);
     reverse.set(b, a);
