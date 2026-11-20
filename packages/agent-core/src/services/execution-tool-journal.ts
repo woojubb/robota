@@ -1,7 +1,10 @@
 import { randomId } from '../utils/random-id';
 import { ExecutionJournalError } from '../utils/execution-journal-error';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
-import { isUniversalValueEqual } from '../utils/universal-value-equal';
+import {
+  isSnapshotableUniversalValue,
+  isUniversalValueEqual,
+} from '../utils/universal-value-equal';
 import { appendExecutionRecord } from './execution-journal';
 import { toolContinuation } from './execution-tool-waits';
 import type { IExecutionJournal } from '../interfaces/execution-journal';
@@ -195,6 +198,11 @@ export async function attachToolBatchJournal(
       return structuredClone(snapshot.result);
     },
     beforeEffect: async (index, parameters) => {
+      if (!isSnapshotableUniversalValue(parameters))
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_INVALID',
+          'Tool parameters cannot be represented for effect admission',
+        );
       let snapshot: typeof parameters;
       try {
         snapshot = structuredClone(parameters);

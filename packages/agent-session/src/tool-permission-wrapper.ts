@@ -3,6 +3,7 @@ import {
   createLogger,
   isExecutionControlError,
   ExecutionRecoveryError,
+  isSnapshotableUniversalValue,
   isUniversalValueEqual,
   DEFAULT_ABSTRACT_EVENT_SERVICE,
   isAbortFailure,
@@ -209,6 +210,11 @@ export function wrapToolWithPermission(
       let startedAtMs: number | undefined;
       const admit: TToolEffectAdmission = async (effective) => {
         context?.signal?.throwIfAborted();
+        if (!isSnapshotableUniversalValue(effective))
+          throw new ExecutionRecoveryError(
+            'EXECUTION_RECOVERY_INVALID',
+            'Tool parameters cannot be represented for effect admission',
+          );
         const snapshot = structuredClone(effective);
         const approvedArguments = canonicaliseToolArguments(toolName, snapshot, enforcer.cwd);
         if (JSON.stringify(approvedArguments) !== JSON.stringify(snapshot)) {

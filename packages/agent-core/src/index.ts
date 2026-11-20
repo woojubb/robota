@@ -175,7 +175,10 @@ export { utf8ByteLength } from './utils/utf8-byte-length.js';
 export { utf8Decode } from './utils/utf8-decode.js';
 export { base64UrlDecode } from './utils/base64-url.js';
 export { isJsonEqual } from './utils/json-equal.js';
-export { isUniversalValueEqual } from './utils/universal-value-equal.js';
+export {
+  isSnapshotableUniversalValue,
+  isUniversalValueEqual,
+} from './utils/universal-value-equal.js';
 export {
   basenamePath,
   dirnamePath,

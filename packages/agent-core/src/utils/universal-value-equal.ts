@@ -1,3 +1,52 @@
+function ownDataKeys(value: object): string[] | undefined {
+  const keys: string[] = [];
+  for (const key of Reflect.ownKeys(value)) {
+    if (Array.isArray(value) && key === 'length') {
+      const length = Object.getOwnPropertyDescriptor(value, key);
+      if (!length || !length.writable || length.enumerable || length.configurable) return undefined;
+      continue;
+    }
+    if (typeof key !== 'string') return undefined;
+    const property = Object.getOwnPropertyDescriptor(value, key);
+    if (
+      !property ||
+      !('value' in property) ||
+      !property.enumerable ||
+      !property.configurable ||
+      !property.writable
+    )
+      return undefined;
+    keys.push(key);
+  }
+  return keys;
+}
+
+/** Check that cloning preserves a tool value without invoking its accessors. */
+export function isSnapshotableUniversalValue(value: unknown): boolean {
+  const seen = new WeakSet<object>();
+  const valid = (item: unknown): boolean => {
+    if (
+      item === null ||
+      item === undefined ||
+      typeof item === 'string' ||
+      typeof item === 'boolean' ||
+      typeof item === 'number'
+    )
+      return true;
+    if (typeof item !== 'object') return false;
+    if (seen.has(item)) return true;
+    seen.add(item);
+    if (!Object.isExtensible(item)) return false;
+    if (item instanceof Date)
+      return Object.getPrototypeOf(item) === Date.prototype && Reflect.ownKeys(item).length === 0;
+    const prototype = Object.getPrototypeOf(item);
+    if (prototype !== (Array.isArray(item) ? Array.prototype : Object.prototype)) return false;
+    const keys = ownDataKeys(item);
+    return !!keys && keys.every((key) => valid(Object.getOwnPropertyDescriptor(item, key)!.value));
+  };
+  return valid(value);
+}
+
 /** Compare cloned, JSON-like tool values, including nested dates and reference cycles. */
 export function isUniversalValueEqual(left: unknown, right: unknown): boolean {
   const forward = new WeakMap<object, object>();
@@ -21,29 +70,6 @@ export function isUniversalValueEqual(left: unknown, right: unknown): boolean {
     if (Object.getPrototypeOf(a) !== Object.getPrototypeOf(b)) return false;
     if (!(Array.isArray(a) || Object.getPrototypeOf(a) === Object.prototype)) return false;
     if (Array.isArray(a) && (!Array.isArray(b) || a.length !== b.length)) return false;
-    const ownDataKeys = (value: object): string[] | undefined => {
-      const keys: string[] = [];
-      for (const key of Reflect.ownKeys(value)) {
-        if (Array.isArray(value) && key === 'length') {
-          const length = Object.getOwnPropertyDescriptor(value, key);
-          if (!length || !length.writable || length.enumerable || length.configurable)
-            return undefined;
-          continue;
-        }
-        if (typeof key !== 'string') return undefined;
-        const property = Object.getOwnPropertyDescriptor(value, key);
-        if (
-          !property ||
-          !('value' in property) ||
-          !property.enumerable ||
-          !property.configurable ||
-          !property.writable
-        )
-          return undefined;
-        keys.push(key);
-      }
-      return keys;
-    };
     const keys = ownDataKeys(a);
     const otherKeys = ownDataKeys(b);
     if (!keys || !otherKeys || keys.length !== otherKeys.length) return false;

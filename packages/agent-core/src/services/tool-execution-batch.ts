@@ -5,7 +5,7 @@ import {
   prioritizeExecutionError,
 } from '../utils/execution-control-error';
 import { ExecutionSuspendedError } from '../utils/execution-suspended-error';
-import type { ExecutionRecoveryError } from '../utils/execution-recovery-error';
+import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { randomId } from '../utils/random-id.js';
 import { ToolBatchQueue } from './tool-batch-queue.js';
 import { spanIdFromMintedId, toolTraceContextFor, traceEnvFor } from '../utils/trace-context';
@@ -590,7 +590,20 @@ async function executeRequest(
       }
       // Unknown-tool classification is produced by the host before a tool body is entered.
       const unknownTool = result.metadata?.errorCode === UNKNOWN_TOOL_ERROR_CODE;
-      if (context.lifecycle) await context.lifecycle.onResult(index, executionContext, result);
+      if (context.lifecycle) {
+        let observation = result;
+        if (context.journal) {
+          try {
+            observation = structuredClone(result);
+          } catch {
+            throw new ExecutionRecoveryError(
+              'EXECUTION_RECOVERY_REQUIRED',
+              'Tool result cannot be observed safely before journal settlement',
+            );
+          }
+        }
+        await context.lifecycle.onResult(index, executionContext, observation);
+      }
       const metadata = result.metadata;
       if (metadata) {
         const { dispatchStatus: _foreignStatus, errorCode, ...rest } = metadata;

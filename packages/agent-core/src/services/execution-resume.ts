@@ -11,6 +11,7 @@ import { ConversationStore } from '../managers/conversation-history-manager';
 import { createAbortError } from '../utils/abort-classification';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { isJsonEqual } from '../utils/json-equal';
+import { isUniversalValueEqual } from '../utils/universal-value-equal';
 import {
   recoverToolBatch,
   recoveryValueKey,
@@ -105,6 +106,21 @@ function matchesReceiptHistory(
   );
 }
 
+/** Provider metadata cannot be treated as host-added merely because its key is also host-owned. */
+function matchesSavedProviderMetadata(
+  actual: TUniversalMessage,
+  batch: IRecoveredToolBatch,
+): boolean {
+  const saved = batch.response.metadata;
+  if (!saved) return true;
+  if (!actual.metadata) return false;
+  return Object.keys(saved).every(
+    (key) =>
+      Object.hasOwn(actual.metadata!, key) &&
+      sameReceiptMetadata({ [key]: actual.metadata![key] }, { [key]: saved[key] }),
+  );
+}
+
 /** Verify the saved prefix and any already-published, settled tool-result prefix before effects. */
 function validateHistory(
   existing: TUniversalMessage[],
@@ -114,10 +130,11 @@ function validateHistory(
 ): void {
   if (!existing.length) return;
   const base = batch.checkpoint.messages;
-  if (
-    existing.length < base.length ||
-    recoveryValueKey(existing.slice(0, base.length)) !== recoveryValueKey(base)
-  ) {
+  const prefix = existing.slice(0, base.length);
+  const matchesPrefix = options.includeReceipts
+    ? isUniversalValueEqual(prefix, base)
+    : recoveryValueKey(prefix) === recoveryValueKey(base);
+  if (existing.length < base.length || !matchesPrefix) {
     conflict('Current history differs from the saved runtime checkpoint');
   }
   const suffix = existing.slice(base.length);
@@ -133,7 +150,8 @@ function validateHistory(
     conflict('Current assistant does not match the saved response');
   if (
     options.includeReceipts &&
-    !matchesReceiptHistory(suffix[0], recoveredAssistant(batch, options), true)
+    (!matchesReceiptHistory(suffix[0], recoveredAssistant(batch, options), true) ||
+      !matchesSavedProviderMetadata(suffix[0], batch))
   )
     conflict('Current assistant frame differs from the durable response');
   const calls = batch.response.toolCalls ?? [];
@@ -195,8 +213,16 @@ export async function restoreJournaledRound(
   config?: TAgentExecutionConfig,
 ): Promise<IRestoredExecutionRound> {
   const before = recoveryValueKey(store.getMessages());
+  const beforeReceiptHistory = options.includeReceipts
+    ? structuredClone(store.getMessages())
+    : undefined;
   const unchanged = (): void => {
-    if (before !== recoveryValueKey(store.getMessages()) || store.hasPendingAssistant())
+    if (
+      (beforeReceiptHistory
+        ? !isUniversalValueEqual(beforeReceiptHistory, store.getMessages())
+        : before !== recoveryValueKey(store.getMessages())) ||
+      store.hasPendingAssistant()
+    )
       conflict('History changed during execution recovery');
   };
   unchanged();
@@ -204,6 +230,11 @@ export async function restoreJournaledRound(
   let batch = prepared?.batch ?? recoverToolBatch(records, options.executionId, options.callId);
   options.signal?.throwIfAborted();
   unchanged();
+  if (
+    options.includeReceipts &&
+    !matchesSavedProviderMetadata(recoveredAssistant(batch, options), batch)
+  )
+    conflict('Saved provider metadata conflicts with the recovered assistant frame');
   const existing = structuredClone(store.getMessages());
   validateHistory(existing, batch, options, deps);
   const accepted = await acceptToolResponses(records, options);
@@ -253,7 +284,7 @@ export async function restoreJournaledRound(
         undefined,
         state,
         deps,
-        config,
+        config && { ...config, maxSameToolInputs: batch.checkpoint.maxSameToolInputs },
         options.signal,
         undefined,
         batch.checkpoint.maxSameToolInputs,
@@ -275,6 +306,7 @@ export async function restoreJournaledRound(
     for (const message of staged.getMessages().slice(existing.length)) store.addMessage(message);
     const committed = structuredClone(store.getMessages());
     const committedKey = recoveryValueKey(committed);
+    const receiptCommitted = options.includeReceipts ? structuredClone(committed) : undefined;
     for (let index = existing.length; index < committed.length; index++) {
       options.onExecutionEvent?.('history_mutation', {
         executionId: options.executionId,
@@ -284,7 +316,12 @@ export async function restoreJournaledRound(
         index,
         message: committed[index],
       });
-      if (committedKey !== recoveryValueKey(store.getMessages()) || store.hasPendingAssistant())
+      if (
+        (receiptCommitted
+          ? !isUniversalValueEqual(receiptCommitted, store.getMessages())
+          : committedKey !== recoveryValueKey(store.getMessages())) ||
+        store.hasPendingAssistant()
+      )
         conflict('History changed while announcing execution recovery');
     }
     if (options.signal?.aborted)
