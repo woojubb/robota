@@ -369,6 +369,96 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).toHaveBeenCalledTimes(2);
   });
 
+  it('accepts equivalent duplicate dependencies and resource declarations', async () => {
+    const policy =
+      (duplicate: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
+      (calls) => ({
+        scheduling: new Map([
+          [
+            calls[0].id,
+            {
+              resources: duplicate
+                ? [
+                    { key: 'db', access: 'write' },
+                    { key: 'db', access: 'write' },
+                  ]
+                : [{ key: 'db', access: 'write' }],
+            },
+          ],
+          [
+            calls[1].id,
+            { dependsOn: duplicate ? [calls[0].id, calls[0].id] : [calls[0].id], resources: [] },
+          ],
+        ]),
+      });
+    const source = fixture(undefined, undefined, undefined, policy(true));
+    const saved = await stoppedAt('tool-intent', true, source);
+    const fresh = fixture(undefined, undefined, undefined, policy(false));
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('accepts structural policies with unrelated instance data', async () => {
+    class SchedulingDeclaration implements IToolCallScheduling {
+      readonly resources: NonNullable<IToolCallScheduling['resources']> = [];
+      readonly callback = () => 'unused';
+      readonly map = new Map([['unused', 1]]);
+      readonly cycle: Record<string, unknown> = {};
+      constructor() {
+        this.cycle.self = this.cycle;
+        Object.defineProperty(this, 'hidden', { value: 'unused', enumerable: false });
+      }
+    }
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      scheduling: new Map(calls.map((call) => [call.id, new SchedulingDeclaration()])),
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-intent', true, source);
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('accepts inherited data fields in structural scheduling policies', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      const declaration: IToolCallScheduling = {};
+      Object.setPrototypeOf(declaration, { resources: [] });
+      return { scheduling: new Map(calls.map((call) => [call.id, declaration])) };
+    };
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-intent', true, source);
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves a scheduler refusal for a non-array data-only resource container', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      const declaration: IToolCallScheduling = {};
+      Object.assign(declaration, { resources: new Set() });
+      return { scheduling: new Map([[calls[0].id, declaration]]) };
+    };
+    const baseline = fixture(undefined, undefined, undefined, policy);
+    await baseline.agent.run('perform actions');
+    expect(baseline.effect).not.toHaveBeenCalled();
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-result', true, source);
+    const first = saved.records.find((record) => record.kind === 'tool-result');
+    if (first?.kind !== 'tool-result') throw new Error('Missing refusal');
+    const baselineResult = baseline.agent.getHistory().find((message) => message.role === 'tool');
+    expect(baselineResult?.content).toContain(first.result.error);
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(fresh.effect).not.toHaveBeenCalled();
+    expect(
+      result.receipts?.every(
+        (receipt) =>
+          receipt.result.metadata?.errorCode === 'tool_call_skipped' &&
+          receipt.result.error === first.result.error,
+      ),
+    ).toBe(true);
+  });
+
   it.each(['invalid access', 'missing access', 'null resource', 'undefined resource'] as const)(
     'preserves the scheduler refusal for %s during recovery',
     async (invalid) => {

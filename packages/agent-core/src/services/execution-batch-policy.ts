@@ -7,6 +7,7 @@ import {
 import type { TAgentExecutionConfig } from '../interfaces/agent';
 import type { IJournalToolBatchPolicy } from '../interfaces/execution-journal';
 import type { IToolCall } from '../interfaces/messages';
+import type { IToolCallScheduling } from '../interfaces/tool';
 import type { IToolExecutionBatchContext } from './tool-execution-batch-types';
 
 export type TBatchScheduling = Pick<
@@ -55,6 +56,97 @@ const policy = z
     scheduling: z.array(z.tuple([z.unknown(), z.unknown()])).optional(),
   })
   .strict();
+
+function invalidPolicy(): never {
+  throw new ExecutionRecoveryError(
+    'EXECUTION_RECOVERY_INVALID',
+    'Tool batch policy cannot be recorded',
+  );
+}
+
+/** Read a scheduler field without invoking an own or inherited accessor. */
+function dataField(value: object, key: string): unknown {
+  const visited = new Set<object>();
+  let current: object | null = value;
+  while (current) {
+    if (visited.has(current)) return invalidPolicy();
+    visited.add(current);
+    const descriptor = Object.getOwnPropertyDescriptor(current, key);
+    if (descriptor) {
+      if (!('value' in descriptor)) return invalidPolicy();
+      return descriptor.value;
+    }
+    current = Object.getPrototypeOf(current);
+  }
+  return undefined;
+}
+
+/** Copy an array without reading accessors or discarding custom array behavior. */
+function projectArray<T>(value: T, project: (item: unknown) => unknown): T {
+  if (!Array.isArray(value)) return value;
+  if (Object.getPrototypeOf(value) !== Array.prototype) return invalidPolicy();
+  const length = Object.getOwnPropertyDescriptor(value, 'length');
+  if (!length || !('value' in length) || typeof length.value !== 'number') return invalidPolicy();
+  const copy: unknown[] = new Array(length.value);
+  for (const key of Reflect.ownKeys(value)) {
+    if (key === 'length') continue;
+    if (typeof key !== 'string') return invalidPolicy();
+    const index = Number(key);
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (
+      !Number.isSafeInteger(index) ||
+      index < 0 ||
+      index >= length.value ||
+      String(index) !== key ||
+      !descriptor?.enumerable ||
+      !('value' in descriptor)
+    )
+      return invalidPolicy();
+    copy[index] = project(descriptor.value);
+  }
+  for (let index = 0; index < length.value; index++) {
+    if (
+      !Object.hasOwn(value, String(index)) &&
+      (Object.hasOwn(Array.prototype, String(index)) ||
+        Object.hasOwn(Object.prototype, String(index)))
+    )
+      return invalidPolicy();
+  }
+  // The copy preserves the array's scheduler-visible data; malformed elements stay for validation.
+  return copy as T;
+}
+
+function projectResource(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value;
+  return { key: dataField(value, 'key'), access: dataField(value, 'access') };
+}
+
+function projectResources(value: unknown): unknown {
+  if (Array.isArray(value)) return projectArray(value, projectResource);
+  if (value === null || (typeof value !== 'object' && typeof value !== 'function')) return value;
+  // A non-array container with no callable map is refused by the scheduler in the same way.
+  if (typeof dataField(value, 'map') !== 'function') return {};
+  return invalidPolicy();
+}
+
+function projectScheduling<T>(value: T): T {
+  if (value === null || typeof value !== 'object') return value;
+  const dependsOn = dataField(value, 'dependsOn');
+  const resources = dataField(value, 'resources');
+  const projected = {
+    ...(dependsOn !== undefined && { dependsOn: projectArray(dependsOn, (item) => item) }),
+    ...(resources !== undefined && { resources: projectResources(resources) }),
+  };
+  // The source API supplies this structural type; the scheduler validates malformed fields.
+  return projected as T;
+}
+
+function projectSchedulingPair(pair: [string, IToolCallScheduling]): [string, IToolCallScheduling] {
+  const copy = projectArray(pair, (item) => item);
+  if (copy.length !== 2 || !Object.hasOwn(copy, '0') || !Object.hasOwn(copy, '1'))
+    return invalidPolicy();
+  return [copy[0], projectScheduling(copy[1])];
+}
 
 /** Policy data may be frozen, but accessors and lossy properties must never be read. */
 function isPolicyData(value: unknown): boolean {
@@ -210,10 +302,24 @@ function normalizeScheduling(
       continue;
     }
     const [id, entry] = parsed.data;
-    const dependsOn = entry.dependsOn ?? [];
-    const hasUnknownDependency = dependsOn.some((dependency) => !knownIds.has(dependency));
-    if (!hasUnknownDependency) dependsOn.sort();
-    const resources = entry.resources?.sort((left, right) => {
+    const originalDependencies = entry.dependsOn ?? [];
+    const hasUnknownDependency = originalDependencies.some(
+      (dependency) => !knownIds.has(dependency),
+    );
+    const dependsOn = hasUnknownDependency
+      ? originalDependencies
+      : [...new Set(originalDependencies)].sort();
+    let resources = entry.resources ?? undefined;
+    if (resources?.every((resource) => resource.key.trim().length > 0)) {
+      const seen = new Set<string>();
+      resources = resources.filter((resource) => {
+        const identity = `${resource.key}\u0000${resource.access}`;
+        if (seen.has(identity)) return false;
+        seen.add(identity);
+        return true;
+      });
+    }
+    resources?.sort((left, right) => {
       const a = `${left.key}\u0000${left.access}`;
       const b = `${right.key}\u0000${right.access}`;
       return a < b ? -1 : a > b ? 1 : 0;
@@ -279,7 +385,10 @@ export function snapshotBatchPolicy(
         ? count
         : Math.min(count, Math.max(1, Math.floor(requested)));
   try {
-    const supplied = batch.scheduling === undefined ? undefined : Array.from(batch.scheduling);
+    const supplied =
+      batch.scheduling === undefined
+        ? undefined
+        : Array.from(batch.scheduling, projectSchedulingPair);
     if (!isPolicyData(supplied))
       throw new ExecutionRecoveryError(
         'EXECUTION_RECOVERY_INVALID',

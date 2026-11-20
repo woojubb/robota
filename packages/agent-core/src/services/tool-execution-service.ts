@@ -61,6 +61,23 @@ export class ToolExecutionService {
   }
 
   restoreLoadedDeferredTools(names: readonly string[]): void {
+    this.tools.loadDeferredTools(this.restorableDeferredTools(names));
+  }
+
+  withRestoredDeferredTools<T>(names: readonly string[], inspect: () => T): T {
+    const visible = this.restorableDeferredTools(names);
+    if (this.tools.withTemporaryLoadedDeferredTools)
+      return this.tools.withTemporaryLoadedDeferredTools(visible, inspect);
+    const loaded = new Set(this.tools.getLoadedDeferredTools?.() ?? []);
+    if (loaded.size === new Set(visible).size && visible.every((name) => loaded.has(name)))
+      return inspect();
+    throw new ExecutionRecoveryError(
+      'EXECUTION_RECOVERY_INVALID',
+      'Tool manager cannot inspect restored residency without changing live state',
+    );
+  }
+
+  private restorableDeferredTools(names: readonly string[]): string[] {
     for (const name of names) {
       if (!this.tools.hasTool(name))
         throw new ExecutionRecoveryError(
@@ -69,7 +86,7 @@ export class ToolExecutionService {
         );
     }
     const visible = new Set(this.tools.getTools().map((tool) => tool.name));
-    this.tools.loadDeferredTools(names.filter((name) => visible.has(name)));
+    return names.filter((name) => visible.has(name));
   }
 
   /**

@@ -244,16 +244,26 @@ export async function restoreJournaledRound(
   const existing = structuredClone(store.getMessages());
   validateHistory(existing, batch, options, deps);
   const calls = batch.response.toolCalls ?? [];
+  const policyLoaded = new Set([
+    ...(batch.checkpoint.continuation?.loadedDeferredTools ?? []),
+    ...batch.offeredDeferredTools,
+  ]);
+  const loaded = new Set(policyLoaded);
+  for (const action of batch.actions.values())
+    for (const name of action.loadedDeferredTools ?? []) loaded.add(name);
   let preparedPolicy: TBatchScheduling | undefined;
   if (batch.batchPolicy && calls.length > 0) {
-    preparedPolicy = resolveBatchScheduling(calls, config);
-    assertSavedBatchPolicy(
-      snapshotBatchPolicy(
-        preparedPolicy,
-        calls.map((call) => call.id),
-      ),
-      batch.batchPolicy,
-    );
+    preparedPolicy = deps.toolExecutionService.withRestoredDeferredTools([...policyLoaded], () => {
+      const policy = resolveBatchScheduling(calls, config);
+      assertSavedBatchPolicy(
+        snapshotBatchPolicy(
+          policy,
+          calls.map((call) => call.id),
+        ),
+        batch.batchPolicy,
+      );
+      return policy;
+    });
     unchanged();
   }
   const accepted = await acceptToolResponses(records, options);
@@ -261,12 +271,6 @@ export async function restoreJournaledRound(
     batch = recoverToolBatch(accepted, options.executionId, options.callId, false);
   options.signal?.throwIfAborted();
   unchanged();
-  const loaded = new Set([
-    ...(batch.checkpoint.continuation?.loadedDeferredTools ?? []),
-    ...batch.offeredDeferredTools,
-  ]);
-  for (const action of batch.actions.values())
-    for (const name of action.loadedDeferredTools ?? []) loaded.add(name);
   deps.toolExecutionService.restoreLoadedDeferredTools([...loaded]);
   const staged = new ConversationStore();
   for (const message of batch.checkpoint.messages) staged.addMessage(structuredClone(message));

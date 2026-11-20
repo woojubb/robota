@@ -42,7 +42,7 @@ export interface IJournalToolBatchPolicy {
   mode: 'parallel' | 'sequential';
   maxConcurrency: number;
   continueOnError: boolean;
-  /** Invalid declarations are retained so the scheduler can produce its ordinary refusal. */
+  /** Data-only invalid declarations retain the scheduler's refusal; unrepresentable values fail closed. */
   scheduling?: Array<[unknown, unknown]>;
 }
 

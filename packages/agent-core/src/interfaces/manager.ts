@@ -121,6 +121,9 @@ export interface IToolManager {
   /** Loaded residency for compatible execution checkpoints. */
   getLoadedDeferredTools?(): string[];
 
+  /** Inspect synchronously with exactly this deferred residency, then restore the original. */
+  withTemporaryLoadedDeferredTools?<T>(names: readonly string[], inspect: () => T): T;
+
   /**
    * Mark deferred tools loaded for the rest of the session and return their schemas; an
    * unknown name throws, naming it, before anything is loaded. The same member
