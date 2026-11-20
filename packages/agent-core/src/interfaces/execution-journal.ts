@@ -125,6 +125,7 @@ export interface IExecutionJournal {
  * Reads the complete, ordered, current prefix from the same authority used for append.
  * The host must hold exclusive fenced ownership and drain the old runtime before recovery.
  * Appending an identical recordId is idempotent; conflicting content must be rejected.
+ * Stored records must round-trip their value types and shared references without collapsing them.
  * Recovery applies the active tool execution policy; the host must keep that policy equivalent
  * to the one used for the saved batch because policy identity is not stored in this journal.
  */

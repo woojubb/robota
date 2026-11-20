@@ -103,12 +103,19 @@ export function wrapToolWithPermission(
   const originalExecuteWithAdmission = tool.executeWithAdmission?.bind(tool);
   const provenance = snapshotToolProvenance(tool.provenance);
   const onToolExecution: IToolWrapperDeps['onToolExecution'] = (event) => {
-    if (event.type !== 'end' || !provenance) return enforcer.onToolExecution?.(event);
-    const observation = withToolProvenance(
-      { success: event.success ?? false, parts: event.toolResultParts },
-      provenance,
-    );
-    enforcer.onToolExecution?.({ ...event, toolResultParts: observation.parts });
+    try {
+      if (event.type !== 'end' || !provenance) return enforcer.onToolExecution?.(event);
+      const observation = withToolProvenance(
+        { success: event.success ?? false, parts: event.toolResultParts },
+        provenance,
+      );
+      enforcer.onToolExecution?.({ ...event, toolResultParts: observation.parts });
+    } catch (error) {
+      logger.warn(
+        'tool execution observation failed',
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    }
   };
   // What this session gave the tool with `setEventService`. The tool instance may be shared with
   // other sessions, and the service set on it is whichever session set one last, so each call
@@ -208,6 +215,7 @@ export function wrapToolWithPermission(
       // The observation covers ONLY the awaited body, never approval, hooks, truncation or a
       // detached continuation. A pre-start denial/abort therefore has no tool-body span.
       let startedAtMs: number | undefined;
+      let admittedParameters: TToolParameters | undefined;
       const admit: TToolEffectAdmission = async (effective) => {
         context?.signal?.throwIfAborted();
         if (!isSnapshotableUniversalValue(effective))
@@ -283,6 +291,7 @@ export function wrapToolWithPermission(
             'Tool parameters changed while effect admission was being recorded',
             context?.continuation ? [context.continuation.action.actionId] : [],
           );
+        admittedParameters = structuredClone(snapshot);
         context?.signal?.throwIfAborted();
         startedAtMs = Date.now();
       };
@@ -305,6 +314,19 @@ export function wrapToolWithPermission(
           else startedAtMs = Date.now();
           context?.signal?.throwIfAborted();
           result = await originalExecute(parameters, toolContext as IToolExecutionContext);
+        }
+        if (beforeEffect) {
+          try {
+            const { success, data, parts, error, metadata, view } = result;
+            const settled = structuredClone({ success, data, parts, error, metadata });
+            JSON.stringify(settled);
+            result = { ...settled, ...(view && { view }) };
+          } catch {
+            throw new ExecutionRecoveryError(
+              'EXECUTION_RECOVERY_REQUIRED',
+              'Tool result cannot be safely settled after the effect',
+            );
+          }
         }
         outcome = context?.signal?.aborted ? 'interrupted' : result.success ? 'success' : 'failure';
       } catch (error) {
@@ -343,13 +365,18 @@ export function wrapToolWithPermission(
       onToolExecution({
         type: 'end',
         toolName,
-        toolArgs: parameters as TToolArgs,
+        toolArgs: (beforeEffect
+          ? structuredClone(admittedParameters ?? parameters)
+          : parameters) as TToolArgs,
         success: truncatedResult.success,
         toolResultData:
           typeof truncatedResult.data === 'string'
             ? truncatedResult.data
             : JSON.stringify(truncatedResult.data),
-        toolResultParts: truncatedResult.parts,
+        toolResultParts:
+          beforeEffect && truncatedResult.parts
+            ? structuredClone(truncatedResult.parts)
+            : truncatedResult.parts,
         executionId: context?.executionId,
         // Display data for a surface only: it never joins `toolResultData`, which is what is logged.
         ...(truncatedResult.view ? { view: truncatedResult.view } : {}),

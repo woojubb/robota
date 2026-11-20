@@ -502,6 +502,33 @@ describe('provider-free journal continuation', () => {
     ).toEqual(['{"value":1}', '{"value":2}']);
   });
 
+  it('settles results when an unused tool extension cannot be cloned', async () => {
+    const saved = await stoppedAt('model-response', true);
+    const effect = vi.fn(async (parameters: TToolParameters) => ({
+      success: true,
+      data: `result ${parameters.n}`,
+      diagnostic: new Error('local diagnostic', { cause: () => {} }),
+    }));
+    const tool = FunctionTool.fromResult(
+      {
+        name: 'act',
+        description: 'Test action',
+        parameters: { type: 'object', properties: { n: { type: 'number' } } },
+      },
+      effect,
+    );
+    const fresh = fixture(undefined, tool);
+    const first = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(first.receipts?.map((receipt) => receipt.result.result)).toEqual([
+      'result 1',
+      'result 2',
+    ]);
+    expect(
+      (await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true })).receipts,
+    ).toEqual(first.receipts);
+    expect(effect).toHaveBeenCalledTimes(2);
+  });
+
   it.each(['tool_call_skipped', 'argument_decode_error', 'unknown_tool'])(
     'does not let an executed tool claim the host-owned %s classification',
     async (errorCode) => {
@@ -640,6 +667,73 @@ describe('provider-free journal continuation', () => {
     expect(effect).toHaveBeenCalledTimes(2);
   });
 
+  it('rejects cyclic wrapper arguments before recording or starting the effect', async () => {
+    const saved = await stoppedAt('model-response', true);
+    const effect = vi.fn(async () => 'done');
+    const tool = Object.assign(
+      new FunctionTool(
+        {
+          name: 'act',
+          description: 'Act',
+          parameters: { type: 'object', properties: { n: { type: 'number' } } },
+        },
+        effect,
+      ),
+      {
+        executeWithAdmission: async (
+          parameters: TToolParameters,
+          _context: unknown,
+          admit: TToolEffectAdmission,
+        ) => {
+          const effective: TToolParameters = { ...parameters };
+          effective.self = effective;
+          await admit(effective);
+          return { success: true, data: await effect() };
+        },
+      },
+    );
+    const fresh = fixture(undefined, tool);
+    await expect(
+      fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_INVALID',
+    });
+    expect(effect).not.toHaveBeenCalled();
+    expect(saved.records.some((record) => record.kind === 'tool-effect-start')).toBe(false);
+  });
+
+  it('does not persist a cyclic tool result or retry its uncertain effect', async () => {
+    const saved = await stoppedAt('model-response', true);
+    const effect = vi.fn(async () => {
+      const result: TToolParameters = {};
+      result.self = result;
+      return result;
+    });
+    const tool = new FunctionTool(
+      {
+        name: 'act',
+        description: 'Act',
+        parameters: { type: 'object', properties: { n: { type: 'number' } } },
+      },
+      effect,
+    );
+    const fresh = fixture(undefined, tool);
+    await expect(
+      fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_JOURNAL_FAILED',
+    });
+    const calls = effect.mock.calls.length;
+    expect(calls).toBeGreaterThan(0);
+    expect(saved.records.some((record) => record.kind === 'tool-result')).toBe(false);
+    await expect(
+      fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+    });
+    expect(effect).toHaveBeenCalledTimes(calls);
+  });
+
   it('refuses a changed committed assistant frame before dispatching recovered actions', async () => {
     const saved = await stoppedAt('model-response', true);
     const request = saved.records.find((record) => record.kind === 'model-request');
@@ -748,6 +842,28 @@ describe('provider-free journal continuation', () => {
     expect(fresh.agent.getHistory()).toEqual([]);
     expect(fresh.effect).not.toHaveBeenCalled();
   });
+
+  it.each(['date', 'negative-zero'] as const)(
+    'rejects duplicate journal records whose %s values differ',
+    async (kind) => {
+      const saved = await stoppedAt('model-response', true);
+      const initial = fixture();
+      await initial.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+      const record = saved.records.find((item) => item.kind === 'tool-result');
+      if (!record || record.kind !== 'tool-result') throw new Error('Missing result');
+      record.result.result = kind === 'date' ? new Date('2025-01-02T03:04:05Z') : -0;
+      const duplicate = structuredClone(record);
+      duplicate.result.result = kind === 'date' ? '2025-01-02T03:04:05.000Z' : 0;
+      saved.records.push(duplicate);
+      const fresh = fixture();
+      await expect(
+        fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+      ).rejects.toMatchObject({
+        code: 'EXECUTION_RECOVERY_INVALID',
+      });
+      expect(fresh.effect).not.toHaveBeenCalled();
+    },
+  );
 
   it('refuses to append an old batch into unrelated live history', async () => {
     const saved = await stoppedAt('tool-intent');

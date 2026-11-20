@@ -200,8 +200,8 @@ export class ToolExecutionService {
       let ownedEnvelope = rawEnvelope;
       if (context.beforeToolEffect) {
         try {
-          const { view, ...data } = rawEnvelope;
-          ownedEnvelope = { ...structuredClone(data), ...(view && { view }) };
+          const { success, data, parts, error, metadata } = rawEnvelope;
+          ownedEnvelope = structuredClone({ success, data, parts, error, metadata });
         } catch {
           throw new ExecutionRecoveryError(
             'EXECUTION_RECOVERY_REQUIRED',

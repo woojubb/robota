@@ -24,6 +24,7 @@ function ownDataKeys(value: object): string[] | undefined {
 /** Check that cloning preserves a tool value without invoking its accessors. */
 export function isSnapshotableUniversalValue(value: unknown): boolean {
   const seen = new WeakSet<object>();
+  const active = new WeakSet<object>();
   const valid = (item: unknown): boolean => {
     if (
       item === null ||
@@ -34,6 +35,7 @@ export function isSnapshotableUniversalValue(value: unknown): boolean {
     )
       return true;
     if (typeof item !== 'object') return false;
+    if (active.has(item)) return false;
     if (seen.has(item)) return true;
     seen.add(item);
     if (!Object.isExtensible(item)) return false;
@@ -42,7 +44,11 @@ export function isSnapshotableUniversalValue(value: unknown): boolean {
     const prototype = Object.getPrototypeOf(item);
     if (prototype !== (Array.isArray(item) ? Array.prototype : Object.prototype)) return false;
     const keys = ownDataKeys(item);
-    return !!keys && keys.every((key) => valid(Object.getOwnPropertyDescriptor(item, key)!.value));
+    if (!keys) return false;
+    active.add(item);
+    const result = keys.every((key) => valid(Object.getOwnPropertyDescriptor(item, key)!.value));
+    active.delete(item);
+    return result;
   };
   return valid(value);
 }

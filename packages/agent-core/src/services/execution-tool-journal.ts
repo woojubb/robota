@@ -190,6 +190,8 @@ export async function attachToolBatchJournal(
       let snapshot: typeof record;
       try {
         snapshot = structuredClone(record);
+        // Recovery currently compares records through JSON; never acknowledge a result it cannot read.
+        JSON.stringify(snapshot);
       } catch (error) {
         throw new ExecutionJournalError(record, error);
       }
