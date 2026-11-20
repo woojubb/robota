@@ -107,9 +107,10 @@ export interface IAgentConfig {
   tools?: Array<IToolWithEventService>;
   /**
    * Host-owned per-round policy. Absent declarations serialize unknown shared-state operations.
-   * Journaled batches require a native Map with standard iteration and plain, cloneable records and
-   * dense arrays from the current runtime realm. Extra fields, subclasses, proxies, accessors and
-   * malformed values are rejected before dispatch.
+   * For journaled batches, the scheduling Map must have standard native iteration, and its entries
+   * must be plain, cloneable records and dense arrays from the current runtime realm. Extra fields,
+   * subclasses, proxies, accessors and malformed entries are rejected before dispatch. The policy
+   * callback's selected fields are read once and detached before dispatch.
    */
   toolExecutionPolicy?: (calls: readonly IToolCall[]) => IToolExecutionPolicy;
   /**

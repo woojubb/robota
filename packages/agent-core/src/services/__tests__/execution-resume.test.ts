@@ -234,6 +234,24 @@ describe('provider-free journal continuation', () => {
     for (const record of records.slice(1)) expect(record).not.toHaveProperty('batchPolicy');
   });
 
+  it('reads a top-level policy field once and binds the resolved value', async () => {
+    const read = vi.fn(() => 'parallel' as const);
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      get mode() {
+        return read();
+      },
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-intent', true, source);
+    expect(read).toHaveBeenCalledOnce();
+    read.mockClear();
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    await fresh.agent.resumeToolCalls(saved);
+    expect(read).toHaveBeenCalledOnce();
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
   it('checks policy before continuing after a durable effect result', async () => {
     const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
       mode: 'sequential',
