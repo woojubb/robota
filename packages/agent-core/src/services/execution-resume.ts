@@ -247,7 +247,13 @@ export async function restoreJournaledRound(
   let preparedPolicy: TBatchScheduling | undefined;
   if (batch.batchPolicy && calls.length > 0) {
     preparedPolicy = resolveBatchScheduling(calls, config);
-    assertSavedBatchPolicy(snapshotBatchPolicy(preparedPolicy, calls.length), batch.batchPolicy);
+    assertSavedBatchPolicy(
+      snapshotBatchPolicy(
+        preparedPolicy,
+        calls.map((call) => call.id),
+      ),
+      batch.batchPolicy,
+    );
     unchanged();
   }
   const accepted = await acceptToolResponses(records, options);

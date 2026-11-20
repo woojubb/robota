@@ -175,7 +175,10 @@ function validateBatch(
         legacyBatchPolicy = record.batchPolicy === undefined;
       }
       if (record.batchPolicy !== undefined) {
-        const recorded = parseBatchPolicy(record.batchPolicy);
+        const recorded = parseBatchPolicy(
+          record.batchPolicy,
+          (response.toolCalls ?? []).map((call) => call.id),
+        );
         if (batchPolicy && !isUniversalValueEqual(batchPolicy, recorded))
           invalid('Tool actions contain conflicting batch policies');
         batchPolicy = recorded;

@@ -431,6 +431,84 @@ describe('provider-free journal continuation', () => {
     expect(result.receipts?.every((receipt) => receipt.result.success)).toBe(true);
   });
 
+  it.each(['resources', 'dependsOn'] as const)(
+    'treats null and omitted %s as the same scheduling policy',
+    async (field) => {
+      const policy =
+        (useNull: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
+        (calls) => {
+          const declaration: IToolCallScheduling = {};
+          if (useNull) Object.assign(declaration, { [field]: null });
+          return { scheduling: new Map([[calls[0].id, declaration]]) };
+        };
+      const source = fixture(undefined, undefined, undefined, policy(true));
+      const saved = await stoppedAt('tool-intent', true, source);
+      const fresh = fixture(undefined, undefined, undefined, policy(false));
+      await fresh.agent.resumeToolCalls(saved);
+      expect(fresh.effect).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each([false, true])(
+    'treats an omitted and explicit default for a known call as equivalent (initial default=%s)',
+    async (initialDefault) => {
+      const policy =
+        (explicit: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
+        (calls) => ({
+          scheduling: new Map(explicit ? [[calls[0].id, {}]] : []),
+        });
+      const source = fixture(undefined, undefined, undefined, policy(initialDefault));
+      const saved = await stoppedAt('tool-intent', true, source);
+      const fresh = fixture(undefined, undefined, undefined, policy(!initialDefault));
+      await fresh.agent.resumeToolCalls(saved);
+      expect(fresh.effect).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('retains an unknown default call entry so the scheduler refuses it', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = () => ({
+      scheduling: new Map([['not-a-call', {}]]),
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-result', true, source);
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(fresh.effect).not.toHaveBeenCalled();
+    expect(
+      result.receipts?.every(
+        (receipt) => receipt.result.metadata?.errorCode === 'tool_call_skipped',
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects a scheduling accessor before it can change effect concurrency', async () => {
+    let reads = 0;
+    const getter = vi.fn(() => (++reads === 1 ? 'read' : 'write'));
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      const resource: { key: string; access: 'read' | 'write' } = { key: 'shared', access: 'read' };
+      Object.defineProperty(resource, 'access', {
+        enumerable: true,
+        configurable: true,
+        get: getter,
+      });
+      return { scheduling: new Map(calls.map((call) => [call.id, { resources: [resource] }])) };
+    };
+    const source = fixture(undefined, undefined, undefined, policy);
+    const records: TExecutionJournalRecord[] = [];
+    await expect(
+      source.agent.run('perform actions', {
+        executionJournal: {
+          append: async (record) => {
+            records.push(structuredClone(record));
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(getter).not.toHaveBeenCalled();
+    expect(source.effect).not.toHaveBeenCalled();
+    expect(records.some((record) => record.kind === 'tool-intent')).toBe(false);
+  });
+
   it('keeps legacy batches unbound while recovering under the equivalent host policy', async () => {
     const saved = await stoppedAt('tool-intent', true);
     for (const record of saved.records) {

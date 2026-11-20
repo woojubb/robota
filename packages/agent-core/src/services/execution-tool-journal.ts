@@ -75,7 +75,10 @@ export async function attachToolBatchJournal(
 ): Promise<IToolBatchJournalSettlement | undefined> {
   const { journal, parentCallId, recovery } = context;
   const requests = batch.requests;
-  const batchPolicy = snapshotBatchPolicy(batch, requests.length);
+  const batchPolicy = snapshotBatchPolicy(
+    batch,
+    requests.map((request) => request.executionId),
+  );
   assertSavedBatchPolicy(batchPolicy, recovery?.batchPolicy);
   let needsPolicy =
     !recovery ||
