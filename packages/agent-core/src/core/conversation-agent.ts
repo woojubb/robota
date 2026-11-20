@@ -180,7 +180,12 @@ export class ConversationAgent
       config.aiProviders.length !== Object.keys(registered).length ||
       new Set(config.aiProviders.map((provider) => provider.name)).size !==
         config.aiProviders.length ||
-      config.aiProviders.some((provider) => registered[provider.name] !== provider)
+      config.aiProviders.some(
+        (provider) =>
+          registered[provider.name] !== provider ||
+          (config.providerOwnership?.[provider.name] ?? 'owned') !==
+            (this.config.providerOwnership?.[provider.name] ?? 'owned'),
+      )
     ) {
       throw new Error(
         'configure cannot change provider registration or selection; use the provider and model APIs',
@@ -303,9 +308,11 @@ export class ConversationAgent
     // Serialized like run(): the queue slot is held until the stream is fully consumed
     // (return or throw), because the conversation history is being written throughout.
     const release = await this.runQueue.acquire(options.signal);
+    let admitted = false;
     try {
       this.assertProviderRunnable();
       await this.ensureFullyInitialized();
+      admitted = true;
       if (options.output) {
         const spec = normalizeStructuredOutput(options.output);
         // The validated object is the generator's return value.
@@ -313,8 +320,11 @@ export class ConversationAgent
       }
       return yield* agentRunStream(this.executionDeps(), input, options);
     } finally {
-      this.resetEphemeralHistory();
-      release();
+      try {
+        if (admitted) this.resetEphemeralHistory();
+      } finally {
+        release();
+      }
     }
   }
 

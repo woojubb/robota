@@ -33,6 +33,57 @@ function managedProvider() {
 }
 
 describe('provider execution contract', () => {
+  it('retains history when a managed stream is refused before a turn starts', async () => {
+    const { provider } = managedProvider();
+    const agent = new ConversationAgent({
+      name: 'managed-stream',
+      aiProviders: [provider],
+      defaultModel: { provider: provider.name, model: 'test-model' },
+      retainHistory: false,
+    });
+    agent.injectMessage('user', 'valuable context');
+    const before = agent.getHistory();
+    try {
+      const consume = async () => {
+        for await (const _chunk of agent.runStream('hello')) {
+          // Consume the stream until its refusal.
+        }
+      };
+      await expect(consume()).rejects.toMatchObject({ code: 'MANAGED_RUN_UNAVAILABLE' });
+      expect(agent.getHistory()).toEqual(before);
+    } finally {
+      await agent.destroy();
+    }
+  });
+
+  it.each([
+    ['owned', 'borrowed'],
+    ['borrowed', 'owned'],
+  ] as const)(
+    'does not misreport provider ownership when configure changes %s to %s',
+    async (initial, changed) => {
+      const step = createScriptedProvider([{ text: 'answer' }]).provider;
+      const close = vi.fn(async () => {});
+      step.close = close;
+      const config: IAgentConfig = {
+        name: 'legacy',
+        aiProviders: [step],
+        providerOwnership: { [step.name]: initial },
+        defaultModel: { provider: step.name, model: 'legacy-model' },
+      };
+      const agent = new ConversationAgent(config);
+      await expect(
+        agent.configure({
+          ...config,
+          providerOwnership: { [step.name]: changed },
+        }),
+      ).rejects.toThrow(/cannot change provider registration or selection/);
+      expect(agent.getExecutionConfig().providerOwnership?.[step.name]).toBe(initial);
+      await agent.destroy();
+      expect(close).toHaveBeenCalledTimes(initial === 'owned' ? 1 : 0);
+    },
+  );
+
   it('refuses managed configuration changes without routing to the old provider', async () => {
     const step = createScriptedProvider([{ text: 'legacy answer' }]);
     const { provider: managed } = managedProvider();
