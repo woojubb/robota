@@ -1,5 +1,6 @@
 import type {
   IExecutionRoundCheckpoint,
+  IJournalToolBatchPolicy,
   TExecutionJournalRecord,
 } from '../interfaces/execution-journal';
 import type { IAssistantMessage } from '../interfaces/messages';
@@ -13,6 +14,7 @@ import {
 import type { IToolWaitState } from '../interfaces/tool-continuation';
 import { continuationObject } from '../utils/continuation-json';
 import { isValidToolCallIdentity } from './tool-call-identity';
+import { parseBatchPolicy } from './execution-batch-policy';
 
 export interface IRecoveredAction {
   actionId: string;
@@ -30,6 +32,8 @@ export interface IRecoveredToolBatch {
   response: IAssistantMessage;
   actions: Map<string, IRecoveredAction>;
   offeredDeferredTools: string[];
+  batchPolicy?: IJournalToolBatchPolicy;
+  legacyBatchPolicy?: boolean;
 }
 
 /** Object insertion order is not part of a journal record's identity. */
@@ -142,6 +146,8 @@ function validateBatch(
   let response: IAssistantMessage | undefined;
   let cachedCheckpoint: IExecutionRoundCheckpoint | undefined;
   const actions = new Map<string, IRecoveredAction>();
+  let batchPolicy: IJournalToolBatchPolicy | undefined;
+  let legacyBatchPolicy = false;
   for (const record of records) {
     if ('callId' in record) {
       if (record.callId !== callId) continue;
@@ -162,6 +168,16 @@ function validateBatch(
     }
     if (record.parentCallId !== callId) continue;
     if (!response) invalid('Tool action precedes its model response');
+    if (record.kind === 'tool-intent' || record.kind === 'tool-result') {
+      if (record.batchPolicy === undefined) {
+        legacyBatchPolicy = true;
+      } else {
+        const recorded = parseBatchPolicy(record.batchPolicy);
+        if (batchPolicy && !isUniversalValueEqual(batchPolicy, recorded))
+          invalid('Tool actions contain conflicting batch policies');
+        batchPolicy = recorded;
+      }
+    }
     const call = response.toolCalls?.find((candidate) => candidate.id === record.toolCallId);
     if (!call || record.toolName !== call.function.name)
       invalid('Action does not belong to the saved model response');
@@ -328,6 +344,8 @@ function validateBatch(
     checkpoint,
     response,
     actions,
+    ...(batchPolicy && { batchPolicy }),
+    ...(legacyBatchPolicy && { legacyBatchPolicy: true }),
     offeredDeferredTools:
       request?.options.tools?.filter((tool) => tool.deferLoading).map((tool) => tool.name) ?? [],
   };

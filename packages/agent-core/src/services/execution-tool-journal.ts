@@ -6,6 +6,7 @@ import {
   isUniversalValueEqual,
 } from '../utils/universal-value-equal';
 import { appendExecutionRecord } from './execution-journal';
+import { snapshotBatchPolicy } from './execution-batch-policy';
 import { toolContinuation } from './execution-tool-waits';
 import type { IExecutionJournal } from '../interfaces/execution-journal';
 import type { IManagedToolReceipt } from '../interfaces/managed-provider';
@@ -71,6 +72,14 @@ export async function attachToolBatchJournal(
 ): Promise<IToolBatchJournalSettlement | undefined> {
   const { journal, parentCallId, recovery } = context;
   const requests = batch.requests;
+  const batchPolicy = snapshotBatchPolicy(batch);
+  if (recovery?.batchPolicy && !isUniversalValueEqual(recovery.batchPolicy, batchPolicy)) {
+    throw new ExecutionRecoveryError(
+      'EXECUTION_RECOVERY_CONFLICT',
+      'Active tool batch policy differs from the saved policy',
+    );
+  }
+  const bindPolicy = recovery?.legacyBatchPolicy !== true;
   const recovered = requests.map((request) => recovery?.actions.get(request.executionId ?? ''));
   const actions = requests.map((request) => ({
     actionId: recovery?.actions.get(request.executionId ?? '')?.actionId ?? randomId(),
@@ -152,6 +161,7 @@ export async function attachToolBatchJournal(
       recordId: `${actions[index].actionId}:intent`,
       ...actions[index],
       parameters: request.parameters,
+      ...(bindPolicy && { batchPolicy }),
     });
   }
   batch.journal = {
@@ -175,6 +185,7 @@ export async function attachToolBatchJournal(
         ...actions[index],
         result,
         loadedDeferredTools: getLoadedDeferredTools(),
+        ...(bindPolicy && { batchPolicy }),
       } as const;
       if (
         settlements &&

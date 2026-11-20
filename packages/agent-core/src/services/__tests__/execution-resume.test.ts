@@ -11,6 +11,7 @@ import type { TUniversalMessage } from '../../interfaces/messages';
 import type { IAgentConfig } from '../../interfaces/agent';
 import type {
   IToolExecutionResult,
+  IToolCallScheduling,
   TToolEffectAdmission,
   TToolParameters,
 } from '../../interfaces/tool';
@@ -185,6 +186,188 @@ describe('provider-free journal continuation', () => {
     const repeated = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
     expect(repeated.receipts).toEqual(first.receipts);
     expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['mode', 'concurrency', 'failure handling', 'dependencies', 'resources'] as const)(
+    'refuses a changed %s policy after a partial intent write',
+    async (changed) => {
+      const saved = await stoppedAt('tool-intent', true);
+      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+        ...(changed === 'mode' && { mode: 'sequential' }),
+        ...(changed === 'concurrency' && { maxConcurrency: 1 }),
+        ...(changed === 'failure handling' && { continueOnError: false }),
+        scheduling: new Map(
+          calls.map((call, index) => [
+            call.id,
+            {
+              resources:
+                changed === 'resources' && index === 0 ? [{ key: 'shared', access: 'write' }] : [],
+              ...(changed === 'dependencies' && index === 1 && { dependsOn: [calls[0].id] }),
+            },
+          ]),
+        ),
+      });
+      const fresh = fixture(undefined, undefined, undefined, policy);
+      await expect(
+        fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+      ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+      expect(fresh.effect).not.toHaveBeenCalled();
+      expect(saved.journal.append).not.toHaveBeenCalled();
+    },
+  );
+
+  it('records the same policy across a partially written batch and its settlements', async () => {
+    const saved = await stoppedAt('tool-intent', true);
+    const fresh = fixture();
+    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+    expect(result.receipts).toHaveLength(2);
+    const records = saved.records.filter(
+      (record) => record.kind === 'tool-intent' || record.kind === 'tool-result',
+    );
+    expect(records).toHaveLength(4);
+    const first = records[0];
+    if (first.kind !== 'tool-intent') throw new Error('Missing intent');
+    expect(first.batchPolicy).toBeDefined();
+    for (const record of records) {
+      if (record.kind !== 'tool-intent' && record.kind !== 'tool-result')
+        throw new Error('Unexpected record');
+      expect(record.batchPolicy).toEqual(first.batchPolicy);
+    }
+  });
+
+  it('checks the saved policy before continuing after a durable effect result', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      mode: 'sequential',
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-result', true, source);
+    expect(source.effect).toHaveBeenCalledTimes(1);
+    const changed = fixture();
+    await expect(
+      changed.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+    expect(changed.effect).not.toHaveBeenCalled();
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(fresh.effect).toHaveBeenCalledTimes(1);
+    expect(fresh.effect).toHaveBeenCalledWith({ n: 2 }, expect.anything());
+    expect(result.receipts).toHaveLength(2);
+  });
+
+  it('binds a batch consisting only of malformed calls through its results', async () => {
+    const source = fixture(undefined, undefined, (message) => {
+      if (message.role !== 'assistant' || !message.toolCalls) return message;
+      return {
+        ...message,
+        toolCalls: message.toolCalls.map((call) => ({
+          ...call,
+          function: { ...call.function, arguments: '{invalid' },
+        })),
+      };
+    });
+    const saved = await stoppedAt('tool-result', true, source);
+    expect(source.effect).not.toHaveBeenCalled();
+    const recorded = saved.records.find((record) => record.kind === 'tool-result');
+    if (recorded?.kind !== 'tool-result') throw new Error('Missing result');
+    expect(recorded.batchPolicy).toBeDefined();
+    const changed = fixture(undefined, undefined, undefined, (calls) => ({
+      mode: 'sequential',
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    }));
+    await expect(changed.agent.resumeToolCalls(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    expect(changed.effect).not.toHaveBeenCalled();
+  });
+
+  it('rejects conflicting policy bindings in the journal before dispatch', async () => {
+    const saved = await stoppedAt('tool-dispatch');
+    const intents = saved.records.filter((record) => record.kind === 'tool-intent');
+    expect(intents).toHaveLength(2);
+    if (intents[1].kind !== 'tool-intent' || !intents[1].batchPolicy)
+      throw new Error('Missing policy binding');
+    intents[1].batchPolicy.mode = 'sequential';
+    const fresh = fixture();
+    await expect(fresh.agent.resumeToolCalls(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_INVALID',
+    });
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
+  it('accepts equivalent policies with a different map and resource order', async () => {
+    const policy =
+      (reverse: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
+      (calls) => {
+        const resources: NonNullable<IToolCallScheduling['resources']> = [
+          { key: 'alpha', access: 'read' },
+          { key: 'beta', access: 'write' },
+        ];
+        const entries: Array<[string, IToolCallScheduling]> = [
+          [calls[0].id, { resources: reverse ? [...resources].reverse() : resources }],
+          [calls[1].id, { resources: [] }],
+        ];
+        return { scheduling: new Map(reverse ? entries.reverse() : entries) };
+      };
+    const source = fixture(undefined, undefined, undefined, policy(false));
+    const saved = await stoppedAt('tool-intent', true, source);
+    const fresh = fixture(undefined, undefined, undefined, policy(true));
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps legacy batches unbound while recovering under the equivalent host policy', async () => {
+    const saved = await stoppedAt('tool-intent', true);
+    for (const record of saved.records) {
+      if (record.kind === 'tool-intent' || record.kind === 'tool-result') delete record.batchPolicy;
+    }
+    const fresh = fixture();
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+    for (const record of saved.records) {
+      if (record.kind === 'tool-intent' || record.kind === 'tool-result')
+        expect(record).not.toHaveProperty('batchPolicy');
+    }
+  });
+
+  it('uses the recorded scheduler snapshot if the caller mutates its policy during an append', async () => {
+    let captured = new Map<string, IToolCallScheduling>();
+    let firstId = '';
+    const source = fixture(undefined, undefined, undefined, (calls) => {
+      firstId = calls[0].id;
+      captured = new Map(calls.map((call) => [call.id, { resources: [] }]));
+      return { scheduling: captured };
+    });
+    const records: TExecutionJournalRecord[] = [];
+    let entered!: () => void;
+    let release!: () => void;
+    const appending = new Promise<void>((resolve) => (entered = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const run = source.agent.run('perform actions', {
+      executionJournal: {
+        append: async (record) => {
+          records.push(structuredClone(record));
+          if (
+            record.kind === 'tool-intent' &&
+            records.filter((r) => r.kind === 'tool-intent').length === 1
+          ) {
+            entered();
+            await gate;
+          }
+        },
+      },
+    });
+    await appending;
+    captured.set(firstId, { resources: [], dependsOn: ['missing'] });
+    release();
+    await run;
+    expect(source.effect).toHaveBeenCalledTimes(2);
+    const intents = records.filter((record) => record.kind === 'tool-intent');
+    expect(intents).toHaveLength(2);
+    if (intents[0].kind !== 'tool-intent' || intents[1].kind !== 'tool-intent')
+      throw new Error('Missing intents');
+    expect(intents[0].batchPolicy).toEqual(intents[1].batchPolicy);
   });
 
   it.each(['sequential', 'dependent'] as const)(
