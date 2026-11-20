@@ -85,6 +85,16 @@ function isPolicyData(value: unknown): boolean {
     const valid = Reflect.ownKeys(item).every((key) => {
       if (Array.isArray(item) && key === 'length') return true;
       if (typeof key !== 'string') return false;
+      if (Array.isArray(item)) {
+        const index = Number(key);
+        if (
+          !Number.isSafeInteger(index) ||
+          index < 0 ||
+          index >= item.length ||
+          String(index) !== key
+        )
+          return false;
+      }
       const descriptor = Object.getOwnPropertyDescriptor(item, key);
       return (
         !!descriptor && descriptor.enumerable && 'value' in descriptor && visit(descriptor.value)

@@ -563,6 +563,27 @@ describe('provider-free journal continuation', () => {
     expect(records.some((record) => record.kind === 'tool-intent')).toBe(false);
   });
 
+  it('rejects extra array properties before they can be lost from a policy binding', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      const resources: NonNullable<IToolCallScheduling['resources']> = [];
+      Object.assign(resources, { map: 1 });
+      return { scheduling: new Map(calls.map((call) => [call.id, { resources }])) };
+    };
+    const source = fixture(undefined, undefined, undefined, policy);
+    const records: TExecutionJournalRecord[] = [];
+    await expect(
+      source.agent.run('perform actions', {
+        executionJournal: {
+          append: async (record) => {
+            records.push(structuredClone(record));
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(source.effect).not.toHaveBeenCalled();
+    expect(records.some((record) => record.kind === 'tool-intent')).toBe(false);
+  });
+
   it('keeps legacy batches unbound while recovering under the equivalent host policy', async () => {
     const saved = await stoppedAt('tool-intent', true);
     for (const record of saved.records) {
