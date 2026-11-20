@@ -5,6 +5,8 @@ import { createScriptedProvider } from '../../testing/scripted-provider';
 import { FunctionTool } from '../../tool-registry';
 import type { TExecutionJournalRecord } from '../../interfaces/execution-journal';
 import type { IManagedRunProvider } from '../../interfaces/managed-provider';
+import type { TUniversalMessage } from '../../interfaces/messages';
+import type { IAgentConfig } from '../../interfaces/agent';
 import type {
   IToolExecutionResult,
   TToolEffectAdmission,
@@ -16,7 +18,12 @@ afterEach(async () => {
   await Promise.all(agents.splice(0).map((agent) => agent.destroy()));
 });
 
-function fixture(plugin?: AbstractPlugin, replacement?: FunctionTool) {
+function fixture(
+  plugin?: AbstractPlugin,
+  replacement?: FunctionTool,
+  decorate?: (message: TUniversalMessage) => TUniversalMessage,
+  policy?: IAgentConfig['toolExecutionPolicy'],
+) {
   const scripted = createScriptedProvider([
     {
       toolCalls: [
@@ -26,12 +33,18 @@ function fixture(plugin?: AbstractPlugin, replacement?: FunctionTool) {
     },
     { text: 'done' },
   ]);
+  if (decorate) {
+    const chat = scripted.provider.chat.bind(scripted.provider);
+    scripted.provider.chat = async (...args) => decorate(await chat(...args));
+  }
   const effect = vi.fn(async (parameters: { n?: unknown }) => `result ${parameters.n}`);
   const agent = new ConversationAgent({
     // These fixtures exercise independent calls settling concurrently.
-    toolExecutionPolicy: (calls) => ({
-      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
-    }),
+    toolExecutionPolicy:
+      policy ??
+      ((calls) => ({
+        scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+      })),
     name: 'resume-test',
     aiProviders: [scripted.provider],
     defaultModel: { provider: scripted.provider.name, model: 'test-model' },
@@ -55,8 +68,11 @@ function fixture(plugin?: AbstractPlugin, replacement?: FunctionTool) {
   return { agent, effect, ...scripted };
 }
 
-async function stoppedAt(kind: TExecutionJournalRecord['kind'], afterWrite = false) {
-  const source = fixture();
+async function stoppedAt(
+  kind: TExecutionJournalRecord['kind'],
+  afterWrite = false,
+  source = fixture(),
+) {
   const records: TExecutionJournalRecord[] = [];
   const append = async (record: TExecutionJournalRecord) => {
     if (record.kind === kind && !afterWrite) throw new Error('crash boundary');
@@ -165,6 +181,37 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).toHaveBeenCalledTimes(2);
   });
 
+  it.each(['sequential', 'dependent'] as const)(
+    'applies the active %s scheduling policy before recovered actions',
+    async (mode) => {
+      const saved = await stoppedAt('model-response', true);
+      const policy = vi.fn<NonNullable<IAgentConfig['toolExecutionPolicy']>>((calls) =>
+        mode === 'sequential'
+          ? { mode: 'sequential', continueOnError: false }
+          : {
+              scheduling: new Map([
+                [calls[0].id, { resources: [] }],
+                [calls[1].id, { resources: [], dependsOn: [calls[0].id] }],
+              ]),
+            },
+      );
+      const fresh = fixture(undefined, undefined, undefined, policy);
+      fresh.effect.mockImplementation(async ({ n }) => {
+        if (n === 1) throw new Error('first action failed');
+        return `result ${n}`;
+      });
+      const first = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+      expect(policy).toHaveBeenCalledTimes(1);
+      expect(fresh.effect).toHaveBeenCalledTimes(1);
+      expect(first.receipts?.[0].result.success).toBe(false);
+      expect(first.receipts?.[1].result.metadata?.errorCode).toBe('tool_call_skipped');
+      expect(
+        (await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true })).receipts,
+      ).toEqual(first.receipts);
+      expect(fresh.effect).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('publishes the saved result when a tool mutates its output during journal acknowledgement', async () => {
     const saved = await stoppedAt('model-response', true);
     const fresh = fixture();
@@ -231,7 +278,7 @@ describe('provider-free journal continuation', () => {
     observed.n = 99;
     release();
     const resumed = await pending;
-    expect(fresh.effect.mock.calls.map(([parameters]) => parameters.n)).toEqual([1, 2]);
+    expect(fresh.effect.mock.calls.map(([parameters]) => parameters.n).sort()).toEqual([1, 2]);
     expect(resumed.receipts?.map((receipt) => receipt.result.result)).toEqual([
       'result 1',
       'result 2',
@@ -239,25 +286,28 @@ describe('provider-free journal continuation', () => {
     expect(
       saved.records
         .filter((record) => record.kind === 'tool-effect-start')
-        .map((r) => r.parameters.n),
+        .map((r) => r.parameters.n)
+        .sort(),
     ).toEqual([1, 2]);
   });
 
-  it('isolates receipt-bound execution from mutations by event observers', async () => {
+  it('isolates recovered history from mutations by history observers', async () => {
     const saved = await stoppedAt('model-response', true);
     const fresh = fixture();
+    let observedTools = 0;
     fresh.effect.mockImplementation(async ({ n }) => ({ value: n }) as unknown as string);
     const outcome = await fresh.agent.resumeToolCalls({
       ...saved,
       includeReceipts: true,
       onExecutionEvent: (event, data) => {
-        if (event === 'tool_execution_request') (data.parameters as { n: number }).n = 99;
-        if (event === 'tool_execution_result') (data.result as { value: number }).value = 99;
-        if (event === 'tool_message_committed')
+        if (event === 'history_mutation' && (data.message as { role: string }).role === 'tool') {
+          observedTools++;
           (data.message as { content: string }).content = 'changed';
+        }
       },
     });
-    expect(fresh.effect.mock.calls.map(([parameters]) => parameters.n)).toEqual([1, 2]);
+    expect(observedTools).toBe(2);
+    expect(fresh.effect.mock.calls.map(([parameters]) => parameters.n).sort()).toEqual([1, 2]);
     expect(outcome.receipts?.map((receipt) => receipt.result.result)).toEqual([
       { value: 1 },
       { value: 2 },
@@ -330,7 +380,7 @@ describe('provider-free journal continuation', () => {
   it('stops before a custom wrapper effect if its admitted parameters change during persistence', async () => {
     const saved = await stoppedAt('model-response', true);
     let owned: TToolParameters | undefined;
-    const effect = vi.fn(async () => 'done');
+    const effect = vi.fn(async (_parameters: TToolParameters) => 'done');
     const tool = new FunctionTool(
       {
         name: 'act',
@@ -345,9 +395,9 @@ describe('provider-free journal continuation', () => {
         _context: unknown,
         admit: TToolEffectAdmission,
       ) => {
-        owned = parameters;
+        if (parameters.n === 1) owned = parameters;
         await admit(parameters);
-        return { success: true, data: await effect() };
+        return { success: true, data: await effect(parameters) };
       },
     });
     const fresh = fixture(undefined, tool);
@@ -368,7 +418,41 @@ describe('provider-free journal continuation', () => {
     owned.n = 99;
     release();
     await expect(pending).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
-    expect(effect).not.toHaveBeenCalled();
+    expect(effect.mock.calls.every(([parameters]) => parameters.n !== 1)).toBe(true);
+  });
+
+  it('accepts unchanged date-valued wrapper arguments and reuses their receipts', async () => {
+    const saved = await stoppedAt('model-response', true);
+    const effect = vi.fn(async (parameters: TToolParameters) => parameters.n);
+    const tool = new FunctionTool(
+      {
+        name: 'act',
+        description: 'Test action',
+        parameters: { type: 'object', properties: { n: { type: 'number' } } },
+      },
+      effect,
+    );
+    Object.assign(tool, {
+      executeWithAdmission: async (
+        parameters: TToolParameters,
+        _context: unknown,
+        admit: TToolEffectAdmission,
+      ) => {
+        const effective = { ...parameters, nested: { dates: [new Date('2025-01-02T03:04:05Z')] } };
+        await admit(effective);
+        return { success: true, data: await effect(effective) };
+      },
+    });
+    const fresh = fixture(undefined, tool);
+    const first = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    const start = saved.records.find((record) => record.kind === 'tool-effect-start');
+    expect(start).toMatchObject({
+      parameters: { nested: { dates: [new Date('2025-01-02T03:04:05Z')] } },
+    });
+    expect(
+      (await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true })).receipts,
+    ).toEqual(first.receipts);
+    expect(effect).toHaveBeenCalledTimes(2);
   });
 
   it('refuses a changed committed assistant frame before dispatching recovered actions', async () => {
@@ -510,6 +594,26 @@ describe('provider-free journal continuation', () => {
     const resumed = await saved.source.agent.resumeToolCalls({ ...saved, includeReceipts: true });
     expect(resumed.receipts).toHaveLength(2);
     expect(saved.source.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('accepts the original committed projection of extra provider metadata and parts', async () => {
+    const source = fixture(undefined, undefined, (message) =>
+      message.role === 'assistant'
+        ? {
+            ...message,
+            parts: [{ type: 'text', text: 'provider part' }],
+            metadata: { providerContinuation: 'opaque', extraProviderField: 'not committed' },
+          }
+        : message,
+    );
+    const saved = await stoppedAt('tool-effect-start', false, source);
+    const original = source.agent.getHistory().find((message) => message.role === 'assistant');
+    expect(original?.metadata?.providerContinuation).toBe('opaque');
+    expect(original?.metadata?.extraProviderField).toBeUndefined();
+    expect(original?.parts).toBeUndefined();
+    const resumed = await source.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(resumed.receipts).toHaveLength(2);
+    expect(source.effect).toHaveBeenCalledTimes(2);
   });
 
   it('preserves fatal persistence errors and commits no partial restored history', async () => {

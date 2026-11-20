@@ -125,6 +125,8 @@ export interface IExecutionJournal {
  * Reads the complete, ordered, current prefix from the same authority used for append.
  * The host must hold exclusive fenced ownership and drain the old runtime before recovery.
  * Appending an identical recordId is idempotent; conflicting content must be rejected.
+ * Recovery applies the active tool execution policy; the host must keep that policy equivalent
+ * to the one used for the saved batch because policy identity is not stored in this journal.
  */
 export interface IRecoverableExecutionJournal extends IExecutionJournal {
   read(executionId: string): Promise<readonly TExecutionJournalRecord[]>;

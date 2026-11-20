@@ -1,7 +1,7 @@
 import { randomId } from '../utils/random-id';
 import { ExecutionJournalError } from '../utils/execution-journal-error';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
-import { isJsonEqual } from '../utils/json-equal';
+import { isUniversalValueEqual } from '../utils/universal-value-equal';
 import { appendExecutionRecord } from './execution-journal';
 import { toolContinuation } from './execution-tool-waits';
 import type { IExecutionJournal } from '../interfaces/execution-journal';
@@ -195,19 +195,23 @@ export async function attachToolBatchJournal(
       }
       await appendExecutionRecord(journal, snapshot);
       settlements[index] = snapshot.result;
+      return structuredClone(snapshot.result);
     },
     beforeEffect: async (index, parameters) => {
-      let snapshot = parameters;
-      if (settlements) {
-        try {
-          snapshot = structuredClone(parameters);
-        } catch {
-          throw new ExecutionRecoveryError(
-            'EXECUTION_RECOVERY_INVALID',
-            'Tool parameters cannot be recorded for effect admission',
-          );
-        }
+      let snapshot: typeof parameters;
+      try {
+        snapshot = structuredClone(parameters);
+      } catch {
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_INVALID',
+          'Tool parameters cannot be recorded for effect admission',
+        );
       }
+      if (!isUniversalValueEqual(parameters, snapshot))
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_INVALID',
+          'Tool parameters cannot be represented for effect admission',
+        );
       await continuations[index].admit(() =>
         appendExecutionRecord(journal, {
           kind: 'tool-effect-start',
@@ -216,7 +220,7 @@ export async function attachToolBatchJournal(
           parameters: snapshot,
         }),
       );
-      if (settlements && !isJsonEqual(parameters, snapshot))
+      if (!isUniversalValueEqual(parameters, snapshot))
         throw new ExecutionRecoveryError(
           'EXECUTION_RECOVERY_REQUIRED',
           'Tool parameters changed while effect admission was being recorded',

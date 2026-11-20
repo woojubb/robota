@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { DEFAULT_ABSTRACT_EVENT_SERVICE } from '../event-service';
 import type { IExecutionJournal, TExecutionJournalRecord } from '../interfaces/execution-journal';
 import type { IAssistantMessage, IToolCall } from '../interfaces/messages';
@@ -14,6 +15,7 @@ import { attachToolBatchJournal } from './execution-tool-journal';
 import { ToolExecutionService } from './tool-execution-service';
 import type { IExecutionRoundState } from './execution-types';
 import type { IToolExecutionBatchContext } from './tool-execution-batch-types';
+import type { TExecutionEventCallback } from '../interfaces/agent';
 
 const schema: IToolSchema = {
   name: 'act',
@@ -26,7 +28,7 @@ const calls: IToolCall[] = ['first', 'second'].map((id) => ({
   function: { name: 'act', arguments: '{"value":1}' },
 }));
 
-function fixture() {
+function fixture(failFirst = false, objectOutput = false) {
   const records: TExecutionJournalRecord[] = [];
   const effects: string[] = [];
   const inputs: unknown[] = [];
@@ -46,7 +48,8 @@ function fixture() {
     await context.beforeToolEffect(parameters);
     effects.push(context.executionId);
     inputs.push(parameters['value']);
-    return `result for ${context.executionId}`;
+    if (failFirst && context.executionId === 'first') throw new Error('first action failed');
+    return objectOutput ? { value: parameters['value'] } : `result for ${context.executionId}`;
   });
   const toolExecutionService = new ToolExecutionService(tools);
   const eventEmitter = new ExecutionEventEmitter(DEFAULT_ABSTRACT_EVENT_SERVICE, SilentLogger);
@@ -60,6 +63,11 @@ function fixture() {
     captureReceipts = true,
     requestedCalls = calls,
     frame = response,
+    options?: {
+      dependent?: boolean;
+      plugins?: AbstractPlugin[];
+      onEvent?: TExecutionEventCallback;
+    },
   ) => {
     const store = new ConversationStore();
     store.addMessage(structuredClone(frame));
@@ -82,10 +90,22 @@ function fixture() {
       'frame',
       undefined,
       state,
-      { toolExecutionService, eventEmitter, logger: SilentLogger, plugins: [] },
+      { toolExecutionService, eventEmitter, logger: SilentLogger, plugins: options?.plugins ?? [] },
+      options?.dependent
+        ? {
+            name: 'receipt-fixture',
+            aiProviders: [],
+            defaultModel: { provider: 'fixture', model: 'fixture' },
+            toolExecutionPolicy: () => ({
+              scheduling: new Map([
+                ['first', { resources: [] }],
+                ['second', { resources: [], dependsOn: ['first'] }],
+              ]),
+            }),
+          }
+        : undefined,
       undefined,
-      undefined,
-      undefined,
+      options?.onEvent,
       undefined,
       undefined,
       {
@@ -101,6 +121,67 @@ function fixture() {
 }
 
 describe('journaled tool batch receipts', () => {
+  it('uses the saved failure to skip a dependent action when an observer mutates its result', async () => {
+    const f = fixture(true);
+    let observed: IToolExecutionResult | undefined;
+    class Observer extends AbstractPlugin {
+      readonly name = 'observer';
+      readonly version = '1';
+      override async afterToolCall(
+        _name: string,
+        _parameters: unknown,
+        result: IToolExecutionResult,
+      ): Promise<void> {
+        if (result.executionId === 'first') observed = result;
+      }
+    }
+    let reached!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => (reached = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const journal: IExecutionJournal = {
+      append: async (record) => {
+        if (record.kind === 'tool-result' && record.toolCallId === 'first') {
+          reached();
+          await gate;
+        }
+        await f.journal.append(record);
+      },
+    };
+    const pending = f.run(journal, undefined, true, calls, f.response, {
+      dependent: true,
+      plugins: [new Observer()],
+    });
+    await started;
+    if (!observed) throw new Error('Missing observed result');
+    observed.success = true;
+    observed.result = 'changed';
+    release();
+    const outcome = await pending;
+    expect(f.effects).toEqual(['first']);
+    expect(outcome.receipts?.[0].result.success).toBe(false);
+    expect(outcome.receipts?.[1].result.metadata?.errorCode).toBe('tool_call_skipped');
+  });
+
+  it('isolates batch requests and results from execution event observers', async () => {
+    const f = fixture(false, true);
+    const seen: string[] = [];
+    const outcome = await f.run(f.journal, undefined, true, calls, f.response, {
+      onEvent: (event, data) => {
+        seen.push(event);
+        if (event === 'tool_execution_request') (data.parameters as { value: number }).value = 99;
+        if (event === 'tool_execution_result') (data.result as { value: number }).value = 99;
+      },
+    });
+    expect(seen).toContain('tool_execution_request');
+    expect(seen).toContain('tool_execution_result');
+    expect(f.inputs).toEqual([1, 1]);
+    expect(outcome.receipts?.map((receipt) => receipt.result.result)).toEqual([
+      { value: 1 },
+      { value: 1 },
+    ]);
+  });
+
   it('keeps ordinary model-step execution free of receipt snapshots', async () => {
     const f = fixture();
     const outcome = await f.run(f.journal, undefined, false);

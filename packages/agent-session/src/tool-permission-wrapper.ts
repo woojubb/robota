@@ -2,6 +2,8 @@ import { PERMISSION_DENIED_RESULT, reportToolCrash, toolFailure } from './permis
 import {
   createLogger,
   isExecutionControlError,
+  ExecutionRecoveryError,
+  isUniversalValueEqual,
   DEFAULT_ABSTRACT_EVENT_SERVICE,
   isAbortFailure,
   TOOL_BODY_EVENTS,
@@ -207,8 +209,9 @@ export function wrapToolWithPermission(
       let startedAtMs: number | undefined;
       const admit: TToolEffectAdmission = async (effective) => {
         context?.signal?.throwIfAborted();
-        const approvedArguments = canonicaliseToolArguments(toolName, effective, enforcer.cwd);
-        if (JSON.stringify(approvedArguments) !== JSON.stringify(effective)) {
+        const snapshot = structuredClone(effective);
+        const approvedArguments = canonicaliseToolArguments(toolName, snapshot, enforcer.cwd);
+        if (JSON.stringify(approvedArguments) !== JSON.stringify(snapshot)) {
           throw new DeferredPermissionRefusal(
             toolFailure(
               'denied',
@@ -260,9 +263,20 @@ export function wrapToolWithPermission(
             );
           hookInput = nextHookInput;
         }
-        parameters = structuredClone(effective);
+        if (!isUniversalValueEqual(effective, snapshot))
+          throw new ExecutionRecoveryError(
+            'EXECUTION_RECOVERY_INVALID',
+            'Tool parameters changed while awaiting permission',
+          );
+        parameters = structuredClone(snapshot);
         context?.signal?.throwIfAborted();
         await beforeEffect?.(parameters);
+        if (!isUniversalValueEqual(effective, snapshot))
+          throw new ExecutionRecoveryError(
+            'EXECUTION_RECOVERY_REQUIRED',
+            'Tool parameters changed while effect admission was being recorded',
+            context?.continuation ? [context.continuation.action.actionId] : [],
+          );
         context?.signal?.throwIfAborted();
         startedAtMs = Date.now();
       };

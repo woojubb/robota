@@ -198,6 +198,7 @@ export class ExecutionService {
   resumeToolCalls(
     conversationId: string,
     options: IResumeToolCallsOptions,
+    config: IAgentConfig,
   ): Promise<IResumeToolCallsResult> {
     return resumeJournaledToolCalls(
       this.conversationHistory.getConversationStore(conversationId),
@@ -209,6 +210,7 @@ export class ExecutionService {
         logger: this.logger,
         eventEmitter: this.eventEmitter,
       },
+      config,
     );
   }
 

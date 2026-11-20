@@ -150,8 +150,7 @@ async function skipRequest(
     toolName: request.toolName,
     error: reason,
   });
-  await context.journal?.onResult(index, result);
-  return result;
+  return (await context.journal?.onResult(index, result)) ?? result;
 }
 
 async function runScheduledWorker(
@@ -616,8 +615,7 @@ async function executeRequest(
   }
   // Persist a settled sibling even after cancellation; this wait is not a new external effect.
   result = withIntentSource(request, result);
-  await context.journal?.onResult(index, result);
-  return result;
+  return (await context.journal?.onResult(index, result)) ?? result;
 }
 
 async function executeAndDrain(
