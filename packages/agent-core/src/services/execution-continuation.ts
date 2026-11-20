@@ -9,6 +9,7 @@ import { createAbortError } from '../utils/abort-classification';
 import { buildFinalResult } from './execution-failure';
 import { runExecutionLoop, type IExecutionRoundDeps } from './execution-pipeline';
 import { recoverToolBatch, recoveryValueKey } from './execution-recovery-state';
+import { assertRawJournalPolicyRecords } from './execution-batch-policy';
 import { restoreJournaledRound } from './execution-resume';
 import { buildFullExecutionContext } from './execution-service-helpers';
 import type { ICoreExecutionResult, IResolvedProviderInfo } from './execution-types';
@@ -62,6 +63,7 @@ export async function continueJournaledExecution(
 ): Promise<ICoreExecutionResult> {
   const before = recoveryValueKey(store.getMessages());
   const records = await options.journal.read(options.executionId);
+  assertRawJournalPolicyRecords(records);
   options.signal?.throwIfAborted();
   const invocation = records.findLast(
     (record) => record.kind === 'model-request' || record.kind === 'model-cache-hit',

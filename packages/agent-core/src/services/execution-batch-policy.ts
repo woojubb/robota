@@ -106,6 +106,70 @@ function isPolicyData(value: unknown): boolean {
   return visit(value);
 }
 
+/** Inspect saved policy fields before cloning can invoke accessors or drop properties. */
+export function assertRawJournalPolicyRecords(source: unknown): void {
+  if (!Array.isArray(source))
+    throw new ExecutionRecoveryError('EXECUTION_RECOVERY_INVALID', 'Invalid execution journal');
+  for (const key of Reflect.ownKeys(source)) {
+    if (key === 'length') continue;
+    if (typeof key !== 'string')
+      throw new ExecutionRecoveryError('EXECUTION_RECOVERY_INVALID', 'Invalid execution journal');
+    const index = Number(key);
+    if (
+      !Number.isSafeInteger(index) ||
+      index < 0 ||
+      index >= source.length ||
+      String(index) !== key
+    )
+      throw new ExecutionRecoveryError('EXECUTION_RECOVERY_INVALID', 'Invalid execution journal');
+  }
+  for (let index = 0; index < source.length; index++) {
+    const item = Object.getOwnPropertyDescriptor(source, String(index));
+    const record: unknown = item && 'value' in item ? item.value : undefined;
+    if (!item?.enumerable || !record || typeof record !== 'object')
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_INVALID',
+        'Invalid execution journal record',
+      );
+    const kind = Object.getOwnPropertyDescriptor(record, 'kind');
+    if (!kind?.enumerable || !('value' in kind))
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_INVALID',
+        'Invalid execution journal record kind',
+      );
+    if (kind.value !== 'tool-intent' && kind.value !== 'tool-result') continue;
+    const saved = Object.getOwnPropertyDescriptor(record, 'batchPolicy');
+    if (!saved) {
+      let prototype = Object.getPrototypeOf(record);
+      const visited = new Set<object>();
+      while (prototype) {
+        if (visited.has(prototype))
+          throw new ExecutionRecoveryError(
+            'EXECUTION_RECOVERY_INVALID',
+            'Invalid journal prototype',
+          );
+        visited.add(prototype);
+        if (Object.hasOwn(prototype, 'batchPolicy'))
+          throw new ExecutionRecoveryError(
+            'EXECUTION_RECOVERY_INVALID',
+            'Invalid inherited tool batch policy',
+          );
+        prototype = Object.getPrototypeOf(prototype);
+      }
+      continue;
+    }
+    if (
+      !saved.enumerable ||
+      !('value' in saved) ||
+      (saved.value !== undefined && !isPolicyData(saved.value))
+    )
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_INVALID',
+        'Invalid raw tool batch policy',
+      );
+  }
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (
     value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype

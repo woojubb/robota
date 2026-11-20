@@ -604,6 +604,37 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).not.toHaveBeenCalled();
   });
 
+  it.each(['hidden array property', 'array accessor', 'policy accessor'] as const)(
+    'rejects %s in a journal before cloning it',
+    async (kind) => {
+      const saved = await stoppedAt('tool-intent', true);
+      const intent = saved.records.find((record) => record.kind === 'tool-intent');
+      if (intent?.kind !== 'tool-intent') throw new Error('Missing intent');
+      const entry = intent.batchPolicy?.scheduling?.[0]?.[1];
+      if (
+        !entry ||
+        typeof entry !== 'object' ||
+        !('resources' in entry) ||
+        !Array.isArray(entry.resources)
+      )
+        throw new Error('Missing resources');
+      const getter = vi.fn(() => 1);
+      if (kind === 'hidden array property')
+        Object.defineProperty(entry.resources, 'map', { value: 1, enumerable: false });
+      if (kind === 'array accessor')
+        Object.defineProperty(entry.resources, 'map', { get: getter, enumerable: true });
+      if (kind === 'policy accessor')
+        Object.defineProperty(intent, 'batchPolicy', { get: getter, enumerable: true });
+      saved.journal.read.mockImplementation(async () => saved.records);
+      const fresh = fixture();
+      await expect(fresh.agent.resumeToolCalls(saved)).rejects.toMatchObject({
+        code: 'EXECUTION_RECOVERY_INVALID',
+      });
+      expect(getter).not.toHaveBeenCalled();
+      expect(fresh.effect).not.toHaveBeenCalled();
+    },
+  );
+
   it('keeps legacy batches unbound while recovering under the equivalent host policy', async () => {
     const saved = await stoppedAt('tool-intent', true);
     for (const record of saved.records) {

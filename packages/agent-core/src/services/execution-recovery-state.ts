@@ -14,7 +14,7 @@ import {
 import type { IToolWaitState } from '../interfaces/tool-continuation';
 import { continuationObject } from '../utils/continuation-json';
 import { isValidToolCallIdentity } from './tool-call-identity';
-import { parseBatchPolicy } from './execution-batch-policy';
+import { assertRawJournalPolicyRecords, parseBatchPolicy } from './execution-batch-policy';
 
 export interface IRecoveredAction {
   actionId: string;
@@ -63,6 +63,7 @@ export function recoverToolBatch(
   requireTools = true,
 ): IRecoveredToolBatch {
   try {
+    assertRawJournalPolicyRecords(source);
     return validateBatch(structuredClone(source), executionId, callId, requireTools);
   } catch (error) {
     if (error instanceof ExecutionRecoveryError) throw error;

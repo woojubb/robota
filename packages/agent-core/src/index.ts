@@ -9,6 +9,7 @@ export { snapshotToolProvenance, withToolProvenance } from './utils/tool-provena
 export * from './abstracts';
 export * from './utils';
 export { callJournaledProvider } from './services/execution-journal';
+export { assertRawJournalPolicyRecords } from './services/execution-batch-policy';
 
 // Schema utilities: Zod→JSON-schema conversion (SSOT), structured output, closure
 export * from './schema/index';
