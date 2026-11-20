@@ -76,6 +76,9 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     ),
   );
   private readonly closed: Promise<void>;
+  private resolveClosed?: () => void;
+  private exited = false;
+  private terminating = false;
   public constructor() {
     super();
     let pending = '';
@@ -101,18 +104,42 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     this.child.on('error', () => this.emit('error'));
     this.child.stdin.on('error', () => this.emit('error'));
     this.closed = new Promise<void>((resolve) => {
-      this.child.once('close', () => {
-        this.emit('exit');
-        resolve();
-      });
+      this.resolveClosed = resolve;
     });
+    this.child.once('close', () => this.settle());
+    this.child.once('exit', () => {
+      this.exited = true;
+      if (this.terminating) this.settleExited();
+    });
+  }
+  private settle(): void {
+    const resolve = this.resolveClosed;
+    if (!resolve) return;
+    this.resolveClosed = undefined;
+    resolve();
+    this.emit('exit');
+  }
+  private settleExited(): void {
+    if (!this.resolveClosed) return;
+    this.child.stdin.destroy();
+    this.child.stdout.destroy();
+    this.child.stderr.destroy();
+    this.settle();
   }
   public postMessage(request: TRequest): void {
     this.child.stdin.write(JSON.stringify(request) + '\n');
   }
   public async terminate(): Promise<void> {
-    if (this.child.exitCode === null && this.child.signalCode === null)
-      signalChildGroup(this.child, 'SIGKILL');
+    this.terminating = true;
+    if (this.exited || this.child.exitCode !== null || this.child.signalCode !== null) {
+      this.settleExited();
+    } else {
+      try {
+        signalChildGroup(this.child, 'SIGKILL');
+      } catch {
+        // A refused signal is not proof that the child has exited.
+      }
+    }
     await this.closed;
   }
 }
@@ -150,10 +177,10 @@ export class IsolatedGrepSearch {
       else pending.reject(new Error(message.error ?? 'Invalid grep worker response'));
     });
     this.worker.on('error', () => {
-      void this.stop(new Error('Grep search worker failed'));
+      if (!this.stopped) void this.stop(new Error('Grep search worker failed'));
     });
     this.worker.once('exit', () => {
-      void this.stop(new Error('Grep search worker exited'));
+      if (!this.stopped) void this.stop(new Error('Grep search worker exited'));
     });
     this.timer = setTimeout(() => {
       void this.stop(new Error('Grep search timed out'));

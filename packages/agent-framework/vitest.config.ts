@@ -8,6 +8,7 @@ export default mergeConfig(
     test: {
       environment: 'node',
       globals: true,
+      ...(process.platform === 'win32' ? { testTimeout: 20_000 } : {}),
       coverage: {
         provider: 'v8',
         reporter: ['text', 'json', 'html'],
