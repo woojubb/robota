@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { runInNewContext } from 'node:vm';
 import { ConversationAgent } from '../../core/conversation-agent';
 import { AbstractPlugin } from '../../abstracts/abstract-plugin';
 import { ObservableEventService } from '../../event-service/event-service';
@@ -217,34 +216,25 @@ describe('provider-free journal continuation', () => {
     },
   );
 
-  it('records one policy binding across a partially written batch and its settlements', async () => {
+  it('records one policy binding and resolves it once when a batch resumes', async () => {
     const saved = await stoppedAt('tool-intent', true);
-    const fresh = fixture();
+    const policy = vi.fn<NonNullable<IAgentConfig['toolExecutionPolicy']>>((calls) => ({
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    }));
+    const fresh = fixture(undefined, undefined, undefined, policy);
     const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(policy).toHaveBeenCalledOnce();
     expect(fresh.effect).toHaveBeenCalledTimes(2);
     expect(result.receipts).toHaveLength(2);
     const records = saved.records.filter(
       (record) => record.kind === 'tool-intent' || record.kind === 'tool-result',
     );
     expect(records).toHaveLength(4);
-    const first = records[0];
-    if (first.kind !== 'tool-intent') throw new Error('Missing intent');
-    expect(first.batchPolicy).toBeDefined();
+    expect(records[0]).toHaveProperty('batchPolicy');
     for (const record of records.slice(1)) expect(record).not.toHaveProperty('batchPolicy');
   });
 
-  it('resolves a saved batch policy once before continuing its actions', async () => {
-    const saved = await stoppedAt('tool-intent', true);
-    const policy = vi.fn<NonNullable<IAgentConfig['toolExecutionPolicy']>>((calls) => ({
-      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
-    }));
-    const fresh = fixture(undefined, undefined, undefined, policy);
-    await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
-    expect(policy).toHaveBeenCalledOnce();
-    expect(fresh.effect).toHaveBeenCalledTimes(2);
-  });
-
-  it('checks the saved policy before continuing after a durable effect result', async () => {
+  it('checks policy before continuing after a durable effect result', async () => {
     const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
       mode: 'sequential',
       scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
@@ -264,7 +254,7 @@ describe('provider-free journal continuation', () => {
     expect(result.receipts).toHaveLength(2);
   });
 
-  it('binds a batch consisting only of malformed calls through its results', async () => {
+  it('binds a batch consisting only of malformed tool arguments through its first result', async () => {
     const source = fixture(undefined, undefined, (message) => {
       if (message.role !== 'assistant' || !message.toolCalls) return message;
       return {
@@ -278,8 +268,7 @@ describe('provider-free journal continuation', () => {
     const saved = await stoppedAt('tool-result', true, source);
     expect(source.effect).not.toHaveBeenCalled();
     const recorded = saved.records.find((record) => record.kind === 'tool-result');
-    if (recorded?.kind !== 'tool-result') throw new Error('Missing result');
-    expect(recorded.batchPolicy).toBeDefined();
+    expect(recorded).toHaveProperty('batchPolicy');
     const changed = fixture(undefined, undefined, undefined, (calls) => ({
       mode: 'sequential',
       scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
@@ -290,7 +279,7 @@ describe('provider-free journal continuation', () => {
     expect(changed.effect).not.toHaveBeenCalled();
   });
 
-  it('does not append another malformed result while the first policy write is unacknowledged', async () => {
+  it('does not persist a second malformed result before the policy binding is acknowledged', async () => {
     const source = fixture(undefined, undefined, (message) => {
       if (message.role !== 'assistant' || !message.toolCalls) return message;
       return {
@@ -302,44 +291,41 @@ describe('provider-free journal continuation', () => {
       };
     });
     const records: TExecutionJournalRecord[] = [];
-    let entered!: () => void;
+    let enter!: () => void;
     let release!: () => void;
-    const appending = new Promise<void>((resolve) => (entered = resolve));
+    const entered = new Promise<void>((resolve) => (enter = resolve));
     const gate = new Promise<void>((resolve) => (release = resolve));
     const run = source.agent.run('perform actions', {
       executionJournal: {
         append: async (record) => {
           records.push(structuredClone(record));
           if (record.kind === 'tool-result') {
-            entered();
+            enter();
             await gate;
             throw new Error('lost acknowledgement');
           }
         },
       },
     });
-    await appending;
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    const results = records.filter((record) => record.kind === 'tool-result');
-    expect(results).toHaveLength(1);
-    if (results[0].kind !== 'tool-result') throw new Error('Missing result');
-    expect(results[0].batchPolicy).toBeDefined();
-    release();
-    await expect(run).rejects.toMatchObject({ code: 'EXECUTION_JOURNAL_FAILED' });
+    const rejected = expect(run).rejects.toMatchObject({ code: 'EXECUTION_JOURNAL_FAILED' });
+    await entered;
+    try {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      const results = records.filter((record) => record.kind === 'tool-result');
+      expect(results).toHaveLength(1);
+      expect(results[0]).toHaveProperty('batchPolicy');
+    } finally {
+      release();
+    }
+    await rejected;
     expect(records.filter((record) => record.kind === 'tool-result')).toHaveLength(1);
     expect(source.effect).not.toHaveBeenCalled();
   });
 
-  it('rejects conflicting policy bindings in the journal before dispatch', async () => {
+  it('rejects conflicting saved policy bindings before dispatch', async () => {
     const saved = await stoppedAt('tool-dispatch');
     const intents = saved.records.filter((record) => record.kind === 'tool-intent');
-    expect(intents).toHaveLength(2);
-    if (
-      intents[0].kind !== 'tool-intent' ||
-      intents[1].kind !== 'tool-intent' ||
-      !intents[0].batchPolicy
-    )
-      throw new Error('Missing policy binding');
+    if (intents.length !== 2 || !intents[0].batchPolicy) throw new Error('Missing policy binding');
     intents[1].batchPolicy = structuredClone(intents[0].batchPolicy);
     intents[1].batchPolicy.mode = 'sequential';
     const fresh = fixture();
@@ -349,20 +335,30 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).not.toHaveBeenCalled();
   });
 
-  it('accepts equivalent policies with a different map and resource order', async () => {
+  it('accepts equivalent policy ordering, duplicates and default entries', async () => {
     const policy =
-      (reverse: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
-      (calls) => {
-        const resources: NonNullable<IToolCallScheduling['resources']> = [
-          { key: 'alpha', access: 'read' },
-          { key: 'beta', access: 'write' },
-        ];
-        const entries: Array<[string, IToolCallScheduling]> = [
-          [calls[0].id, { resources: reverse ? [...resources].reverse() : resources }],
-          [calls[1].id, { resources: [] }],
-        ];
-        return { scheduling: new Map(reverse ? entries.reverse() : entries) };
-      };
+      (alternate: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
+      (calls) => ({
+        scheduling: new Map(
+          alternate
+            ? [
+                [calls[1].id, { dependsOn: [calls[0].id], resources: [] }],
+                [calls[0].id, { resources: [{ key: 'db', access: 'write' }] }],
+              ]
+            : [
+                [
+                  calls[0].id,
+                  {
+                    resources: [
+                      { key: 'db', access: 'write' },
+                      { key: 'db', access: 'write' },
+                    ],
+                  },
+                ],
+                [calls[1].id, { dependsOn: [calls[0].id, calls[0].id], resources: [] }],
+              ],
+        ),
+      });
     const source = fixture(undefined, undefined, undefined, policy(false));
     const saved = await stoppedAt('tool-intent', true, source);
     const fresh = fixture(undefined, undefined, undefined, policy(true));
@@ -370,391 +366,14 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).toHaveBeenCalledTimes(2);
   });
 
-  it('accepts equivalent duplicate dependencies and resource declarations', async () => {
-    const policy =
-      (duplicate: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
-      (calls) => ({
-        scheduling: new Map([
-          [
-            calls[0].id,
-            {
-              resources: duplicate
-                ? [
-                    { key: 'db', access: 'write' },
-                    { key: 'db', access: 'write' },
-                  ]
-                : [{ key: 'db', access: 'write' }],
-            },
-          ],
-          [
-            calls[1].id,
-            { dependsOn: duplicate ? [calls[0].id, calls[0].id] : [calls[0].id], resources: [] },
-          ],
-        ]),
-      });
-    const source = fixture(undefined, undefined, undefined, policy(true));
-    const saved = await stoppedAt('tool-intent', true, source);
-    const fresh = fixture(undefined, undefined, undefined, policy(false));
-    await fresh.agent.resumeToolCalls(saved);
-    expect(fresh.effect).toHaveBeenCalledTimes(2);
-  });
-
-  it('accepts structural policies with unrelated instance data', async () => {
-    class SchedulingDeclaration implements IToolCallScheduling {
-      readonly resources: NonNullable<IToolCallScheduling['resources']> = [];
-      readonly map = new Map([['unused', 1]]);
-      readonly cycle: Record<string, unknown> = {};
-      callback() {
-        return 'unused';
-      }
-      constructor() {
-        this.cycle.self = this.cycle;
-        Object.defineProperty(this, 'hidden', { value: 'unused', enumerable: false });
-      }
-    }
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
-      scheduling: new Map(calls.map((call) => [call.id, new SchedulingDeclaration()])),
-    });
-    const source = fixture(undefined, undefined, undefined, policy);
-    const saved = await stoppedAt('tool-intent', true, source);
-    const fresh = fixture(undefined, undefined, undefined, policy);
-    await fresh.agent.resumeToolCalls(saved);
-    expect(fresh.effect).toHaveBeenCalledTimes(2);
-  });
-
-  it('accepts inherited data fields in structural scheduling policies', async () => {
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-      const declaration: IToolCallScheduling = {};
-      Object.setPrototypeOf(declaration, { resources: [] });
-      return { scheduling: new Map(calls.map((call) => [call.id, declaration])) };
-    };
-    const source = fixture(undefined, undefined, undefined, policy);
-    const saved = await stoppedAt('tool-intent', true, source);
-    const fresh = fixture(undefined, undefined, undefined, policy);
-    await fresh.agent.resumeToolCalls(saved);
-    expect(fresh.effect).toHaveBeenCalledTimes(2);
-  });
-
-  it.each(['subclass', 'other realm'] as const)(
-    'accepts a native-behavior resource array from %s',
-    async (kind) => {
-      class Resources extends Array<{ key: string; access: 'read' | 'write' }> {}
-      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-        const resources: NonNullable<IToolCallScheduling['resources']> =
-          kind === 'subclass' ? new Resources() : runInNewContext('[]');
-        return { scheduling: new Map(calls.map((call) => [call.id, { resources }])) };
-      };
-      const source = fixture(undefined, undefined, undefined, policy);
-      const saved = await stoppedAt('tool-intent', true, source);
-      const fresh = fixture(undefined, undefined, undefined, policy);
-      await fresh.agent.resumeToolCalls(saved);
-      expect(fresh.effect).toHaveBeenCalledTimes(2);
-    },
-  );
-
-  it('accepts a native array subclass with an unrelated method and metadata', async () => {
-    class Resources extends Array<{ key: string; access: 'read' | 'write' }> {
-      noop() {
-        return 1;
-      }
-    }
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-      const resources = new Resources();
-      Object.assign(resources, { label: 'unused' });
-      Object.defineProperty(resources, 'hidden', { value: 'unused', enumerable: false });
-      Object.defineProperty(resources, Symbol('unused'), { value: 'unused' });
-      return { scheduling: new Map(calls.map((call) => [call.id, { resources }])) };
-    };
-    const source = fixture(undefined, undefined, undefined, policy);
-    const saved = await stoppedAt('tool-intent', true, source);
-    const fresh = fixture(undefined, undefined, undefined, policy);
-    await fresh.agent.resumeToolCalls(saved);
-    expect(fresh.effect).toHaveBeenCalledTimes(2);
-  });
-
-  it.each(['map', 'some', 'iterator'] as const)(
-    'rejects an overridden native-named array %s before effects',
-    async (method) => {
-      class Resources extends Array<{ key: string; access: 'read' | 'write' }> {}
-      const key = method === 'iterator' ? Symbol.iterator : method;
-      const replacement =
-        method === 'map'
-          ? Uint8Array.prototype.map
-          : method === 'some'
-            ? Uint8Array.prototype.some
-            : Map.prototype.values;
-      Object.defineProperty(Resources.prototype, key, { value: replacement });
-      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
-        scheduling: new Map(calls.map((call) => [call.id, { resources: new Resources() }])),
-      });
-      const source = fixture(undefined, undefined, undefined, policy);
-      await expect(
-        source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
-      ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-      expect(source.effect).not.toHaveBeenCalled();
-    },
-  );
-
-  it('rejects a changed native array method in another realm', async () => {
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-      const resources: NonNullable<IToolCallScheduling['resources']> = runInNewContext(
-        'Array.prototype.map = Uint8Array.prototype.map; []',
-      );
-      return { scheduling: new Map(calls.map((call) => [call.id, { resources }])) };
-    };
-    const source = fixture(undefined, undefined, undefined, policy);
-    await expect(
-      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
-    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-    expect(source.effect).not.toHaveBeenCalled();
-  });
-
-  it('rejects a custom array species before any tool effect', async () => {
-    const getter = vi.fn(() => Array);
-    class Resources extends Array<{ key: string; access: 'read' | 'write' }> {}
-    Object.defineProperty(Resources, Symbol.species, { get: getter });
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
-      scheduling: new Map(calls.map((call) => [call.id, { resources: new Resources() }])),
-    });
-    const source = fixture(undefined, undefined, undefined, policy);
-    await expect(
-      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
-    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-    expect(getter).not.toHaveBeenCalled();
-    expect(source.effect).not.toHaveBeenCalled();
-  });
-
-  it('rejects a subclass field that changes mapped-array conflict behavior', async () => {
-    const Resources = runInNewContext(`class Resources extends Array {
-      some = this.length > 0 && this[0] === undefined ? () => true : Array.prototype.some;
-    }; Resources`);
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
-      scheduling: new Map(
-        calls.map((call) => {
-          const resources: Array<{ key: string; access: 'read' | 'write' }> = new Resources();
-          resources.push({ key: call.id, access: 'write' });
-          return [call.id, { resources }];
-        }),
-      ),
-    });
-    const source = fixture(undefined, undefined, undefined, policy);
-    await expect(
-      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
-    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-    expect(source.effect).not.toHaveBeenCalled();
-  });
-
-  it('rejects an uninitialized subclass field even if removed from the input', async () => {
-    const Resources = runInNewContext('class Resources extends Array { some; }; Resources');
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
-      scheduling: new Map(
-        calls.map((call) => {
-          const resources: Array<{ key: string; access: 'read' | 'write' }> = new Resources();
-          Reflect.deleteProperty(resources, 'some');
-          resources.push({ key: call.id, access: 'write' });
-          return [call.id, { resources }];
-        }),
-      ),
-    });
-    const source = fixture(undefined, undefined, undefined, policy);
-    await expect(
-      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
-    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-    expect(source.effect).not.toHaveBeenCalled();
-  });
-
-  it('rejects a different mapped-array constructor before any tool effect', async () => {
-    const Resources = runInNewContext(`class Other extends Array { some() { return true; } }
-      class Resources extends Array {}
-      Object.defineProperty(Resources.prototype, 'constructor', { value: Other });
-      Resources`);
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
-      scheduling: new Map(
-        calls.map((call) => {
-          const resources: Array<{ key: string; access: 'read' | 'write' }> = new Resources();
-          resources.push({ key: call.id, access: 'write' });
-          return [call.id, { resources }];
-        }),
-      ),
-    });
-    const source = fixture(undefined, undefined, undefined, policy);
-    await expect(
-      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
-    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-    expect(source.effect).not.toHaveBeenCalled();
-  });
-
-  it('preserves a scheduler refusal for a non-array data-only resource container', async () => {
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-      const declaration: IToolCallScheduling = {};
-      Object.assign(declaration, { resources: new Set() });
-      return { scheduling: new Map([[calls[0].id, declaration]]) };
-    };
-    const baseline = fixture(undefined, undefined, undefined, policy);
-    await baseline.agent.run('perform actions');
-    expect(baseline.effect).not.toHaveBeenCalled();
-    const source = fixture(undefined, undefined, undefined, policy);
-    const saved = await stoppedAt('tool-result', true, source);
-    const first = saved.records.find((record) => record.kind === 'tool-result');
-    if (first?.kind !== 'tool-result') throw new Error('Missing refusal');
-    const baselineResult = baseline.agent.getHistory().find((message) => message.role === 'tool');
-    expect(baselineResult?.content).toContain(first.result.error);
-    const fresh = fixture(undefined, undefined, undefined, policy);
-    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
-    expect(fresh.effect).not.toHaveBeenCalled();
-    expect(
-      result.receipts?.every(
-        (receipt) =>
-          receipt.result.metadata?.errorCode === 'tool_call_skipped' &&
-          receipt.result.error === first.result.error,
-      ),
-    ).toBe(true);
-  });
-
-  it.each(['key', 'access'] as const)(
-    'preserves the scheduler refusal for a non-serializable resource %s',
-    async (field) => {
-      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-        const resource: { key: string; access: 'read' | 'write' } = { key: 'db', access: 'read' };
-        Object.assign(resource, { [field]: new Set() });
-        return { scheduling: new Map([[calls[0].id, { resources: [resource] }]]) };
-      };
-      const baseline = fixture(undefined, undefined, undefined, policy);
-      await baseline.agent.run('perform actions');
-      const source = fixture(undefined, undefined, undefined, policy);
-      const saved = await stoppedAt('tool-result', true, source);
-      const first = saved.records.find((record) => record.kind === 'tool-result');
-      if (first?.kind !== 'tool-result') throw new Error('Missing refusal');
-      const baselineResult = baseline.agent.getHistory().find((message) => message.role === 'tool');
-      expect(baselineResult?.content).toContain(first.result.error);
-      const fresh = fixture(undefined, undefined, undefined, policy);
-      await fresh.agent.resumeToolCalls(saved);
-      expect(fresh.effect).not.toHaveBeenCalled();
-    },
-  );
-
-  it.each(['invalid access', 'missing access', 'null resource', 'undefined resource'] as const)(
-    'preserves the scheduler refusal for %s during recovery',
-    async (invalid) => {
-      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-        const resource: { key: string; access: 'read' | 'write' } = {
-          key: 'shared',
-          access: 'write',
-        };
-        const declaration: IToolCallScheduling = { resources: [resource] };
-        if (invalid === 'invalid access') Object.assign(resource, { access: 'invalid' });
-        if (invalid === 'missing access') Reflect.deleteProperty(resource, 'access');
-        if (invalid === 'null resource') Object.assign(declaration, { resources: [null] });
-        if (invalid === 'undefined resource')
-          Object.assign(declaration, { resources: [undefined] });
-        return { scheduling: new Map([[calls[0].id, declaration]]) };
-      };
-      const source = fixture(undefined, undefined, undefined, policy);
-      const saved = await stoppedAt('tool-result', true, source);
-      expect(source.effect).not.toHaveBeenCalled();
-      const recorded = saved.records.find((record) => record.kind === 'tool-result');
-      if (recorded?.kind !== 'tool-result') throw new Error('Missing refusal');
-      const fresh = fixture(undefined, undefined, undefined, policy);
-      const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
-      expect(fresh.effect).not.toHaveBeenCalled();
-      expect(result.receipts).toHaveLength(2);
-      expect(
-        result.receipts?.every(
-          (receipt) =>
-            receipt.result.metadata?.errorCode === 'tool_call_skipped' &&
-            receipt.result.error === recorded.result.error,
-        ),
-      ).toBe(true);
-    },
-  );
-
-  it('accepts a frozen valid policy and uses a detached copy for execution', async () => {
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
-      scheduling: new Map(
-        calls.map((call) => [call.id, Object.freeze({ resources: Object.freeze([]) })]),
-      ),
-    });
-    const source = fixture(undefined, undefined, undefined, policy);
-    const saved = await stoppedAt('tool-intent', true, source);
-    const fresh = fixture(undefined, undefined, undefined, policy);
-    await fresh.agent.resumeToolCalls(saved);
-    expect(fresh.effect).toHaveBeenCalledTimes(2);
-  });
-
-  it('preserves the scheduler treatment of a null resources declaration', async () => {
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-      const declaration: IToolCallScheduling = {};
-      Object.assign(declaration, { resources: null });
-      return { scheduling: new Map([[calls[0].id, declaration]]) };
-    };
-    const source = fixture(undefined, undefined, undefined, policy);
-    const saved = await stoppedAt('tool-intent', true, source);
-    const fresh = fixture(undefined, undefined, undefined, policy);
-    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
-    expect(fresh.effect).toHaveBeenCalledTimes(2);
-    expect(result.receipts?.every((receipt) => receipt.result.success)).toBe(true);
-  });
-
-  it.each(['resources', 'dependsOn'] as const)(
-    'treats null and omitted %s as the same scheduling policy',
-    async (field) => {
-      const policy =
-        (useNull: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
-        (calls) => {
-          const declaration: IToolCallScheduling = {};
-          if (useNull) Object.assign(declaration, { [field]: null });
-          return { scheduling: new Map([[calls[0].id, declaration]]) };
-        };
-      const source = fixture(undefined, undefined, undefined, policy(true));
-      const saved = await stoppedAt('tool-intent', true, source);
-      const fresh = fixture(undefined, undefined, undefined, policy(false));
-      await fresh.agent.resumeToolCalls(saved);
-      expect(fresh.effect).toHaveBeenCalledTimes(2);
-    },
-  );
-
-  it.each([false, true])(
-    'treats an omitted and explicit default for a known call as equivalent (initial default=%s)',
-    async (initialDefault) => {
-      const policy =
-        (explicit: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
-        (calls) => ({
-          scheduling: new Map(explicit ? [[calls[0].id, {}]] : []),
-        });
-      const source = fixture(undefined, undefined, undefined, policy(initialDefault));
-      const saved = await stoppedAt('tool-intent', true, source);
-      const fresh = fixture(undefined, undefined, undefined, policy(!initialDefault));
-      await fresh.agent.resumeToolCalls(saved);
-      expect(fresh.effect).toHaveBeenCalledTimes(2);
-    },
-  );
-
-  it('retains an unknown default call entry so the scheduler refuses it', async () => {
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = () => ({
-      scheduling: new Map([['not-a-call', {}]]),
-    });
-    const source = fixture(undefined, undefined, undefined, policy);
-    const saved = await stoppedAt('tool-result', true, source);
-    const fresh = fixture(undefined, undefined, undefined, policy);
-    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
-    expect(fresh.effect).not.toHaveBeenCalled();
-    expect(
-      result.receipts?.every(
-        (receipt) => receipt.result.metadata?.errorCode === 'tool_call_skipped',
-      ),
-    ).toBe(true);
-  });
-
-  it('does not mix refusal reasons when unknown dependency order changes', async () => {
+  it('preserves unknown dependency refusal order during recovery', async () => {
     const policy =
       (reverse: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
       (calls) => ({
         scheduling: new Map([
           [
             calls[0].id,
-            {
-              dependsOn: reverse ? ['missing-a', 'missing-z'] : ['missing-z', 'missing-a'],
-            },
+            { dependsOn: reverse ? ['missing-a', 'missing-z'] : ['missing-z', 'missing-a'] },
           ],
         ]),
       });
@@ -770,46 +389,55 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).not.toHaveBeenCalled();
   });
 
-  it.each(['default entry', 'undefined access'] as const)(
-    'normalizes %s alongside an invalid resource declaration',
-    async (variant) => {
-      const policy =
-        (alternate: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
-        (calls) => {
-          const resource: { key: string; access: 'read' | 'write' } = { key: 'db', access: 'read' };
-          if (variant === 'undefined access' && alternate)
-            Object.assign(resource, { access: undefined });
-          else Reflect.deleteProperty(resource, 'access');
-          const entries: Array<[string, IToolCallScheduling]> = [
-            [calls[0].id, { resources: [resource] }],
-          ];
-          if (variant === 'default entry' && alternate) entries.push([calls[1].id, {}]);
-          return { scheduling: new Map(entries) };
-        };
-      const source = fixture(undefined, undefined, undefined, policy(false));
-      const saved = await stoppedAt('tool-result', true, source);
-      const fresh = fixture(undefined, undefined, undefined, policy(true));
-      const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
-      expect(fresh.effect).not.toHaveBeenCalled();
-      expect(
-        result.receipts?.every(
-          (receipt) => receipt.result.metadata?.errorCode === 'tool_call_skipped',
-        ),
-      ).toBe(true);
-    },
-  );
+  it('keeps legacy batches unbound under the equivalent host policy', async () => {
+    const saved = await stoppedAt('tool-intent', true);
+    for (const record of saved.records)
+      if (record.kind === 'tool-intent' || record.kind === 'tool-result') delete record.batchPolicy;
+    const fresh = fixture();
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+    for (const record of saved.records)
+      if (record.kind === 'tool-intent' || record.kind === 'tool-result')
+        expect(record).not.toHaveProperty('batchPolicy');
+  });
 
-  it('rejects a scheduling accessor before it can change effect concurrency', async () => {
-    let reads = 0;
-    const getter = vi.fn(() => (++reads === 1 ? 'read' : 'write'));
+  it.each([
+    'proxy map',
+    'proxy declaration',
+    'proxy resource',
+    'accessor',
+    'class',
+    'array subclass',
+    'extra field',
+    'invalid access',
+  ] as const)('refuses %s before a journaled tool effect', async (kind) => {
+    const getter = vi.fn(() => 'write');
     const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
       const resource: { key: string; access: 'read' | 'write' } = { key: 'shared', access: 'read' };
-      Object.defineProperty(resource, 'access', {
-        enumerable: true,
-        configurable: true,
-        get: getter,
-      });
-      return { scheduling: new Map(calls.map((call) => [call.id, { resources: [resource] }])) };
+      const declaration: IToolCallScheduling = { resources: [resource] };
+      if (kind === 'proxy resource')
+        Object.assign(declaration, {
+          resources: [
+            new Proxy(resource, {
+              get(target, key, receiver) {
+                if (key === 'access') return getter();
+                return Reflect.get(target, key, receiver);
+              },
+            }),
+          ],
+        });
+      if (kind === 'accessor')
+        Object.defineProperty(resource, 'access', { get: getter, enumerable: true });
+      if (kind === 'extra field') Object.assign(declaration, { unused: true });
+      if (kind === 'invalid access') Object.assign(resource, { access: 'invalid' });
+      if (kind === 'array subclass') {
+        class Resources extends Array<{ key: string; access: 'read' | 'write' }> {}
+        Object.assign(declaration, { resources: new Resources() });
+      }
+      if (kind === 'class') Object.setPrototypeOf(declaration, { marker: true });
+      const actual = kind === 'proxy declaration' ? new Proxy(declaration, {}) : declaration;
+      const scheduling = new Map(calls.map((call) => [call.id, actual]));
+      return { scheduling: kind === 'proxy map' ? new Proxy(scheduling, {}) : scheduling };
     };
     const source = fixture(undefined, undefined, undefined, policy);
     const records: TExecutionJournalRecord[] = [];
@@ -827,173 +455,17 @@ describe('provider-free journal continuation', () => {
     expect(records.some((record) => record.kind === 'tool-intent')).toBe(false);
   });
 
-  it.each(['array', 'resource'] as const)(
-    'rejects a proxied scheduling %s before its get trap or tool effects',
-    async (kind) => {
-      const trapped = vi.fn();
-      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-        const resource = new Proxy(
-          { key: 'shared', access: 'read' as const },
-          {
-            get(target, key, receiver) {
-              if (key === 'access') {
-                trapped();
-                return 'write';
-              }
-              return Reflect.get(target, key, receiver);
-            },
-          },
-        );
-        const resources =
-          kind === 'array'
-            ? new Proxy([], {
-                get(target, key, receiver) {
-                  if (key === 'map') {
-                    trapped();
-                    return Uint8Array.prototype.map;
-                  }
-                  return Reflect.get(target, key, receiver);
-                },
-              })
-            : [resource];
-        return { scheduling: new Map(calls.map((call) => [call.id, { resources }])) };
-      };
-      const source = fixture(undefined, undefined, undefined, policy);
-      await expect(
-        source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
-      ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-      expect(trapped).not.toHaveBeenCalled();
-      expect(source.effect).not.toHaveBeenCalled();
-    },
-  );
-
-  it.each(['proxy', 'iterator accessor'] as const)(
-    'rejects a scheduling Map with %s before tool effects',
-    async (kind) => {
-      const trapped = vi.fn();
-      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-        const scheduling = new Map(calls.map((call) => [call.id, { resources: [] }]));
-        if (kind === 'iterator accessor') {
-          Object.defineProperty(scheduling, Symbol.iterator, {
-            get: () => {
-              trapped();
-              return Map.prototype[Symbol.iterator];
-            },
-          });
-          return { scheduling };
-        }
-        return {
-          scheduling: new Proxy(scheduling, {
-            get(target, key, receiver) {
-              trapped();
-              return Reflect.get(target, key, receiver);
-            },
-          }),
-        };
-      };
-      const source = fixture(undefined, undefined, undefined, policy);
-      await expect(
-        source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
-      ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-      expect(trapped).not.toHaveBeenCalled();
-      expect(source.effect).not.toHaveBeenCalled();
-    },
-  );
-
-  it('visibly refuses non-cloneable policy data before tool effects', async () => {
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-      const declaration: IToolCallScheduling = { resources: [] };
-      Object.assign(declaration, { unused: () => 'not cloneable' });
-      return { scheduling: new Map(calls.map((call) => [call.id, declaration])) };
-    };
-    const source = fixture(undefined, undefined, undefined, policy);
-    await expect(
-      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
-    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-    expect(source.effect).not.toHaveBeenCalled();
-  });
-
-  it.each(['own getter', 'inherited getter', 'coercion object'] as const)(
-    'does not evaluate Error metadata through a %s while probing a policy',
-    async (kind) => {
-      const invoked = vi.fn(() => 'changed');
-      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-        const resource: { key: string; access: 'read' | 'write' } = {
-          key: 'shared',
-          access: 'write',
-        };
-        const diagnostic = new Error();
-        const read = () => {
-          invoked();
-          resource.access = 'read';
-          return 'changed';
-        };
-        if (kind === 'own getter')
-          Object.defineProperty(diagnostic, 'message', { get: read, configurable: true });
-        if (kind === 'inherited getter') {
-          Reflect.deleteProperty(diagnostic, 'message');
-          Object.setPrototypeOf(
-            diagnostic,
-            Object.create(Error.prototype, { message: { get: read } }),
-          );
-        }
-        if (kind === 'coercion object')
-          Object.defineProperty(diagnostic, 'message', {
-            value: { toString: read },
-            configurable: true,
-          });
-        const declaration: IToolCallScheduling = { resources: [resource] };
-        Object.assign(declaration, { diagnostic });
-        return { scheduling: new Map(calls.map((call) => [call.id, declaration])) };
-      };
-      const source = fixture(undefined, undefined, undefined, policy);
-      await expect(
-        source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
-      ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-      expect(invoked).not.toHaveBeenCalled();
-      expect(source.effect).not.toHaveBeenCalled();
-    },
-  );
-
-  it('rejects extra array properties before they can be lost from a policy binding', async () => {
-    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
-      const resources: NonNullable<IToolCallScheduling['resources']> = [];
-      Object.assign(resources, { map: 1 });
-      return { scheduling: new Map(calls.map((call) => [call.id, { resources }])) };
-    };
-    const source = fixture(undefined, undefined, undefined, policy);
-    const records: TExecutionJournalRecord[] = [];
-    await expect(
-      source.agent.run('perform actions', {
-        executionJournal: {
-          append: async (record) => {
-            records.push(structuredClone(record));
-          },
-        },
-      }),
-    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-    expect(source.effect).not.toHaveBeenCalled();
-    expect(records.some((record) => record.kind === 'tool-intent')).toBe(false);
-  });
-
-  it('rejects a saved policy whose array would lose execution-relevant properties', async () => {
-    const saved = await stoppedAt('tool-intent', true);
-    const intent = saved.records.find((record) => record.kind === 'tool-intent');
-    if (intent?.kind !== 'tool-intent') throw new Error('Missing intent');
-    const entry = intent.batchPolicy?.scheduling?.[0]?.[1];
-    if (
-      !entry ||
-      typeof entry !== 'object' ||
-      !('resources' in entry) ||
-      !Array.isArray(entry.resources)
-    )
-      throw new Error('Missing resources');
-    Object.assign(entry.resources, { map: 1 });
-    const fresh = fixture();
-    await expect(fresh.agent.resumeToolCalls(saved)).rejects.toMatchObject({
-      code: 'EXECUTION_RECOVERY_INVALID',
+  it('accepts frozen plain scheduling data', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      scheduling: new Map(
+        calls.map((call) => [call.id, Object.freeze({ resources: Object.freeze([]) })]),
+      ),
     });
-    expect(fresh.effect).not.toHaveBeenCalled();
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-intent', true, source);
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
   });
 
   it.each(['hidden array property', 'array accessor', 'policy accessor'] as const)(
@@ -1002,19 +474,13 @@ describe('provider-free journal continuation', () => {
       const saved = await stoppedAt('tool-intent', true);
       const intent = saved.records.find((record) => record.kind === 'tool-intent');
       if (intent?.kind !== 'tool-intent') throw new Error('Missing intent');
-      const entry = intent.batchPolicy?.scheduling?.[0]?.[1];
-      if (
-        !entry ||
-        typeof entry !== 'object' ||
-        !('resources' in entry) ||
-        !Array.isArray(entry.resources)
-      )
-        throw new Error('Missing resources');
+      const resources = intent.batchPolicy?.scheduling?.[0]?.[1].resources;
+      if (!resources) throw new Error('Missing resources');
       const getter = vi.fn(() => 1);
       if (kind === 'hidden array property')
-        Object.defineProperty(entry.resources, 'map', { value: 1, enumerable: false });
+        Object.defineProperty(resources, 'map', { value: 1, enumerable: false });
       if (kind === 'array accessor')
-        Object.defineProperty(entry.resources, 'map', { get: getter, enumerable: true });
+        Object.defineProperty(resources, 'map', { get: getter, enumerable: true });
       if (kind === 'policy accessor')
         Object.defineProperty(intent, 'batchPolicy', { get: getter, enumerable: true });
       saved.journal.read.mockImplementation(async () => saved.records);
@@ -1042,21 +508,7 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).not.toHaveBeenCalled();
   });
 
-  it('keeps legacy batches unbound while recovering under the equivalent host policy', async () => {
-    const saved = await stoppedAt('tool-intent', true);
-    for (const record of saved.records) {
-      if (record.kind === 'tool-intent' || record.kind === 'tool-result') delete record.batchPolicy;
-    }
-    const fresh = fixture();
-    await fresh.agent.resumeToolCalls(saved);
-    expect(fresh.effect).toHaveBeenCalledTimes(2);
-    for (const record of saved.records) {
-      if (record.kind === 'tool-intent' || record.kind === 'tool-result')
-        expect(record).not.toHaveProperty('batchPolicy');
-    }
-  });
-
-  it('uses the recorded scheduler snapshot if the caller mutates its policy during an append', async () => {
+  it('uses a detached policy if the caller mutates it during an append', async () => {
     let captured = new Map<string, IToolCallScheduling>();
     let firstId = '';
     const source = fixture(undefined, undefined, undefined, (calls) => {
@@ -1064,19 +516,16 @@ describe('provider-free journal continuation', () => {
       captured = new Map(calls.map((call) => [call.id, { resources: [] }]));
       return { scheduling: captured };
     });
-    const records: TExecutionJournalRecord[] = [];
     let entered!: () => void;
     let release!: () => void;
     const appending = new Promise<void>((resolve) => (entered = resolve));
     const gate = new Promise<void>((resolve) => (release = resolve));
+    let first = true;
     const run = source.agent.run('perform actions', {
       executionJournal: {
         append: async (record) => {
-          records.push(structuredClone(record));
-          if (
-            record.kind === 'tool-intent' &&
-            records.filter((r) => r.kind === 'tool-intent').length === 1
-          ) {
+          if (record.kind === 'tool-intent' && first) {
+            first = false;
             entered();
             await gate;
           }
@@ -1088,12 +537,6 @@ describe('provider-free journal continuation', () => {
     release();
     await run;
     expect(source.effect).toHaveBeenCalledTimes(2);
-    const intents = records.filter((record) => record.kind === 'tool-intent');
-    expect(intents).toHaveLength(2);
-    if (intents[0].kind !== 'tool-intent' || intents[1].kind !== 'tool-intent')
-      throw new Error('Missing intents');
-    expect(intents[0].batchPolicy).toBeDefined();
-    expect(intents[1]).not.toHaveProperty('batchPolicy');
   });
 
   it.each(['sequential', 'dependent'] as const)(

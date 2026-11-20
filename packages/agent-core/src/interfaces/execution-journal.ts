@@ -42,8 +42,15 @@ export interface IJournalToolBatchPolicy {
   mode: 'parallel' | 'sequential';
   maxConcurrency: number;
   continueOnError: boolean;
-  /** Data-only invalid declarations retain the scheduler's refusal; unrepresentable values fail closed. */
-  scheduling?: Array<[unknown, unknown]>;
+  scheduling?: Array<
+    [
+      string,
+      {
+        dependsOn: string[];
+        resources?: Array<{ key: string; access: 'read' | 'write' }>;
+      },
+    ]
+  >;
 }
 
 export interface IExecutionContinuationState {
