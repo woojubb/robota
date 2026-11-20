@@ -402,9 +402,11 @@ describe('provider-free journal continuation', () => {
   it('accepts structural policies with unrelated instance data', async () => {
     class SchedulingDeclaration implements IToolCallScheduling {
       readonly resources: NonNullable<IToolCallScheduling['resources']> = [];
-      readonly callback = () => 'unused';
       readonly map = new Map([['unused', 1]]);
       readonly cycle: Record<string, unknown> = {};
+      callback() {
+        return 'unused';
+      }
       constructor() {
         this.cycle.self = this.cycle;
         Object.defineProperty(this, 'hidden', { value: 'unused', enumerable: false });
@@ -450,6 +452,63 @@ describe('provider-free journal continuation', () => {
     },
   );
 
+  it('accepts a native array subclass with an unrelated method and metadata', async () => {
+    class Resources extends Array<{ key: string; access: 'read' | 'write' }> {
+      noop() {
+        return 1;
+      }
+    }
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      const resources = new Resources();
+      Object.assign(resources, { label: 'unused' });
+      Object.defineProperty(resources, 'hidden', { value: 'unused', enumerable: false });
+      Object.defineProperty(resources, Symbol('unused'), { value: 'unused' });
+      return { scheduling: new Map(calls.map((call) => [call.id, { resources }])) };
+    };
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-intent', true, source);
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['map', 'some', 'iterator'] as const)(
+    'rejects an overridden native-named array %s before effects',
+    async (method) => {
+      class Resources extends Array<{ key: string; access: 'read' | 'write' }> {}
+      const key = method === 'iterator' ? Symbol.iterator : method;
+      const replacement =
+        method === 'map'
+          ? Uint8Array.prototype.map
+          : method === 'some'
+            ? Uint8Array.prototype.some
+            : Map.prototype.values;
+      Object.defineProperty(Resources.prototype, key, { value: replacement });
+      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+        scheduling: new Map(calls.map((call) => [call.id, { resources: new Resources() }])),
+      });
+      const source = fixture(undefined, undefined, undefined, policy);
+      await expect(
+        source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
+      ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+      expect(source.effect).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects a changed native array method in another realm', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      const resources: NonNullable<IToolCallScheduling['resources']> = runInNewContext(
+        'Array.prototype.map = Uint8Array.prototype.map; []',
+      );
+      return { scheduling: new Map(calls.map((call) => [call.id, { resources }])) };
+    };
+    const source = fixture(undefined, undefined, undefined, policy);
+    await expect(
+      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(source.effect).not.toHaveBeenCalled();
+  });
+
   it('rejects a custom array species before any tool effect', async () => {
     const getter = vi.fn(() => Array);
     class Resources extends Array<{ key: string; access: 'read' | 'write' }> {}
@@ -462,6 +521,47 @@ describe('provider-free journal continuation', () => {
       source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
     ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
     expect(getter).not.toHaveBeenCalled();
+    expect(source.effect).not.toHaveBeenCalled();
+  });
+
+  it('rejects a subclass field that changes mapped-array conflict behavior', async () => {
+    const Resources = runInNewContext(`class Resources extends Array {
+      some = this.length > 0 && this[0] === undefined ? () => true : Array.prototype.some;
+    }; Resources`);
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      scheduling: new Map(
+        calls.map((call) => {
+          const resources: Array<{ key: string; access: 'read' | 'write' }> = new Resources();
+          resources.push({ key: call.id, access: 'write' });
+          return [call.id, { resources }];
+        }),
+      ),
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    await expect(
+      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(source.effect).not.toHaveBeenCalled();
+  });
+
+  it('rejects a different mapped-array constructor before any tool effect', async () => {
+    const Resources = runInNewContext(`class Other extends Array { some() { return true; } }
+      class Resources extends Array {}
+      Object.defineProperty(Resources.prototype, 'constructor', { value: Other });
+      Resources`);
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      scheduling: new Map(
+        calls.map((call) => {
+          const resources: Array<{ key: string; access: 'read' | 'write' }> = new Resources();
+          resources.push({ key: call.id, access: 'write' });
+          return [call.id, { resources }];
+        }),
+      ),
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    await expect(
+      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
     expect(source.effect).not.toHaveBeenCalled();
   });
 
@@ -706,6 +806,92 @@ describe('provider-free journal continuation', () => {
     expect(getter).not.toHaveBeenCalled();
     expect(source.effect).not.toHaveBeenCalled();
     expect(records.some((record) => record.kind === 'tool-intent')).toBe(false);
+  });
+
+  it.each(['array', 'resource'] as const)(
+    'rejects a proxied scheduling %s before its get trap or tool effects',
+    async (kind) => {
+      const trapped = vi.fn();
+      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+        const resource = new Proxy(
+          { key: 'shared', access: 'read' as const },
+          {
+            get(target, key, receiver) {
+              if (key === 'access') {
+                trapped();
+                return 'write';
+              }
+              return Reflect.get(target, key, receiver);
+            },
+          },
+        );
+        const resources =
+          kind === 'array'
+            ? new Proxy([], {
+                get(target, key, receiver) {
+                  if (key === 'map') {
+                    trapped();
+                    return Uint8Array.prototype.map;
+                  }
+                  return Reflect.get(target, key, receiver);
+                },
+              })
+            : [resource];
+        return { scheduling: new Map(calls.map((call) => [call.id, { resources }])) };
+      };
+      const source = fixture(undefined, undefined, undefined, policy);
+      await expect(
+        source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
+      ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+      expect(trapped).not.toHaveBeenCalled();
+      expect(source.effect).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['proxy', 'iterator accessor'] as const)(
+    'rejects a scheduling Map with %s before tool effects',
+    async (kind) => {
+      const trapped = vi.fn();
+      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+        const scheduling = new Map(calls.map((call) => [call.id, { resources: [] }]));
+        if (kind === 'iterator accessor') {
+          Object.defineProperty(scheduling, Symbol.iterator, {
+            get: () => {
+              trapped();
+              return Map.prototype[Symbol.iterator];
+            },
+          });
+          return { scheduling };
+        }
+        return {
+          scheduling: new Proxy(scheduling, {
+            get(target, key, receiver) {
+              trapped();
+              return Reflect.get(target, key, receiver);
+            },
+          }),
+        };
+      };
+      const source = fixture(undefined, undefined, undefined, policy);
+      await expect(
+        source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
+      ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+      expect(trapped).not.toHaveBeenCalled();
+      expect(source.effect).not.toHaveBeenCalled();
+    },
+  );
+
+  it('visibly refuses non-cloneable policy data before tool effects', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      const declaration: IToolCallScheduling = { resources: [] };
+      Object.assign(declaration, { unused: () => 'not cloneable' });
+      return { scheduling: new Map(calls.map((call) => [call.id, declaration])) };
+    };
+    const source = fixture(undefined, undefined, undefined, policy);
+    await expect(
+      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(source.effect).not.toHaveBeenCalled();
   });
 
   it('rejects extra array properties before they can be lost from a policy binding', async () => {

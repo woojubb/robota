@@ -105,7 +105,11 @@ export interface IAgentConfig {
 
   // Tools and plugins
   tools?: Array<IToolWithEventService>;
-  /** Host-owned per-round policy. Absent declarations serialize unknown shared-state operations. */
+  /**
+   * Host-owned per-round policy. Absent declarations serialize unknown shared-state operations.
+   * Journaled batches require a native Map with standard iteration and cloneable data entries; proxies, accessors and
+   * unrepresentable entries are rejected before dispatch.
+   */
   toolExecutionPolicy?: (calls: readonly IToolCall[]) => IToolExecutionPolicy;
   /**
    * Whether tools that declare `deferLoading` are withheld from the model until loaded.

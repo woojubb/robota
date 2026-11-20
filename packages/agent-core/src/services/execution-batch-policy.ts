@@ -64,6 +64,60 @@ function invalidPolicy(): never {
   );
 }
 
+/** Avoid invoking accessors while checking whether the platform can clone a policy value. */
+function isCloneProbeData(value: unknown, seen = new WeakSet<object>()): boolean {
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    typeof value === 'bigint'
+  )
+    return true;
+  if (typeof value !== 'object') return false;
+  if (seen.has(value)) return true;
+  seen.add(value);
+  try {
+    let entries: IterableIterator<[unknown, unknown]> | undefined;
+    try {
+      entries = Map.prototype.entries.call(value);
+    } catch {
+      /* not a Map */
+    }
+    if (entries) {
+      for (const [key, item] of entries)
+        if (!isCloneProbeData(key, seen) || !isCloneProbeData(item, seen)) return false;
+    } else {
+      let members: IterableIterator<unknown> | undefined;
+      try {
+        members = Set.prototype.values.call(value);
+      } catch {
+        /* not a Set */
+      }
+      if (members) for (const item of members) if (!isCloneProbeData(item, seen)) return false;
+    }
+    for (const key of Reflect.ownKeys(value)) {
+      if (typeof key !== 'string') continue;
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (!descriptor || !descriptor.enumerable) continue;
+      if (!('value' in descriptor) || !isCloneProbeData(descriptor.value, seen)) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function assertCloneablePolicyData(value: unknown): void {
+  if (!isCloneProbeData(value)) return invalidPolicy();
+  try {
+    structuredClone(value);
+  } catch {
+    return invalidPolicy();
+  }
+}
+
 /** Read a scheduler field without invoking an own or inherited accessor. */
 function dataField(value: object, key: PropertyKey): unknown {
   const visited = new Set<object>();
@@ -81,44 +135,159 @@ function dataField(value: object, key: PropertyKey): unknown {
   return undefined;
 }
 
-function sameNativeFunction(
-  value: unknown,
-  reference: ((...args: never[]) => unknown) | undefined,
-): boolean {
+function sameNativeFunction(value: unknown, reference: unknown): boolean {
   return (
     typeof value === 'function' &&
-    reference !== undefined &&
+    typeof reference === 'function' &&
     Function.prototype.toString.call(value) === Function.prototype.toString.call(reference)
   );
 }
 
+/** A recoverable policy uses native Map iteration, including for Maps from another realm. */
+function mapEntries(
+  value: ReadonlyMap<string, IToolCallScheduling>,
+): IterableIterator<[string, IToolCallScheduling]> {
+  try {
+    Map.prototype.has.call(value, undefined);
+  } catch {
+    return invalidPolicy();
+  }
+  const visited = new Set<object>();
+  let prototype = Object.getPrototypeOf(value);
+  while (prototype) {
+    if (visited.has(prototype)) return invalidPolicy();
+    visited.add(prototype);
+    const constructor = Object.getOwnPropertyDescriptor(prototype, 'constructor');
+    const candidate = constructor && 'value' in constructor ? constructor.value : undefined;
+    if (typeof candidate === 'function' && sameNativeFunction(candidate, Map)) {
+      const nativePrototype = Object.getOwnPropertyDescriptor(candidate, 'prototype');
+      const nativeIterator = Object.getOwnPropertyDescriptor(prototype, Symbol.iterator);
+      const iterator =
+        nativeIterator && 'value' in nativeIterator ? nativeIterator.value : undefined;
+      if (
+        !nativePrototype ||
+        !('value' in nativePrototype) ||
+        nativePrototype.value !== prototype ||
+        typeof iterator !== 'function' ||
+        !sameNativeFunction(iterator, Map.prototype[Symbol.iterator]) ||
+        dataField(value, Symbol.iterator) !== iterator
+      )
+        return invalidPolicy();
+      try {
+        const probe: unknown = Reflect.apply(iterator, new Map([['key', 'value']]), []);
+        if (!probe || typeof probe !== 'object') return invalidPolicy();
+        const next = dataField(probe, 'next');
+        if (typeof next !== 'function') return invalidPolicy();
+        const step: unknown = Reflect.apply(next, probe, []);
+        if (!step || typeof step !== 'object') return invalidPolicy();
+        const result = Object.getOwnPropertyDescriptor(step, 'value');
+        if (
+          !result ||
+          !('value' in result) ||
+          !Array.isArray(result.value) ||
+          result.value[0] !== 'key' ||
+          result.value[1] !== 'value'
+        )
+          return invalidPolicy();
+        return Reflect.apply(iterator, value, []);
+      } catch {
+        return invalidPolicy();
+      }
+    }
+    prototype = Object.getPrototypeOf(prototype);
+  }
+  return invalidPolicy();
+}
+
 /** Accept ordinary array subclasses and other realms only when their relevant behavior is native. */
 function hasNativeArrayBehavior(value: object): boolean {
+  let prototype = Object.getPrototypeOf(value);
+  const prototypes = new Set<object>();
+  while (prototype && !Array.isArray(prototype)) {
+    if (prototypes.has(prototype)) return false;
+    prototypes.add(prototype);
+    prototype = Object.getPrototypeOf(prototype);
+  }
+  if (!prototype) return false;
+  const ownValue = (target: object, key: PropertyKey): unknown => {
+    const descriptor = Object.getOwnPropertyDescriptor(target, key);
+    return descriptor && 'value' in descriptor ? descriptor.value : undefined;
+  };
+  const nativeConstructor = ownValue(prototype, 'constructor');
   if (
-    !sameNativeFunction(dataField(value, 'map'), Array.prototype.map) ||
-    !sameNativeFunction(dataField(value, 'some'), Array.prototype.some) ||
-    !sameNativeFunction(dataField(value, Symbol.iterator), Array.prototype[Symbol.iterator])
+    typeof nativeConstructor !== 'function' ||
+    !sameNativeFunction(nativeConstructor, Array) ||
+    ownValue(nativeConstructor, 'prototype') !== prototype
   )
     return false;
+  const map = ownValue(prototype, 'map');
+  const some = ownValue(prototype, 'some');
+  const iterator = ownValue(prototype, Symbol.iterator);
+  if (
+    typeof map !== 'function' ||
+    typeof some !== 'function' ||
+    typeof iterator !== 'function' ||
+    !sameNativeFunction(map, Array.prototype.map) ||
+    !sameNativeFunction(some, Array.prototype.some) ||
+    !sameNativeFunction(iterator, Array.prototype[Symbol.iterator]) ||
+    dataField(value, 'map') !== map ||
+    dataField(value, 'some') !== some ||
+    dataField(value, Symbol.iterator) !== iterator
+  )
+    return false;
+  try {
+    const sample = [1];
+    // Keep the probe independent of any customized Array constructor or species.
+    Object.defineProperty(sample, 'constructor', { value: undefined });
+    const mapped: unknown = Reflect.apply(map, sample, [(item: number) => item + 1]);
+    if (
+      !Array.isArray(mapped) ||
+      mapped.length !== 1 ||
+      mapped[0] !== 2 ||
+      Reflect.apply(some, sample, [(item: number) => item === 1]) !== true
+    )
+      return false;
+    const cursor: unknown = Reflect.apply(iterator, sample, []);
+    if (!cursor || typeof cursor !== 'object') return false;
+    const next = dataField(cursor, 'next');
+    if (typeof next !== 'function') return false;
+    const step: unknown = Reflect.apply(next, cursor, []);
+    if (!step || typeof step !== 'object' || ownValue(step, 'value') !== 1) return false;
+  } catch {
+    return false;
+  }
   const species = Object.getOwnPropertyDescriptor(Array, Symbol.species)?.get;
   let constructor: unknown = dataField(value, 'constructor');
+  if (
+    typeof constructor !== 'function' ||
+    ownValue(constructor, 'prototype') !== Object.getPrototypeOf(value)
+  )
+    return false;
   const visited = new Set<object>();
   while (typeof constructor === 'function') {
     if (visited.has(constructor)) return false;
     visited.add(constructor);
     const source = Function.prototype.toString.call(constructor);
     const descriptor = Object.getOwnPropertyDescriptor(constructor, Symbol.species);
-    if (descriptor)
-      return (
-        source === Function.prototype.toString.call(Array) &&
-        sameNativeFunction(descriptor.get, species) &&
-        descriptor.set === undefined
-      );
-    // Only a default subclass constructor is known not to alter Array species allocation.
-    if (
-      !/^class(?:\s+[$A-Z_a-z][$\w]*)?\s+extends\s+[$A-Z_a-z][$\w]*(?:\.[$A-Z_a-z][$\w]*)*\s*\{\s*\}$/.test(
-        source,
+    if (constructor === nativeConstructor) {
+      if (
+        !descriptor ||
+        !sameNativeFunction(descriptor.get, species) ||
+        descriptor.set !== undefined
       )
+        return false;
+      try {
+        return Reflect.apply(descriptor.get!, nativeConstructor, []) === nativeConstructor;
+      } catch {
+        return false;
+      }
+    }
+    // A custom constructor or species could change the mapped resource array.
+    if (
+      descriptor ||
+      !/^class\b/.test(source) ||
+      !/\bextends\b/.test(source) ||
+      /\bconstructor\b|\\|=/.test(source)
     )
       return false;
     constructor = Object.getPrototypeOf(constructor);
@@ -129,24 +298,20 @@ function hasNativeArrayBehavior(value: object): boolean {
 /** Copy an array without reading accessors or discarding custom array behavior. */
 function projectArray<T>(value: T, project: (item: unknown) => unknown): T {
   if (!Array.isArray(value)) return value;
+  assertCloneablePolicyData(value);
   if (!hasNativeArrayBehavior(value)) return invalidPolicy();
   const length = Object.getOwnPropertyDescriptor(value, 'length');
   if (!length || !('value' in length) || typeof length.value !== 'number') return invalidPolicy();
   const copy: unknown[] = new Array(length.value);
   for (const key of Reflect.ownKeys(value)) {
     if (key === 'length') continue;
-    if (typeof key !== 'string') return invalidPolicy();
+    // Other own properties do not affect the verified native scheduler methods.
+    if (typeof key !== 'string') continue;
     const index = Number(key);
+    if (!Number.isSafeInteger(index) || index < 0 || index >= length.value || String(index) !== key)
+      continue;
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    if (
-      !Number.isSafeInteger(index) ||
-      index < 0 ||
-      index >= length.value ||
-      String(index) !== key ||
-      !descriptor?.enumerable ||
-      !('value' in descriptor)
-    )
-      return invalidPolicy();
+    if (!descriptor || !('value' in descriptor)) return invalidPolicy();
     copy[index] = project(descriptor.value);
   }
   for (let index = 0; index < length.value; index++) {
@@ -167,6 +332,7 @@ function projectArray<T>(value: T, project: (item: unknown) => unknown): T {
 
 function projectResource(value: unknown): unknown {
   if (value === null || typeof value !== 'object') return value;
+  assertCloneablePolicyData(value);
   const key = dataField(value, 'key');
   if (typeof key !== 'string' || !key.trim()) return { key: null, access: null };
   const access = dataField(value, 'access');
@@ -177,6 +343,7 @@ function projectResource(value: unknown): unknown {
 function projectResources(value: unknown): unknown {
   if (Array.isArray(value)) return projectArray(value, projectResource);
   if (value === null || (typeof value !== 'object' && typeof value !== 'function')) return value;
+  assertCloneablePolicyData(value);
   // A non-array container with no callable map is refused by the scheduler in the same way.
   if (typeof dataField(value, 'map') !== 'function') return {};
   return invalidPolicy();
@@ -184,6 +351,7 @@ function projectResources(value: unknown): unknown {
 
 function projectScheduling<T>(value: T): T {
   if (value === null || typeof value !== 'object') return value;
+  assertCloneablePolicyData(value);
   const dependsOn = dataField(value, 'dependsOn');
   const resources = dataField(value, 'resources');
   const projected = {
@@ -441,7 +609,7 @@ export function snapshotBatchPolicy(
     const supplied =
       batch.scheduling === undefined
         ? undefined
-        : Array.from(batch.scheduling, projectSchedulingPair);
+        : Array.from(mapEntries(batch.scheduling), projectSchedulingPair);
     if (!isPolicyData(supplied))
       throw new ExecutionRecoveryError(
         'EXECUTION_RECOVERY_INVALID',
