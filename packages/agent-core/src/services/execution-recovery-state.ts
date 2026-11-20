@@ -23,6 +23,8 @@ export interface IRecoveredAction {
   loadedDeferredTools?: string[];
 }
 export interface IRecoveredToolBatch {
+  executionId: string;
+  callId: string;
   checkpoint: IExecutionRoundCheckpoint;
   response: IAssistantMessage;
   actions: Map<string, IRecoveredAction>;
@@ -318,6 +320,8 @@ function validateBatch(
       uncertain.map((action) => action.actionId),
     );
   return {
+    executionId,
+    callId,
     checkpoint,
     response,
     actions,

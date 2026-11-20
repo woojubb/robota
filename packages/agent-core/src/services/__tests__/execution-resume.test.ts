@@ -138,6 +138,25 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).toHaveBeenCalledTimes(2);
   });
 
+  it('optionally returns durable receipts and reuses them without repeating effects', async () => {
+    const saved = await stoppedAt('model-response', true);
+    const fresh = fixture();
+    const first = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(first.receipts).toHaveLength(2);
+    for (const receipt of first.receipts ?? []) {
+      const record = saved.records.find(
+        (item) => item.kind === 'tool-result' && item.toolCallId === receipt.toolCallId,
+      );
+      expect(record).toMatchObject({ actionId: receipt.actionId, result: receipt.result });
+    }
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+    const ordinary = await fresh.agent.resumeToolCalls(saved);
+    expect(ordinary).not.toHaveProperty('receipts');
+    const repeated = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(repeated.receipts).toEqual(first.receipts);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
   it('uses existing action ids when a dispatch stopped before body entry', async () => {
     const saved = await stoppedAt('tool-effect-start');
     const ids = saved.records.filter((r) => r.kind === 'tool-intent').map((r) => r.actionId);

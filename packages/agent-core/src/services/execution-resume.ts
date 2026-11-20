@@ -5,6 +5,7 @@ import type {
   TExecutionJournalRecord,
 } from '../interfaces/execution-journal';
 import type { TUniversalMessage } from '../interfaces/messages';
+import type { IManagedToolReceipt } from '../interfaces/managed-provider';
 import { ConversationStore } from '../managers/conversation-history-manager';
 import { createAbortError } from '../utils/abort-classification';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
@@ -193,6 +194,7 @@ export async function restoreJournaledRound(
   deps.eventEmitter.prepareOwnerPathBases(conversationId);
   try {
     let stop = calls.length === 0;
+    let receipts: readonly IManagedToolReceipt[] | undefined;
     if (calls.length > 0) {
       const outcome = await executeAndRecordToolCalls(
         calls,
@@ -209,8 +211,16 @@ export async function restoreJournaledRound(
         undefined,
         batch.checkpoint.maxSameToolInputs,
         undefined,
-        { journal: options.journal, parentCallId: options.callId, recovery: batch },
+        {
+          journal: options.journal,
+          parentCallId: options.callId,
+          recovery: batch,
+          ...(options.includeReceipts && { captureReceipts: true, assistantFrame: batch.response }),
+        },
       );
+      if (options.includeReceipts && !outcome.receipts)
+        conflict('The recovered batch does not have a complete set of durable receipts');
+      receipts = outcome.receipts;
       stop = applyToolOutcome(outcome, state, deps.logger);
     }
     unchanged();
@@ -236,6 +246,7 @@ export async function restoreJournaledRound(
       executionId: options.executionId,
       callId: options.callId,
       messages: structuredClone(store.getMessages()),
+      ...(receipts && { receipts }),
       batch,
       state,
       stop,
@@ -253,11 +264,11 @@ export async function resumeJournaledToolCalls(
   options: IResumeToolCallsOptions,
   deps: IRoundDependencies,
 ): Promise<IResumeToolCallsResult> {
-  const { executionId, callId, messages } = await restoreJournaledRound(
+  const { executionId, callId, messages, receipts } = await restoreJournaledRound(
     store,
     conversationId,
     options,
     deps,
   );
-  return { executionId, callId, messages };
+  return { executionId, callId, messages, ...(receipts && { receipts }) };
 }

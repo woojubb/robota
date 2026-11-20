@@ -8,7 +8,11 @@ import { type IExecutionRoundState } from './execution-types';
 import { getModelContextWindow } from '../context/models';
 import { SameToolInputLoopError } from '../utils/errors';
 import { attachToolBatchJournal } from './execution-tool-journal';
-import type { IToolBatchJournalContext } from './execution-tool-journal';
+import { snapshotReceiptFrame } from './execution-receipt-frame';
+import type {
+  IToolBatchJournalContext,
+  IToolBatchJournalSettlement,
+} from './execution-tool-journal';
 import { toolExecutionLifecycle } from './tool-execution-lifecycle';
 
 import type { IRoundDependencies } from './execution-round-types';
@@ -73,7 +77,7 @@ export function checkSameToolInputLimit(
 
 /** Execute tools from assistant tool calls and add results to conversation history */
 export async function executeAndRecordToolCalls(
-  assistantToolCalls: IToolCall[],
+  inputToolCalls: IToolCall[],
   conversationStore: ConversationStore,
   conversationId: string,
   executionId: string,
@@ -90,13 +94,21 @@ export async function executeAndRecordToolCalls(
   journalContext?: IToolBatchJournalContext,
 ): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
+  let assistantToolCalls = inputToolCalls;
+  let effectiveJournalContext = journalContext;
+
+  if (effectiveJournalContext?.captureReceipts) {
+    const snapshot = snapshotReceiptFrame(inputToolCalls, effectiveJournalContext);
+    assistantToolCalls = snapshot.calls;
+    effectiveJournalContext = snapshot.context;
+  }
 
   const resolvedMaxSameToolInputs = maxSameToolInputs ?? config?.maxSameToolInputs;
   if (resolvedMaxSameToolInputs !== undefined) {
     try {
       checkSameToolInputLimit(assistantToolCalls, roundState, resolvedMaxSameToolInputs);
     } catch (error) {
-      if (!(error instanceof SameToolInputLoopError) || journalContext) throw error;
+      if (!(error instanceof SameToolInputLoopError) || effectiveJournalContext) throw error;
       const startIndex = conversationStore.getMessages().length;
       const refusal = 'Tool batch was not dispatched because the repeated-input limit was reached.';
       const refusedRequests = toolExecutionService.createExecutionRequestsWithContext(
@@ -199,12 +211,16 @@ export async function executeAndRecordToolCalls(
     sessionId: conversationId,
     // A pre-effect wait resumes the wrapper, not a new logical call.
     alreadyDispatched: (index) =>
-      journalContext?.recovery?.actions.get(toolRequests[index].executionId ?? '')?.dispatched ===
-      true,
+      effectiveJournalContext?.recovery?.actions.get(toolRequests[index].executionId ?? '')
+        ?.dispatched === true,
   });
-  if (journalContext) {
-    await attachToolBatchJournal(toolContext, executionId, journalContext, () =>
-      toolExecutionService.getLoadedDeferredTools(),
+  let journalSettlement: IToolBatchJournalSettlement | undefined;
+  if (effectiveJournalContext) {
+    journalSettlement = await attachToolBatchJournal(
+      toolContext,
+      executionId,
+      effectiveJournalContext,
+      () => toolExecutionService.getLoadedDeferredTools(),
     );
   }
 
@@ -280,7 +296,7 @@ export async function executeAndRecordToolCalls(
   );
 
   const contextLimit =
-    journalContext?.recovery?.checkpoint.contextLimit ??
+    effectiveJournalContext?.recovery?.checkpoint.contextLimit ??
     getModelContextWindow(config?.defaultModel?.model ?? '');
   const messageCountBeforeToolResults = conversationStore.getMessages().length;
   const toolResultsOutcome = addToolResultsToHistory(
@@ -316,9 +332,11 @@ export async function executeAndRecordToolCalls(
 
   eventEmitter.clearToolEventServices();
 
+  const receipts = journalSettlement?.receipts();
   return {
     ...toolResultsOutcome,
     unknownToolFailureCount: unknownToolNames.length,
     unknownToolNames,
+    ...(receipts ? { receipts } : {}),
   };
 }
