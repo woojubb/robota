@@ -18,6 +18,7 @@ import type { IModelRoute } from './execution-model-route';
 import type { IStructuredOutputTransportOutcome } from './execution-structured-output-guard';
 import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
+import { PROVIDER_CONTINUATION_METADATA_KEY } from '../interfaces/messages';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
 import type { IChatOptions, TToolChoice } from '../interfaces/provider';
 import type { IDeferredToolCatalog } from '../interfaces/tool-search';
@@ -106,6 +107,48 @@ function buildRoundChatOptions(
   };
 }
 
+/** Known provider-hosted tools are effects too; a text cache cannot stand in for them. */
+function mayUseNativeWebTools(
+  options: IChatOptions,
+  provider: IResolvedProviderInfo['provider'],
+): boolean {
+  const requested = options.nativeWebTools;
+  if (requested?.webSearch === true || requested?.webFetch === true) return true;
+  try {
+    const capabilities = provider.getCapabilities?.().nativeWebTools;
+    return (
+      (requested?.webSearch !== false && capabilities?.webSearch.enabled === true) ||
+      (requested?.webFetch !== false && capabilities?.webFetch.enabled === true)
+    );
+  } catch {
+    // A failed capability check cannot establish that skipping the provider is safe.
+    return true;
+  }
+}
+
+const USAGE_METADATA_KEYS = new Set([
+  'inputTokens',
+  'outputTokens',
+  'promptTokens',
+  'completionTokens',
+  'totalTokens',
+  'cacheReadTokens',
+  'usageProvenance',
+  'usage',
+]);
+
+/** Cached responses have no provider call, so they must not repeat its usage. */
+function containsOnlyUsageMetadata(response: IAssistantMessage): boolean {
+  const metadata = response.metadata;
+  return (
+    metadata === undefined ||
+    (metadata !== null &&
+      typeof metadata === 'object' &&
+      !Array.isArray(metadata) &&
+      Object.keys(metadata).every((key) => USAGE_METADATA_KEYS.has(key)))
+  );
+}
+
 /** Call the AI provider with optional cache lookup/store */
 export async function callProviderWithCache(
   conversationMessages: TUniversalMessage[],
@@ -192,18 +235,41 @@ export async function callProviderWithCache(
   // `undefined` normalizes to `'auto'`, matching `buildRoundChatOptions`'s own default.
   const effortCacheIdentity = chatOptions.effort ?? 'auto';
 
-  // A cached string cannot carry the tool calls a fresh response might request. Do not let a
-  // previous tool-free answer suppress the provider when this request offers tools.
-  if (cacheService && (chatOptions.tools?.length ?? 0) === 0) {
+  // A text-only entry cannot represent tools, external resources, or opaque native state.
+  if (
+    cacheService &&
+    (chatOptions.tools?.length ?? 0) === 0 &&
+    outgoing.every(
+      (message) =>
+        message.metadata?.[PROVIDER_CONTINUATION_METADATA_KEY] === undefined &&
+        (message.parts === undefined ||
+          (Array.isArray(message.parts) && message.parts.every((part) => part?.type === 'text'))),
+    ) &&
+    !mayUseNativeWebTools(chatOptions, resolved.provider)
+  ) {
+    const cacheMessages = structuredClone(outgoing);
+    // Snapshot output-affecting options once so a provider cannot change the store identity
+    // after the lookup. Callbacks, signals, and execution-scoped tracing are not wire options.
+    const cacheOptions = {
+      temperature: chatOptions.temperature,
+      maxTokens: chatOptions.maxTokens,
+      effortCacheIdentity,
+      requestIdentity: structuredClone({
+        toolChoice: chatOptions.toolChoice,
+        nativeWebTools: chatOptions.nativeWebTools,
+        responseFormat: chatOptions.responseFormat,
+        openai: chatOptions.openai,
+        anthropic: chatOptions.anthropic,
+        google: chatOptions.google,
+        effortResolution: chatOptions.effortResolution,
+        preserveContextWindow: chatOptions.preserveContextWindow,
+      }),
+    };
     const cachedResponse = cacheService.lookup(
-      outgoing,
+      cacheMessages,
       routeModel(route, config.defaultModel.model),
       route.current?.provider ?? config.defaultModel.provider,
-      {
-        temperature: config.defaultModel.temperature,
-        maxTokens: config.defaultModel.maxTokens,
-        effortCacheIdentity,
-      },
+      cacheOptions,
     );
     if (cachedResponse) {
       onDispatch?.('cache-hit', chatOptions.model ?? model);
@@ -233,23 +299,23 @@ export async function callProviderWithCache(
       config.timeout,
       awaitProviderSettlement || !!journalContext,
     );
-    // The cache stores text only, so it cannot reconstruct tool calls in the same frame.
+    // Store only complete text frames the cache can reconstruct without provider metadata.
     if (
       response.role === 'assistant' &&
+      response.state === 'complete' &&
       typeof response.content === 'string' &&
+      containsOnlyUsageMetadata(response) &&
+      (response.parts === undefined ||
+        (Array.isArray(response.parts) && response.parts.length === 0)) &&
       (response.toolCalls === undefined ||
         (Array.isArray(response.toolCalls) && response.toolCalls.length === 0))
     ) {
       cacheService.store(
-        outgoing,
+        cacheMessages,
         routeModel(route, config.defaultModel.model),
         route.current?.provider ?? config.defaultModel.provider,
         response.content,
-        {
-          temperature: config.defaultModel.temperature,
-          maxTokens: config.defaultModel.maxTokens,
-          effortCacheIdentity,
-        },
+        cacheOptions,
       );
     }
     return response;

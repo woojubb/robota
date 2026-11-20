@@ -1,6 +1,7 @@
 import type { IAgentConfig, IAssistantMessage, TExecutionEventCallback } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IProviderCapabilityTable } from '../interfaces/model-capability';
+import type { IProviderCapabilities } from '../interfaces/provider-capabilities';
 import type { IModelRef } from '../interfaces/role-model';
 import type {
   IChatOptions,
@@ -59,6 +60,8 @@ export interface IResolvedProviderInfo {
      * uses rather than depending on the whole provider interface.
      */
     capabilityTable?: () => IProviderCapabilityTable | undefined;
+    /** Provider-hosted tools that may run independently of the host tool catalog. */
+    getCapabilities?: () => IProviderCapabilities;
     /**
      * Whether this provider is pointed at its vendor's own endpoint. Separate from the
      * table on purpose — a provider with no verified capability table must still be able to say it

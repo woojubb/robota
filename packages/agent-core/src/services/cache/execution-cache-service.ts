@@ -1,6 +1,5 @@
-import type { CacheKeyBuilder } from './cache-key-builder';
+import type { CacheKeyBuilder, ICacheKeyOptions } from './cache-key-builder';
 import type { ICacheStorage, ICacheStats } from '../../interfaces/cache';
-import type { TModelEffortSelection } from '../../interfaces/model-effort-capability';
 import type { TUniversalMessage } from '../../interfaces/messages';
 
 /**
@@ -9,12 +8,6 @@ import type { TUniversalMessage } from '../../interfaces/messages';
  * `store` both funnel through the SAME `keyBuilder.build` call below, so they can never drift into
  * separate identity rules for the same request.
  */
-interface IExecutionCacheOptions {
-  temperature?: number;
-  maxTokens?: number;
-  effortCacheIdentity?: TModelEffortSelection | null;
-}
-
 export class ExecutionCacheService {
   constructor(
     private readonly storage: ICacheStorage,
@@ -25,7 +18,7 @@ export class ExecutionCacheService {
     messages: TUniversalMessage[],
     model: string,
     provider: string,
-    options?: IExecutionCacheOptions,
+    options?: ICacheKeyOptions,
   ): string | undefined {
     const key = this.keyBuilder.build(messages, model, provider, options);
     const entry = this.storage.get(key.hash);
@@ -37,7 +30,7 @@ export class ExecutionCacheService {
     model: string,
     provider: string,
     response: string,
-    options?: IExecutionCacheOptions,
+    options?: ICacheKeyOptions,
   ): void {
     const key = this.keyBuilder.build(messages, model, provider, options);
     this.storage.set({

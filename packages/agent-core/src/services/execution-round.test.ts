@@ -519,7 +519,13 @@ describe('execution-round helpers', () => {
     });
 
     it('stores response in cache on miss', async () => {
-      const mockResponse = { role: 'assistant', content: 'fresh', timestamp: new Date() };
+      const mockResponse = {
+        id: 'fresh',
+        role: 'assistant',
+        content: 'fresh',
+        state: 'complete',
+        timestamp: new Date(),
+      };
       const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
       const resolved = createResolvedProviderInfo({
         provider: { chat: vi.fn().mockResolvedValue(mockResponse) },

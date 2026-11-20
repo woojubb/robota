@@ -1,9 +1,22 @@
 import type { ICacheKey } from '../../interfaces/cache';
 import type { TModelEffortSelection } from '../../interfaces/model-effort-capability';
 import type { TUniversalMessage } from '../../interfaces/messages';
+import type { IChatOptions } from '../../interfaces/provider';
 import { sha256Hex } from '../../utils/digest';
 
-interface ICacheKeyOptions {
+export type TCacheRequestIdentity = Pick<
+  IChatOptions,
+  | 'toolChoice'
+  | 'nativeWebTools'
+  | 'responseFormat'
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'effortResolution'
+  | 'preserveContextWindow'
+>;
+
+export interface ICacheKeyOptions {
   temperature?: number;
   maxTokens?: number;
   /**
@@ -15,6 +28,7 @@ interface ICacheKeyOptions {
    * an absent selection to `'auto'` before passing it in.
    */
   effortCacheIdentity?: TModelEffortSelection | null;
+  requestIdentity?: TCacheRequestIdentity;
 }
 
 export class CacheKeyBuilder {
@@ -24,18 +38,28 @@ export class CacheKeyBuilder {
     provider: string,
     options?: ICacheKeyOptions,
   ): ICacheKey {
-    const serializable = messages.map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
+    const serializable = messages.map((message) => {
+      const { id, timestamp, metadata, ...requestMessage } = message;
+      void id;
+      void timestamp;
+      if (!metadata) return requestMessage;
+      // This host-owned attribution changes for each run but is not part of the prompt.
+      const { executionId, ...requestMetadata } = metadata;
+      void executionId;
+      return Object.keys(requestMetadata).length > 0
+        ? { ...requestMessage, metadata: requestMetadata }
+        : requestMessage;
+    });
 
     const payload = JSON.stringify({
+      version: 2,
       messages: serializable,
       model,
       provider,
       temperature: options?.temperature,
       maxTokens: options?.maxTokens,
       effortCacheIdentity: options?.effortCacheIdentity ?? null,
+      requestIdentity: options?.requestIdentity,
     });
 
     return {
