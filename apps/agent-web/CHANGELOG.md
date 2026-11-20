@@ -1,5 +1,12 @@
 # __PRODUCT_DISPLAY_NAME__-web
 
+## 0.1.14
+### Patch Changes
+
+- Updated dependencies [e4f73c8]
+  - @robota-sdk/agent-transport@4.0.0
+  - @robota-sdk/agent-ui-web@3.4.1
+
 ## 0.1.13
 ### Patch Changes
 

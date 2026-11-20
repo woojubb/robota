@@ -1,5 +1,18 @@
 # @robota-sdk/agent-product
 
+## 3.7.0
+### Minor Changes
+
+- 2830c87: Export the connector argument parser so hosts can inspect the same object a connector call uses.
+
+### Patch Changes
+
+- 1c70e29: Allow hosts to scope case actions, require admission at the connector handoff, and recover interrupted
+  waiting-card writes.
+- 43510cc: Allow hosts to inspect a connector's local status without discovering its tools.
+- aa49932: Keep case and connector identities distinct across agent instances.
+- 1e66bc6: Keep connector facts about security events while continuing to refuse recognized secret values.
+
 ## 3.6.1
 ### Patch Changes
 
