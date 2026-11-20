@@ -3,10 +3,104 @@ import { ConversationAgent } from './conversation-agent';
 import { AbstractTool } from '../abstracts/abstract-tool';
 import type { IToolSchema } from '../interfaces/provider';
 import { FunctionTool } from '../tool-registry/function-tool';
-import type { IToolResult } from '../interfaces/tool';
+import { createScriptedProvider } from '../testing/scripted-provider';
+import { ObservableEventService } from '../event-service/event-service';
+import type { IToolExecutionContext, IToolResult } from '../interfaces/tool';
 import type { IAIProvider } from '../interfaces/provider';
 
 describe('canonical runtime tools', () => {
+  it('reports an already-cancelled direct call as a tool error', async () => {
+    const provider = createScriptedProvider([]).provider;
+    const eventService = new ObservableEventService();
+    const events: string[] = [];
+    eventService.subscribe((event) => events.push(event));
+    const effect = vi.fn(async () => 'done');
+    const agent = new ConversationAgent({
+      name: 'runtime-cancellation',
+      aiProviders: [provider],
+      defaultModel: { provider: provider.name, model: 'test' },
+      eventService,
+      tools: [
+        new FunctionTool(
+          { name: 'act', description: 'Act', parameters: { type: 'object', properties: {} } },
+          effect,
+        ),
+      ],
+    });
+    const controller = new AbortController();
+    controller.abort();
+    try {
+      expect(
+        await agent.invokeRuntimeTool(
+          'act',
+          {},
+          {
+            toolName: 'act',
+            parameters: {},
+            executionId: 'cancelled',
+            signal: controller.signal,
+          },
+        ),
+      ).toMatchObject({ success: false });
+      expect(events.filter((event) => event.endsWith('call_error'))).toHaveLength(1);
+      expect(effect).not.toHaveBeenCalled();
+    } finally {
+      await agent.destroy();
+    }
+  });
+
+  it('preserves the direct caller context through tool execution', async () => {
+    const provider = createScriptedProvider([]).provider;
+    const contexts: IToolExecutionContext[] = [];
+    const controller = new AbortController();
+    const agent = new ConversationAgent({
+      name: 'runtime-context',
+      aiProviders: [provider],
+      defaultModel: { provider: provider.name, model: 'test' },
+      tools: [
+        new FunctionTool(
+          {
+            name: 'inspect',
+            description: 'Inspect',
+            parameters: { type: 'object', properties: {} },
+          },
+          async (_parameters, context) => {
+            if (context) contexts.push(context);
+            return 'done';
+          },
+        ),
+      ],
+      logging: { enabled: false },
+    });
+    try {
+      await agent.invokeRuntimeTool(
+        'inspect',
+        {},
+        {
+          toolName: 'inspect',
+          parameters: {},
+          executionId: 'direct-context',
+          userId: 'caller',
+          sessionId: 'session',
+          permissionInteraction: 'deny',
+          extensions: { marker: 'retained' },
+          signal: controller.signal,
+        },
+      );
+      expect(contexts).toHaveLength(1);
+      expect(contexts[0]).toMatchObject({
+        executionId: 'direct-context',
+        userId: 'caller',
+        sessionId: 'session',
+        permissionInteraction: 'deny',
+        extensions: { marker: 'retained' },
+        signal: controller.signal,
+      });
+    } finally {
+      await agent.destroy();
+    }
+  });
+
   it('lists and invokes registered deferred tools without a model turn or loading them for the model', async () => {
     const chat = vi.fn<IAIProvider['chat']>();
     const agent = new ConversationAgent({
