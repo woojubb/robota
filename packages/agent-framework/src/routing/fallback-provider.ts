@@ -10,7 +10,11 @@
  * same run go straight to that model, and the next run starts on the primary again.
  */
 
-import { classifyProviderFailure, findModelDefinition } from '@robota-sdk/agent-core';
+import {
+  classifyProviderFailure,
+  findModelDefinition,
+  ManagedRunUnavailableError,
+} from '@robota-sdk/agent-core';
 
 import { runWithRoleFallback } from './role-model-routing.js';
 
@@ -178,8 +182,9 @@ export class FallbackProvider implements IAIProvider {
     };
     // Output already shown cannot be withdrawn, so a failure after it stands.
     const shouldRetry = (error: unknown): boolean =>
-      error instanceof UnreachableFallbackError ||
-      (!streamed && classifyProviderFailure(error, signal).switchable);
+      !(error instanceof ManagedRunUnavailableError) &&
+      (error instanceof UnreachableFallbackError ||
+        (!streamed && classifyProviderFailure(error, signal).switchable));
 
     try {
       return await runWithRoleFallback(refs, run, shouldRetry);
@@ -279,7 +284,10 @@ export class FallbackProvider implements IAIProvider {
       this.built.set(position, built);
     }
     const result = await built;
-    if ('error' in result) throw new UnreachableFallbackError(target, result.error);
+    if ('error' in result) {
+      if (result.error instanceof ManagedRunUnavailableError) throw result.error;
+      throw new UnreachableFallbackError(target, result.error);
+    }
     return result.provider;
   }
 

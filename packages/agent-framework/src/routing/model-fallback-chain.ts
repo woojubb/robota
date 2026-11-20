@@ -7,7 +7,12 @@
  * dropped with a notice then, and what cannot be reached is only found out when a request needs it.
  */
 
-import { createProviderFromConfig, findProviderDefinition } from '@robota-sdk/agent-core';
+import {
+  createProviderFromConfig,
+  findProviderDefinition,
+  isManagedRunProvider,
+  ManagedRunUnavailableError,
+} from '@robota-sdk/agent-core';
 
 import { resolveActiveProvider } from '../command-api/provider/provider-merge.js';
 
@@ -19,10 +24,16 @@ import type { TProviderSettingsDocument } from '../command-api/provider/provider
 import type {
   IAIProvider,
   IModelFallbackNotice,
-  IProviderDefinition,
+  TProviderDefinition,
   IProviderDefinitionConfig,
   TProviderCredentialResolver,
+  TExecutionProvider,
 } from '@robota-sdk/agent-core';
+
+function requireModelStep(provider: TExecutionProvider): IAIProvider {
+  if (isManagedRunProvider(provider)) throw new ManagedRunUnavailableError(provider.name);
+  return provider;
+}
 
 /** A request moves along at most this many models after the primary. */
 export const MAX_FALLBACK_MODELS = 3;
@@ -43,7 +54,7 @@ export interface IResolveModelFallbackChainInput {
   /** Merged provider settings. */
   settings: TProviderSettingsDocument;
   primary: IModelFallbackPrimary;
-  providerDefinitions: readonly IProviderDefinition[];
+  providerDefinitions: readonly TProviderDefinition[];
   /** Host-selected environment for lazy profile credential resolution. */
   environment?: TProviderEnvironment;
   resolveCredential?: TProviderCredentialResolver;
@@ -98,7 +109,7 @@ export function selectFallbackModelEntries(
 function profileModel(
   settings: TProviderSettingsDocument,
   profile: string,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
 ): { providerType: string; model: string | undefined } | undefined {
   const settingsProfile = settings.providers?.[profile];
   if (settingsProfile?.type === undefined) return undefined;
@@ -182,7 +193,7 @@ function buildTarget(
             if (config === undefined)
               throw new Error(`Provider profile "${entry.profile}" has no configuration`);
             const resolved = await input.resolveCredential!({ ...config, model: entry.model });
-            return createProviderFromConfig(resolved, providerDefinitions);
+            return requireModelStep(createProviderFromConfig(resolved, providerDefinitions));
           },
         }
       : {}),
@@ -193,7 +204,9 @@ function buildTarget(
           : primary.config;
       if (config === undefined)
         throw new Error(`Provider profile "${entry.profile}" has no configuration`);
-      return createProviderFromConfig({ ...config, model: entry.model }, providerDefinitions);
+      return requireModelStep(
+        createProviderFromConfig({ ...config, model: entry.model }, providerDefinitions),
+      );
     },
   };
 }

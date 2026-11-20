@@ -4,7 +4,11 @@
 import { ExecutionSuspendedError } from '../utils/execution-suspended-error';
 import { AGENT_EVENTS } from '../agents/constants';
 
-import type { TUniversalMessage, IAgentConfig, IRunOptions } from '../interfaces/agent';
+import type {
+  TUniversalMessage,
+  TAgentExecutionConfig as IAgentConfig,
+  IRunOptions,
+} from '../interfaces/agent';
 import type { IAgentEventData } from '../interfaces/event-service';
 import type { ExecutionService } from '../services/execution-service';
 import type { IExecutionContext } from '../services/execution-types';

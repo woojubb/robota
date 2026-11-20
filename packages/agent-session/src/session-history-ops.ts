@@ -19,7 +19,7 @@ import type { ICompactEvent, TCompactTrigger } from './session-types.js';
 import type { IToolSchema } from '@robota-sdk/agent-core';
 import type { ConversationAgent } from '@robota-sdk/agent-core';
 import type {
-  IAIProvider,
+  TExecutionProvider,
   IExecutionJournal,
   THooksConfig,
   IHookInput,
@@ -41,7 +41,7 @@ export interface ICompactContext {
   cwd: string;
   systemMessage: string;
   agent: ConversationAgent;
-  aiProvider: IAIProvider;
+  aiProvider: TExecutionProvider;
   compactionOrchestrator: CompactionOrchestrator;
   contextTracker: ContextWindowTracker;
   hooks: Record<string, unknown> | undefined;

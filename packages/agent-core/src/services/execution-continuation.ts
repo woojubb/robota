@@ -1,4 +1,4 @@
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 import type {
   IExecutionContinuationState,
   IResumeExecutionOptions,

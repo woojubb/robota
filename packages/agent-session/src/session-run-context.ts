@@ -3,7 +3,7 @@ import type { TSessionLogData } from './session-logger.js';
 import type { IProviderCallTraceObservation, ISessionOptions } from './session-types.js';
 import type {
   ConversationAgent,
-  IAIProvider,
+  TExecutionProvider,
   IExecutionJournal,
   IContextWindowState,
   IModelFallbackNotice,
@@ -26,7 +26,7 @@ export interface IRunContext {
   /** Absolute path to session transcript file — passed to all hook inputs as transcript_path */
   transcriptPath?: string;
   agent: ConversationAgent;
-  aiProvider: IAIProvider;
+  aiProvider: TExecutionProvider;
   contextTracker: ContextWindowTracker;
   hooks: Record<string, unknown> | undefined;
   hookTypeExecutors: readonly IHookTypeExecutor[];

@@ -14,7 +14,7 @@ import { resolveProviderEnvironment } from './provider-environment.js';
 
 import type { TProviderEnvironment } from './provider-environment.js';
 import type {
-  IProviderDefinition,
+  TProviderDefinition,
   IProviderCredentialRequirement,
   IProviderProfileConfig,
   TProviderCredentialField,
@@ -61,7 +61,7 @@ export interface IProviderSetupPatch {
 }
 
 export interface IProviderSettingsBuildOptions {
-  providerDefinitions?: readonly IProviderDefinition[];
+  providerDefinitions?: readonly TProviderDefinition[];
   /**
    * What configure-time checks read `$ENV:` references against. Absent, every reference reads as
    * unset and the profile fails its credential check.
@@ -262,14 +262,14 @@ export function mergeProviderPatch(
 
 function getProviderDefaults(
   type: string,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
 ): { model?: string; apiKey?: string; baseURL?: string } {
   return findProviderDefinition(providerDefinitions, type)?.defaults ?? {};
 }
 
 function hasUsableRequiredProviderCredential(
   profile: IProviderProfileSettings,
-  defaults: IProviderDefinition['defaults'],
+  defaults: TProviderDefinition['defaults'],
   requirement: IProviderCredentialRequirement,
   env: TProviderEnvironment | undefined,
 ): boolean {
@@ -282,7 +282,7 @@ function hasUsableRequiredProviderCredential(
 function resolveProviderCredentialValue(
   field: TProviderCredentialField,
   profile: IProviderProfileSettings,
-  defaults: IProviderDefinition['defaults'],
+  defaults: TProviderDefinition['defaults'],
 ): string | undefined {
   return profile[field] ?? defaults?.[field];
 }

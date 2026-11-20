@@ -1,5 +1,5 @@
 import type { IExecutionRoundCheckpoint } from '../interfaces/execution-journal';
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IExecutionContext, IExecutionRoundState } from './execution-types';
 import { getModelContextWindow } from '../context/models';

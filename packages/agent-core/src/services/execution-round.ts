@@ -28,7 +28,10 @@ import { createSystemMessage } from '../managers/conversation-message-factory';
 
 import { PROVIDER_CONTINUATION_METADATA_KEY } from '../interfaces/messages';
 
-import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
+import type {
+  TAgentExecutionConfig as IAgentConfig,
+  TExecutionEventData,
+} from '../interfaces/agent';
 import type { TMessageState } from '../interfaces/messages';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 

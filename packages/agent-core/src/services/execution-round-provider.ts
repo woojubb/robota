@@ -17,7 +17,7 @@ import type { IModelJournalContext } from '../interfaces/execution-journal';
 import type { IModelRoute } from './execution-model-route';
 import type { IStructuredOutputTransportOutcome } from './execution-structured-output-guard';
 import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
-import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig, IAssistantMessage } from '../interfaces/agent';
 import { PROVIDER_CONTINUATION_METADATA_KEY } from '../interfaces/messages';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
 import type { IChatOptions, TToolChoice } from '../interfaces/provider';

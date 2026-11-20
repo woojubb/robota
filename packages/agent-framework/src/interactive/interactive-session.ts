@@ -4,6 +4,8 @@ import {
   basenamePath,
   createSystemMessage,
   messageToHistoryEntry,
+  isManagedRunProvider,
+  ManagedRunUnavailableError,
   randomId,
   utf8ByteLength,
 } from '@robota-sdk/agent-core';
@@ -138,7 +140,7 @@ import type { IWorkspacePolicy, TWorkspaceProjectAccess } from '../workspace-tru
 import type {
   TUniversalMessage,
   TSessionEndReason,
-  IProviderDefinition,
+  TProviderDefinition,
   IUserInteraction,
   TActionResponse,
   IToolAppView,
@@ -265,7 +267,7 @@ export class InteractiveSession
   private agentsFileEntries: IContextFileEntry[] = [];
   private projectNotesFileEntries: IContextFileEntry[] = [];
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
-  private providerDefinitions: readonly IProviderDefinition[] = [];
+  private providerDefinitions: readonly TProviderDefinition[] = [];
   private readonly providerEnvironment?: TProviderEnvironment;
   private readonly resolveProviderCredential?: IInteractiveSessionStandardOptions['resolveProviderCredential'];
   private activeOutputStyleId = 'default';
@@ -632,7 +634,7 @@ export class InteractiveSession
         getName: () => this.getName(),
         setName: (name) => this.setName(name),
         emitRenamed: (name) => this.emit('session_renamed', { name }),
-        getProvider: () => this.session?.getProvider(),
+        getProvider: () => this.session?.getExecutionProvider?.() ?? this.session?.getProvider(),
       });
     }
 
@@ -2578,11 +2580,12 @@ export class InteractiveSession
     // A real provider resolved — whether this switch came from `/provider switch` (already
     // configured, a no-op here) or from the setup flow's own hot-swap onto the first profile ever
     // added, the session is no longer waiting on setup.
-    this.setupRequired = false;
     if (this.modelFallback === undefined) {
       session.swapProvider(provider, settings.model);
+      this.setupRequired = false;
       return;
     }
+    if (isManagedRunProvider(provider)) throw new ManagedRunUnavailableError(provider.name);
     // The chain belongs to the session, not to the profile it started on: it is read again with the
     // new profile as primary, under the same policy, so a switch never silently drops it.
     const { entries, options } = this.modelFallback;
@@ -2601,6 +2604,7 @@ export class InteractiveSession
       }),
       providerOptions: options,
     });
+    this.setupRequired = false;
     for (const notice of applied.notices) {
       this.histTracker.append(messageToHistoryEntry(createSystemMessage(notice)));
     }

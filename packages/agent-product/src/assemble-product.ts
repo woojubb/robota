@@ -1,5 +1,9 @@
 import { mergeCapabilityPacks } from './capability-pack/index.js';
-import { createProviderFromConfig } from '@robota-sdk/agent-core';
+import {
+  createProviderFromConfig,
+  isManagedRunProvider,
+  ManagedRunUnavailableError,
+} from '@robota-sdk/agent-core';
 import { buildRuntimeSession } from '@robota-sdk/agent-framework';
 import { createPresetRegistry } from './preset/index.js';
 
@@ -7,7 +11,9 @@ import type { IAssembledProduct, IBuildRuntimeInput, IProductProfile } from './p
 import type { TCompositionFieldPolicy } from './capability-pack/index.js';
 import type {
   FunctionTool,
-  IAIProvider,
+  IProviderDefinition,
+  TProviderDefinition,
+  TExecutionProvider,
   IToolWithEventService,
   TPermissionMode,
 } from '@robota-sdk/agent-core';
@@ -44,7 +50,7 @@ export const PRODUCT_PROFILE_FIELD_POLICIES = {
 
 /** The product-owned materials the assembler overlays onto the shell-supplied session options. */
 interface IOverlayMaterials {
-  provider: IAIProvider | undefined;
+  provider: TExecutionProvider | undefined;
   providerErrorGuidance: IProductProfile['providerErrorGuidance'];
   promptFileReferenceTag: IProductProfile['promptFileReferenceTag'];
   modelCommandToolPrefix: IProductProfile['modelCommandToolPrefix'];
@@ -57,6 +63,14 @@ interface IOverlayMaterials {
   /** The instance preset registry, so `/preset` discovers this product's presets. */
   presetRegistry: IPresetRegistry;
 }
+
+type TAssembledForDefinitions<D extends TProviderDefinition, P extends TExecutionProvider> = Omit<
+  IAssembledProduct<TExecutionProvider>,
+  'provider' | 'providerDefinitions'
+> & {
+  provider?: ReturnType<D['createProvider']> | P;
+  providerDefinitions: readonly D[];
+};
 
 /**
  * Overlay the assembled command modules, pack tools, and pack subagents onto the shell's session options.
@@ -72,7 +86,12 @@ function overlaySessionOptions(
   base: TInteractiveSessionOptions,
   materials: IOverlayMaterials,
 ): TInteractiveSessionOptions {
+  if (materials.provider && isManagedRunProvider(materials.provider)) {
+    throw new ManagedRunUnavailableError(materials.provider.name);
+  }
   const provider = base.provider ?? materials.provider;
+  if (provider && isManagedRunProvider(provider))
+    throw new ManagedRunUnavailableError(provider.name);
   const providerErrorGuidance = base.providerErrorGuidance ?? materials.providerErrorGuidance;
   const promptFileReferenceTag = base.promptFileReferenceTag ?? materials.promptFileReferenceTag;
   const modelCommandToolPrefix = base.modelCommandToolPrefix ?? materials.modelCommandToolPrefix;
@@ -168,7 +187,15 @@ function overlaySessionOptions(
  * Settings/args/env resolution and concrete transports/presentation stay in the shell; `assembleProduct`
  * receives already-resolved data and returns neutral materials the shell binds its own transport over.
  */
-export function assembleProduct(profile: IProductProfile): IAssembledProduct {
+export function assembleProduct<
+  D extends TProviderDefinition = IProviderDefinition,
+  P extends TExecutionProvider = ReturnType<D['createProvider']>,
+>(
+  profile: Omit<IProductProfile<TExecutionProvider>, 'providerDefinitions' | 'provider'> & {
+    providerDefinitions: readonly D[];
+    provider?: P;
+  },
+): TAssembledForDefinitions<D, P> {
   // (1) Per-call instance-scoped preset registry — pure w.r.t. process state. A caller that had to
   // resolve a preset BEFORE it could build this profile (a preset can carry the `model`/`agentName` the
   // profile is constructed from) hands its own instance in as `presetRegistry`; the assembler then uses

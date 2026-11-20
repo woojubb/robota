@@ -5,6 +5,7 @@ import {
   RateLimitError,
 } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
+import { ManagedRunUnavailableError } from '@robota-sdk/agent-core';
 
 import { FallbackProvider } from '../fallback-provider.js';
 
@@ -90,6 +91,23 @@ function target(provider: IAIProvider, model: string): IFallbackModelTarget {
 }
 
 describe('FallbackProvider', () => {
+  it('does not silently move past an unsupported managed provider to another model', async () => {
+    const primary = new ScriptedProvider('primary', fail(unavailable()));
+    const next = new ScriptedProvider('paid', answer('unexpected'));
+    const provider = new FallbackProvider(primary, [
+      {
+        ref: { provider: 'managed', model: 'managed-model' },
+        create: () => {
+          throw new ManagedRunUnavailableError('managed');
+        },
+      },
+      target(next, 'paid-model'),
+    ]);
+    await expect(provider.chat(MESSAGES, { model: 'primary-model' })).rejects.toMatchObject({
+      code: 'MANAGED_RUN_UNAVAILABLE',
+    });
+    expect(next.calls).toHaveLength(0);
+  });
   it('closes and disposes a fallback built after asynchronous host credential resolution', async () => {
     const primary = new ScriptedProvider('primary', fail(overloaded()));
     let closed = 0;

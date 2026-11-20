@@ -7,6 +7,7 @@ import type {
 import type {
   FunctionTool,
   IAIProvider,
+  TExecutionProvider,
   IProviderDefinition,
   IProviderDefinitionConfig,
 } from '@robota-sdk/agent-core';
@@ -38,7 +39,7 @@ import type {
  * product assembly** — the profile carries neither behavior nor capability *definitions*, it only
  * *references* them and supplies identity + injected adapters.
  */
-export interface IProductProfile {
+export interface IProductProfile<P extends TExecutionProvider = IAIProvider> {
   // (1) identity / branding
   /** Product id (diagnostics + surfaced on the assembled product). NEVER branched on by the assembler. */
   id: string;
@@ -53,13 +54,13 @@ export interface IProductProfile {
    * providers it can speak to, and the kernel constructs from this registry. Pass `[]` for a product that
    * only ever runs on an injected {@link provider}.
    */
-  providerDefinitions: readonly IProviderDefinition[];
+  providerDefinitions: readonly IProviderDefinition<P>[];
   /**
    * The ALREADY-RESOLVED provider configuration (name/model/apiKey/baseURL/…). The SHELL performs the
    * settings/env/file reads that produce this value and passes it IN as plain data; the kernel then
    * constructs the provider from it via `createProviderFromConfig`. That keeps the fold pure and IO-free
    * (guard b) while returning provider construction to the kernel, per the spec's In-kernel boundary
-   * ("Provider construction FROM `IProviderDefinition[]` + already-resolved settings → In-kernel").
+   * ("Provider construction FROM `TProviderDefinition[]` + already-resolved settings → In-kernel").
    *
    * Absent ⇒ no provider is constructed; the consumer either injects {@link provider} or supplies one at
    * `buildRuntime` time (the Mode A shape, which carries only `providerDefinitions`).
@@ -70,7 +71,7 @@ export interface IProductProfile {
    * precedence over {@link providerSettings}. the configured CLI uses it for `--session-log` replay, where the
    * provider answers from a recorded log instead of a vendor definition.
    */
-  provider?: IAIProvider;
+  provider?: P;
   /** Product-specific, plain-data remediation text for recognized provider errors. */
   providerErrorGuidance?: IProviderErrorGuidance;
   /** Model-visible enclosure for workspace file references; neutral when omitted. */
@@ -141,7 +142,7 @@ export interface IBuildRuntimeInput {
  * The neutral runtime materials {@link assembleProduct} produces — everything the shell needs to bind its
  * own transport/presentation. Concrete transports, the TUI, and mode dispatch stay in the shell.
  */
-export interface IAssembledProduct {
+export interface IAssembledProduct<P extends TExecutionProvider = IAIProvider> {
   /** Product identity (passthrough — surfaced for the shell, never branched on by the assembler). */
   id: string;
   agentName?: string;
@@ -152,9 +153,9 @@ export interface IAssembledProduct {
    * `profile.provider` when one was supplied (it wins). `undefined` when the profile carried neither
    * (Mode A): the consumer then supplies a provider in the `buildRuntime` session options.
    */
-  provider?: IAIProvider;
+  provider?: P;
   /** The product's provider surface (passthrough) — the definitions hot-swap and setup flows read. */
-  providerDefinitions: readonly IProviderDefinition[];
+  providerDefinitions: readonly IProviderDefinition<P>[];
 
   /** `baseCommandModules ⊕ merged pack modules` (see `mergeCapabilityPacks`). */
   commandModules: readonly ICommandModule[];

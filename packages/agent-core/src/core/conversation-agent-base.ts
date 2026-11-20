@@ -13,7 +13,11 @@ import type {
   IPluginOptions,
   IPluginStats,
 } from '../abstracts/abstract-plugin';
-import type { IAgentConfig, IRunOptions, TUniversalMessage } from '../interfaces/agent';
+import type {
+  TAgentExecutionConfig as IAgentConfig,
+  IRunOptions,
+  TUniversalMessage,
+} from '../interfaces/agent';
 
 export type TPlugin = IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks;
 

@@ -7,7 +7,7 @@
  * run (see {@link TDoctorNotProbed}); an UNEXPECTED inability to probe is `warn` with its reason,
  * never `not-probed` — the third state `enforcement-architecture.md` says must never read as a pass.
  */
-import type { IFileSystem, IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IFileSystem, TProviderDefinition } from '@robota-sdk/agent-core';
 import type {
   IContributionSource,
   ISkillRootDescriptor,
@@ -70,7 +70,7 @@ export interface IDoctorInputs {
   /** Every settings source the runtime merge chain reads, in precedence order. */
   readonly settingsSources: readonly TSettingsSource[];
   readonly projectAccess: TWorkspaceProjectAccess;
-  readonly providerDefinitions: readonly IProviderDefinition[];
+  readonly providerDefinitions: readonly TProviderDefinition[];
   /** Optional host wording for remediation; omitted values use product-neutral guidance. */
   readonly diagnosticGuidance?: {
     readonly providerResolution?: string;

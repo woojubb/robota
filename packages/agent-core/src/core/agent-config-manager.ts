@@ -7,7 +7,7 @@ import { ConfigurationError } from '../utils/errors';
 
 import type { IToolWithEventService } from '../abstracts/abstract-tool';
 import type { AbstractTool } from '../abstracts/abstract-tool';
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 import type { IEventService } from '../interfaces/event-service';
 import type { TModelEffortSelection } from '../interfaces/provider';
 import type { IToolExecutionContext, IToolResult, TToolParameters } from '../interfaces/tool';
@@ -159,6 +159,9 @@ export class AgentConfigManager {
    * reads through `config`, so writing it here IS the rename, with no second copy to forget.
    */
   async updateConfiguration(patch: Partial<IAgentConfig>): Promise<{ version: number }> {
+    if (Object.keys(patch).some((key) => key !== 'tools' && key !== 'name')) {
+      throw new ConfigurationError('updateConfiguration: only `tools` and `name` are supported');
+    }
     if (patch.tools) {
       return this.updateTools(patch.tools);
     }

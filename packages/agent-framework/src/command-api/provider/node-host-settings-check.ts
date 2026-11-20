@@ -6,7 +6,7 @@ import { checkSettingsDocument } from './settings-check.js';
 
 import type { TProviderSettingsDocument } from './provider-settings.js';
 import type { TSettingsCheck } from './settings-check.js';
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { TProviderDefinition } from '@robota-sdk/agent-core';
 
 /**
  * Explicit host-filesystem settings probe: reads the file and resolves `$ENV:` references against
@@ -14,7 +14,7 @@ import type { IProviderDefinition } from '@robota-sdk/agent-core';
  */
 export function checkNodeHostSettingsFile(
   filePath: string,
-  providerDefinitions: readonly IProviderDefinition[] = [],
+  providerDefinitions: readonly TProviderDefinition[] = [],
 ): TSettingsCheck {
   if (!existsSync(filePath)) return 'missing';
   try {

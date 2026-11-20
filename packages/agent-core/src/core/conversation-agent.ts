@@ -39,17 +39,16 @@ import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-
 import type {
   TUniversalMessage,
   IAgentConfig,
+  TAgentExecutionConfig,
   IRunOptions,
   IAgent,
   TRunOptionsWithOutput,
 } from '../interfaces/agent';
 import type { IEventService, IAgentEventData } from '../interfaces/event-service';
 import type { IHistoryEntry } from '../interfaces/messages';
-import type {
-  IAIProvider,
-  IToolSchema,
-  IProviderRegistrationOptions,
-} from '../interfaces/provider';
+import type { IToolSchema, IProviderRegistrationOptions } from '../interfaces/provider';
+import type { TExecutionProvider } from '../interfaces/managed-provider';
+import { isManagedRunProvider, ManagedRunUnavailableError } from '../interfaces/managed-provider';
 import type {
   IToolExecutionContext,
   IToolExecutionResult,
@@ -91,7 +90,7 @@ export class ConversationAgent
   private configUpdatedAt: number = Date.now();
   private configManager!: AgentConfigManager;
 
-  constructor(config: IAgentConfig) {
+  constructor(config: TAgentExecutionConfig) {
     super();
     this.config = config;
     this.conversationId = createConversationId(config);
@@ -107,6 +106,7 @@ export class ConversationAgent
     this.config = {
       ...config,
       aiProviders: [...config.aiProviders],
+      defaultModel: structuredClone(config.defaultModel),
       ...(config.providerOwnership ? { providerOwnership: { ...config.providerOwnership } } : {}),
     };
 
@@ -161,6 +161,46 @@ export class ConversationAgent
     await this.ensureFullyInitialized();
   }
 
+  /** Reconfigure non-routing options without diverging from the live provider registry. */
+  override async configure(config: TAgentExecutionConfig): Promise<void> {
+    this.assertNotDestroyed();
+    this.assertProviderSelectionMutable();
+    validateAgentConfig(config);
+    const selected = config.aiProviders.find(
+      (provider) => provider.name === config.defaultModel.provider,
+    );
+    if (selected && isManagedRunProvider(selected))
+      throw new ManagedRunUnavailableError(selected.name);
+    const current = this.aiProviders.getCurrentProvider();
+    const registered = this.aiProviders.getExecutionProviders();
+    const ownershipOf = (ownership: TAgentExecutionConfig['providerOwnership'], name: string) =>
+      ownership && Object.hasOwn(ownership, name) ? ownership[name] : 'owned';
+    if (
+      !current ||
+      current.provider !== config.defaultModel.provider ||
+      current.model !== config.defaultModel.model ||
+      config.aiProviders.length !== Object.keys(registered).length ||
+      new Set(config.aiProviders.map((provider) => provider.name)).size !==
+        config.aiProviders.length ||
+      config.aiProviders.some(
+        (provider) =>
+          registered[provider.name] !== provider ||
+          ownershipOf(config.providerOwnership, provider.name) !==
+            ownershipOf(this.config.providerOwnership, provider.name),
+      )
+    ) {
+      throw new Error(
+        'configure cannot change provider registration or selection; use the provider and model APIs',
+      );
+    }
+    await super.configure({
+      ...config,
+      aiProviders: [...config.aiProviders],
+      defaultModel: structuredClone(config.defaultModel),
+      ...(config.providerOwnership ? { providerOwnership: { ...config.providerOwnership } } : {}),
+    });
+  }
+
   /** The live registered catalog, including tools deferred from model discovery. */
   async listRuntimeTools(): Promise<IToolSchema[]> {
     await this.ensureReady();
@@ -200,6 +240,7 @@ export class ConversationAgent
     const options = { ...value, toolResponses: structuredClone(value.toolResponses) };
     this.assertNotDestroyed();
     return this.runQueue.run(options.signal, async () => {
+      this.assertProviderRunnable();
       await this.ensureFullyInitialized();
       const result = await this.executionService.resume(this.conversationId, options, this.config);
       if (!result.success) throw result.error ?? new Error('Execution continuation failed');
@@ -215,6 +256,7 @@ export class ConversationAgent
     const options = { ...value, toolResponses: structuredClone(value.toolResponses) };
     this.assertNotDestroyed();
     return this.runQueue.run(options.signal, async () => {
+      this.assertProviderRunnable();
       await this.ensureFullyInitialized();
       return this.executionService.resumeToolCalls(this.conversationId, options);
     });
@@ -237,6 +279,7 @@ export class ConversationAgent
   async run(input: string, options: IRunOptions = {}): Promise<unknown> {
     this.assertNotDestroyed();
     return this.runQueue.run(options.signal, async () => {
+      this.assertProviderRunnable();
       await this.ensureFullyInitialized();
       try {
         if (options.output) {
@@ -267,8 +310,11 @@ export class ConversationAgent
     // Serialized like run(): the queue slot is held until the stream is fully consumed
     // (return or throw), because the conversation history is being written throughout.
     const release = await this.runQueue.acquire(options.signal);
+    let admitted = false;
     try {
+      this.assertProviderRunnable();
       await this.ensureFullyInitialized();
+      admitted = true;
       if (options.output) {
         const spec = normalizeStructuredOutput(options.output);
         // The validated object is the generator's return value.
@@ -276,8 +322,11 @@ export class ConversationAgent
       }
       return yield* agentRunStream(this.executionDeps(), input, options);
     } finally {
-      this.resetEphemeralHistory();
-      release();
+      try {
+        if (admitted) this.resetEphemeralHistory();
+      } finally {
+        release();
+      }
     }
   }
 
@@ -289,6 +338,21 @@ export class ConversationAgent
   private resetEphemeralHistory(): void {
     if (this.config.retainHistory === false) {
       this.clearHistory();
+    }
+  }
+
+  private assertProviderRunnable(): void {
+    const current = this.aiProviders.getCurrentProvider();
+    if (
+      current &&
+      (current.provider !== this.config.defaultModel.provider ||
+        current.model !== this.config.defaultModel.model)
+    ) {
+      throw new Error('Provider selection conflicts with the agent configuration');
+    }
+    const provider = this.aiProviders.getCurrentExecutionProviderInstance();
+    if (provider && isManagedRunProvider(provider)) {
+      throw new ManagedRunUnavailableError(provider.name);
     }
   }
 
@@ -339,6 +403,7 @@ export class ConversationAgent
     return this.configManager.getConfiguration();
   }
   setModel(mc: IModelConfig): void {
+    this.assertProviderSelectionMutable();
     this.configManager.setModel(mc);
   }
   getModel(): IModelConfig {
@@ -372,9 +437,22 @@ export class ConversationAgent
     return this.tools.getOfferedTools();
   }
   getConfig(): IAgentConfig {
+    const config = this.getExecutionConfig();
+    return {
+      ...config,
+      aiProviders: config.aiProviders.map((provider) => {
+        if (isManagedRunProvider(provider)) throw new ManagedRunUnavailableError(provider.name);
+        return provider;
+      }),
+    };
+  }
+
+  /** Read the configuration without narrowing the registered provider contracts. */
+  getExecutionConfig(): TAgentExecutionConfig {
     return {
       ...this.config,
       aiProviders: [...this.config.aiProviders],
+      defaultModel: structuredClone(this.config.defaultModel),
       ...(this.config.providerOwnership
         ? { providerOwnership: { ...this.config.providerOwnership } }
         : {}),
@@ -382,20 +460,27 @@ export class ConversationAgent
   }
 
   swapDefaultProvider(
-    newProvider: IAIProvider,
+    newProvider: TExecutionProvider,
     model: string,
     options: IProviderRegistrationOptions = {},
   ): void {
+    this.assertProviderSelectionMutable();
     this.aiProviders.addProvider(newProvider.name, newProvider, options);
     this.config = {
       ...this.config,
-      aiProviders: Object.values(this.aiProviders.getProviders()),
+      aiProviders: Object.values(this.aiProviders.getExecutionProviders()),
       providerOwnership: {
         ...this.config.providerOwnership,
         [newProvider.name]: options.ownership ?? 'owned',
       },
     };
     this.configManager.setModel({ provider: newProvider.name, model });
+  }
+
+  private assertProviderSelectionMutable(): void {
+    if (this.runQueue.isBusy) {
+      throw new Error('Cannot change the provider or model while a run is queued or active');
+    }
   }
 
   getStats(): ReturnType<typeof buildAgentStats> {

@@ -12,13 +12,15 @@ import type { TProviderSettingsDocument } from './provider-settings.js';
 import type { TSettingsSource } from '../../config/settings-source.js';
 import type {
   IAIProvider,
-  IProviderDefinitionConfig,
   IProviderDefinition,
+  TExecutionProvider,
+  IProviderDefinitionConfig,
+  TProviderDefinition,
 } from '@robota-sdk/agent-core';
 
-export interface IReadProviderSettingsOptions {
+export interface IReadProviderSettingsOptions<P extends TExecutionProvider = IAIProvider> {
   providerOverride?: string;
-  providerDefinitions?: readonly IProviderDefinition[];
+  providerDefinitions?: readonly IProviderDefinition<P>[];
   /**
    * What `$ENV:` references and the env-default synthesis read against. Absent, every reference reads
    * as unset: no env-default provider is found and a profile's environment credential comes up empty.
@@ -50,7 +52,7 @@ export function readMergedProviderSettings(
  * is persisted. Returns undefined when no definition qualifies.
  */
 export function resolveEnvDefaultProvider(
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   env?: TProviderEnvironment,
 ): IProviderDefinitionConfig | undefined {
   const resolve = resolveProviderEnvironment(env);
@@ -82,7 +84,7 @@ export function resolveEnvDefaultProvider(
 
 export function readProviderSettings(
   sources: readonly TSettingsSource[],
-  options: IReadProviderSettingsOptions = {},
+  options: IReadProviderSettingsOptions<TExecutionProvider> = {},
 ): IProviderDefinitionConfig {
   const merged = readMergedProviderSettings(sources);
   const providerConfig = resolveActiveProvider(
@@ -103,11 +105,13 @@ export function readProviderSettings(
   throw new ProviderConfigError('No provider configuration found. Configure a provider before starting a session.');
 }
 
-export function createProviderFromSettings(
+export function createProviderFromSettings<D extends TProviderDefinition = IProviderDefinition>(
   sources: readonly TSettingsSource[],
   modelOverride?: string,
-  options: IReadProviderSettingsOptions = {},
-): IAIProvider {
+  options: Omit<IReadProviderSettingsOptions<TExecutionProvider>, 'providerDefinitions'> & {
+    providerDefinitions?: readonly D[];
+  } = {},
+): ReturnType<D['createProvider']> {
   const providerDefinitions = options.providerDefinitions ?? [];
   const settings = readProviderSettings(sources, { ...options, providerDefinitions });
   const model = modelOverride ?? settings.model;

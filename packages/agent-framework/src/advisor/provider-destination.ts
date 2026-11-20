@@ -9,7 +9,7 @@
 
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 
-import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import type { TExecutionProvider, TProviderDefinition } from '@robota-sdk/agent-core';
 
 const DEFAULT_PORTS = new Set(['80', '443']);
 
@@ -37,7 +37,7 @@ function hostOf(url: string): string {
  */
 export function describeProviderDestination(
   config: { readonly name: string; readonly baseURL?: string },
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
 ): string {
   const definition = findProviderDefinition(providerDefinitions, config.name);
   const url = config.baseURL ?? definition?.defaults?.baseURL;
@@ -50,14 +50,14 @@ export function describeProviderDestination(
   return `${definition?.type ?? config.name}@${host}`;
 }
 
-const destinations = new WeakMap<IAIProvider, string>();
+const destinations = new WeakMap<TExecutionProvider, string>();
 
 /** Record where `provider` sends requests; called where the provider is built from its settings. */
-export function rememberProviderDestination(provider: IAIProvider, destination: string): void {
+export function rememberProviderDestination(provider: TExecutionProvider, destination: string): void {
   destinations.set(provider, destination);
 }
 
 /** Where `provider` sends requests, when that was recorded; otherwise unknown. */
-export function providerDestinationOf(provider: IAIProvider): string | undefined {
+export function providerDestinationOf(provider: TExecutionProvider): string | undefined {
   return destinations.get(provider);
 }

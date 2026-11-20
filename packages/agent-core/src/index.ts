@@ -42,6 +42,7 @@ export type {
   TProviderCredentialResolver,
   IProviderCredentialRequirement,
   IProviderDefinition,
+  TProviderDefinition,
   IProviderModelCatalog,
   IProviderModelCatalogEntry,
   IProviderProbeResult,
@@ -259,7 +260,7 @@ export {
 } from './services/provider-call-usage';
 
 // Core types
-export type { IAgent, IAgentConfig, IAgentTemplate, IRunOptions } from './interfaces/agent';
+export type { IAgent, IAgentConfig, TAgentExecutionConfig, IAgentTemplate, IRunOptions } from './interfaces/agent';
 
 // Event history module
 export type {
