@@ -212,6 +212,63 @@ describe('provider-free journal continuation', () => {
     },
   );
 
+  it('uses the durable failed result for dependency scheduling without requesting receipts', async () => {
+    const saved = await stoppedAt('model-response', true);
+    let observed: IToolExecutionResult | undefined;
+    class Observer extends AbstractPlugin {
+      readonly name = 'observer';
+      readonly version = '1';
+      override async afterToolCall(
+        _name: string,
+        _parameters: TToolParameters,
+        result: IToolExecutionResult,
+      ): Promise<void> {
+        if (!result.success) observed = result;
+      }
+    }
+    const fresh = fixture(new Observer(), undefined, undefined, (calls) => ({
+      scheduling: new Map([
+        [calls[0].id, { resources: [] }],
+        [calls[1].id, { resources: [], dependsOn: [calls[0].id] }],
+      ]),
+    }));
+    fresh.effect.mockImplementation(async ({ n }) => {
+      if (n === 1) throw new Error('first action failed');
+      return `result ${n}`;
+    });
+    let reached!: () => void;
+    let release!: () => void;
+    const appending = new Promise<void>((resolve) => (reached = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    saved.journal.append.mockImplementation(async (record) => {
+      if (
+        record.kind === 'tool-result' &&
+        !record.result.success &&
+        record.toolCallId.endsWith('-0')
+      ) {
+        reached();
+        await gate;
+      }
+      saved.records.push(structuredClone(record));
+    });
+    const pending = fresh.agent.resumeToolCalls(saved);
+    await appending;
+    if (!observed) throw new Error('Missing observed result');
+    observed.success = true;
+    observed.result = 'changed';
+    release();
+    const result = await pending;
+    expect(result).not.toHaveProperty('receipts');
+    expect(fresh.effect).toHaveBeenCalledTimes(1);
+    expect(saved.records.filter((record) => record.kind === 'tool-result')).toMatchObject([
+      { result: { success: false } },
+      { result: { success: false, metadata: { errorCode: 'tool_call_skipped' } } },
+    ]);
+    expect(result.messages.filter((message) => message.role === 'tool')[0].content).toContain(
+      'first action failed',
+    );
+  });
+
   it('publishes the saved result when a tool mutates its output during journal acknowledgement', async () => {
     const saved = await stoppedAt('model-response', true);
     const fresh = fixture();
@@ -596,7 +653,7 @@ describe('provider-free journal continuation', () => {
     expect(saved.source.effect).toHaveBeenCalledTimes(2);
   });
 
-  it('accepts the original committed projection of extra provider metadata and parts', async () => {
+  it('refuses receipts when a live assistant projection cannot prove the full saved frame', async () => {
     const source = fixture(undefined, undefined, (message) =>
       message.role === 'assistant'
         ? {
@@ -611,9 +668,47 @@ describe('provider-free journal continuation', () => {
     expect(original?.metadata?.providerContinuation).toBe('opaque');
     expect(original?.metadata?.extraProviderField).toBeUndefined();
     expect(original?.parts).toBeUndefined();
-    const resumed = await source.agent.resumeToolCalls({ ...saved, includeReceipts: true });
-    expect(resumed.receipts).toHaveLength(2);
+    await expect(
+      source.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    expect(source.effect).not.toHaveBeenCalled();
+    await source.agent.resumeToolCalls(saved);
     expect(source.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not accept removed recovered frame data after changing the assistant ID', async () => {
+    const source = fixture(undefined, undefined, (message) =>
+      message.role === 'assistant'
+        ? {
+            ...message,
+            parts: [{ type: 'text', text: 'provider part' }],
+            metadata: { extra: 'context' },
+          }
+        : message,
+    );
+    const saved = await stoppedAt('model-response', true, source);
+    const first = fixture();
+    const restored = await first.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    const fresh = fixture();
+    for (const message of restored.messages) {
+      if (message.role === 'assistant') {
+        const { parts: _parts, ...withoutParts } = message;
+        const { extra: _extra, ...metadata } = message.metadata ?? {};
+        void _parts;
+        void _extra;
+        fresh.agent.injectRawMessage({ ...withoutParts, id: 'changed-id', metadata });
+      } else fresh.agent.injectRawMessage(message);
+    }
+    saved.journal.append.mockClear();
+    await expect(
+      fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    expect(fresh.effect).not.toHaveBeenCalled();
+    expect(saved.journal.append).not.toHaveBeenCalled();
   });
 
   it('preserves fatal persistence errors and commits no partial restored history', async () => {

@@ -104,7 +104,7 @@ export async function executeAndRecordToolCalls(
     effectiveJournalContext = snapshot.context;
   }
   const emitExecutionEvent: TExecutionEventCallback | undefined =
-    effectiveJournalContext?.captureReceipts && onExecutionEvent
+    effectiveJournalContext && onExecutionEvent
       ? (event, data) => onExecutionEvent(event, structuredClone(data))
       : onExecutionEvent;
 

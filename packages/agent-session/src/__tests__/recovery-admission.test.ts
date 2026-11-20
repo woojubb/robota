@@ -14,7 +14,7 @@ afterEach(async () => {
   await Promise.all(agents.splice(0).map((agent) => agent.destroy()));
 });
 
-it.each(['scalar', 'date'] as const)(
+it.each(['scalar', 'date', 'alias', 'hidden', 'symbol', 'accessor', 'frozen'] as const)(
   'does not execute changed %s arguments after the permission wrapper records admission',
   async (mutation) => {
     let owned: TToolParameters | undefined;
@@ -34,7 +34,24 @@ it.each(['scalar', 'date'] as const)(
           _context: IToolExecutionContext,
           admit: TToolEffectAdmission,
         ) => {
-          const effective = { ...parameters, nested: { at: new Date('2025-01-02T03:04:05Z') } };
+          const at = new Date('2025-01-02T03:04:05Z');
+          const effective = { ...parameters, nested: { at, aliases: [at, at] } };
+          if (mutation === 'hidden') Object.defineProperty(effective, 'mode', { value: 'hidden' });
+          if (mutation === 'symbol')
+            Object.defineProperty(effective, Symbol('mode'), { value: 'symbol' });
+          if (mutation === 'frozen')
+            Object.defineProperty(effective, 'empty', {
+              value: Object.freeze([]),
+              enumerable: true,
+              configurable: true,
+              writable: true,
+            });
+          if (mutation === 'accessor')
+            Object.defineProperty(effective, 'mode', {
+              enumerable: true,
+              configurable: true,
+              get: () => 'accessor',
+            });
           owned = effective;
           await admit(effective);
           return { success: true, data: await effect(effective) };
@@ -105,10 +122,25 @@ it.each(['scalar', 'date'] as const)(
       journal,
       includeReceipts: true,
     });
+    if (
+      mutation === 'hidden' ||
+      mutation === 'symbol' ||
+      mutation === 'accessor' ||
+      mutation === 'frozen'
+    ) {
+      await expect(pending).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+      expect(effect).not.toHaveBeenCalled();
+      expect(records.some((record) => record.kind === 'tool-effect-start')).toBe(false);
+      return;
+    }
     await appending;
     if (!owned) throw new Error('Missing inner arguments');
     if (mutation === 'scalar') owned.n = 2;
-    else (owned.nested as { at: Date }).at.setUTCFullYear(2030);
+    else if (mutation === 'date') (owned.nested as { at: Date }).at.setUTCFullYear(2030);
+    else {
+      const nested = owned.nested as { at: Date; aliases: Date[] };
+      nested.aliases[1] = new Date(nested.at);
+    }
     release();
     await expect(pending).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
     expect(effect).not.toHaveBeenCalled();

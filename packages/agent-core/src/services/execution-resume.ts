@@ -4,7 +4,7 @@ import type {
   IResumeToolCallsResult,
   TExecutionJournalRecord,
 } from '../interfaces/execution-journal';
-import { PROVIDER_CONTINUATION_METADATA_KEY, type TUniversalMessage } from '../interfaces/messages';
+import type { TUniversalMessage } from '../interfaces/messages';
 import type { IManagedToolReceipt } from '../interfaces/managed-provider';
 import type { TAgentExecutionConfig } from '../interfaces/agent';
 import { ConversationStore } from '../managers/conversation-history-manager';
@@ -105,31 +105,6 @@ function matchesReceiptHistory(
   );
 }
 
-/** The live model-step path commits a narrower frame than provider-free reconstruction. */
-function receiptAssistantProjection(
-  batch: IRecoveredToolBatch,
-  options: IResumeToolCallsOptions,
-  actual: TUniversalMessage,
-): TUniversalMessage {
-  const recovered = recoveredAssistant(batch, options);
-  if (actual.id === recovered.id || recovered.role !== 'assistant') return recovered;
-  const { parts: _parts, ...live } = recovered;
-  void _parts;
-  const continuation = batch.response.metadata?.[PROVIDER_CONTINUATION_METADATA_KEY];
-  return {
-    ...live,
-    metadata: {
-      ...collectCommittedUsageMetadata(batch.response),
-      ...(typeof continuation === 'string' && {
-        [PROVIDER_CONTINUATION_METADATA_KEY]: continuation,
-      }),
-      executionId: options.executionId,
-      providerCallId: options.callId,
-      round: batch.checkpoint.round,
-    },
-  };
-}
-
 /** Verify the saved prefix and any already-published, settled tool-result prefix before effects. */
 function validateHistory(
   existing: TUniversalMessage[],
@@ -158,7 +133,7 @@ function validateHistory(
     conflict('Current assistant does not match the saved response');
   if (
     options.includeReceipts &&
-    !matchesReceiptHistory(suffix[0], receiptAssistantProjection(batch, options, suffix[0]), true)
+    !matchesReceiptHistory(suffix[0], recoveredAssistant(batch, options), true)
   )
     conflict('Current assistant frame differs from the durable response');
   const calls = batch.response.toolCalls ?? [];

@@ -141,6 +141,8 @@ export interface IResumeToolCallsOptions {
   /**
    * Return durable action receipts. A receipt alone does not prove that a native runtime is waiting
    * for the same call; its connection, conversation, frame and action frontier must also match.
+   * Existing assistant history must match the complete saved response. Some model-step commits
+   * project away provider parts or metadata; in that case receipt recovery refuses the history.
    */
   includeReceipts?: boolean;
   signal?: AbortSignal;

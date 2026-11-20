@@ -173,11 +173,8 @@ export async function attachToolBatchJournal(
         result,
         loadedDeferredTools: getLoadedDeferredTools(),
       } as const;
-      if (!settlements) {
-        await appendExecutionRecord(journal, record);
-        return;
-      }
       if (
+        settlements &&
         !validSettlement(
           actions[index],
           result,
@@ -194,7 +191,7 @@ export async function attachToolBatchJournal(
         throw new ExecutionJournalError(record, error);
       }
       await appendExecutionRecord(journal, snapshot);
-      settlements[index] = snapshot.result;
+      if (settlements) settlements[index] = snapshot.result;
       return structuredClone(snapshot.result);
     },
     beforeEffect: async (index, parameters) => {
