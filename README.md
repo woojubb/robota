@@ -318,7 +318,7 @@ pnpm build
 pnpm test
 ```
 
-Development needs Node.js 22 (22.23.5 or a later 22.x release) and pnpm 8.15.4. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the
+Development needs Node.js 22 (22.23.5 or a later 22.x release) and pnpm 10.34.9. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the
 workflow, the checks a pull request must pass, and the commit format.
 
 To package the built-in desktop app locally on Linux, install Bun and run these commands from a clean checkout:

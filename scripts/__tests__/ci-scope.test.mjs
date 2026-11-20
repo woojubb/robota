@@ -16,7 +16,7 @@ function fixture() {
   const write = (file, data) => writeFileSync(path.join(root, file), typeof data === 'string' ? data : `${JSON.stringify(data)}\n`);
   const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
   const commit = () => { git('add', '.'); git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture'); };
-  write('package.json', { name: 'scope-fixture', private: true, packageManager: 'pnpm@8.15.4' });
+  write('package.json', { name: 'scope-fixture', private: true, packageManager: 'pnpm@10.34.9' });
   write('pnpm-workspace.yaml', 'packages:\n  - packages/*\n  - apps/*\n');
   write('.npmrc', 'link-workspace-packages=false\n');
   write('packages/agent-core/package.json', { name: '@fixture/core', version: '1.0.0', devDependencies: { '@fixture/extra': 'workspace:*' } });
@@ -24,7 +24,7 @@ function fixture() {
   write('packages/agent-organization-host/package.json', { name: '@fixture/organization-host', version: '1.0.0' });
   write('packages/agent-cli/package.json', { name: '@fixture/cli', version: '1.0.0', devDependencies: { '@fixture/core': 'npm:@fixture/core@1.0.0' } });
   write('apps/agent-app/package.json', { name: '@fixture/app', version: '1.0.0', dependencies: { '@fixture/cli': 'workspace:*' } });
-  const lock = (importer, snapshot = '{}') => `lockfileVersion: "6.0"\nimporters:\n  packages/agent-core:\n    dependencies: ${importer}\n  packages/agent-cli:\n    dependencies: {}\n  apps/agent-app:\n    dependencies: {}\npackages:\n  /other@1.0.0:\n    resolution: ${snapshot}\n`;
+  const lock = (importer, snapshot = '{}') => `lockfileVersion: "9.0"\nimporters:\n  packages/agent-core:\n    dependencies: ${importer}\n  packages/agent-cli:\n    dependencies: {}\n  apps/agent-app:\n    dependencies: {}\npackages:\n  other@1.0.0:\n    resolution: ${snapshot}\nsnapshots:\n  other@1.0.0: {}\n`;
   write('pnpm-lock.yaml', lock('{}'));
   git('init', '-q');
   commit();

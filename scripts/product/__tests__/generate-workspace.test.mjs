@@ -54,7 +54,7 @@ async function tinyCommittedSource(root) {
   await writeFile(path.join(source, 'apps/agent-app/package.json'), '{"name":"@robota-sdk/agent-app","version":"1.0.0","description":"Robota","author":"Robota"}\n');
   await writeFile(path.join(source, 'packages/agent-cli/tsdown.config.ts'), 'const define = {}; export default { define };\n');
   await writeFile(path.join(source, 'packages/agent-cli/scripts/build-bun.mjs'), 'Bun.build({ define: {} });\n');
-  await writeFile(path.join(source, '.npmrc'), 'workspace-concurrency=2\n');
+  await writeFile(path.join(source, '.npmrc'), 'workspace-concurrency=2\nstrict-dep-builds=true\n');
   execFileSync('git', ['init', '-q', source]);
   execFileSync('git', ['-C', source, 'add', '.']);
   execFileSync('git', ['-C', source, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture']);
@@ -74,7 +74,7 @@ it('generates only a clean committed tree with non-secret npmrc, version, bin an
   await generateWorkspaceFromConfig({ sourceRoot: source, outDir: out, config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config), sourceMode: 'clean-tree' });
   const provenance = JSON.parse(await readFile(path.join(out, '.product/source.json'), 'utf8'));
   expect(provenance).toMatchObject({ mode: 'clean-tree', commit: expect.stringMatching(/^[a-f0-9]{40}$/u), tree: expect.stringMatching(/^[a-f0-9]{40}$/u) });
-  expect(await readFile(path.join(out, '.npmrc'), 'utf8')).toBe('workspace-concurrency=2\n');
+  expect(await readFile(path.join(out, '.npmrc'), 'utf8')).toBe('workspace-concurrency=2\nstrict-dep-builds=true\n');
   expect(JSON.parse(await readFile(path.join(out, 'packages/agent-cli/package.json'), 'utf8'))).toMatchObject({ version: '9.8.7' });
   expect(JSON.parse(await readFile(path.join(out, 'packages/agent-cli/package.json'), 'utf8'))).not.toHaveProperty('bin');
   expect(JSON.parse(await readFile(path.join(out, 'apps/agent-app/package.json'), 'utf8'))).toMatchObject({ version: '9.8.7', author: 'Cedar', description: 'Cedar desktop app' });
@@ -362,17 +362,20 @@ describe('generated workspace package remapping', () => {
     }
     const suffix = '(@robota-sdk/agent-core@3.0.0)(@robota-sdk/agent-tools@3.0.0)';
     const version = kind === 'registry' ? `0.0.1${suffix}` : `file:vendor/workflow.tgz${suffix}`;
-    const key = kind === 'registry' ? `/@robota-sdk/workflows@${version}` : version;
+    const key = `@robota-sdk/workflows@${kind === 'registry' ? '0.0.1' : 'file:vendor/workflow.tgz'}`;
+    const snapshotKey = `@robota-sdk/workflows@${version}`;
     const integrity = `sha512-${createHash('sha512').update(kind === 'registry' ? 'registry fixture' : 'fixture artifact').digest('base64')}`;
-    const snapshot = {
-      ...(kind === 'file' ? { name: '@robota-sdk/workflows', id: 'file:vendor/workflow.tgz' } : {}),
+    const packageEntry = {
+      ...(kind === 'file' ? { version: '0.0.1' } : {}),
       resolution: { integrity },
       peerDependencies: Object.fromEntries(peers.map((name) => [`@robota-sdk/${name}`, '~3.0.0'])),
+    };
+    const snapshot = {
       dependencies: Object.fromEntries(peers.map((name) => [`@robota-sdk/${name}`, '3.0.0'])),
     };
     cli.devDependencies = { '@robota-sdk/workflows': artifact, ...Object.fromEntries(Object.entries(entries).map(([name, entry]) => [name, entry.specifier])) };
     await writeFile(cliPath, JSON.stringify(cli));
-    const sourceLock = { lockfileVersion: '6.0', importers: { 'packages/agent-cli': { devDependencies: { '@robota-sdk/workflows': { specifier: artifact, version }, ...entries } } }, packages: { [key]: snapshot } };
+    const sourceLock = { lockfileVersion: '9.0', importers: { 'packages/agent-cli': { devDependencies: { '@robota-sdk/workflows': { specifier: artifact, version }, ...entries } } }, packages: { [key]: packageEntry }, snapshots: { [snapshotKey]: snapshot } };
     await writeFile(path.join(source, 'pnpm-lock.yaml'), stringify(sourceLock));
     execFileSync('git', ['-C', source, 'add', '.']);
     const config = resolveTestConfig({ scope: '@cedar', displayName: 'Cedar' });
@@ -383,13 +386,14 @@ describe('generated workspace package remapping', () => {
     expect(actual.devDependencies['@cedar/agent-core']).toBe('npm:@robota-sdk/agent-core@3.0.0');
     expect(actual.devDependencies['@robota-sdk/agent-core']).toBe('npm:@robota-sdk/agent-core@3.0.0');
     expect(actual.devDependencies['@cedar/agent-tools']).toBe('npm:@robota-sdk/agent-tools@3.0.0');
-    expect(lock.importers['packages/agent-cli'].devDependencies['@cedar/agent-core']).toEqual({ specifier: 'npm:@robota-sdk/agent-core@3.0.0', version: '/@robota-sdk/agent-core@3.0.0' });
-    expect(lock.packages[key]).toEqual(snapshot);
-    snapshot.peerDependencies['@robota-sdk/agent-core'] = '~4.0.0';
+    expect(lock.importers['packages/agent-cli'].devDependencies['@cedar/agent-core']).toEqual({ specifier: 'npm:@robota-sdk/agent-core@3.0.0', version: '@robota-sdk/agent-core@3.0.0' });
+    expect(lock.packages[key]).toEqual(packageEntry);
+    expect(lock.snapshots[snapshotKey]).toEqual(snapshot);
+    packageEntry.peerDependencies['@robota-sdk/agent-core'] = '~4.0.0';
     await writeFile(path.join(source, 'pnpm-lock.yaml'), stringify(sourceLock));
     await expect(generate('incompatible')).rejects.toThrow('supported, pinned registry SDK');
-    snapshot.peerDependencies['@robota-sdk/agent-core'] = '~3.0.0';
-    snapshot.resolution.integrity = 'invalid';
+    packageEntry.peerDependencies['@robota-sdk/agent-core'] = '~3.0.0';
+    packageEntry.resolution.integrity = 'invalid';
     await writeFile(path.join(source, 'pnpm-lock.yaml'), stringify(sourceLock));
     await expect(generate('bad-integrity')).rejects.toThrow('integrity');
   });

@@ -99,7 +99,6 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@v6
         with:
-          version: 8.15.4
           run_install: false
       - uses: actions/setup-node@v6
         with:
