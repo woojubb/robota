@@ -273,11 +273,6 @@ export async function callProviderWithCache(
     model,
     resolved,
   );
-  onRequestAssembled?.({
-    messages: outgoing,
-    options: chatOptions,
-    ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
-  });
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
   const observedChat: TProviderChat = (messages, options) =>
     callJournaledProvider(
@@ -338,6 +333,8 @@ export async function callProviderWithCache(
         options: typeof cacheOptions;
         providerMessages: TUniversalMessage[];
         providerOptions: IChatOptions;
+        eventMessages: TUniversalMessage[];
+        eventOptions: IChatOptions;
       }
     | undefined;
   // A text-only entry cannot represent tools, external resources, or opaque native state.
@@ -345,7 +342,9 @@ export async function callProviderWithCache(
     cacheService &&
     scope !== undefined &&
     typeof chatOptions.model === 'string' &&
-    chatOptions.effort !== null &&
+    typeof chatOptions.effort === 'string' &&
+    (chatOptions.temperature === undefined || typeof chatOptions.temperature === 'number') &&
+    (chatOptions.maxTokens === undefined || typeof chatOptions.maxTokens === 'number') &&
     (chatOptions.tools?.length ?? 0) === 0 &&
     Reflect.ownKeys(chatOptions).every(
       (key) => typeof key === 'string' && KNOWN_CHAT_OPTIONS.has(key),
@@ -376,11 +375,21 @@ export async function callProviderWithCache(
           ...chatOptions,
           ...structuredClone(options.requestIdentity),
         },
+        eventMessages: structuredClone(messages),
+        eventOptions: {
+          ...chatOptions,
+          ...structuredClone(options.requestIdentity),
+        },
       };
     } catch {
       // An input that cannot be snapshotted can still be passed through to the provider.
     }
   }
+  onRequestAssembled?.({
+    messages: snapshot?.eventMessages ?? outgoing,
+    options: snapshot?.eventOptions ?? chatOptions,
+    ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
+  });
   if (cacheService && snapshot && scope !== undefined) {
     const cacheMessages = snapshot.messages;
     const snapshotOptions = snapshot.options;

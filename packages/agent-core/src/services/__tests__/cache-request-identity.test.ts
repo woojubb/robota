@@ -581,6 +581,81 @@ describe('response cache request identity', () => {
     expect(requests).toHaveLength(1);
   });
 
+  it('records the same detached request that reaches the provider', async () => {
+    const { agent, provider, requests } = fixture();
+    await agent.ensureReady();
+    let release!: () => void;
+    let markEntered!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const entered = new Promise<void>((resolve) => (markEntered = resolve));
+    const chat = provider.chat.bind(provider);
+    provider.chat = async (input, options) => {
+      markEntered();
+      await gate;
+      return chat(input, options);
+    };
+    const metadata = { marker: 'A' };
+    agent.clearHistory();
+    agent.injectRawMessage({
+      id: 'input',
+      role: 'user',
+      content: 'same input',
+      state: 'complete',
+      timestamp: new Date(0),
+      metadata,
+    });
+    const recorded: unknown[] = [];
+    const running = agent.run('continue', {
+      onExecutionEvent: (name, data) => {
+        if (name === 'provider_request') recorded.push(data.messages);
+      },
+    });
+    await entered;
+    metadata.marker = 'B';
+    release();
+    await running;
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0]).toEqual(
+      expect.arrayContaining([expect.objectContaining({ metadata: { marker: 'A' } })]),
+    );
+    expect(requests[0]).toEqual(
+      expect.arrayContaining([expect.objectContaining({ metadata: { marker: 'A' } })]),
+    );
+  });
+
+  it('passes unusual mutable numeric options through without caching them', async () => {
+    const { provider, config, requests, resolved, cache, messages } = callFixture();
+    let release!: () => void;
+    let markEntered!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const entered = new Promise<void>((resolve) => (markEntered = resolve));
+    const chat = provider.chat.bind(provider);
+    provider.chat = async (input, options) => {
+      markEntered();
+      await gate;
+      const response = await chat(input, options);
+      const temperature = options?.temperature as unknown as { level: number };
+      response.content = String(temperature.level);
+      return response;
+    };
+    const temperature = { level: 1 };
+    const first = callProviderWithCache(messages, config, resolved, cache, {
+      temperature: temperature as unknown as number,
+    });
+    await entered;
+    temperature.level = 2;
+    release();
+    expect((await first).content).toBe('2');
+    expect(
+      (
+        await callProviderWithCache(messages, config, resolved, cache, {
+          temperature: { level: 1 } as unknown as number,
+        })
+      ).content,
+    ).toBe('1');
+    expect(requests).toHaveLength(2);
+  });
+
   it('uses the original message identity if the provider mutates its input', async () => {
     const { provider, config, requests, resolved, cache, messages } = callFixture();
     const nextMessages = structuredClone(messages);
