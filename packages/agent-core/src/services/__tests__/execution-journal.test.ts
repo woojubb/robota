@@ -610,9 +610,13 @@ describe('awaited execution journal through public ConversationAgent runs', () =
     await agent.ensureReady();
     agent.clearHistory();
 
-    await expect(agent.run('test')).rejects.toThrow('Duplicate tool call identity');
+    await expect(agent.run('test', { toolChoice: 'none' })).rejects.toThrow(
+      'Duplicate tool call identity',
+    );
     agent.clearHistory();
-    await expect(agent.run('test')).rejects.toThrow('Duplicate tool call identity');
+    await expect(agent.run('test', { toolChoice: 'none' })).rejects.toThrow(
+      'Duplicate tool call identity',
+    );
     expect(requests).toHaveLength(2);
     expect(effect).not.toHaveBeenCalled();
   });
@@ -639,5 +643,79 @@ describe('awaited execution journal through public ConversationAgent runs', () =
     agent.clearHistory();
     await expect(agent.run('test')).resolves.toBe('done');
     expect(effect).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['none', 'auto'] as const)(
+    'does not reuse a cached answer for a tool-enabled turn after tool choice %s',
+    async (firstChoice) => {
+      const { agent, effect, requests } = fixture(
+        [
+          { text: 'first answer' },
+          { toolCalls: [{ name: 'act', args: {} }] },
+          { text: 'action completed' },
+        ],
+        undefined,
+        true,
+      );
+      await agent.ensureReady();
+      agent.clearHistory();
+
+      await expect(agent.run('same input', { toolChoice: firstChoice })).resolves.toBe(
+        'first answer',
+      );
+      agent.clearHistory();
+      await expect(agent.run('same input')).resolves.toBe('action completed');
+      expect(effect).toHaveBeenCalledOnce();
+      expect(requests).toHaveLength(3);
+    },
+  );
+
+  it('still reuses a tool-free answer when tool use is explicitly disabled', async () => {
+    const { agent, effect, requests } = fixture([{ text: 'answer' }], undefined, true);
+    await agent.ensureReady();
+    agent.clearHistory();
+
+    await expect(agent.run('same input', { toolChoice: 'none' })).resolves.toBe('answer');
+    agent.clearHistory();
+    await expect(agent.run('same input', { toolChoice: 'none' })).resolves.toBe('answer');
+    expect(effect).not.toHaveBeenCalled();
+    expect(requests).toHaveLength(1);
+  });
+
+  it('does not store a tool-enabled answer for a later tool-free request', async () => {
+    const { agent, requests } = fixture(
+      [{ text: 'tool-enabled answer' }, { text: 'tool-free answer' }],
+      undefined,
+      true,
+    );
+    await agent.ensureReady();
+    agent.clearHistory();
+
+    await expect(agent.run('same input')).resolves.toBe('tool-enabled answer');
+    agent.clearHistory();
+    await expect(agent.run('same input', { toolChoice: 'none' })).resolves.toBe('tool-free answer');
+    expect(requests).toHaveLength(2);
+  });
+
+  it('runs tools in a streamed turn after a tool-free answer was cached', async () => {
+    const { agent, effect, requests } = fixture(
+      [
+        { text: 'first answer' },
+        { toolCalls: [{ name: 'act', args: {} }] },
+        { text: 'action completed' },
+      ],
+      undefined,
+      true,
+    );
+    await agent.ensureReady();
+    agent.clearHistory();
+    await agent.run('same input', { toolChoice: 'none' });
+    agent.clearHistory();
+
+    let streamed = '';
+    for await (const chunk of agent.runStream('same input')) streamed += chunk;
+    expect(streamed).toContain('action completed');
+    expect(effect).toHaveBeenCalledOnce();
+    expect(requests).toHaveLength(3);
   });
 });
