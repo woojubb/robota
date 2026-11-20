@@ -1,5 +1,15 @@
 # @robota-sdk/agent-mcp
 
+## 3.2.6
+### Patch Changes
+
+- ae88b7f: Allow a host to admit a tool request at its HTTP dispatch boundary.
+- e4f73c8: Update HTTP and MCP dependencies to versions containing security fixes. The transport package now requires Hono `^4.13.16`, MCP Node `^2.1.2`, and MCP Server `^2.4.0` when those optional peers are used.
+- 4b82e6e: Connect to services that describe an origin-wide OAuth resource at their root metadata address, and
+  keep a live refresh holder from being displaced by age alone. The file lock uses a native guard;
+  stop all users of a shared credential directory before upgrading and avoid mixed lock versions.
+- 95e9cef: Preserve host-selected environment values when Windows variable names differ only in case.
+
 ## 3.2.5
 ### Patch Changes
 

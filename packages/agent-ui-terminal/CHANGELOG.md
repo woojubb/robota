@@ -1,5 +1,11 @@
 # @robota-sdk/agent-ui-terminal
 
+## 3.2.9
+### Patch Changes
+
+- Updated dependencies [e4f73c8]
+  - @robota-sdk/agent-transport@4.0.0
+
 ## 3.2.8
 ### Patch Changes
 
