@@ -124,6 +124,43 @@ async function suspended() {
 }
 
 describe('journaled tool suspension', () => {
+  it('uses a detached journal view when a policy callback changes the returned records', async () => {
+    const saved = await suspended();
+    const view = structuredClone(saved.records);
+    const intent = view.find((record) => record.kind === 'tool-intent');
+    const response = view.find((record) => record.kind === 'model-response');
+    if (
+      intent?.kind !== 'tool-intent' ||
+      !intent.batchPolicy ||
+      !response ||
+      !('callId' in response)
+    )
+      throw new Error('Missing suspension records');
+    saved.journal.read.mockImplementation(async () => view);
+    const fresh = fixture([{ text: 'must not run' }], {
+      policy: (calls) => {
+        intent.batchPolicy!.mode = 'sequential';
+        return { scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])) };
+      },
+    });
+    await fresh.agent.resumeToolCalls({
+      ...saved,
+      callId: response.callId,
+      toolResponses: [
+        {
+          requestId: saved.request.requestId,
+          responseId: 'approval',
+          response: { approved: true },
+        },
+      ],
+    });
+    expect(fresh.effect).toHaveBeenCalledTimes(1);
+    expect(saved.records.filter((record) => record.kind === 'tool-response')).toHaveLength(1);
+    expect(saved.records.find((record) => record.kind === 'tool-intent')).toMatchObject({
+      batchPolicy: { mode: 'parallel' },
+    });
+  });
+
   it('does not record an approval when an unbound legacy batch has an invalid active policy', async () => {
     const saved = await suspended();
     for (const record of saved.records)

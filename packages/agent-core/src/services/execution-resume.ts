@@ -21,6 +21,7 @@ import { collectCommittedUsageMetadata } from './execution-usage';
 import { addToolResultsToHistory } from './execution-round-tool-results';
 import { executeAndRecordToolCalls } from './execution-round-tools';
 import {
+  assertRawJournalPolicyRecords,
   assertSavedBatchPolicy,
   resolveBatchScheduling,
   snapshotBatchPolicy,
@@ -232,7 +233,17 @@ export async function restoreJournaledRound(
       conflict('History changed during execution recovery');
   };
   unchanged();
-  const records = prepared?.records ?? (await options.journal.read(options.executionId));
+  const source = prepared?.records ?? (await options.journal.read(options.executionId));
+  assertRawJournalPolicyRecords(source);
+  let records: readonly TExecutionJournalRecord[];
+  try {
+    records = structuredClone(source);
+  } catch {
+    throw new ExecutionRecoveryError(
+      'EXECUTION_RECOVERY_INVALID',
+      'Execution journal is not a valid recoverable record prefix',
+    );
+  }
   let batch = prepared?.batch ?? recoverToolBatch(records, options.executionId, options.callId);
   options.signal?.throwIfAborted();
   unchanged();
