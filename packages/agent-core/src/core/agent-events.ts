@@ -8,7 +8,10 @@ import { isDefaultEventService } from '../event-service/index';
 import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
 import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 
-import type { IAgentConfig, IExecutionContextInjection } from '../interfaces/agent';
+import type {
+  TAgentExecutionConfig as IAgentConfig,
+  IExecutionContextInjection,
+} from '../interfaces/agent';
 import type {
   IEventService,
   IOwnerPathSegment,

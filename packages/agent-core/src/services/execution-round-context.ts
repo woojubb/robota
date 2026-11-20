@@ -3,7 +3,7 @@ import { estimateContextTokensFromMessages } from '../context/estimation';
 import { getModelContextWindow } from '../context/models';
 
 import type { IExecutionContext, IExecutionRoundState } from './execution-types';
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 import type { ILogger } from '../utils/logger';

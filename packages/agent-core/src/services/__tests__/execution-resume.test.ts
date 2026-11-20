@@ -3,6 +3,7 @@ import { ConversationAgent } from '../../core/conversation-agent';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 import { FunctionTool } from '../../tool-registry';
 import type { TExecutionJournalRecord } from '../../interfaces/execution-journal';
+import type { IManagedRunProvider } from '../../interfaces/managed-provider';
 
 const agents: ConversationAgent[] = [];
 afterEach(async () => {
@@ -74,6 +75,50 @@ async function stoppedAt(kind: TExecutionJournalRecord['kind'], afterWrite = fal
 }
 
 describe('provider-free journal continuation', () => {
+  it('keeps the selected provider stable while saved tool calls are recovered', async () => {
+    const saved = await stoppedAt('model-response', true);
+    const fresh = fixture();
+    const managed: IManagedRunProvider = {
+      kind: 'managed-run',
+      name: 'managed-test',
+      version: 'test',
+      run: vi.fn(),
+      validateConfig: () => true,
+    };
+    fresh.agent.swapDefaultProvider(managed, 'test-model');
+    fresh.agent.setModel({ provider: fresh.provider.name, model: 'test-model' });
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    saved.journal.read.mockImplementation(async () => {
+      enter();
+      await gate;
+      return structuredClone(saved.records);
+    });
+    const resuming = fresh.agent.resumeToolCalls(saved);
+    await entered;
+    try {
+      expect(() => fresh.agent.setModel({ provider: managed.name, model: 'test-model' })).toThrow(
+        /queued or active/,
+      );
+      expect(() => fresh.agent.swapDefaultProvider(managed, 'test-model')).toThrow(
+        /queued or active/,
+      );
+      expect(fresh.effect).not.toHaveBeenCalled();
+    } finally {
+      release();
+    }
+    await resuming;
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+    expect(fresh.agent.getModel().provider).toBe(fresh.provider.name);
+    expect(managed.run).not.toHaveBeenCalled();
+  });
+
   it('restores a saved response without another provider call or ephemeral instructions', async () => {
     const saved = await stoppedAt('model-response', true);
     const fresh = fixture();

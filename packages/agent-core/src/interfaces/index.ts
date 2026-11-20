@@ -24,6 +24,7 @@ export type {
 // Re-export specific types to avoid conflicts
 export type {
   IAgentConfig,
+  TAgentExecutionConfig,
   IAgentTemplate,
   IRunOptions,
   TExecutionEventCallback,
@@ -84,6 +85,19 @@ export type {
   IProviderRegistrationOptions,
   TProviderOptionValueBase,
 } from './provider';
+export type {
+  TManagedToolBatch,
+  IManagedToolReceipt,
+  IManagedTurnInput,
+  TManagedTurnEvent,
+  TManagedTurnResult,
+  IManagedTurnHost,
+  IManagedRunProvider,
+  IModelStepProvider,
+  TDiscriminatedExecutionProvider,
+  TExecutionProvider,
+} from './managed-provider';
+export { isManagedRunProvider, ManagedRunUnavailableError } from './managed-provider';
 export { isModelEffort, MODEL_EFFORT_VALUES } from './provider';
 export type {
   IOutboundTraceContext,
@@ -116,6 +130,7 @@ export type {
   TProviderCredentialResolver,
   IProviderCredentialRequirement,
   IProviderDefinition,
+  TProviderDefinition,
   IProviderModelCatalog,
   IProviderModelCatalogEntry,
   IProviderProbeResult,
@@ -182,7 +197,12 @@ export {
   isMediaProviderDefinition,
 } from './media-provider-definition';
 
-export type { TManagerToolParameters, IAIProviderManager, IToolManager } from './manager';
+export type {
+  TManagerToolParameters,
+  IAIProviderManager,
+  IExecutionProviderManager,
+  IToolManager,
+} from './manager';
 
 // Tool residency vocabulary — the deferred-tool catalog port and the policy settings.
 export type { IDeferredToolCatalog, TToolSearchMode, TToolSearchSetting } from './tool-search';

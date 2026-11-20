@@ -16,7 +16,10 @@ import type { IAssembledProviderRequest } from './execution-round-provider';
 import type { IModelRoute } from './execution-model-route';
 
 import type { IExecutionContext, IResolvedProviderInfo } from './execution-types';
-import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
+import type {
+  TAgentExecutionConfig as IAgentConfig,
+  TExecutionEventData,
+} from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { TProviderNativeRawPayloadCallback } from '../interfaces/provider';
 import type { ConversationStore } from '../managers/conversation-history-manager';

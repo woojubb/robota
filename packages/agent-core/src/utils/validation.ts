@@ -1,4 +1,4 @@
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 
 const MAX_SYSTEM_MESSAGE_LENGTH = 1000;
 const MAX_TOOLS_WARNING_THRESHOLD = 20;

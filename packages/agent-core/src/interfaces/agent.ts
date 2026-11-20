@@ -1,9 +1,10 @@
 import type { ICacheOptions } from './cache';
 import type { IUserInteraction } from './interaction';
 import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
+import type { TExecutionProvider } from './managed-provider';
 import type {
-  TProviderConfigValue,
   IAIProvider,
+  TProviderConfigValue,
   TModelEffortSelection,
   TToolChoice,
   TProviderOwnership,
@@ -199,6 +200,11 @@ export interface IAgentConfig {
    */
   ask?: IUserInteraction['ask'];
 }
+
+/** Agent configuration for a registry containing either execution contract. */
+export type TAgentExecutionConfig = Omit<IAgentConfig, 'aiProviders'> & {
+  aiProviders: TExecutionProvider[];
+};
 
 /**
  * Agent template interface

@@ -9,7 +9,7 @@ import {
 
 import type { IResolveModelFallbackChainInput } from '../model-fallback-chain.js';
 import type { TProviderSettingsDocument } from '../../command-api/provider/provider-settings.js';
-import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IAIProvider, IManagedRunProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 function definition(type: string, model?: string): IProviderDefinition {
   return {
@@ -56,6 +56,26 @@ const refs = (chain: ReturnType<typeof resolveModelFallbackChain>): string[] =>
   chain.targets.map((target) => `${target.ref.provider}/${target.ref.model}`);
 
 describe('resolveModelFallbackChain', () => {
+  it('refuses a managed provider as a model-step fallback', () => {
+    const managed: IProviderDefinition<IManagedRunProvider> = {
+      type: 'managed',
+      createProvider: () => ({
+        kind: 'managed-run',
+        name: 'managed',
+        version: 'test',
+        run: async () => ({ id: 'final', role: 'assistant', content: 'done', state: 'complete', timestamp: new Date() }),
+        validateConfig: () => true,
+      }),
+    };
+    const chain = resolveModelFallbackChain(input(['managed'], {
+      providerDefinitions: [...DEFINITIONS, managed],
+      settings: {
+        ...SETTINGS,
+        providers: { ...SETTINGS.providers, managed: { type: 'managed', model: 'managed-model' } },
+      },
+    }));
+    expect(() => chain.targets[0]!.create()).toThrow(/Managed execution is not available/);
+  });
   it('resolves a lazy fallback profile against its own selected environment', () => {
     const settings: TProviderSettingsDocument = {
       ...SETTINGS,

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { generateSessionName } from '../session-naming.js';
 import koreanText from '../../__tests__/__fixtures__/korean-text.json';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, IManagedRunProvider } from '@robota-sdk/agent-core';
 
 function makeProvider(responseContent: string): IAIProvider {
   return {
@@ -14,6 +14,20 @@ function makeProvider(responseContent: string): IAIProvider {
 }
 
 describe('generateSessionName', () => {
+  it('visibly refuses a managed provider rather than starting another run for naming', async () => {
+    const run = vi.fn<IManagedRunProvider['run']>();
+    const provider: IManagedRunProvider = {
+      kind: 'managed-run',
+      name: 'managed',
+      version: 'test',
+      run,
+      validateConfig: () => true,
+    };
+    await expect(generateSessionName(provider, 'first message')).rejects.toMatchObject({
+      code: 'MANAGED_RUN_UNAVAILABLE',
+    });
+    expect(run).not.toHaveBeenCalled();
+  });
   it('returns sanitized name from provider response', async () => {
     const provider = makeProvider('refactor-auth-middleware');
     const name = await generateSessionName(provider, 'Refactor the auth middleware');

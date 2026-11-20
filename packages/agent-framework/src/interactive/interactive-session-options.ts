@@ -38,7 +38,7 @@ import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
-  IProviderDefinition,
+  TProviderDefinition,
   TProviderCredentialResolver,
   IToolWithEventService,
 } from '@robota-sdk/agent-core';
@@ -233,7 +233,7 @@ export interface IInteractiveSessionStandardOptions {
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Provider definitions for hot-swap via /provider switch. */
-  providerDefinitions?: readonly IProviderDefinition[];
+  providerDefinitions?: readonly TProviderDefinition[];
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */

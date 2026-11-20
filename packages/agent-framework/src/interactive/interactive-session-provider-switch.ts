@@ -10,12 +10,12 @@ import type { IHostSettingsSource } from '../config/settings-source.js';
 import type { TProviderEnvironment } from '../command-api/provider/provider-environment.js';
 
 import { createProviderFromConfig } from '@robota-sdk/agent-core';
-import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
+import type { TProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
 
 /** Resolve host-held credentials without putting their values into settings sources. */
 export async function resolveUserSettingsProviderSwitchAsync(
   profileName: string,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   sources: readonly IHostSettingsSource[],
   environment?: TProviderEnvironment,
   resolveCredential?: TProviderCredentialResolver,
@@ -41,7 +41,7 @@ export async function resolveUserSettingsProviderSwitchAsync(
 /** Lazy switching is deliberately limited to explicit user-owned settings. */
 export function resolveUserSettingsProviderSwitch(
   profileName: string,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   sources: readonly IHostSettingsSource[],
   environment?: TProviderEnvironment,
 ): {

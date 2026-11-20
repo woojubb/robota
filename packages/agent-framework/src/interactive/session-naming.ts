@@ -4,9 +4,14 @@
  * apply the result via `IInteractiveSession.setName`.
  */
 
-import { createSystemMessage, createUserMessage } from '@robota-sdk/agent-core';
+import {
+  createSystemMessage,
+  createUserMessage,
+  isManagedRunProvider,
+  ManagedRunUnavailableError,
+} from '@robota-sdk/agent-core';
 
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { TExecutionProvider } from '@robota-sdk/agent-core';
 
 const DEFAULT_NAMING_SYSTEM_PROMPT =
   'You generate short session titles. Respond with ONLY a 3-5 word hyphenated title in the language of the message (e.g. refactor-auth-middleware). No explanation, no punctuation, no quotes.';
@@ -44,10 +49,11 @@ function sanitizeName(raw: string): string {
  * Falls back to a sanitized form of the message when the model returns nothing usable.
  */
 export async function generateSessionName(
-  provider: IAIProvider,
+  provider: TExecutionProvider,
   firstMessage: string,
   options: IGenerateSessionNameOptions = {},
 ): Promise<string> {
+  if (isManagedRunProvider(provider)) throw new ManagedRunUnavailableError(provider.name);
   const sanitize = options.sanitize ?? sanitizeName;
   const truncated = firstMessage.slice(0, MAX_FIRST_MESSAGE_CHARS);
   const response = await provider.chat(

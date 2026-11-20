@@ -7,7 +7,7 @@ import { Tools } from '../managers/tool-manager';
 import { resolveToolSearchMode } from '../services/tool-search-policy';
 import { TOOL_SEARCH_TOOL_NAME } from '../interfaces/tool-search';
 
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;

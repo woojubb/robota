@@ -15,7 +15,7 @@ import { callPluginHook } from './plugin-hook-dispatcher';
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import type { ToolExecutionService } from './tool-execution-service';
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 import type { TMetadata } from '../interfaces/types';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 import type { ILogger } from '../utils/logger';

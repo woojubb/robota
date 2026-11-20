@@ -15,7 +15,7 @@
 
 import { generateSessionName } from './session-naming.js';
 
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { TExecutionProvider } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSessionEvents,
   TInteractiveEventName,
@@ -28,7 +28,7 @@ export interface ISessionAutoNamingPort {
   /** Tell every surface the session was renamed. */
   emitRenamed(name: string): void;
   /** The provider the session sends its turns to now; `undefined` before initialization. */
-  getProvider(): IAIProvider | undefined;
+  getProvider(): TExecutionProvider | undefined;
 }
 
 export class SessionAutoNaming {

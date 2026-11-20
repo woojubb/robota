@@ -9,7 +9,7 @@ import type { IProviderProfileSettings, TProviderSettingsDocument } from './prov
 import type { TSettingsSource } from '../../config/settings-source.js';
 import type {
   IProviderDefinitionConfig,
-  IProviderDefinition,
+  TProviderDefinition,
   TProviderCredentialReference,
 } from '@robota-sdk/agent-core';
 
@@ -112,7 +112,7 @@ function mergeProviderValues<
 export function resolveActiveProvider(
   settings: TProviderSettingsDocument,
   providerOverride: string | undefined,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   environment?: TProviderEnvironment,
 ): IProviderDefinitionConfig | undefined {
   const resolve = resolveProviderEnvironment(environment);

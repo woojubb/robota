@@ -8,6 +8,8 @@ import {
   PROVIDER_FALLBACK_EVENTS,
   ExecutionRecoveryError,
   ExecutionSuspendedError,
+  isManagedRunProvider,
+  ManagedRunUnavailableError,
 } from '@robota-sdk/agent-core';
 
 import { SessionBase } from './session-base.js';
@@ -41,6 +43,7 @@ import type {
   TSessionExecutionResult,
 } from './session-recoverable.js';
 import { SessionRuntimeTools, linkCancellation } from './session-runtime-tools.js';
+import { SessionBusyError } from './turn-claim.js';
 import type { IRuntimeToolInvokeOptions } from '@robota-sdk/agent-interface/session';
 
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
@@ -64,7 +67,7 @@ import type {
   TCompactTrigger,
 } from './session-types.js';
 import type {
-  IAIProvider,
+  TExecutionProvider,
   IProviderRegistrationOptions,
   IExecutionJournal,
   IContextWindowState,
@@ -112,7 +115,7 @@ export class Session extends SessionBase {
   protected activePresetId: string;
   protected parallelSubagentsEnabled: boolean;
   protected readonly sessionId: string;
-  protected aiProvider: IAIProvider;
+  protected aiProvider: TExecutionProvider;
   protected readonly toolSchemas: IToolSchema[];
   protected model: string;
   protected systemMessage: string;
@@ -165,7 +168,7 @@ export class Session extends SessionBase {
   /** Absolute path to the session transcript file, if file-backed storage is active. */
   private readonly transcriptPath: string | undefined;
 
-  constructor(options: ISessionOptions) {
+  constructor(options: ISessionOptions<TExecutionProvider>) {
     super(options.cwd);
     const { tools, provider, systemMessage } = options;
 
@@ -280,6 +283,7 @@ export class Session extends SessionBase {
   ): Promise<string> {
     const options = value ? { ...value } : undefined;
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    this.assertProviderRunnable();
     this.assertInputAllowed();
     const controller = this.turnClaim.claim(); // Synchronously, before any await.
     const unlink = linkCancellation(controller, options?.signal);
@@ -345,6 +349,7 @@ export class Session extends SessionBase {
   ): Promise<string> {
     const options = { ...value, toolResponses: structuredClone(value.toolResponses) };
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    this.assertProviderRunnable();
     this.assertCheckpointSettled();
     if (this.pendingExecution && this.pendingExecution.executionId !== options.executionId)
       throw new ExecutionRecoveryError(
@@ -442,6 +447,11 @@ export class Session extends SessionBase {
         'EXECUTION_RECOVERY_REQUIRED',
         'Resume or abandon the pending Session execution before submitting new input',
       );
+  }
+  private assertProviderRunnable(): void {
+    if (isManagedRunProvider(this.aiProvider)) {
+      throw new ManagedRunUnavailableError(this.aiProvider.name);
+    }
   }
   private assertCheckpointSettled(): void {
     if (this.checkpointing || this.recoveryState.kind === 'save-required')
@@ -573,7 +583,10 @@ export class Session extends SessionBase {
         known.add(tool.schema.name);
         fresh.push(tool);
       }
-      if (fresh.length === 0) return [];
+      if (fresh.length === 0) {
+        if (!this.turnClaim.isRunning()) await this.applyPendingTools();
+        return [];
+      }
       this.pendingTools.push(...fresh);
       if (!this.turnClaim.isRunning()) await this.applyPendingTools();
       return fresh.map((tool) => tool.schema.name);
@@ -593,10 +606,11 @@ export class Session extends SessionBase {
   /** Registers the queued tools with the agent. Only ever called inside `serializeToolChange`. */
   private async applyPendingTools(): Promise<void> {
     if (this.pendingTools.length === 0) return;
-    const fresh = this.pendingTools.splice(0);
+    const fresh = [...this.pendingTools];
     await this.agent.ensureReady();
     const wrapped = this.permissionEnforcer.wrapTools(this.wrapAddedTools?.(fresh) ?? fresh);
-    await this.agent.updateTools([...(this.agent.getConfig().tools ?? []), ...wrapped]);
+    await this.agent.updateTools([...(this.agent.getExecutionConfig().tools ?? []), ...wrapped]);
+    this.pendingTools.splice(0, fresh.length);
     this.toolSchemas.push(...wrapped.map((tool) => tool.schema));
   }
 
@@ -692,11 +706,14 @@ export class Session extends SessionBase {
   }
 
   swapProvider(
-    newProvider: IAIProvider,
+    newProvider: TExecutionProvider,
     model: string,
     options?: IProviderRegistrationOptions,
   ): void {
     this.assertInputAllowed();
+    if (this.turnClaim.isRunning()) {
+      throw new SessionBusyError('Cannot change the provider while a session operation is active');
+    }
     this.agent.swapDefaultProvider(newProvider, model, options);
     if ('onServerToolUse' in newProvider) {
       (

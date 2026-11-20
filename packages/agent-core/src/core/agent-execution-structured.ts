@@ -9,7 +9,7 @@ import { parseStructuredResponseText } from '../schema/structured-output';
 import { StructuredOutputError } from '../utils/errors';
 
 import type { IAgentExecutionDeps } from './agent-execution';
-import type { IAgentConfig, IRunOptions } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig, IRunOptions } from '../interfaces/agent';
 import type { TConfigValue } from '../interfaces/types';
 import type { IStructuredOutputSpec } from '../schema/structured-output';
 

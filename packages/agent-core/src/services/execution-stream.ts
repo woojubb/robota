@@ -20,7 +20,7 @@
  */
 
 import type { ICoreExecutionResult, IExecutionContext } from './execution-types';
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 
 /** The turn this entry point streams. Injected so the seam stays one-directional and testable. */

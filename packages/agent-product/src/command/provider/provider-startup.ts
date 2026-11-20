@@ -22,7 +22,7 @@ import {
   type TPromptInput,
 } from './provider-setup-flow.js';
 
-import type { IProviderDefinition, IUserInteraction } from '@robota-sdk/agent-core';
+import type { TProviderDefinition, IUserInteraction } from '@robota-sdk/agent-core';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import type {
   ISettingsDocumentStore,
@@ -47,7 +47,7 @@ export interface IProviderStartupContext {
 }
 
 export interface IEnsureProviderConfigOptions {
-  formatError: (defs: readonly IProviderDefinition[]) => string;
+  formatError: (defs: readonly TProviderDefinition[]) => string;
   isInteractive?: () => boolean;
   /**
    * The environment env-default synthesis and the credential check read: a map or a resolver. Absent,
@@ -61,7 +61,7 @@ export async function runProviderStartupSetup(
   ctx: IProviderStartupContext,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
 ): Promise<void> {
   const onboarding = await runOnboardingBranch(
     promptInput,
@@ -137,7 +137,7 @@ export async function ensureProviderConfig(
   ctx: IProviderStartupContext,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly TProviderDefinition[],
   options: IEnsureProviderConfigOptions,
 ): Promise<void> {
   const access = resolveSettingsAccess(ctx);

@@ -1,3 +1,4 @@
+import type { TExecutionProvider } from './managed-provider';
 import type { IAIProvider } from './provider';
 import type { IProviderNativeWebToolRequest } from './provider-capabilities';
 import type { TUniversalValue } from './types';
@@ -142,7 +143,7 @@ export interface IProviderEndpoint {
   readonly port: number;
 }
 
-export interface IProviderDefinition {
+export interface IProviderDefinition<P extends TExecutionProvider = IAIProvider> {
   type: string;
   aliases?: readonly string[];
   displayName?: string;
@@ -194,22 +195,25 @@ export interface IProviderDefinition {
    * the same values, or the credential goes somewhere its owner did not choose.
    */
   destinationEnvironment?: readonly string[];
-  createProvider: (config: IProviderDefinitionConfig) => IAIProvider;
+  createProvider: (config: IProviderDefinitionConfig) => P;
   probeProfile?: (profile: IProviderProfileConfig) => Promise<IProviderProbeResult>;
   /** Diagnostic-only reachability declaration; read by no setup, persistence or runtime path. */
   endpoint?: IProviderEndpoint;
 }
 
-export function findProviderDefinition(
-  definitions: readonly IProviderDefinition[],
+/** A definition registry may contain both execution kinds. */
+export type TProviderDefinition = IProviderDefinition<TExecutionProvider>;
+
+export function findProviderDefinition<D extends TProviderDefinition>(
+  definitions: readonly D[],
   type: string,
-): IProviderDefinition | undefined {
+): D | undefined {
   return definitions.find(
     (definition) => definition.type === type || definition.aliases?.includes(type) === true,
   );
 }
 
-export function formatSupportedProviderTypes(definitions: readonly IProviderDefinition[]): string {
+export function formatSupportedProviderTypes(definitions: readonly TProviderDefinition[]): string {
   return definitions
     .map((definition) => {
       if (!definition.aliases || definition.aliases.length === 0) {
@@ -222,7 +226,7 @@ export function formatSupportedProviderTypes(definitions: readonly IProviderDefi
 }
 
 export function getProviderCredentialRequirement(
-  definition: IProviderDefinition | undefined,
+  definition: TProviderDefinition | undefined,
 ): IProviderCredentialRequirement | undefined {
   if (definition?.credentialRequirement !== undefined) {
     return definition.credentialRequirement;

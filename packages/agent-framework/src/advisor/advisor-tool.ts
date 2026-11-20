@@ -17,6 +17,7 @@ import { providerDestinationOf } from './provider-destination.js';
 
 import type { AdvisorController } from './advisor-controller.js';
 import type {
+  TExecutionProvider,
   IAIProvider,
   IHistoryEntry,
   IToolSchema,
@@ -57,6 +58,7 @@ export interface IAdvisorSessionSource {
   getHistory(): TUniversalMessage[];
   getSystemMessage(): string;
   getProvider(): IAIProvider;
+  getExecutionProvider?(): TExecutionProvider;
   getSessionId(): string;
   addHistoryEntry(entry: IHistoryEntry): void;
 }
@@ -72,7 +74,8 @@ export function sessionAdvisorAccess(
   return {
     getHistory: () => session.getHistory(),
     getSystemMessage: () => session.getSystemMessage(),
-    getMainDestination: () => providerDestinationOf(session.getProvider()),
+    getMainDestination: () =>
+      providerDestinationOf(session.getExecutionProvider?.() ?? session.getProvider()),
     getSessionId: () => session.getSessionId(),
     recordUsage: (entries) => {
       if (onUsageRecorded !== undefined) onUsageRecorded(entries);

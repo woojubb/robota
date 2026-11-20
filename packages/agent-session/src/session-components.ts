@@ -6,15 +6,15 @@ import { PermissionEnforcer } from './permission-enforcer.js';
 
 import type { ISessionOptions } from './session-types.js';
 import type {
-  IAgentConfig,
-  IAIProvider,
+  TAgentExecutionConfig,
+  TExecutionProvider,
   IEventService,
   IToolWithEventService,
   TPermissionMode,
 } from '@robota-sdk/agent-core';
 
 export function buildPermissionEnforcer(
-  options: ISessionOptions,
+  options: ISessionOptions<TExecutionProvider>,
   sessionId: string,
   cwd: string,
   getPermissionMode: () => TPermissionMode,
@@ -63,7 +63,7 @@ export function buildPermissionEnforcer(
 }
 
 export function buildSessionTrackers(
-  options: ISessionOptions,
+  options: ISessionOptions<TExecutionProvider>,
   model: string,
   sessionId: string,
   cwd: string,
@@ -86,16 +86,16 @@ export function buildSessionTrackers(
 }
 
 export function buildConversationAgent(
-  options: ISessionOptions,
+  options: ISessionOptions<TExecutionProvider>,
   permissionEnforcer: PermissionEnforcer,
   tools: IToolWithEventService[],
-  provider: IAIProvider,
+  provider: TExecutionProvider,
   model: string,
   systemMessage: string,
   eventService: IEventService,
 ): ConversationAgent {
   const wrappedTools = permissionEnforcer.wrapTools(tools);
-  const agentConfig: IAgentConfig = {
+  const agentConfig: TAgentExecutionConfig = {
     name: options.agentName ?? 'agent',
     aiProviders: [provider],
     ...(options.providerOwnership !== undefined

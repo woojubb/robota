@@ -47,7 +47,7 @@ import type { IKeyCustodyCommandPort } from '../key-custody/index.js';
 import type { IKeybindingsFilePort, TOpenFileInEditor } from '../keybindings/index.js';
 import type {
   IFileSystemAsync,
-  IProviderDefinition,
+  TProviderDefinition,
   TProviderCredentialResolver,
 } from '@robota-sdk/agent-core';
 import type {
@@ -74,7 +74,7 @@ export interface IDefaultCommandModulesOptions {
   userLocalFileSystem?: IFileSystemAsync;
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
-  providerDefinitions: readonly IProviderDefinition[];
+  providerDefinitions: readonly TProviderDefinition[];
   providerSettingsAdapter: IProviderCommandSettingsAdapter;
   /**
    * The org policy, so `allowedProviders` and `requireApiKeyFromEnv` are
