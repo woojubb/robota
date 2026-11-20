@@ -14,6 +14,7 @@ afterEach(async () => {
 const action: TScriptedTurn = { toolCalls: [{ name: 'act', args: {} }] };
 function fixture(turns: TScriptedTurn[], config: Partial<IAgentConfig> = {}) {
   const scripted = createScriptedProvider(turns);
+  if (config.cache?.enabled) scripted.provider.textResponseCacheScope = () => 'cache-test';
   const effect = vi.fn(async () => 'completed effect');
   const agent = new ConversationAgent({
     name: 'continuation',

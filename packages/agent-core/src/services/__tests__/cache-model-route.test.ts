@@ -1,106 +1,100 @@
-/**
- * The response cache is keyed on the model a request actually goes to, so an answer from a
- * substitute model is never served as the requested model's, nor the other way round.
- */
-
 import { describe, expect, it, vi } from 'vitest';
-
 import { CacheKeyBuilder } from '../cache/cache-key-builder';
 import { ExecutionCacheService } from '../cache/execution-cache-service';
 import { MemoryCacheStorage } from '../cache/memory-cache-storage';
 import { callProviderWithCache } from '../execution-round-provider';
-
+import type { IAgentConfig } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../interfaces/messages';
 import type { IModelRoute } from '../execution-model-route';
+import type { IResolvedProviderInfo } from '../execution-types';
 
-const MESSAGES: TUniversalMessage[] = [
+const messages: TUniversalMessage[] = [
   { id: 'u1', role: 'user', content: 'hi', state: 'complete', timestamp: new Date() },
 ];
-const CONFIG = { name: 'test', defaultModel: { provider: 'anthropic', model: 'claude-primary' } };
+const config: IAgentConfig = {
+  name: 'test',
+  aiProviders: [],
+  defaultModel: { provider: 'primary', model: 'primary-model' },
+};
 
 function reply(content: string): TUniversalMessage {
-  return {
-    id: `a-${content}`,
-    role: 'assistant',
-    content,
-    state: 'complete',
-    timestamp: new Date(),
-  };
+  return { id: content, role: 'assistant', content, state: 'complete', timestamp: new Date() };
 }
 
-function resolvedWith(chat: (...args: unknown[]) => Promise<TUniversalMessage>): never {
-  return {
-    provider: { chat },
-    currentInfo: { provider: 'anthropic' },
-    aiProviderInfo: { providerName: 'anthropic', model: 'claude-primary' },
+function fixture(chat: IResolvedProviderInfo['provider']['chat']) {
+  const provider: IResolvedProviderInfo['provider'] = {
+    chat,
+    textResponseCacheScope: () => 'primary',
+  };
+  const resolved: IResolvedProviderInfo = {
+    provider,
+    currentInfo: { provider: 'primary' },
+    aiProviderInfo: {
+      providerName: 'primary',
+      model: 'primary-model',
+      temperature: undefined,
+      maxTokens: undefined,
+    },
     toolsInfo: [],
     readAvailableTools: () => [],
     deferredTools: { listDeferredTools: () => [], loadDeferredTools: () => [] },
-  } as never;
-}
-
-function newCache(): ExecutionCacheService {
-  return new ExecutionCacheService(
+  };
+  const cache = new ExecutionCacheService(
     new MemoryCacheStorage({ maxEntries: 100, ttlMs: 60_000 }),
     new CacheKeyBuilder(),
   );
-}
-
-async function call(
-  cache: ExecutionCacheService,
-  route: IModelRoute,
-  chat: (...args: unknown[]) => Promise<TUniversalMessage>,
-): Promise<TUniversalMessage> {
-  return callProviderWithCache(
-    MESSAGES,
-    CONFIG as never,
-    resolvedWith(chat),
-    cache,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    route,
-  );
-}
-
-describe('cache keyed on the model route', () => {
-  it('stores a substitute model’s answer under that model, not the requested one', async () => {
-    const cache = newCache();
-    const moved: IModelRoute = {};
-    await call(cache, moved, async () => {
-      // The provider moved the request while answering it.
-      moved.current = { provider: 'openai', model: 'gpt-next' };
-      return reply('from fallback');
-    });
-
-    const primaryChat = vi.fn(async () => reply('from primary'));
-    const onPrimary = await call(cache, {}, primaryChat);
-    expect(onPrimary.content).toBe('from primary');
-    expect(primaryChat).toHaveBeenCalledOnce();
-
-    const fallbackChat = vi.fn(async () => reply('fresh'));
-    const onFallback = await call(
+  const call = (route: IModelRoute) =>
+    callProviderWithCache(
+      messages,
+      config,
+      resolved,
       cache,
-      { current: { provider: 'openai', model: 'gpt-next' } },
-      fallbackChat,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      route,
     );
-    expect(onFallback.content).toBe('from fallback');
-    expect(fallbackChat).not.toHaveBeenCalled();
+  return { provider, call };
+}
+
+describe('response cache with model routing', () => {
+  it('does not store an answer after the route moves during the provider call', async () => {
+    const route: IModelRoute = {};
+    const chat = vi.fn(async () => {
+      route.current = { provider: 'fallback', model: 'fallback-model' };
+      return reply('fallback answer');
+    });
+    const { call } = fixture(chat);
+    await call(route);
+    route.current = undefined;
+    await call(route);
+    expect(chat).toHaveBeenCalledTimes(2);
   });
 
-  it('does not serve the requested model’s answer to a run that is on a substitute', async () => {
-    const cache = newCache();
-    await call(cache, {}, async () => reply('from primary'));
+  it('does not look up an entry when a different route is already selected', async () => {
+    const chat = vi
+      .fn()
+      .mockResolvedValueOnce(reply('primary'))
+      .mockResolvedValueOnce(reply('fallback'));
+    const { call } = fixture(chat);
+    expect((await call({})).content).toBe('primary');
+    expect(
+      (await call({ current: { provider: 'fallback', model: 'fallback-model' } })).content,
+    ).toBe('fallback');
+    expect(chat).toHaveBeenCalledTimes(2);
+  });
 
-    const fallbackChat = vi.fn(async () => reply('from fallback'));
-    const response = await call(
-      cache,
-      { current: { provider: 'openai', model: 'gpt-next' } },
-      fallbackChat,
-    );
-    expect(response.content).toBe('from fallback');
-    expect(fallbackChat).toHaveBeenCalledOnce();
+  it('does not cache through a routing wrapper even before its route changes', async () => {
+    const chat = vi
+      .fn()
+      .mockResolvedValueOnce(reply('first'))
+      .mockResolvedValueOnce(reply('second'));
+    const { call, provider } = fixture(chat);
+    provider.resolveModelRoute = () => ({ provider: 'primary', model: 'primary-model' });
+    expect((await call({})).content).toBe('first');
+    expect((await call({})).content).toBe('second');
+    expect(chat).toHaveBeenCalledTimes(2);
   });
 });

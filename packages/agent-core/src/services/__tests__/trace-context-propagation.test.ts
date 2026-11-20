@@ -113,7 +113,7 @@ describe('trusted trace context on provider calls', () => {
       [],
       { defaultModel: { provider: 'p', model: 'm' } } as IAgentConfig,
       {
-        provider: { chat },
+        provider: { chat, textResponseCacheScope: () => 'trace-test' },
         currentInfo: { provider: 'p' },
         aiProviderInfo: { model: 'm' },
         readAvailableTools: () => [],

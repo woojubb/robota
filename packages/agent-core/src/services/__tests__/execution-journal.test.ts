@@ -22,6 +22,7 @@ afterEach(async () => {
 
 function fixture(turns: TScriptedTurn[], effect = vi.fn(async () => 'tool answer'), cache = false) {
   const scripted = createScriptedProvider(turns);
+  if (cache) scripted.provider.textResponseCacheScope = () => 'cache-test';
   const agent = new ConversationAgent({
     // These fixtures exercise independent calls settling concurrently.
     toolExecutionPolicy: (calls) => ({

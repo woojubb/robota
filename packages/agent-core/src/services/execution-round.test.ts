@@ -18,8 +18,8 @@ function mockLogger(): ILogger {
 }
 
 function createResolvedProviderInfo(overrides: Partial<Record<string, unknown>> = {}): any {
+  const provider = overrides.provider ?? { chat: vi.fn() };
   return {
-    provider: { chat: vi.fn() },
     currentInfo: { provider: 'openai' },
     aiProviderInfo: {
       providerName: 'openai',
@@ -31,6 +31,7 @@ function createResolvedProviderInfo(overrides: Partial<Record<string, unknown>> 
     readAvailableTools: () => [],
     deferredTools: { listDeferredTools: () => [], loadDeferredTools: () => [] },
     ...overrides,
+    provider: { textResponseCacheScope: () => 'test-scope', ...(provider as object) },
   };
 }
 
@@ -519,7 +520,13 @@ describe('execution-round helpers', () => {
     });
 
     it('stores response in cache on miss', async () => {
-      const mockResponse = { role: 'assistant', content: 'fresh', timestamp: new Date() };
+      const mockResponse = {
+        id: 'fresh',
+        role: 'assistant',
+        content: 'fresh',
+        state: 'complete',
+        timestamp: new Date(),
+      };
       const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
       const resolved = createResolvedProviderInfo({
         provider: { chat: vi.fn().mockResolvedValue(mockResponse) },
