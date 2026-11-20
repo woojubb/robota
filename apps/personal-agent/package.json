@@ -1,6 +1,6 @@
 {
   "name": "robota-personal-agent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Robota personal agent: a long-running assistant with a web UI, built by composing the Robota SDK",
   "type": "module",

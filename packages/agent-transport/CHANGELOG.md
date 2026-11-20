@@ -1,5 +1,10 @@
 # @robota-sdk/agent-transport
 
+## 4.0.0
+### Major Changes
+
+- e4f73c8: Update HTTP and MCP dependencies to versions containing security fixes. The transport package now requires Hono `^4.13.16`, MCP Node `^2.1.2`, and MCP Server `^2.4.0` when those optional peers are used.
+
 ## 3.4.3
 ### Patch Changes
 

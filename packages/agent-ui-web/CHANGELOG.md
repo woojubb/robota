@@ -1,5 +1,11 @@
 # @robota-sdk/agent-ui-web
 
+## 3.4.1
+### Patch Changes
+
+- Updated dependencies [e4f73c8]
+  - @robota-sdk/agent-transport@4.0.0
+
 ## 3.4.0
 ### Minor Changes
 

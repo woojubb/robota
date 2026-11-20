@@ -1,5 +1,14 @@
 # @robota-sdk/agent-cli
 
+## 4.0.0
+### Major Changes
+
+- 2ffabf8: Update the optional hosted SDK peer to `e2b@2.64.0`. Stock hosted execution on Node.js now requires Node 22.19.0 or later; local CLI use keeps the existing Node requirement.
+
+### Patch Changes
+
+- e4f73c8: Update HTTP and MCP dependencies to versions containing security fixes. The transport package now requires Hono `^4.13.16`, MCP Node `^2.1.2`, and MCP Server `^2.4.0` when those optional peers are used.
+
 ## 3.4.4
 ### Patch Changes
 
