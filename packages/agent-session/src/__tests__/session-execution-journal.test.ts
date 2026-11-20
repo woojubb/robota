@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   clearRegisteredToolProfiles,
+  admitToolResult,
   FunctionTool,
   registerToolPermissionProfile,
 } from '@robota-sdk/agent-core';
@@ -54,6 +55,147 @@ const refused: IExecutionJournal = {
 };
 
 describe('Session execution journal', () => {
+  it('preserves a previously admitted higher result limit while journaling', async () => {
+    const scripted = createScriptedProvider([
+      { toolCalls: [{ name: 'act', args: {} }] },
+      { text: 'done' },
+    ]);
+    const output = 'x'.repeat(40_000);
+    const tool = FunctionTool.fromResult(
+      { name: 'act', description: 'Act', parameters: { type: 'object', properties: {} } },
+      async () =>
+        admitToolResult(
+          'act',
+          { success: true, data: output },
+          { warningChars: 10_000, hardChars: 25_000, repositoryMaxChars: 50_000 },
+          45_000,
+        ),
+    );
+    const { session } = fixture({
+      provider: scripted.provider,
+      tools: [tool],
+      permissions: { allow: ['act'], deny: [], ask: [] },
+    });
+    const records: TExecutionJournalRecord[] = [];
+    await session.run('act', undefined, {
+      executionJournal: { append: async (record) => void records.push(structuredClone(record)) },
+    });
+    expect(records.find((record) => record.kind === 'tool-result')).toMatchObject({
+      result: { success: true, result: output },
+    });
+  });
+
+  it('keeps the settled outcome independent of end observers', async () => {
+    const scripted = createScriptedProvider([
+      { toolCalls: [{ name: 'act', args: { n: 1 } }] },
+      { text: 'done' },
+    ]);
+    const tool = FunctionTool.fromResult(
+      {
+        name: 'act',
+        description: 'Act',
+        parameters: { type: 'object', properties: { n: { type: 'number' } } },
+      },
+      async (parameters) => ({
+        success: true,
+        data: 'actual',
+        parts: [{ type: 'text', text: 'actual observation' }],
+        metadata: { parameters },
+      }),
+    );
+    let observed = 0;
+    const { session } = fixture({
+      provider: scripted.provider,
+      tools: [tool],
+      permissions: { allow: ['act'], deny: [], ask: [] },
+      onToolExecution: (event) => {
+        if (event.type !== 'end') return;
+        observed++;
+        if (event.toolArgs) event.toolArgs.n = 99;
+        const part = event.toolResultParts?.[0];
+        if (part?.type === 'text') part.text = 'changed observation';
+        throw new Error('display unavailable');
+      },
+    });
+    const records: TExecutionJournalRecord[] = [];
+    await session.run('act', undefined, {
+      executionJournal: { append: async (record) => void records.push(structuredClone(record)) },
+    });
+    expect(observed).toBe(1);
+    expect(records.find((record) => record.kind === 'tool-result')).toMatchObject({
+      result: {
+        parts: [{ type: 'text', text: 'actual observation' }],
+        metadata: { parameters: { n: 1 } },
+      },
+    });
+  });
+
+  it('requires reconciliation instead of reporting a cyclic successful result as a tool failure', async () => {
+    const scripted = createScriptedProvider([
+      { toolCalls: [{ name: 'act', args: {} }] },
+      { text: 'done' },
+    ]);
+    const effect = vi.fn(async () => {
+      const result: TToolParameters = {};
+      result.self = result;
+      return result;
+    });
+    const { session } = fixture({
+      provider: scripted.provider,
+      tools: [
+        new FunctionTool(
+          { name: 'act', description: 'Act', parameters: { type: 'object', properties: {} } },
+          effect,
+        ),
+      ],
+      permissions: { allow: ['act'], deny: [], ask: [] },
+    });
+    const records: TExecutionJournalRecord[] = [];
+    await expect(
+      session.run('act', undefined, {
+        executionJournal: { append: async (record) => void records.push(structuredClone(record)) },
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(effect).toHaveBeenCalledTimes(1);
+    expect(records.some((record) => record.kind === 'tool-effect-start')).toBe(true);
+    expect(records.some((record) => record.kind === 'tool-result')).toBe(false);
+  });
+
+  it('handles a rejected asynchronous end observation without changing the settlement', async () => {
+    const scripted = createScriptedProvider([
+      { toolCalls: [{ name: 'act', args: {} }] },
+      { text: 'done' },
+    ]);
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const { session } = fixture({
+        provider: scripted.provider,
+        tools: [
+          new FunctionTool(
+            { name: 'act', description: 'Act', parameters: { type: 'object', properties: {} } },
+            async () => 'settled',
+          ),
+        ],
+        permissions: { allow: ['act'], deny: [], ask: [] },
+        onToolExecution: async (event) => {
+          if (event.type === 'end') throw new Error('display unavailable');
+        },
+      });
+      const records: TExecutionJournalRecord[] = [];
+      await session.run('act', undefined, {
+        executionJournal: { append: async (record) => void records.push(structuredClone(record)) },
+      });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(records.find((record) => record.kind === 'tool-result')).toMatchObject({
+        result: { success: true, result: 'settled' },
+      });
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
   it('refuses nested relative arguments when permission would check a different canonical value', async () => {
     registerToolPermissionProfile('PathFixture', {
       riskClass: 'modify',

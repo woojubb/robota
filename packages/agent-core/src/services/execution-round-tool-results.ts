@@ -10,6 +10,7 @@ import type {
 import type { TToolMetadata } from '../interfaces/tool';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 import type { ILogger } from '../utils/logger';
+import type { IManagedToolReceipt } from '../interfaces/managed-provider';
 
 /** Result of addToolResultsToHistory indicating whether context overflow occurred */
 export interface IToolResultsOutcome {
@@ -18,6 +19,8 @@ export interface IToolResultsOutcome {
   skippedCount: number;
   unknownToolFailureCount: number;
   unknownToolNames: string[];
+  /** Present only when every action in a journaled batch has a durable settlement. */
+  receipts?: readonly IManagedToolReceipt[];
 }
 
 export function isUnknownToolExecutionResult(result: {

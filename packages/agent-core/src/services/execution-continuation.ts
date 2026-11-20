@@ -123,6 +123,7 @@ export async function continueJournaledExecution(
     { ...options, callId: invocation.callId },
     deps,
     { batch, records },
+    config,
   );
   const context = buildFullExecutionContext(
     store.getMessages(),

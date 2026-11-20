@@ -2,11 +2,15 @@ import { PERMISSION_DENIED_RESULT, reportToolCrash, toolFailure } from './permis
 import {
   createLogger,
   isExecutionControlError,
+  ExecutionRecoveryError,
+  isSnapshotableUniversalValue,
+  isUniversalValueEqual,
   DEFAULT_ABSTRACT_EVENT_SERVICE,
   isAbortFailure,
   TOOL_BODY_EVENTS,
   TOOL_PERMISSION_EVENTS,
   snapshotToolProvenance,
+  wasToolResultAdmitted,
   withToolProvenance,
 } from '@robota-sdk/agent-core';
 import { canonicaliseToolArguments } from './tool-argument-canonicalisation.js';
@@ -100,12 +104,26 @@ export function wrapToolWithPermission(
   const originalExecuteWithAdmission = tool.executeWithAdmission?.bind(tool);
   const provenance = snapshotToolProvenance(tool.provenance);
   const onToolExecution: IToolWrapperDeps['onToolExecution'] = (event) => {
-    if (event.type !== 'end' || !provenance) return enforcer.onToolExecution?.(event);
-    const observation = withToolProvenance(
-      { success: event.success ?? false, parts: event.toolResultParts },
-      provenance,
-    );
-    enforcer.onToolExecution?.({ ...event, toolResultParts: observation.parts });
+    const report = (error: unknown) =>
+      logger.warn(
+        'tool execution observation failed',
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    try {
+      const observed =
+        event.type === 'end' && provenance
+          ? {
+              ...event,
+              toolResultParts: withToolProvenance(
+                { success: event.success ?? false, parts: event.toolResultParts },
+                provenance,
+              ).parts,
+            }
+          : event;
+      void Promise.resolve(enforcer.onToolExecution?.(observed)).catch(report);
+    } catch (error) {
+      report(error);
+    }
   };
   // What this session gave the tool with `setEventService`. The tool instance may be shared with
   // other sessions, and the service set on it is whichever session set one last, so each call
@@ -205,10 +223,17 @@ export function wrapToolWithPermission(
       // The observation covers ONLY the awaited body, never approval, hooks, truncation or a
       // detached continuation. A pre-start denial/abort therefore has no tool-body span.
       let startedAtMs: number | undefined;
+      let admittedParameters: TToolParameters | undefined;
       const admit: TToolEffectAdmission = async (effective) => {
         context?.signal?.throwIfAborted();
-        const approvedArguments = canonicaliseToolArguments(toolName, effective, enforcer.cwd);
-        if (JSON.stringify(approvedArguments) !== JSON.stringify(effective)) {
+        if (!isSnapshotableUniversalValue(effective))
+          throw new ExecutionRecoveryError(
+            'EXECUTION_RECOVERY_INVALID',
+            'Tool parameters cannot be represented for effect admission',
+          );
+        const snapshot = structuredClone(effective);
+        const approvedArguments = canonicaliseToolArguments(toolName, snapshot, enforcer.cwd);
+        if (JSON.stringify(approvedArguments) !== JSON.stringify(snapshot)) {
           throw new DeferredPermissionRefusal(
             toolFailure(
               'denied',
@@ -260,14 +285,27 @@ export function wrapToolWithPermission(
             );
           hookInput = nextHookInput;
         }
-        parameters = structuredClone(effective);
+        if (!isUniversalValueEqual(effective, snapshot))
+          throw new ExecutionRecoveryError(
+            'EXECUTION_RECOVERY_INVALID',
+            'Tool parameters changed while awaiting permission',
+          );
+        parameters = structuredClone(snapshot);
         context?.signal?.throwIfAborted();
         await beforeEffect?.(parameters);
+        if (!isUniversalValueEqual(effective, snapshot))
+          throw new ExecutionRecoveryError(
+            'EXECUTION_RECOVERY_REQUIRED',
+            'Tool parameters changed while effect admission was being recorded',
+            context?.continuation ? [context.continuation.action.actionId] : [],
+          );
+        admittedParameters = structuredClone(snapshot);
         context?.signal?.throwIfAborted();
         startedAtMs = Date.now();
       };
       let outcome: 'success' | 'failure' | 'interrupted' = 'failure';
       let result: IToolResult;
+      let alreadyAdmitted = false;
       try {
         // A call without a context was not made by an agent, so it has no session to carry.
         const toolContext =
@@ -285,6 +323,20 @@ export function wrapToolWithPermission(
           else startedAtMs = Date.now();
           context?.signal?.throwIfAborted();
           result = await originalExecute(parameters, toolContext as IToolExecutionContext);
+        }
+        if (beforeEffect) {
+          try {
+            alreadyAdmitted = wasToolResultAdmitted(result);
+            const { success, data, parts, error, metadata, view } = result;
+            const settled = structuredClone({ success, data, parts, error, metadata });
+            JSON.stringify(settled);
+            result = { ...settled, ...(view && { view }) };
+          } catch {
+            throw new ExecutionRecoveryError(
+              'EXECUTION_RECOVERY_REQUIRED',
+              'Tool result cannot be safely settled after the effect',
+            );
+          }
         }
         outcome = context?.signal?.aborted ? 'interrupted' : result.success ? 'success' : 'failure';
       } catch (error) {
@@ -312,7 +364,7 @@ export function wrapToolWithPermission(
       }
 
       // Truncate oversized tool output (matches 30K char limit)
-      const truncatedResult = truncateToolResult(result);
+      const truncatedResult = alreadyAdmitted ? result : truncateToolResult(result);
 
       if (truncatedResult !== result && typeof result.data === 'string') {
         enforcer.terminal.writeLine(
@@ -323,13 +375,18 @@ export function wrapToolWithPermission(
       onToolExecution({
         type: 'end',
         toolName,
-        toolArgs: parameters as TToolArgs,
+        toolArgs: (beforeEffect
+          ? structuredClone(admittedParameters ?? parameters)
+          : parameters) as TToolArgs,
         success: truncatedResult.success,
         toolResultData:
           typeof truncatedResult.data === 'string'
             ? truncatedResult.data
             : JSON.stringify(truncatedResult.data),
-        toolResultParts: truncatedResult.parts,
+        toolResultParts:
+          beforeEffect && truncatedResult.parts
+            ? structuredClone(truncatedResult.parts)
+            : truncatedResult.parts,
         executionId: context?.executionId,
         // Display data for a surface only: it never joins `toolResultData`, which is what is logged.
         ...(truncatedResult.view ? { view: truncatedResult.view } : {}),

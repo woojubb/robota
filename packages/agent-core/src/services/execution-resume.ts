@@ -5,9 +5,13 @@ import type {
   TExecutionJournalRecord,
 } from '../interfaces/execution-journal';
 import type { TUniversalMessage } from '../interfaces/messages';
+import type { IManagedToolReceipt } from '../interfaces/managed-provider';
+import type { TAgentExecutionConfig } from '../interfaces/agent';
 import { ConversationStore } from '../managers/conversation-history-manager';
 import { createAbortError } from '../utils/abort-classification';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
+import { isJsonEqual } from '../utils/json-equal';
+import { isUniversalValueEqual } from '../utils/universal-value-equal';
 import {
   recoverToolBatch,
   recoveryValueKey,
@@ -16,6 +20,7 @@ import {
 import { collectCommittedUsageMetadata } from './execution-usage';
 import { addToolResultsToHistory } from './execution-round-tool-results';
 import { executeAndRecordToolCalls } from './execution-round-tools';
+import { sameReceiptMetadata } from './execution-receipt-frame';
 import type { IRoundDependencies } from './execution-round-types';
 import type { IExecutionRoundState } from './execution-types';
 import { acceptToolResponses } from './execution-tool-waits';
@@ -64,6 +69,58 @@ function matchesAssistant(
   );
 }
 
+/** Message IDs and timestamps are regenerated on recovery; the model-visible data is not. */
+function matchesReceiptHistory(
+  actual: TUniversalMessage,
+  expected: TUniversalMessage,
+  assistant: boolean,
+): boolean {
+  const { id: _actualId, timestamp: _actualTime, metadata: actualMetadata, ...actualData } = actual;
+  const {
+    id: _expectedId,
+    timestamp: _expectedTime,
+    metadata: expectedMetadata,
+    ...expectedData
+  } = expected;
+  void _actualId;
+  void _actualTime;
+  void _expectedId;
+  void _expectedTime;
+  const ownerFields = new Set([
+    'executionId',
+    'providerCallId',
+    'providerId',
+    'modelId',
+    'round',
+    'usageObservationId',
+  ]);
+  const semanticMetadata = (metadata: TUniversalMessage['metadata']) =>
+    Object.fromEntries(
+      Object.entries(metadata ?? {}).filter(([key]) => !assistant || !ownerFields.has(key)),
+    );
+  const normalize = (data: typeof actualData) =>
+    assistant && data.role === 'assistant' ? { ...data, content: data.content ?? '' } : data;
+  return (
+    isJsonEqual(normalize(actualData), normalize(expectedData)) &&
+    sameReceiptMetadata(semanticMetadata(actualMetadata), semanticMetadata(expectedMetadata))
+  );
+}
+
+/** Provider metadata cannot be treated as host-added merely because its key is also host-owned. */
+function matchesSavedProviderMetadata(
+  actual: TUniversalMessage,
+  batch: IRecoveredToolBatch,
+): boolean {
+  const saved = batch.response.metadata;
+  if (!saved) return true;
+  if (!actual.metadata) return false;
+  return Object.keys(saved).every(
+    (key) =>
+      Object.hasOwn(actual.metadata!, key) &&
+      sameReceiptMetadata({ [key]: actual.metadata![key] }, { [key]: saved[key] }),
+  );
+}
+
 /** Verify the saved prefix and any already-published, settled tool-result prefix before effects. */
 function validateHistory(
   existing: TUniversalMessage[],
@@ -73,10 +130,11 @@ function validateHistory(
 ): void {
   if (!existing.length) return;
   const base = batch.checkpoint.messages;
-  if (
-    existing.length < base.length ||
-    recoveryValueKey(existing.slice(0, base.length)) !== recoveryValueKey(base)
-  ) {
+  const prefix = existing.slice(0, base.length);
+  const matchesPrefix = options.includeReceipts
+    ? isUniversalValueEqual(prefix, base)
+    : recoveryValueKey(prefix) === recoveryValueKey(base);
+  if (existing.length < base.length || !matchesPrefix) {
     conflict('Current history differs from the saved runtime checkpoint');
   }
   const suffix = existing.slice(base.length);
@@ -90,6 +148,12 @@ function validateHistory(
     )
   )
     conflict('Current assistant does not match the saved response');
+  if (
+    options.includeReceipts &&
+    (!matchesReceiptHistory(suffix[0], recoveredAssistant(batch, options), true) ||
+      !matchesSavedProviderMetadata(suffix[0], batch))
+  )
+    conflict('Current assistant frame differs from the durable response');
   const calls = batch.response.toolCalls ?? [];
   if (suffix.length > calls.length + 1)
     conflict('History has advanced beyond the recovered tool batch');
@@ -121,7 +185,8 @@ function validateHistory(
       expected.role !== 'tool' ||
       actual.toolCallId !== expected.toolCallId ||
       actual.name !== expected.name ||
-      actual.content !== expected.content
+      actual.content !== expected.content ||
+      (options.includeReceipts && !matchesReceiptHistory(actual, expected, false))
     )
       conflict('Existing tool result conflicts with the durable result');
   }
@@ -145,10 +210,19 @@ export async function restoreJournaledRound(
   options: IResumeToolCallsOptions,
   deps: IRoundDependencies,
   prepared?: { batch: IRecoveredToolBatch; records: readonly TExecutionJournalRecord[] },
+  config?: TAgentExecutionConfig,
 ): Promise<IRestoredExecutionRound> {
   const before = recoveryValueKey(store.getMessages());
+  const beforeReceiptHistory = options.includeReceipts
+    ? structuredClone(store.getMessages())
+    : undefined;
   const unchanged = (): void => {
-    if (before !== recoveryValueKey(store.getMessages()) || store.hasPendingAssistant())
+    if (
+      (beforeReceiptHistory
+        ? !isUniversalValueEqual(beforeReceiptHistory, store.getMessages())
+        : before !== recoveryValueKey(store.getMessages())) ||
+      store.hasPendingAssistant()
+    )
       conflict('History changed during execution recovery');
   };
   unchanged();
@@ -156,6 +230,11 @@ export async function restoreJournaledRound(
   let batch = prepared?.batch ?? recoverToolBatch(records, options.executionId, options.callId);
   options.signal?.throwIfAborted();
   unchanged();
+  if (
+    options.includeReceipts &&
+    !matchesSavedProviderMetadata(recoveredAssistant(batch, options), batch)
+  )
+    conflict('Saved provider metadata conflicts with the recovered assistant frame');
   const existing = structuredClone(store.getMessages());
   validateHistory(existing, batch, options, deps);
   const accepted = await acceptToolResponses(records, options);
@@ -193,6 +272,7 @@ export async function restoreJournaledRound(
   deps.eventEmitter.prepareOwnerPathBases(conversationId);
   try {
     let stop = calls.length === 0;
+    let receipts: readonly IManagedToolReceipt[] | undefined;
     if (calls.length > 0) {
       const outcome = await executeAndRecordToolCalls(
         calls,
@@ -204,13 +284,21 @@ export async function restoreJournaledRound(
         undefined,
         state,
         deps,
-        undefined,
+        config && { ...config, maxSameToolInputs: batch.checkpoint.maxSameToolInputs },
         options.signal,
         undefined,
         batch.checkpoint.maxSameToolInputs,
         undefined,
-        { journal: options.journal, parentCallId: options.callId, recovery: batch },
+        {
+          journal: options.journal,
+          parentCallId: options.callId,
+          recovery: batch,
+          ...(options.includeReceipts && { captureReceipts: true, assistantFrame: batch.response }),
+        },
       );
+      if (options.includeReceipts && !outcome.receipts)
+        conflict('The recovered batch does not have a complete set of durable receipts');
+      receipts = outcome.receipts;
       stop = applyToolOutcome(outcome, state, deps.logger);
     }
     unchanged();
@@ -218,6 +306,7 @@ export async function restoreJournaledRound(
     for (const message of staged.getMessages().slice(existing.length)) store.addMessage(message);
     const committed = structuredClone(store.getMessages());
     const committedKey = recoveryValueKey(committed);
+    const receiptCommitted = options.includeReceipts ? structuredClone(committed) : undefined;
     for (let index = existing.length; index < committed.length; index++) {
       options.onExecutionEvent?.('history_mutation', {
         executionId: options.executionId,
@@ -227,7 +316,12 @@ export async function restoreJournaledRound(
         index,
         message: committed[index],
       });
-      if (committedKey !== recoveryValueKey(store.getMessages()) || store.hasPendingAssistant())
+      if (
+        (receiptCommitted
+          ? !isUniversalValueEqual(receiptCommitted, store.getMessages())
+          : committedKey !== recoveryValueKey(store.getMessages())) ||
+        store.hasPendingAssistant()
+      )
         conflict('History changed while announcing execution recovery');
     }
     if (options.signal?.aborted)
@@ -236,6 +330,7 @@ export async function restoreJournaledRound(
       executionId: options.executionId,
       callId: options.callId,
       messages: structuredClone(store.getMessages()),
+      ...(receipts && { receipts }),
       batch,
       state,
       stop,
@@ -252,12 +347,15 @@ export async function resumeJournaledToolCalls(
   conversationId: string,
   options: IResumeToolCallsOptions,
   deps: IRoundDependencies,
+  config: TAgentExecutionConfig,
 ): Promise<IResumeToolCallsResult> {
-  const { executionId, callId, messages } = await restoreJournaledRound(
+  const { executionId, callId, messages, receipts } = await restoreJournaledRound(
     store,
     conversationId,
     options,
     deps,
+    undefined,
+    config,
   );
-  return { executionId, callId, messages };
+  return { executionId, callId, messages, ...(receipts && { receipts }) };
 }

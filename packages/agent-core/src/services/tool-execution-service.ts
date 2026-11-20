@@ -3,6 +3,7 @@ import { TOOL_SEARCH_TOOL_NAME } from '../interfaces/tool-search';
 import { ValidationError } from '../utils/errors';
 import { isExecutionControlError } from '../utils/execution-control-error';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
+import { isSnapshotableUniversalValue } from '../utils/universal-value-equal';
 import { SilentLogger, type ILogger } from '../utils/logger';
 import { snapshotToolProvenance, withToolProvenance } from '../utils/tool-provenance';
 
@@ -28,7 +29,12 @@ export {
   UNKNOWN_TOOL_ERROR_CODE,
   ARGUMENT_DECODE_ERROR_CODE,
 } from './tool-execution-constants';
-import { TOOL_EVENTS, UNKNOWN_TOOL_ERROR_CODE } from './tool-execution-constants';
+import {
+  TOOL_EVENTS,
+  UNKNOWN_TOOL_ERROR_CODE,
+  ARGUMENT_DECODE_ERROR_CODE,
+  TOOL_CALL_SKIPPED_ERROR_CODE,
+} from './tool-execution-constants';
 
 /**
  * Simplified ToolExecutionService
@@ -154,11 +160,16 @@ export class ToolExecutionService {
       }
 
       const eventService = context.eventService;
+      if (context.beforeToolEffect && !isSnapshotableUniversalValue(parameters))
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_INVALID',
+          'Tool parameters cannot be represented for effect admission',
+        );
       if (eventService) {
         const startEvent: IToolEventData = {
           timestamp: new Date(),
           toolName,
-          parameters,
+          parameters: context.beforeToolEffect ? structuredClone(parameters) : parameters,
         };
         eventService.emit(TOOL_EVENTS.CALL_START, startEvent);
       }
@@ -184,7 +195,35 @@ export class ToolExecutionService {
             success: true,
             data: await this.tools.executeTool(toolName, parameters, executionContext),
           };
-      const envelope = withToolProvenance(rawEnvelope, provenance);
+      // Only the host can classify a call as unknown, undecodable, or skipped. A tool's
+      // own metadata cannot turn an entered body into one of those pre-dispatch outcomes.
+      let ownedEnvelope = rawEnvelope;
+      if (context.beforeToolEffect) {
+        try {
+          const { success, data, parts, error, metadata } = rawEnvelope;
+          ownedEnvelope = structuredClone({ success, data, parts, error, metadata });
+        } catch {
+          throw new ExecutionRecoveryError(
+            'EXECUTION_RECOVERY_REQUIRED',
+            'Tool result cannot be safely settled after the effect',
+          );
+        }
+      }
+      const metadata = ownedEnvelope.metadata;
+      const reserved =
+        metadata?.errorCode === UNKNOWN_TOOL_ERROR_CODE ||
+        metadata?.errorCode === ARGUMENT_DECODE_ERROR_CODE ||
+        metadata?.errorCode === TOOL_CALL_SKIPPED_ERROR_CODE;
+      let safeEnvelope = ownedEnvelope;
+      if (metadata && (reserved || metadata.dispatchStatus !== undefined)) {
+        const { errorCode, dispatchStatus: _dispatchStatus, ...rest } = metadata;
+        void _dispatchStatus;
+        safeEnvelope = {
+          ...ownedEnvelope,
+          metadata: { ...rest, ...(!reserved && errorCode !== undefined && { errorCode }) },
+        };
+      }
+      const envelope = withToolProvenance(safeEnvelope, provenance);
       if (!envelope.success) {
         const error = envelope.error || 'Tool execution failed';
         eventService?.emit(TOOL_EVENTS.CALL_ERROR, { timestamp: new Date(), toolName, error });
@@ -208,7 +247,7 @@ export class ToolExecutionService {
         const completeEvent: IToolEventData = {
           timestamp: new Date(),
           toolName,
-          result,
+          result: context.beforeToolEffect ? structuredClone(result) : result,
         };
         eventService.emit(TOOL_EVENTS.CALL_COMPLETE, completeEvent);
         eventService.emit(TOOL_EVENTS.CALL_RESPONSE_READY, completeEvent);
