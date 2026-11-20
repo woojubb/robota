@@ -12,7 +12,7 @@ import { appendExecutionRecord } from './execution-journal';
 import type { IExecutionJournal } from '../interfaces/execution-journal';
 import type { IRecoveredToolBatch } from './execution-recovery-state';
 import { toolContinuation } from './execution-tool-waits';
-import { callPluginHook } from './plugin-hook-dispatcher';
+import { toolExecutionLifecycle } from './tool-execution-lifecycle';
 
 import type { IRoundDependencies } from './execution-round-types';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
@@ -199,28 +199,16 @@ export async function executeAndRecordToolCalls(
     scheduling: policy?.scheduling ?? new Map(),
     signal,
   };
-  toolContext.lifecycle = {
-    beforeDispatch: async (index, toolData) => {
-      // A pre-effect wait resumes the wrapper, not a new logical call.
-      const request = toolRequests[index];
-      if (journalContext?.recovery?.actions.get(request.executionId ?? '')?.dispatched) return;
-      const context = { toolData, executionContext: { executionId, sessionId: conversationId } };
-      await callPluginHook(deps.plugins, 'beforeToolCall', context, logger);
-      await callPluginHook(deps.plugins, 'beforeToolExecution', context, logger);
-    },
-    onResult: async (_index, toolData, toolResult) => {
-      await callPluginHook(
-        deps.plugins,
-        'afterToolCall',
-        {
-          toolData,
-          toolResult,
-          executionContext: { executionId, sessionId: conversationId },
-        },
-        logger,
-      );
-    },
-  };
+  toolContext.lifecycle = toolExecutionLifecycle({
+    plugins: deps.plugins,
+    logger,
+    executionId,
+    sessionId: conversationId,
+    // A pre-effect wait resumes the wrapper, not a new logical call.
+    alreadyDispatched: (index) =>
+      journalContext?.recovery?.actions.get(toolRequests[index].executionId ?? '')?.dispatched ===
+      true,
+  });
   if (journalContext) {
     const { journal, parentCallId } = journalContext;
     const recovered = toolRequests.map((request) =>
