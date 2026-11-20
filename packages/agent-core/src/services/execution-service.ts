@@ -27,6 +27,7 @@ import {
 import { userMessageMetadata } from './execution-user-message';
 import { callPluginHook, type TPluginWithHooks } from './plugin-hook-dispatcher';
 import { ToolExecutionService } from './tool-execution-service';
+import { toolExecutionLifecycle } from './tool-execution-lifecycle';
 import { isAbortFailure } from '../utils/abort-classification';
 import { isExecutionControlError } from '../utils/execution-control-error';
 import { createLogger, type ILogger } from '../utils/logger';
@@ -91,13 +92,44 @@ export class ExecutionService {
     this.toolExecutionService.setAskHandler(ask);
   }
 
-  /** A direct catalog call uses the existing executor, without a provider/history round. */
-  invokeRuntimeTool(
+  /** A direct catalog call uses the same batch boundary, without a provider/history round. */
+  async invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
     context: IToolExecutionContext,
   ): Promise<IToolExecutionResult> {
-    return this.toolExecutionService.executeTool(name, parameters, context, 'registered');
+    // Preserve the existing failed result for an invalid direct call lacking its identity.
+    if (!context.executionId)
+      return this.toolExecutionService.executeTool(name, parameters, context, 'registered');
+    const { results, errors } = await this.toolExecutionService.executeTools({
+      requests: [
+        {
+          toolName: name,
+          parameters,
+          executionId: context.executionId,
+          ownerType: context.ownerType ?? 'tool',
+          ownerId: context.ownerId ?? context.executionId,
+          ownerPath: context.ownerPath,
+          eventService: context.eventService,
+          baseEventService: context.baseEventService,
+          metadata: context.metadata,
+          ask: context.ask,
+        },
+      ],
+      mode: 'sequential',
+      catalog: 'registered',
+      parentContext: context,
+      signal: context.signal,
+      lifecycle: toolExecutionLifecycle({
+        plugins: this.plugins,
+        logger: this.logger,
+        executionId: context.executionId,
+        sessionId: context.sessionId,
+      }),
+    });
+    const result = results[0];
+    if (!result) throw errors[0] ?? new Error('[EXECUTION] Direct tool call did not settle');
+    return result;
   }
 
   resume(

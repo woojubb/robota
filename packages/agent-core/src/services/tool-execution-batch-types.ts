@@ -23,6 +23,9 @@ export interface IToolExecutionBatchContext {
   maxConcurrency?: number;
   /** Call-ID policy, snapshotted and validated before dispatch. Missing calls are conservative. */
   scheduling?: ReadonlyMap<string, IToolCallScheduling>;
+  /** Direct callers may invoke registered deferred tools; model calls use the offered catalog. */
+  catalog?: 'offered' | 'registered';
+  /** Preserve caller-owned fields such as interactive permission policy for direct calls. */
   parentContext?: IToolExecutionContext;
   /** AbortSignal — queued tools are skipped when aborted */
   signal?: AbortSignal;

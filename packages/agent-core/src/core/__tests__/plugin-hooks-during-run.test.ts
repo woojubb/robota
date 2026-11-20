@@ -3,13 +3,14 @@
  * and the event emitter plugin reports a failed tool call as a tool error.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { AbstractPlugin } from '../../abstracts/abstract-plugin';
 import { AbstractTool } from '../../abstracts/abstract-tool';
 import { EventEmitterPlugin } from '../../plugins/event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from '../../plugins/event-emitter/types';
 import { createScriptedProvider, type TScriptedTurn } from '../../testing/scripted-provider';
+import { FunctionTool } from '../../tool-registry/function-tool';
 import { ConversationAgent } from '../conversation-agent';
 
 import type { IPluginExecutionContext } from '../../abstracts/abstract-plugin-types';
@@ -103,6 +104,116 @@ function agentWith(plugins: IAgentConfig['plugins'], provider?: IAIProvider): Co
 }
 
 describe('plugin hooks during a run', () => {
+  it('wraps direct runtime tool attempts in the same lifecycle as model calls', async () => {
+    const plugin = new RecordingPlugin();
+    const agent = agentWith([plugin]);
+    try {
+      const invoke = (name: string, executionId: string) =>
+        agent.invokeRuntimeTool(name, {}, { toolName: name, parameters: {}, executionId });
+      expect(await invoke('works', 'direct-known')).toMatchObject({ success: true });
+      expect(await invoke('missing', 'direct-missing')).toMatchObject({ success: false });
+      expect(plugin.calls).toEqual([
+        'before:works',
+        'execute:works',
+        'after:works:true',
+        'before:missing',
+        'execute:missing',
+        'after:missing:false',
+      ]);
+      expect(plugin.startedIds).toEqual(['direct-known', 'direct-missing']);
+      expect(plugin.finishedIds).toEqual(plugin.startedIds);
+      expect(agent.getHistory()).toEqual([]);
+    } finally {
+      await agent.destroy();
+    }
+  });
+
+  it('retains a direct caller effect-admission barrier in the shared execution path', async () => {
+    const plugin = new RecordingPlugin();
+    const agent = agentWith([plugin]);
+    let admissions = 0;
+    try {
+      const result = await agent.invokeRuntimeTool(
+        'works',
+        {},
+        {
+          toolName: 'works',
+          parameters: {},
+          executionId: 'direct-admission',
+          beforeToolEffect: async () => {
+            admissions++;
+            throw new Error('admission refused');
+          },
+        },
+      );
+      expect(admissions).toBe(1);
+      expect(result).toMatchObject({
+        success: false,
+        error: expect.stringContaining('admission refused'),
+      });
+      expect(plugin.calls).toEqual(['before:works', 'execute:works', 'after:works:false']);
+    } finally {
+      await agent.destroy();
+    }
+  });
+
+  it('waits for a direct pre-tool hook to settle after cancellation without starting an effect', async () => {
+    let entered!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => (entered = resolve));
+    const held = new Promise<void>((resolve) => (release = resolve));
+    class Gate extends AbstractPlugin {
+      readonly name = 'gate';
+      readonly version = '1';
+      override async beforeToolCall(): Promise<void> {
+        entered();
+        await held;
+      }
+    }
+    const effect = vi.fn(async () => 'done');
+    const provider = createScriptedProvider([]).provider;
+    const agent = new ConversationAgent({
+      name: 'direct-cancellation',
+      aiProviders: [provider],
+      defaultModel: { provider: provider.name, model: 'test-model' },
+      tools: [
+        new FunctionTool(
+          { name: 'works', description: 'Test', parameters: { type: 'object', properties: {} } },
+          effect,
+        ),
+      ],
+      plugins: [new Gate()],
+    });
+    const controller = new AbortController();
+    const invocation = agent.invokeRuntimeTool(
+      'works',
+      {},
+      {
+        toolName: 'works',
+        parameters: {},
+        executionId: 'direct-cancelled',
+        signal: controller.signal,
+      },
+    );
+    try {
+      await started;
+      controller.abort();
+      let settled = false;
+      void invocation.then(
+        () => (settled = true),
+        () => (settled = true),
+      );
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      release();
+      expect(await invocation).toMatchObject({ success: false });
+      expect(effect).not.toHaveBeenCalled();
+    } finally {
+      release();
+      await agent.destroy();
+    }
+  });
+
   it('wraps each tool attempt, including unknown tools, in awaited hooks', async () => {
     const plugin = new RecordingPlugin();
     const agent = agentWith(
