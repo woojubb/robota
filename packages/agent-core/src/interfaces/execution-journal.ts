@@ -1,7 +1,7 @@
 import type { TUniversalMessage } from './messages';
 import type { IManagedToolReceipt } from './managed-provider';
 import type { IChatOptions } from './provider';
-import type { IToolCallScheduling, IToolExecutionResult, TToolParameters } from './tool';
+import type { IToolExecutionResult, TToolParameters } from './tool';
 import type { TToolSearchSetting } from './tool-search';
 import type { IRunTraceContext } from './trace-context';
 import type { TMetadata } from './types';
@@ -42,7 +42,19 @@ export interface IJournalToolBatchPolicy {
   mode: 'parallel' | 'sequential';
   maxConcurrency: number;
   continueOnError: boolean;
-  scheduling?: Array<[string, IToolCallScheduling]>;
+  scheduling?: Array<
+    [
+      string,
+      {
+        dependsOn: string[];
+        /** Invalid scalar declarations are retained so the scheduler can refuse them normally. */
+        resources?: Array<{
+          key: string | number | boolean | null;
+          access: string | number | boolean | null;
+        }>;
+      },
+    ]
+  >;
 }
 
 export interface IExecutionContinuationState {

@@ -1,13 +1,21 @@
 import { z } from 'zod';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import type { IJournalToolBatchPolicy } from '../interfaces/execution-journal';
+import type { IToolCallScheduling } from '../interfaces/tool';
 import type { IToolExecutionBatchContext } from './tool-execution-batch-types';
 
 const scheduling = z
   .object({
     dependsOn: z.array(z.string()),
     resources: z
-      .array(z.object({ key: z.string(), access: z.enum(['read', 'write']) }).strict())
+      .array(
+        z
+          .object({
+            key: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+            access: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+          })
+          .strict(),
+      )
       .optional(),
   })
   .strict();
@@ -36,17 +44,19 @@ export function parseBatchPolicy(value: unknown): IJournalToolBatchPolicy {
   const result = parsed.data;
   for (const [, entry] of result.scheduling ?? []) {
     entry.dependsOn.sort();
-    entry.resources?.sort((left, right) =>
-      left.key === right.key
-        ? left.access < right.access
-          ? -1
-          : left.access > right.access
-            ? 1
-            : 0
-        : left.key < right.key
-          ? -1
-          : 1,
-    );
+    if (
+      entry.resources?.every(
+        (resource) =>
+          typeof resource.key === 'string' &&
+          (resource.access === 'read' || resource.access === 'write'),
+      )
+    ) {
+      entry.resources.sort((left, right) => {
+        const a = `${left.key}\u0000${left.access}`;
+        const b = `${right.key}\u0000${right.access}`;
+        return a < b ? -1 : a > b ? 1 : 0;
+      });
+    }
   }
   result.scheduling?.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
   return result;
@@ -63,27 +73,32 @@ export function snapshotBatchPolicy(batch: IToolExecutionBatchContext): IJournal
         ? count
         : Math.min(count, Math.max(1, Math.floor(requested)));
   try {
+    const detachedScheduling =
+      batch.scheduling === undefined
+        ? undefined
+        : new Map<string, IToolCallScheduling>(
+            Array.from(batch.scheduling, ([id, value]) => [
+              id,
+              {
+                dependsOn: [...(value.dependsOn ?? [])],
+                ...(value.resources !== undefined && {
+                  resources: value.resources.map(({ key, access }) => ({ key, access })),
+                }),
+              },
+            ]),
+          );
     const snapshot = parseBatchPolicy({
       version: 1,
       mode: batch.mode,
       maxConcurrency: concurrency,
       continueOnError: batch.continueOnError ?? false,
-      ...(batch.scheduling !== undefined && {
-        scheduling: Array.from(batch.scheduling, ([id, value]) => [
-          id,
-          {
-            dependsOn: [...(value.dependsOn ?? [])],
-            ...(value.resources !== undefined && {
-              resources: value.resources.map(({ key, access }) => ({ key, access })),
-            }),
-          },
-        ]),
+      ...(detachedScheduling !== undefined && {
+        scheduling: Array.from(detachedScheduling),
       }),
     });
     batch.maxConcurrency = snapshot.maxConcurrency;
     batch.continueOnError = snapshot.continueOnError;
-    batch.scheduling =
-      snapshot.scheduling === undefined ? undefined : new Map(structuredClone(snapshot.scheduling));
+    batch.scheduling = detachedScheduling;
     return snapshot;
   } catch (error) {
     if (error instanceof ExecutionRecoveryError) throw error;

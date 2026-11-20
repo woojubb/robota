@@ -358,6 +358,29 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).toHaveBeenCalledTimes(2);
   });
 
+  it('preserves the scheduler refusal for an invalid resource declaration during recovery', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      const resource: { key: string; access: 'read' | 'write' } = {
+        key: 'shared',
+        access: 'write',
+      };
+      Object.assign(resource, { access: 'invalid' });
+      return { scheduling: new Map([[calls[0].id, { resources: [resource] }]]) };
+    };
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-result', true, source);
+    expect(source.effect).not.toHaveBeenCalled();
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(fresh.effect).not.toHaveBeenCalled();
+    expect(result.receipts).toHaveLength(2);
+    expect(
+      result.receipts?.every(
+        (receipt) => receipt.result.metadata?.errorCode === 'tool_call_skipped',
+      ),
+    ).toBe(true);
+  });
+
   it('keeps legacy batches unbound while recovering under the equivalent host policy', async () => {
     const saved = await stoppedAt('tool-intent', true);
     for (const record of saved.records) {
