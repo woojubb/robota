@@ -62,8 +62,14 @@ export async function continueJournaledExecution(
   deps: IExecutionRoundDeps,
 ): Promise<ICoreExecutionResult> {
   const before = recoveryValueKey(store.getMessages());
-  const records = await options.journal.read(options.executionId);
-  assertRawJournalPolicyRecords(records);
+  const source = await options.journal.read(options.executionId);
+  assertRawJournalPolicyRecords(source);
+  let records: typeof source;
+  try {
+    records = structuredClone(source);
+  } catch {
+    invalid('Execution journal is not a valid recoverable record prefix');
+  }
   options.signal?.throwIfAborted();
   const invocation = records.findLast(
     (record) => record.kind === 'model-request' || record.kind === 'model-cache-hit',

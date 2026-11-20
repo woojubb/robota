@@ -635,6 +635,21 @@ describe('provider-free journal continuation', () => {
     },
   );
 
+  it('does not read a journal record kind accessor during execution continuation', async () => {
+    const saved = await stoppedAt('tool-intent', true);
+    const intent = saved.records.find((record) => record.kind === 'tool-intent');
+    if (!intent) throw new Error('Missing intent');
+    const getter = vi.fn(() => 'tool-intent');
+    Object.defineProperty(intent, 'kind', { get: getter, enumerable: true });
+    saved.journal.read.mockImplementation(async () => saved.records);
+    const fresh = fixture();
+    await expect(
+      fresh.agent.resume({ executionId: saved.executionId, journal: saved.journal }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(getter).not.toHaveBeenCalled();
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
   it('keeps legacy batches unbound while recovering under the equivalent host policy', async () => {
     const saved = await stoppedAt('tool-intent', true);
     for (const record of saved.records) {
