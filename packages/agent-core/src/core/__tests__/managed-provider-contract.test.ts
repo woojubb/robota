@@ -33,6 +33,27 @@ function managedProvider() {
 }
 
 describe('provider execution contract', () => {
+  it.each(['constructor', 'toString'])(
+    'treats inherited ownership names as absent for provider %s',
+    async (name) => {
+      const step = { ...createScriptedProvider([{ text: 'answer' }]).provider, name };
+      const config: IAgentConfig = {
+        name: 'legacy',
+        aiProviders: [step],
+        defaultModel: { provider: name, model: 'legacy-model' },
+      };
+      const agent = new ConversationAgent(config);
+      try {
+        await expect(
+          agent.configure({ ...config, providerOwnership: {} }),
+        ).resolves.toBeUndefined();
+        await expect(agent.run('hello')).resolves.toBe('answer');
+      } finally {
+        await agent.destroy();
+      }
+    },
+  );
+
   it('retains history when a managed stream is refused before a turn starts', async () => {
     const { provider } = managedProvider();
     const agent = new ConversationAgent({

@@ -173,6 +173,8 @@ export class ConversationAgent
       throw new ManagedRunUnavailableError(selected.name);
     const current = this.aiProviders.getCurrentProvider();
     const registered = this.aiProviders.getExecutionProviders();
+    const ownershipOf = (ownership: TAgentExecutionConfig['providerOwnership'], name: string) =>
+      ownership && Object.hasOwn(ownership, name) ? ownership[name] : 'owned';
     if (
       !current ||
       current.provider !== config.defaultModel.provider ||
@@ -183,8 +185,8 @@ export class ConversationAgent
       config.aiProviders.some(
         (provider) =>
           registered[provider.name] !== provider ||
-          (config.providerOwnership?.[provider.name] ?? 'owned') !==
-            (this.config.providerOwnership?.[provider.name] ?? 'owned'),
+          ownershipOf(config.providerOwnership, provider.name) !==
+            ownershipOf(this.config.providerOwnership, provider.name),
       )
     ) {
       throw new Error(
