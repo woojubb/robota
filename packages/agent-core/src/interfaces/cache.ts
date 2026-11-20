@@ -58,7 +58,10 @@ export interface ICacheStats {
  * Configuration options for execution caching
  */
 export interface ICacheOptions {
-  /** Enable response caching for eligible requests. Requests offering host tools bypass it. */
+  /**
+   * Enable response caching for eligible text requests. The provider must explicitly declare the
+   * request safe; routed requests, tools, non-text input, and provider continuation bypass it.
+   */
   enabled: boolean;
   /** Maximum number of cached entries */
   maxEntries: number;
