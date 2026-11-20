@@ -23,7 +23,7 @@
     "@robota-sdk/agent-transport": "workspace:^",
     "@robota-sdk/agent-ui-web": "workspace:^",
     "@robota-sdk/product-config": "workspace:^",
-    "next": "^15.5.28",
+    "next": "^15.5.29",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
