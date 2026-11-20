@@ -69,6 +69,8 @@ function isPlainData(
   if (seen.has(value)) return true;
   const array = Array.isArray(value);
   if (Object.getPrototypeOf(value) !== (array ? Array.prototype : Object.prototype)) return false;
+  const length = array ? Object.getOwnPropertyDescriptor(value, 'length')?.value : undefined;
+  if (array && (!Number.isSafeInteger(length) || length < 0)) return false;
   seen.add(value);
   active.add(value);
   let count = 0;
@@ -77,12 +79,7 @@ function isPlainData(
     if (typeof key !== 'string') return false;
     if (array) {
       const index = Number(key);
-      if (
-        !Number.isSafeInteger(index) ||
-        index < 0 ||
-        index >= value.length ||
-        String(index) !== key
-      )
+      if (!Number.isSafeInteger(index) || index < 0 || index >= length || String(index) !== key)
         return false;
       count++;
     }
@@ -95,7 +92,7 @@ function isPlainData(
     );
   });
   active.delete(value);
-  return valid && (!array || count === value.length);
+  return valid && (!array || count === length);
 }
 
 function clonePlainData(value: unknown): unknown {
@@ -112,19 +109,16 @@ function clonePlainData(value: unknown): unknown {
 /** Inspect saved policy fields before an outer clone can invoke accessors or drop properties. */
 export function assertRawJournalPolicyRecords(source: unknown): void {
   if (!Array.isArray(source)) invalid('Invalid execution journal');
+  const length = Object.getOwnPropertyDescriptor(source, 'length')?.value;
+  if (!Number.isSafeInteger(length) || length < 0) invalid('Invalid execution journal');
   for (const key of Reflect.ownKeys(source)) {
     if (key === 'length') continue;
     if (typeof key !== 'string') invalid('Invalid execution journal');
     const index = Number(key);
-    if (
-      !Number.isSafeInteger(index) ||
-      index < 0 ||
-      index >= source.length ||
-      String(index) !== key
-    )
+    if (!Number.isSafeInteger(index) || index < 0 || index >= length || String(index) !== key)
       invalid('Invalid execution journal');
   }
-  for (let index = 0; index < source.length; index++) {
+  for (let index = 0; index < length; index++) {
     const item = Object.getOwnPropertyDescriptor(source, String(index));
     const record: unknown = item && 'value' in item ? item.value : undefined;
     if (!item?.enumerable || !record || typeof record !== 'object')

@@ -405,6 +405,7 @@ describe('provider-free journal continuation', () => {
     'proxy map',
     'proxy declaration',
     'proxy resource',
+    'proxy array',
     'accessor',
     'class',
     'array subclass',
@@ -415,6 +416,15 @@ describe('provider-free journal continuation', () => {
     const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
       const resource: { key: string; access: 'read' | 'write' } = { key: 'shared', access: 'read' };
       const declaration: IToolCallScheduling = { resources: [resource] };
+      if (kind === 'proxy array')
+        Object.assign(declaration, {
+          resources: new Proxy([resource], {
+            get(target, key, receiver) {
+              if (key === 'length') getter();
+              return Reflect.get(target, key, receiver);
+            },
+          }),
+        });
       if (kind === 'proxy resource')
         Object.assign(declaration, {
           resources: [
@@ -504,6 +514,26 @@ describe('provider-free journal continuation', () => {
     await expect(
       fresh.agent.resume({ executionId: saved.executionId, journal: saved.journal }),
     ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(getter).not.toHaveBeenCalled();
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
+  it('does not read a proxied journal array before rejecting it', async () => {
+    const saved = await stoppedAt('tool-intent', true);
+    const getter = vi.fn();
+    saved.journal.read.mockImplementation(
+      async () =>
+        new Proxy(saved.records, {
+          get(target, key, receiver) {
+            if (key === 'length') getter();
+            return Reflect.get(target, key, receiver);
+          },
+        }),
+    );
+    const fresh = fixture();
+    await expect(fresh.agent.resumeToolCalls(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_INVALID',
+    });
     expect(getter).not.toHaveBeenCalled();
     expect(fresh.effect).not.toHaveBeenCalled();
   });
