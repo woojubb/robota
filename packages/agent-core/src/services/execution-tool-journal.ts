@@ -79,7 +79,10 @@ export async function attachToolBatchJournal(
       'Active tool batch policy differs from the saved policy',
     );
   }
-  const bindPolicy = recovery?.legacyBatchPolicy !== true;
+  let needsPolicy =
+    !recovery ||
+    (recovery.actions.size === 0 && !recovery.legacyBatchPolicy && !recovery.batchPolicy);
+  let pendingPolicyWrite: Promise<void> | undefined;
   const recovered = requests.map((request) => recovery?.actions.get(request.executionId ?? ''));
   const actions = requests.map((request) => ({
     actionId: recovery?.actions.get(request.executionId ?? '')?.actionId ?? randomId(),
@@ -161,8 +164,9 @@ export async function attachToolBatchJournal(
       recordId: `${actions[index].actionId}:intent`,
       ...actions[index],
       parameters: request.parameters,
-      ...(bindPolicy && { batchPolicy }),
+      ...(needsPolicy && { batchPolicy }),
     });
+    needsPolicy = false;
   }
   batch.journal = {
     continuation: (index) => continuations[index].continuation,
@@ -185,7 +189,6 @@ export async function attachToolBatchJournal(
         ...actions[index],
         result,
         loadedDeferredTools: getLoadedDeferredTools(),
-        ...(bindPolicy && { batchPolicy }),
       } as const;
       if (
         settlements &&
@@ -206,7 +209,16 @@ export async function attachToolBatchJournal(
       } catch (error) {
         throw new ExecutionJournalError(record, error);
       }
-      await appendExecutionRecord(journal, snapshot);
+      if (needsPolicy) {
+        needsPolicy = false;
+        pendingPolicyWrite = appendExecutionRecord(journal, { ...snapshot, batchPolicy });
+        await pendingPolicyWrite;
+      } else {
+        // If every call has malformed arguments, the first result owns the binding. Concurrent
+        // results must wait for it so an unbound result cannot become the first durable record.
+        if (pendingPolicyWrite) await pendingPolicyWrite;
+        await appendExecutionRecord(journal, snapshot);
+      }
       if (settlements) settlements[index] = snapshot.result;
       return structuredClone(snapshot.result);
     },

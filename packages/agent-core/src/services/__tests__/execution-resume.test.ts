@@ -216,7 +216,7 @@ describe('provider-free journal continuation', () => {
     },
   );
 
-  it('records the same policy across a partially written batch and its settlements', async () => {
+  it('records one policy binding across a partially written batch and its settlements', async () => {
     const saved = await stoppedAt('tool-intent', true);
     const fresh = fixture();
     const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
@@ -229,11 +229,7 @@ describe('provider-free journal continuation', () => {
     const first = records[0];
     if (first.kind !== 'tool-intent') throw new Error('Missing intent');
     expect(first.batchPolicy).toBeDefined();
-    for (const record of records) {
-      if (record.kind !== 'tool-intent' && record.kind !== 'tool-result')
-        throw new Error('Unexpected record');
-      expect(record.batchPolicy).toEqual(first.batchPolicy);
-    }
+    for (const record of records.slice(1)) expect(record).not.toHaveProperty('batchPolicy');
   });
 
   it('checks the saved policy before continuing after a durable effect result', async () => {
@@ -282,12 +278,57 @@ describe('provider-free journal continuation', () => {
     expect(changed.effect).not.toHaveBeenCalled();
   });
 
+  it('does not append another malformed result while the first policy write is unacknowledged', async () => {
+    const source = fixture(undefined, undefined, (message) => {
+      if (message.role !== 'assistant' || !message.toolCalls) return message;
+      return {
+        ...message,
+        toolCalls: message.toolCalls.map((call) => ({
+          ...call,
+          function: { ...call.function, arguments: '{invalid' },
+        })),
+      };
+    });
+    const records: TExecutionJournalRecord[] = [];
+    let entered!: () => void;
+    let release!: () => void;
+    const appending = new Promise<void>((resolve) => (entered = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const run = source.agent.run('perform actions', {
+      executionJournal: {
+        append: async (record) => {
+          records.push(structuredClone(record));
+          if (record.kind === 'tool-result') {
+            entered();
+            await gate;
+            throw new Error('lost acknowledgement');
+          }
+        },
+      },
+    });
+    await appending;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const results = records.filter((record) => record.kind === 'tool-result');
+    expect(results).toHaveLength(1);
+    if (results[0].kind !== 'tool-result') throw new Error('Missing result');
+    expect(results[0].batchPolicy).toBeDefined();
+    release();
+    await expect(run).rejects.toMatchObject({ code: 'EXECUTION_JOURNAL_FAILED' });
+    expect(records.filter((record) => record.kind === 'tool-result')).toHaveLength(1);
+    expect(source.effect).not.toHaveBeenCalled();
+  });
+
   it('rejects conflicting policy bindings in the journal before dispatch', async () => {
     const saved = await stoppedAt('tool-dispatch');
     const intents = saved.records.filter((record) => record.kind === 'tool-intent');
     expect(intents).toHaveLength(2);
-    if (intents[1].kind !== 'tool-intent' || !intents[1].batchPolicy)
+    if (
+      intents[0].kind !== 'tool-intent' ||
+      intents[1].kind !== 'tool-intent' ||
+      !intents[0].batchPolicy
+    )
       throw new Error('Missing policy binding');
+    intents[1].batchPolicy = structuredClone(intents[0].batchPolicy);
     intents[1].batchPolicy.mode = 'sequential';
     const fresh = fixture();
     await expect(fresh.agent.resumeToolCalls(saved)).rejects.toMatchObject({
@@ -367,7 +408,8 @@ describe('provider-free journal continuation', () => {
     expect(intents).toHaveLength(2);
     if (intents[0].kind !== 'tool-intent' || intents[1].kind !== 'tool-intent')
       throw new Error('Missing intents');
-    expect(intents[0].batchPolicy).toEqual(intents[1].batchPolicy);
+    expect(intents[0].batchPolicy).toBeDefined();
+    expect(intents[1]).not.toHaveProperty('batchPolicy');
   });
 
   it.each(['sequential', 'dependent'] as const)(

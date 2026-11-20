@@ -148,6 +148,7 @@ function validateBatch(
   const actions = new Map<string, IRecoveredAction>();
   let batchPolicy: IJournalToolBatchPolicy | undefined;
   let legacyBatchPolicy = false;
+  let sawPolicyBoundary = false;
   for (const record of records) {
     if ('callId' in record) {
       if (record.callId !== callId) continue;
@@ -169,9 +170,11 @@ function validateBatch(
     if (record.parentCallId !== callId) continue;
     if (!response) invalid('Tool action precedes its model response');
     if (record.kind === 'tool-intent' || record.kind === 'tool-result') {
-      if (record.batchPolicy === undefined) {
-        legacyBatchPolicy = true;
-      } else {
+      if (!sawPolicyBoundary) {
+        sawPolicyBoundary = true;
+        legacyBatchPolicy = record.batchPolicy === undefined;
+      }
+      if (record.batchPolicy !== undefined) {
         const recorded = parseBatchPolicy(record.batchPolicy);
         if (batchPolicy && !isUniversalValueEqual(batchPolicy, recorded))
           invalid('Tool actions contain conflicting batch policies');
