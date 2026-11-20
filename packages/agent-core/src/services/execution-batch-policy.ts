@@ -65,7 +65,7 @@ function invalidPolicy(): never {
 }
 
 /** Read a scheduler field without invoking an own or inherited accessor. */
-function dataField(value: object, key: string): unknown {
+function dataField(value: object, key: PropertyKey): unknown {
   const visited = new Set<object>();
   let current: object | null = value;
   while (current) {
@@ -81,10 +81,55 @@ function dataField(value: object, key: string): unknown {
   return undefined;
 }
 
+function sameNativeFunction(
+  value: unknown,
+  reference: ((...args: never[]) => unknown) | undefined,
+): boolean {
+  return (
+    typeof value === 'function' &&
+    reference !== undefined &&
+    Function.prototype.toString.call(value) === Function.prototype.toString.call(reference)
+  );
+}
+
+/** Accept ordinary array subclasses and other realms only when their relevant behavior is native. */
+function hasNativeArrayBehavior(value: object): boolean {
+  if (
+    !sameNativeFunction(dataField(value, 'map'), Array.prototype.map) ||
+    !sameNativeFunction(dataField(value, 'some'), Array.prototype.some) ||
+    !sameNativeFunction(dataField(value, Symbol.iterator), Array.prototype[Symbol.iterator])
+  )
+    return false;
+  const species = Object.getOwnPropertyDescriptor(Array, Symbol.species)?.get;
+  let constructor: unknown = dataField(value, 'constructor');
+  const visited = new Set<object>();
+  while (typeof constructor === 'function') {
+    if (visited.has(constructor)) return false;
+    visited.add(constructor);
+    const source = Function.prototype.toString.call(constructor);
+    const descriptor = Object.getOwnPropertyDescriptor(constructor, Symbol.species);
+    if (descriptor)
+      return (
+        source === Function.prototype.toString.call(Array) &&
+        sameNativeFunction(descriptor.get, species) &&
+        descriptor.set === undefined
+      );
+    // Only a default subclass constructor is known not to alter Array species allocation.
+    if (
+      !/^class(?:\s+[$A-Z_a-z][$\w]*)?\s+extends\s+[$A-Z_a-z][$\w]*(?:\.[$A-Z_a-z][$\w]*)*\s*\{\s*\}$/.test(
+        source,
+      )
+    )
+      return false;
+    constructor = Object.getPrototypeOf(constructor);
+  }
+  return false;
+}
+
 /** Copy an array without reading accessors or discarding custom array behavior. */
 function projectArray<T>(value: T, project: (item: unknown) => unknown): T {
   if (!Array.isArray(value)) return value;
-  if (Object.getPrototypeOf(value) !== Array.prototype) return invalidPolicy();
+  if (!hasNativeArrayBehavior(value)) return invalidPolicy();
   const length = Object.getOwnPropertyDescriptor(value, 'length');
   if (!length || !('value' in length) || typeof length.value !== 'number') return invalidPolicy();
   const copy: unknown[] = new Array(length.value);
@@ -105,12 +150,16 @@ function projectArray<T>(value: T, project: (item: unknown) => unknown): T {
     copy[index] = project(descriptor.value);
   }
   for (let index = 0; index < length.value; index++) {
-    if (
-      !Object.hasOwn(value, String(index)) &&
-      (Object.hasOwn(Array.prototype, String(index)) ||
-        Object.hasOwn(Object.prototype, String(index)))
-    )
-      return invalidPolicy();
+    if (!Object.hasOwn(value, String(index))) {
+      let prototype = Object.getPrototypeOf(value);
+      const visited = new Set<object>();
+      while (prototype) {
+        if (visited.has(prototype) || Object.hasOwn(prototype, String(index)))
+          return invalidPolicy();
+        visited.add(prototype);
+        prototype = Object.getPrototypeOf(prototype);
+      }
+    }
   }
   // The copy preserves the array's scheduler-visible data; malformed elements stay for validation.
   return copy as T;
@@ -118,7 +167,11 @@ function projectArray<T>(value: T, project: (item: unknown) => unknown): T {
 
 function projectResource(value: unknown): unknown {
   if (value === null || typeof value !== 'object') return value;
-  return { key: dataField(value, 'key'), access: dataField(value, 'access') };
+  const key = dataField(value, 'key');
+  if (typeof key !== 'string' || !key.trim()) return { key: null, access: null };
+  const access = dataField(value, 'access');
+  if (access !== 'read' && access !== 'write') return { key, access: null };
+  return { key, access };
 }
 
 function projectResources(value: unknown): unknown {

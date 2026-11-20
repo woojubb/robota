@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { runInNewContext } from 'node:vm';
 import { ConversationAgent } from '../../core/conversation-agent';
 import { AbstractPlugin } from '../../abstracts/abstract-plugin';
 import { ObservableEventService } from '../../event-service/event-service';
@@ -432,6 +433,38 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).toHaveBeenCalledTimes(2);
   });
 
+  it.each(['subclass', 'other realm'] as const)(
+    'accepts a native-behavior resource array from %s',
+    async (kind) => {
+      class Resources extends Array<{ key: string; access: 'read' | 'write' }> {}
+      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+        const resources: NonNullable<IToolCallScheduling['resources']> =
+          kind === 'subclass' ? new Resources() : runInNewContext('[]');
+        return { scheduling: new Map(calls.map((call) => [call.id, { resources }])) };
+      };
+      const source = fixture(undefined, undefined, undefined, policy);
+      const saved = await stoppedAt('tool-intent', true, source);
+      const fresh = fixture(undefined, undefined, undefined, policy);
+      await fresh.agent.resumeToolCalls(saved);
+      expect(fresh.effect).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('rejects a custom array species before any tool effect', async () => {
+    const getter = vi.fn(() => Array);
+    class Resources extends Array<{ key: string; access: 'read' | 'write' }> {}
+    Object.defineProperty(Resources, Symbol.species, { get: getter });
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      scheduling: new Map(calls.map((call) => [call.id, { resources: new Resources() }])),
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    await expect(
+      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(getter).not.toHaveBeenCalled();
+    expect(source.effect).not.toHaveBeenCalled();
+  });
+
   it('preserves a scheduler refusal for a non-array data-only resource container', async () => {
     const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
       const declaration: IToolCallScheduling = {};
@@ -458,6 +491,28 @@ describe('provider-free journal continuation', () => {
       ),
     ).toBe(true);
   });
+
+  it.each(['key', 'access'] as const)(
+    'preserves the scheduler refusal for a non-serializable resource %s',
+    async (field) => {
+      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+        const resource: { key: string; access: 'read' | 'write' } = { key: 'db', access: 'read' };
+        Object.assign(resource, { [field]: new Set() });
+        return { scheduling: new Map([[calls[0].id, { resources: [resource] }]]) };
+      };
+      const baseline = fixture(undefined, undefined, undefined, policy);
+      await baseline.agent.run('perform actions');
+      const source = fixture(undefined, undefined, undefined, policy);
+      const saved = await stoppedAt('tool-result', true, source);
+      const first = saved.records.find((record) => record.kind === 'tool-result');
+      if (first?.kind !== 'tool-result') throw new Error('Missing refusal');
+      const baselineResult = baseline.agent.getHistory().find((message) => message.role === 'tool');
+      expect(baselineResult?.content).toContain(first.result.error);
+      const fresh = fixture(undefined, undefined, undefined, policy);
+      await fresh.agent.resumeToolCalls(saved);
+      expect(fresh.effect).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(['invalid access', 'missing access', 'null resource', 'undefined resource'] as const)(
     'preserves the scheduler refusal for %s during recovery',
