@@ -72,6 +72,63 @@ use relevance and readiness, but dismissal and privacy controls belong to the pe
 measure interest; only independently checked outcomes count as completed work. Personal activity
 stays in owner state unless the person explicitly opts into aggregation.
 
+## Proactive offers
+
+An offer can be made without an open chat or page, but only while the personal-agent host is running.
+Connected-source sync and due Goals provide the first triggers. An authenticated event from a source
+can be another trigger when that source supports one. An owner-enabled, scheduled review of Library
+and open Goals can find opportunities without a new external item. Each trigger has a durable cursor
+or source reference and a bounded amount of work; waking the agent is not permission to browse every
+connected account or start an unbounded model loop. A stopped local process cannot wake itself. A
+continuously running installation is needed for timely delivery while the person's devices are off.
+
+The agent may propose an offer candidate from information it was allowed to read. A candidate names
+an installed definition revision, the exact source item and account, when it was observed, a short
+factual basis, why acting now may help, and any suggested inputs. The host validates those fields,
+keeps the source as untrusted data, and rejects a candidate that cannot be tied to a trusted
+definition. An observation without such a definition may remain an Idea or Case; it is not advertised
+as a runnable recommendation. A Case asks for a decision about a matter already found; an Offer
+proposes optional work. The same source matter must not produce both an active Case question and an
+interrupting Offer.
+
+Before showing or sending a candidate, a host-owned gate checks that its source still exists or has
+not been superseded, its evidence is current enough for the promised result, its inputs and account
+are unambiguous, the person's topic and source preferences allow it, it has not already been
+accepted or dismissed, and the definition is ready or has an exact setup path. The model can explain
+relevance, but cannot override a failed gate. Rank eligible offers by the person's stated interests,
+timeliness, expected benefit, readiness, and novelty; show the reason and source on the card. Begin
+with explicit rules that can be inspected. Learn weights only from actual feedback, without making a
+larger permission or notification allowance from that feedback.
+
+Each offer has a stable key from definition, account, and source matter, plus an expiry and cooldown.
+Repeated syncs update evidence on the same offer rather than making more cards or notifications.
+The host rechecks relevance and readiness at delivery and again on click, since the source, account,
+or permission may have changed. An outdated offer is withdrawn or explained, never launched with
+stale facts. Offers and their decisions survive a restart; restarting cannot reset the cooldown or
+send the same offer again.
+
+Every eligible offer may appear in Browse and Feed. Outward interruption is a separate choice:
+optional, ready offers are feed-only by default, and the person can enable notification or digest
+delivery for chosen topics. Those deliveries share the person's daily limit, quiet hours, and digest
+budget with Case questions, with a stricter per-source cooldown for offers. They cannot use Goal
+report notifications to bypass that budget. A notification opens the exact offer and its evidence;
+pressing it does not start the task. The person can dismiss, snooze, mute a topic or source, or turn
+proactive offers off without disconnecting an account.
+
+The offer store records eligibility and delivery decisions separately from owner reactions: shown,
+opened, accepted, started, verified complete, dismissed, snoozed, and muted. Ignored or dismissed
+offers should reduce similar interruptions, while accepted but unfinished work must not be counted
+as success. A connector failure or lack of fresh evidence lowers confidence rather than fabricating
+a recommendation. A low-confidence candidate can stay in Browse for inspection instead of being
+pushed.
+
+Quality is judged on real, consented use as well as deterministic fixtures. Replay source changes,
+duplicates, late arrivals, revoked access, restarts, and adversarial source text; verify that no
+unsupported card is called ready and no disallowed interruption escapes. Then review actual offers
+for factual support, timeliness, usefulness, missed worthwhile opportunities, and interruption
+regret. Record acceptance and verified completion separately, by source and topic. Do not claim that
+proactivity works well from scheduler tests or notification delivery alone.
+
 ## Readiness and launch
 
 The host computes readiness when the page is shown and again when the person presses **Start**. It
@@ -123,6 +180,12 @@ Goal/Feed journey through the existing owner-authenticated API. Browse can group
 category and show the person's offers separately. An "often chosen" group requires an actual,
 privacy-controlled aggregate; it must not show request counts as verified successes. Connector
 discovery remains about *services*; it is not the task catalog.
+
+The root schedules bounded candidate turns using the existing background runner. The personal pack
+needs an offer record and Feed item contract, plus a delivery policy that counts optional offer
+notifications and Case questions against the same owner limits. The root decides which verified
+capability bindings a candidate can name. The UI exposes evidence and feedback controls; it never
+turns a notification into an implicit launch.
 
 The personal capability pack continues to own reusable Goal, Idea, Case, connector, and approval
 contracts. Extend a neutral contract only where the launch needs a typed origin or a dispatch fence
