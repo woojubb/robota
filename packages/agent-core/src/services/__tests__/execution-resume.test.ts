@@ -544,6 +544,25 @@ describe('provider-free journal continuation', () => {
     expect(source.effect).not.toHaveBeenCalled();
   });
 
+  it('rejects an uninitialized subclass field even if removed from the input', async () => {
+    const Resources = runInNewContext('class Resources extends Array { some; }; Resources');
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      scheduling: new Map(
+        calls.map((call) => {
+          const resources: Array<{ key: string; access: 'read' | 'write' }> = new Resources();
+          Reflect.deleteProperty(resources, 'some');
+          resources.push({ key: call.id, access: 'write' });
+          return [call.id, { resources }];
+        }),
+      ),
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    await expect(
+      source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(source.effect).not.toHaveBeenCalled();
+  });
+
   it('rejects a different mapped-array constructor before any tool effect', async () => {
     const Resources = runInNewContext(`class Other extends Array { some() { return true; } }
       class Resources extends Array {}
@@ -893,6 +912,48 @@ describe('provider-free journal continuation', () => {
     ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
     expect(source.effect).not.toHaveBeenCalled();
   });
+
+  it.each(['own getter', 'inherited getter', 'coercion object'] as const)(
+    'does not evaluate Error metadata through a %s while probing a policy',
+    async (kind) => {
+      const invoked = vi.fn(() => 'changed');
+      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+        const resource: { key: string; access: 'read' | 'write' } = {
+          key: 'shared',
+          access: 'write',
+        };
+        const diagnostic = new Error();
+        const read = () => {
+          invoked();
+          resource.access = 'read';
+          return 'changed';
+        };
+        if (kind === 'own getter')
+          Object.defineProperty(diagnostic, 'message', { get: read, configurable: true });
+        if (kind === 'inherited getter') {
+          Reflect.deleteProperty(diagnostic, 'message');
+          Object.setPrototypeOf(
+            diagnostic,
+            Object.create(Error.prototype, { message: { get: read } }),
+          );
+        }
+        if (kind === 'coercion object')
+          Object.defineProperty(diagnostic, 'message', {
+            value: { toString: read },
+            configurable: true,
+          });
+        const declaration: IToolCallScheduling = { resources: [resource] };
+        Object.assign(declaration, { diagnostic });
+        return { scheduling: new Map(calls.map((call) => [call.id, declaration])) };
+      };
+      const source = fixture(undefined, undefined, undefined, policy);
+      await expect(
+        source.agent.run('perform actions', { executionJournal: { append: async () => {} } }),
+      ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+      expect(invoked).not.toHaveBeenCalled();
+      expect(source.effect).not.toHaveBeenCalled();
+    },
+  );
 
   it('rejects extra array properties before they can be lost from a policy binding', async () => {
     const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {

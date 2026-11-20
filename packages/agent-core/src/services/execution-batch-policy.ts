@@ -97,10 +97,31 @@ function isCloneProbeData(value: unknown, seen = new WeakSet<object>()): boolean
       }
       if (members) for (const item of members) if (!isCloneProbeData(item, seen)) return false;
     }
+    // Structured cloning has special reads for Error fields, even when they are inherited or hidden.
+    for (const key of ['name', 'message', 'stack', 'cause', 'errors']) {
+      const chain = new Set<object>();
+      let current: object | null = value;
+      while (current) {
+        if (chain.has(current)) return false;
+        chain.add(current);
+        const descriptor = Object.getOwnPropertyDescriptor(current, key);
+        if (descriptor) {
+          if (!('value' in descriptor)) return false;
+          if (
+            (key === 'name' || key === 'message' || key === 'stack') &&
+            descriptor.value !== null &&
+            typeof descriptor.value === 'object'
+          )
+            return false;
+          if (!isCloneProbeData(descriptor.value, seen)) return false;
+          break;
+        }
+        current = Object.getPrototypeOf(current);
+      }
+    }
     for (const key of Reflect.ownKeys(value)) {
-      if (typeof key !== 'string') continue;
       const descriptor = Object.getOwnPropertyDescriptor(value, key);
-      if (!descriptor || !descriptor.enumerable) continue;
+      if (!descriptor) return false;
       if (!('value' in descriptor) || !isCloneProbeData(descriptor.value, seen)) return false;
     }
     return true;
@@ -199,6 +220,43 @@ function mapEntries(
   return invalidPolicy();
 }
 
+/** Accept only subclass bodies whose instance construction is the default Array behavior. */
+function hasMethodOnlySubclass(source: string): boolean {
+  const header =
+    /^class(?:\s+[$A-Z_a-z][$\w]*)?\s+extends\s+[$A-Z_a-z][$\w]*(?:\.[$A-Z_a-z][$\w]*)*\s*\{/.exec(
+      source,
+    );
+  if (!header || /\bconstructor\b|\\|`|\//.test(source)) return false;
+  let depth = 1;
+  let start = header[0].length;
+  let quote: string | undefined;
+  for (let index = start; index < source.length; index++) {
+    const char = source[index];
+    if (quote) {
+      if (char === quote) quote = undefined;
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quote = char;
+      continue;
+    }
+    if (char === '{') {
+      if (depth === 1) {
+        const method = source.slice(start, index).trim();
+        if (!/^(?:(?:static|async|get|set)\s+)*[$A-Z_a-z][$\w]*\s*\([^()]*\)\s*$/.test(method))
+          return false;
+      }
+      depth++;
+    } else if (char === '}') {
+      depth--;
+      if (depth === 0)
+        return source.slice(start, index).trim() === '' && source.slice(index + 1).trim() === '';
+      if (depth === 1) start = index + 1;
+    } else if (depth === 1 && (char === ';' || char === '=')) return false;
+  }
+  return false;
+}
+
 /** Accept ordinary array subclasses and other realms only when their relevant behavior is native. */
 function hasNativeArrayBehavior(value: object): boolean {
   let prototype = Object.getPrototypeOf(value);
@@ -283,13 +341,7 @@ function hasNativeArrayBehavior(value: object): boolean {
       }
     }
     // A custom constructor or species could change the mapped resource array.
-    if (
-      descriptor ||
-      !/^class\b/.test(source) ||
-      !/\bextends\b/.test(source) ||
-      /\bconstructor\b|\\|=/.test(source)
-    )
-      return false;
+    if (descriptor || !hasMethodOnlySubclass(source)) return false;
     constructor = Object.getPrototypeOf(constructor);
   }
   return false;
