@@ -51,6 +51,32 @@ function invalid(message: string): never {
   throw new ExecutionRecoveryError('EXECUTION_RECOVERY_INVALID', message);
 }
 
+function assertSchedulingIntrinsics(): void {
+  if (
+    Map.prototype.entries !== mapEntries ||
+    Map.prototype.has !== mapHas ||
+    Map.prototype[Symbol.iterator] !== mapIterator ||
+    mapIterator !== mapEntries ||
+    Array.prototype.map !== arrayMap ||
+    Array.prototype.some !== arraySome ||
+    Array.prototype[Symbol.iterator] !== arrayIterator ||
+    Array.prototype.constructor !== Array ||
+    Object.getOwnPropertyDescriptor(Array, Symbol.species)?.get !== arraySpecies ||
+    [
+      'version',
+      'mode',
+      'maxConcurrency',
+      'continueOnError',
+      'scheduling',
+      'dependsOn',
+      'resources',
+      'key',
+      'access',
+    ].some((key) => Object.hasOwn(Object.prototype, key) || Object.hasOwn(Array.prototype, key))
+  )
+    invalid('Runtime scheduling intrinsics changed');
+}
+
 /** Check descriptors before cloning, so no accessor is invoked or hidden property discarded. */
 function isPlainData(
   value: unknown,
@@ -204,6 +230,7 @@ export function parseBatchPolicy(
   value: unknown,
   callIds: readonly (string | undefined)[],
 ): IJournalToolBatchPolicy {
+  assertSchedulingIntrinsics();
   const parsed = savedPolicy.safeParse(clonePlainData(value));
   if (!parsed.success) invalid('Invalid saved tool batch policy');
   return normalizedPolicy(parsed.data, callIds);
@@ -214,6 +241,7 @@ export function snapshotBatchPolicy(
   batch: TBatchScheduling,
   callIds: readonly (string | undefined)[],
 ): IJournalToolBatchPolicy {
+  assertSchedulingIntrinsics();
   const count = Math.max(1, callIds.length);
   const requested = batch.maxConcurrency;
   const concurrency =
@@ -222,21 +250,6 @@ export function snapshotBatchPolicy(
       : requested === undefined || !Number.isFinite(requested)
         ? count
         : Math.min(count, Math.max(1, Math.floor(requested)));
-  if (
-    Map.prototype.entries !== mapEntries ||
-    Map.prototype.has !== mapHas ||
-    Map.prototype[Symbol.iterator] !== mapIterator ||
-    mapIterator !== mapEntries ||
-    Array.prototype.map !== arrayMap ||
-    Array.prototype.some !== arraySome ||
-    Array.prototype[Symbol.iterator] !== arrayIterator ||
-    Array.prototype.constructor !== Array ||
-    Object.getOwnPropertyDescriptor(Array, Symbol.species)?.get !== arraySpecies ||
-    ['dependsOn', 'resources', 'key', 'access'].some(
-      (key) => Object.hasOwn(Object.prototype, key) || Object.hasOwn(Array.prototype, key),
-    )
-  )
-    invalid('Runtime scheduling intrinsics changed');
   let scheduling: Array<[string, z.infer<typeof declaration>]> | undefined;
   if (batch.scheduling !== undefined) {
     try {

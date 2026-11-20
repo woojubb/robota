@@ -556,6 +556,34 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).not.toHaveBeenCalled();
   });
 
+  it('rejects inherited policy accessors before parsing a saved policy', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      scheduling: new Map([
+        [calls[0].id, { dependsOn: [calls[1].id] }],
+        [calls[1].id, { resources: [] }],
+      ]),
+    });
+    const saved = await stoppedAt(
+      'tool-intent',
+      true,
+      fixture(undefined, undefined, undefined, policy),
+    );
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    const getter = vi.fn(() => []);
+    let failure: unknown;
+    Object.defineProperty(Object.prototype, 'resources', { configurable: true, get: getter });
+    try {
+      await fresh.agent.resumeToolCalls(saved);
+    } catch (error) {
+      failure = error;
+    } finally {
+      delete (Object.prototype as { resources?: unknown }).resources;
+    }
+    expect(failure).toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(getter).not.toHaveBeenCalled();
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
   it('uses a detached policy if the caller mutates it during an append', async () => {
     let captured = new Map<string, IToolCallScheduling>();
     let firstId = '';
