@@ -40,6 +40,7 @@ export interface IToolExecutor {
     toolName: string,
     parameters: TToolParameters,
     context?: IToolExecutionContext,
+    catalog?: 'offered' | 'registered',
   ): Promise<IToolExecutionResult>;
 }
 
@@ -117,9 +118,13 @@ function resourcesConflict(first?: IToolCallScheduling, second?: IToolCallSchedu
 }
 
 /** A refusal retains the registered intent source; actual and recovered settlements keep theirs. */
-function withIntentSource(request: IToolExecutionRequest, result: IToolExecutionResult): IToolExecutionResult {
+function withIntentSource(
+  request: IToolExecutionRequest,
+  result: IToolExecutionResult,
+): IToolExecutionResult {
   const source = request.metadata?.toolProvenance;
-  if (typeof source !== 'string' || typeof result.metadata?.toolProvenance === 'string') return result;
+  if (typeof source !== 'string' || typeof result.metadata?.toolProvenance === 'string')
+    return result;
   return { ...result, metadata: { ...result.metadata, toolProvenance: source } };
 }
 
@@ -244,6 +249,7 @@ function requireExecutionRequestFields(request: {
 function createExecutionContext(
   request: IToolExecutionRequest,
   signal?: AbortSignal,
+  parentContext?: IToolExecutionContext,
 ): IToolExecutionContext {
   const required = requireExecutionRequestFields(request);
   // Minted per body, never taken from the vendor's tool call ID, which may repeat and is not hex.
@@ -256,6 +262,7 @@ function createExecutionContext(
     ? traceEnvFor('hooks', request.traceContext, request.traceContext.parentSpanId)
     : undefined;
   return {
+    ...parentContext,
     toolName: request.toolName,
     parameters: request.parameters,
     ...(signal ? { signal } : {}),
@@ -322,7 +329,11 @@ function createArgumentDecodeErrorResult(request: IToolExecutionRequest): IToolE
     success: false,
     error,
     executionId: request.executionId,
-    metadata: { errorCode: ARGUMENT_DECODE_ERROR_CODE, requestedTool: request.toolName, dispatchStatus: 'not-dispatched' },
+    metadata: {
+      errorCode: ARGUMENT_DECODE_ERROR_CODE,
+      requestedTool: request.toolName,
+      dispatchStatus: 'not-dispatched',
+    },
   };
 }
 
@@ -535,7 +546,12 @@ async function executeRequest(
 ): Promise<IToolExecutionResult> {
   const recovered = context.recoveredResults?.get(index);
   if (recovered) return structuredClone(recovered);
-  context.queue.end(request, context.signal?.aborted || request.argumentDecodeError !== undefined ? 'not-dispatched' : 'admission-started');
+  context.queue.end(
+    request,
+    context.signal?.aborted || request.argumentDecodeError !== undefined
+      ? 'not-dispatched'
+      : 'admission-started',
+  );
   let result: IToolExecutionResult;
   const journal = context.journal;
   if (context.signal?.aborted) result = createInterruptedResult(request);
@@ -546,7 +562,7 @@ async function executeRequest(
     if (context.signal?.aborted) result = createInterruptedResult(request);
     else {
       const executionContext = {
-        ...createExecutionContext(request, context.signal),
+        ...createExecutionContext(request, context.signal, context.parentContext),
         ...(journal?.continuation ? { continuation: journal.continuation(index) } : {}),
         ...(journal?.beforeEffect
           ? {
@@ -558,7 +574,12 @@ async function executeRequest(
       if (context.lifecycle) await context.lifecycle.beforeDispatch(index, executionContext);
       try {
         result = await executeAndDrain(context, index, () =>
-          executor.executeTool(request.toolName, request.parameters, executionContext),
+          executor.executeTool(
+            request.toolName,
+            request.parameters,
+            executionContext,
+            context.catalog,
+          ),
         );
       } catch (error) {
         if (isExecutionControlError(error)) throw error;
