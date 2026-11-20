@@ -191,21 +191,28 @@ export async function executeRound(
   }
   if (response === null) return true;
 
-  const { assistantResponse, assistantToolCalls } = validateAndExtractResponse(
-    response,
-    executionId,
-    fullContext.conversationId,
-    currentRound,
-    logger,
-  );
-  if (
-    assistantToolCalls.length > 0 &&
-    (fullContext.toolChoice ?? config.defaultModel?.toolChoice) === 'none'
-  ) {
-    throw new Error(
-      'Provider returned tool calls despite toolChoice none; no tools were executed.',
+  let extracted: ReturnType<typeof validateAndExtractResponse>;
+  try {
+    extracted = validateAndExtractResponse(
+      response,
+      executionId,
+      fullContext.conversationId,
+      currentRound,
+      logger,
     );
+    if (
+      extracted.assistantToolCalls.length > 0 &&
+      (fullContext.toolChoice ?? config.defaultModel?.toolChoice) === 'none'
+    ) {
+      throw new Error(
+        'Provider returned tool calls despite toolChoice none; no tools were executed.',
+      );
+    }
+  } catch (error) {
+    conversationStore.discardPending();
+    throw error;
   }
+  const { assistantResponse, assistantToolCalls } = extracted;
 
   await callPluginHook(
     plugins,
