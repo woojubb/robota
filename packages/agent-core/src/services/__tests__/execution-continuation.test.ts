@@ -270,6 +270,70 @@ describe('no-input execution continuation', () => {
     expect(fresh.requests).toHaveLength(0);
     expect(fresh.effect).not.toHaveBeenCalled();
   });
+  it('does not expose saved deferred tools when the recovery policy conflicts', async () => {
+    const tools = () => [
+      new FunctionTool(
+        {
+          name: 'ToolSearch',
+          description: 'Load tools',
+          parameters: { type: 'object', properties: {} },
+        },
+        async (_parameters, context) => {
+          context!.deferredTools!.loadDeferredTools(['Hidden']);
+          return 'loaded';
+        },
+      ),
+      new FunctionTool(
+        {
+          name: 'Hidden',
+          description: 'Deferred tool',
+          deferLoading: true,
+          parameters: { type: 'object', properties: {} },
+        },
+        async () => 'hidden',
+      ),
+      new FunctionTool(
+        { name: 'act', description: 'Action', parameters: { type: 'object', properties: {} } },
+        async () => 'done',
+      ),
+    ];
+    const source = fixture(
+      [{ toolCalls: [{ name: 'ToolSearch', args: {} }] }, action, { text: 'done' }],
+      { tools: tools(), toolSearch: 'on', toolExecutionPolicy: () => ({ mode: 'parallel' }) },
+    );
+    const { records, journal } = journalFixture();
+    await expect(
+      source.agent.run('input', {
+        executionJournal: {
+          append: async (record) => {
+            await journal.append(record);
+            if (record.kind === 'tool-intent' && record.toolName === 'act')
+              throw new Error('lost ack');
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_JOURNAL_FAILED' });
+    const response = records.findLast((record) => record.kind === 'model-response');
+    if (response?.kind !== 'model-response') throw new Error('Missing response');
+    const fresh = fixture([{ text: 'must not run' }], {
+      tools: tools(),
+      toolSearch: 'on',
+      toolExecutionPolicy: () => ({ mode: 'sequential' }),
+    });
+    await fresh.agent.ensureReady();
+    const before = fresh.agent.getOfferedToolSchemas().map((tool) => tool.name);
+    expect(before).not.toContain('Hidden');
+    await expect(
+      fresh.agent.resumeToolCalls({
+        executionId: response.executionId,
+        callId: response.callId,
+        journal,
+        includeReceipts: true,
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+    expect(fresh.agent.getOfferedToolSchemas().map((tool) => tool.name)).toEqual(before);
+  });
+
   it('restores loaded deferred tools from a settled search and refuses one no longer registered', async () => {
     const search = vi.fn(async (_parameters, context) => {
       context.deferredTools.loadDeferredTools(['Hidden']);

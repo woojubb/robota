@@ -1,8 +1,43 @@
 import { z } from 'zod';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
-import { isSnapshotableUniversalValue } from '../utils/universal-value-equal';
+import {
+  isSnapshotableUniversalValue,
+  isUniversalValueEqual,
+} from '../utils/universal-value-equal';
+import type { TAgentExecutionConfig } from '../interfaces/agent';
 import type { IJournalToolBatchPolicy } from '../interfaces/execution-journal';
+import type { IToolCall } from '../interfaces/messages';
 import type { IToolExecutionBatchContext } from './tool-execution-batch-types';
+
+export type TBatchScheduling = Pick<
+  IToolExecutionBatchContext,
+  'mode' | 'maxConcurrency' | 'continueOnError' | 'scheduling'
+>;
+
+export function resolveBatchScheduling(
+  calls: IToolCall[],
+  config?: TAgentExecutionConfig,
+): TBatchScheduling {
+  const selected = config?.toolExecutionPolicy?.(structuredClone(calls));
+  return {
+    mode: selected?.mode ?? 'parallel',
+    maxConcurrency: selected?.maxConcurrency ?? 5,
+    continueOnError: selected?.continueOnError ?? true,
+    scheduling: selected?.scheduling ?? new Map(),
+  };
+}
+
+export function assertSavedBatchPolicy(
+  current: IJournalToolBatchPolicy,
+  saved?: IJournalToolBatchPolicy,
+): void {
+  if (saved && !isUniversalValueEqual(saved, current)) {
+    throw new ExecutionRecoveryError(
+      'EXECUTION_RECOVERY_CONFLICT',
+      'Active tool batch policy differs from the saved policy',
+    );
+  }
+}
 
 const validScheduling = z.array(
   z.tuple([
@@ -58,8 +93,11 @@ export function parseBatchPolicy(value: unknown): IJournalToolBatchPolicy {
 }
 
 /** Freeze only values the scheduler uses, then use the same detached values for dispatch. */
-export function snapshotBatchPolicy(batch: IToolExecutionBatchContext): IJournalToolBatchPolicy {
-  const count = Math.max(1, batch.requests.length);
+export function snapshotBatchPolicy(
+  batch: TBatchScheduling,
+  requestCount: number,
+): IJournalToolBatchPolicy {
+  const count = Math.max(1, requestCount);
   const requested = batch.maxConcurrency;
   const concurrency =
     batch.mode === 'sequential'

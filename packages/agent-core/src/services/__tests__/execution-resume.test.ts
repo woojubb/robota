@@ -232,6 +232,17 @@ describe('provider-free journal continuation', () => {
     for (const record of records.slice(1)) expect(record).not.toHaveProperty('batchPolicy');
   });
 
+  it('resolves a saved batch policy once before continuing its actions', async () => {
+    const saved = await stoppedAt('tool-intent', true);
+    const policy = vi.fn<NonNullable<IAgentConfig['toolExecutionPolicy']>>((calls) => ({
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    }));
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(policy).toHaveBeenCalledOnce();
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
   it('checks the saved policy before continuing after a durable effect result', async () => {
     const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
       mode: 'sequential',
@@ -404,6 +415,20 @@ describe('provider-free journal continuation', () => {
     const fresh = fixture(undefined, undefined, undefined, policy);
     await fresh.agent.resumeToolCalls(saved);
     expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves the scheduler treatment of a null resources declaration', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      const declaration: IToolCallScheduling = {};
+      Object.assign(declaration, { resources: null });
+      return { scheduling: new Map([[calls[0].id, declaration]]) };
+    };
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-intent', true, source);
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+    expect(result.receipts?.every((receipt) => receipt.result.success)).toBe(true);
   });
 
   it('keeps legacy batches unbound while recovering under the equivalent host policy', async () => {

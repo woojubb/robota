@@ -20,6 +20,12 @@ import {
 import { collectCommittedUsageMetadata } from './execution-usage';
 import { addToolResultsToHistory } from './execution-round-tool-results';
 import { executeAndRecordToolCalls } from './execution-round-tools';
+import {
+  assertSavedBatchPolicy,
+  resolveBatchScheduling,
+  snapshotBatchPolicy,
+} from './execution-batch-policy';
+import type { TBatchScheduling } from './execution-batch-policy';
 import { sameReceiptMetadata } from './execution-receipt-frame';
 import type { IRoundDependencies } from './execution-round-types';
 import type { IExecutionRoundState } from './execution-types';
@@ -237,6 +243,13 @@ export async function restoreJournaledRound(
     conflict('Saved provider metadata conflicts with the recovered assistant frame');
   const existing = structuredClone(store.getMessages());
   validateHistory(existing, batch, options, deps);
+  const calls = batch.response.toolCalls ?? [];
+  let preparedPolicy: TBatchScheduling | undefined;
+  if (batch.batchPolicy && calls.length > 0) {
+    preparedPolicy = resolveBatchScheduling(calls, config);
+    assertSavedBatchPolicy(snapshotBatchPolicy(preparedPolicy, calls.length), batch.batchPolicy);
+    unchanged();
+  }
   const accepted = await acceptToolResponses(records, options);
   if (accepted.length !== records.length)
     batch = recoverToolBatch(accepted, options.executionId, options.callId, false);
@@ -252,7 +265,6 @@ export async function restoreJournaledRound(
   const staged = new ConversationStore();
   for (const message of batch.checkpoint.messages) staged.addMessage(structuredClone(message));
   const isSummary = batch.checkpoint.continuation?.kind === 'summary';
-  const calls = batch.response.toolCalls ?? [];
   const hasResponse =
     isSummary || calls.length > 0 || (batch.response.content?.trim().length ?? 0) > 0;
   if (hasResponse) staged.addMessage(recoveredAssistant(batch, options));
@@ -293,6 +305,7 @@ export async function restoreJournaledRound(
           journal: options.journal,
           parentCallId: options.callId,
           recovery: batch,
+          ...(preparedPolicy && { preparedPolicy }),
           ...(options.includeReceipts && { captureReceipts: true, assistantFrame: batch.response }),
         },
       );

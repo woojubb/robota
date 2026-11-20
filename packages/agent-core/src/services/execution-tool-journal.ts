@@ -6,7 +6,8 @@ import {
   isUniversalValueEqual,
 } from '../utils/universal-value-equal';
 import { appendExecutionRecord } from './execution-journal';
-import { snapshotBatchPolicy } from './execution-batch-policy';
+import { assertSavedBatchPolicy, snapshotBatchPolicy } from './execution-batch-policy';
+import type { TBatchScheduling } from './execution-batch-policy';
 import { toolContinuation } from './execution-tool-waits';
 import type { IExecutionJournal } from '../interfaces/execution-journal';
 import type { IManagedToolReceipt } from '../interfaces/managed-provider';
@@ -29,6 +30,8 @@ export interface IToolBatchJournalContext {
   captureReceipts?: boolean;
   /** The caller must durably record this complete frame before dispatching the batch. */
   assistantFrame?: IAssistantMessage;
+  /** A detached policy already checked before recovery changes state. */
+  preparedPolicy?: TBatchScheduling;
 }
 
 export interface IToolBatchJournalSettlement {
@@ -72,13 +75,8 @@ export async function attachToolBatchJournal(
 ): Promise<IToolBatchJournalSettlement | undefined> {
   const { journal, parentCallId, recovery } = context;
   const requests = batch.requests;
-  const batchPolicy = snapshotBatchPolicy(batch);
-  if (recovery?.batchPolicy && !isUniversalValueEqual(recovery.batchPolicy, batchPolicy)) {
-    throw new ExecutionRecoveryError(
-      'EXECUTION_RECOVERY_CONFLICT',
-      'Active tool batch policy differs from the saved policy',
-    );
-  }
+  const batchPolicy = snapshotBatchPolicy(batch, requests.length);
+  assertSavedBatchPolicy(batchPolicy, recovery?.batchPolicy);
   let needsPolicy =
     !recovery ||
     (recovery.actions.size === 0 && !recovery.legacyBatchPolicy && !recovery.batchPolicy);

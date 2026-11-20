@@ -44,6 +44,7 @@ function fixture(
     parallelPrompts?: boolean;
     skipAsk?: boolean;
     effect?: (parameters: TToolParameters, context?: IToolExecutionContext) => Promise<string>;
+    policy?: IAgentConfig['toolExecutionPolicy'];
   } = {},
 ) {
   const scripted = createScriptedProvider(turns);
@@ -93,9 +94,11 @@ function fixture(
   });
   const agent = new ConversationAgent({
     // These fixtures exercise independent calls settling concurrently.
-    toolExecutionPolicy: (calls) => ({
-      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
-    }),
+    toolExecutionPolicy:
+      options.policy ??
+      ((calls) => ({
+        scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+      })),
     name: 'suspension',
     aiProviders: [scripted.provider],
     defaultModel: { provider: scripted.provider.name, model: 'test-model' },
@@ -121,6 +124,34 @@ async function suspended() {
 }
 
 describe('journaled tool suspension', () => {
+  it('does not record an approval when the saved batch policy conflicts', async () => {
+    const saved = await suspended();
+    const fresh = fixture([{ text: 'must not run' }], {
+      policy: (calls) => ({
+        mode: 'sequential',
+        scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+      }),
+    });
+    await expect(
+      fresh.agent.resume({
+        ...saved,
+        toolResponses: [
+          {
+            requestId: saved.request.requestId,
+            responseId: 'approval',
+            response: { approved: true },
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+    expect(saved.records.some((record) => record.kind === 'tool-response')).toBe(false);
+    expect(fresh.effect).not.toHaveBeenCalled();
+    const matching = fixture([{ text: 'must not run' }]);
+    await expect(matching.agent.resume(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_SUSPENDED',
+    });
+    expect(matching.effect).not.toHaveBeenCalled();
+  });
   it('fires each call hook once across repeated suspension, resume and recovered results', async () => {
     class Recorder extends AbstractPlugin {
       readonly name = 'per-call-recorder';
