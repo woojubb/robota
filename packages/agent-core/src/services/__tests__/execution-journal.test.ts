@@ -541,6 +541,55 @@ describe('awaited execution journal through public ConversationAgent runs', () =
     expect(effect).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])(
+    'does not retain rejected assistant text for the next turn (streaming=%s)',
+    async (streaming) => {
+      const { agent, effect, provider } = fixture([
+        {
+          toolCalls: [
+            { name: 'act', args: {} },
+            { name: 'act', args: {} },
+          ],
+        },
+        { text: 'new answer' },
+      ]);
+      const chat = provider.chat.bind(provider);
+      provider.chat = async (messages, options) => {
+        const response = await chat(messages, options);
+        if (response.role === 'assistant' && response.toolCalls?.length) {
+          response.content = 'rejected text';
+          options?.onTextDelta?.('rejected text');
+          for (const call of response.toolCalls) call.id = 'same-call';
+        }
+        return response;
+      };
+      await expect(execute(agent, {}, streaming)).rejects.toThrow('Duplicate tool call identity');
+      await expect(agent.run('next input')).resolves.toBe('new answer');
+      expect(effect).not.toHaveBeenCalled();
+      expect(agent.getHistory().filter((message) => message.role === 'assistant')).toMatchObject([
+        { content: 'new answer' },
+      ]);
+    },
+  );
+
+  it('discards a tool-free request violation before the next turn', async () => {
+    const { agent, effect, provider } = fixture([
+      { toolCalls: [{ name: 'act', args: {} }] },
+      { text: 'new answer' },
+    ]);
+    const chat = provider.chat.bind(provider);
+    provider.chat = async (messages, options) => {
+      const response = await chat(messages, options);
+      if (response.role === 'assistant' && response.toolCalls?.length) {
+        response.content = 'rejected text';
+      }
+      return response;
+    };
+    await expect(agent.run('test', { toolChoice: 'none' })).rejects.toThrow('toolChoice none');
+    await expect(agent.run('next input')).resolves.toBe('new answer');
+    expect(effect).not.toHaveBeenCalled();
+  });
+
   it('does not cache the text of a rejected tool batch as a completed answer', async () => {
     const turn: TScriptedTurn = {
       toolCalls: [
