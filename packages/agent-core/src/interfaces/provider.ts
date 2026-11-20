@@ -275,6 +275,17 @@ export interface IAIProvider {
   getCapabilities?(): IProviderCapabilities;
 
   /**
+   * Opt a particular request into the text response cache. Return a nonempty, non-secret scope
+   * only when this request is stateless and skipping the provider skips no effects, including
+   * provider-hosted tools. The provider must not use message IDs, timestamps, host execution IDs,
+   * callbacks, signals, or tracing to change the answer. The scope must change whenever instance
+   * configuration can change the answer without changing the retained request. Return undefined
+   * when these guarantees cannot be made. Core also partitions entries by provider instance and
+   * refuses routed requests.
+   */
+  textResponseCacheScope?(options: IChatOptions): string | undefined;
+
+  /**
    * What this provider's models can do.
    *
    * `supportsTools()` answers for the vendor, which is the wrong granularity when models differ.

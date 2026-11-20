@@ -119,6 +119,9 @@ export function createScriptedProvider(turns: readonly TScriptedTurn[]): IScript
     supportsTools(): boolean {
       return true;
     },
+    textResponseCacheScope(): string {
+      return 'scripted-test-provider';
+    },
     validateConfig(): boolean {
       return true;
     },

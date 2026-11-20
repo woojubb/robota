@@ -7,10 +7,10 @@ import { applyModelToolCapability } from './execution-model-capability-guards.js
 import { callProviderWithIdleTimeout } from './execution-provider-call.js';
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { applyStructuredOutputTransport } from './execution-structured-output-guard.js';
-import { routeModel } from './execution-model-route.js';
 import { isValidToolCallIdentity } from './tool-call-identity.js';
 import { withOutboundTraceContext } from './execution-trace-context.js';
 import { randomId } from '../utils/random-id.js';
+import { isCacheIdentitySafe } from './cache/cache-key-builder';
 import { appendExecutionRecord, callJournaledProvider } from './execution-journal';
 import type { IModelJournalContext } from '../interfaces/execution-journal';
 
@@ -126,6 +126,56 @@ function mayUseNativeWebTools(
   }
 }
 
+const cacheProviderInstances = new WeakMap<object, string>();
+
+function cacheScope(
+  provider: IResolvedProviderInfo['provider'],
+  options: IChatOptions,
+  route: IModelRoute,
+): string | undefined {
+  // A wrapper's declaration may describe only its primary, not its selected or eventual route.
+  if (provider.resolveModelRoute !== undefined || route.current !== undefined) return undefined;
+  try {
+    const scope = provider.textResponseCacheScope?.(options);
+    if (typeof scope !== 'string' || scope.length === 0) return undefined;
+    let instance = cacheProviderInstances.get(provider);
+    if (!instance) {
+      instance = randomId();
+      cacheProviderInstances.set(provider, instance);
+    }
+    return JSON.stringify([instance, scope]);
+  } catch {
+    return undefined;
+  }
+}
+
+const CACHE_OPTION_KEYS = [
+  'model',
+  'temperature',
+  'maxTokens',
+  'effort',
+  'tools',
+  'toolChoice',
+  'nativeWebTools',
+  'responseFormat',
+  'openai',
+  'anthropic',
+  'google',
+  'effortResolution',
+  'preserveContextWindow',
+] as const;
+const KNOWN_CHAT_OPTIONS = new Set<string>([
+  ...CACHE_OPTION_KEYS,
+  'onModelEffortOutcome',
+  'onTextDelta',
+  'onThinkingDelta',
+  'onProviderNativeRawPayload',
+  'signal',
+  'outboundTraceContext',
+  'executionId',
+  'onModelFallback',
+]);
+
 const USAGE_METADATA_KEYS = new Set([
   'inputTokens',
   'outputTokens',
@@ -235,41 +285,72 @@ export async function callProviderWithCache(
   // `undefined` normalizes to `'auto'`, matching `buildRoundChatOptions`'s own default.
   const effortCacheIdentity = chatOptions.effort ?? 'auto';
 
+  const scope = cacheService ? cacheScope(resolved.provider, chatOptions, route) : undefined;
+  const cacheModel = chatOptions.model ?? model;
+  const cacheProvider = config.defaultModel.provider;
+  const cacheOptions = {
+    ...(chatOptions.temperature !== undefined && { temperature: chatOptions.temperature }),
+    ...(chatOptions.maxTokens !== undefined && { maxTokens: chatOptions.maxTokens }),
+    ...(scope !== undefined && { providerScope: scope }),
+    effortCacheIdentity,
+    requestIdentity: {
+      ...(chatOptions.tools !== undefined && { tools: chatOptions.tools }),
+      ...(chatOptions.toolChoice !== undefined && { toolChoice: chatOptions.toolChoice }),
+      ...(chatOptions.nativeWebTools !== undefined && {
+        nativeWebTools: chatOptions.nativeWebTools,
+      }),
+      ...(chatOptions.responseFormat !== undefined && {
+        responseFormat: chatOptions.responseFormat,
+      }),
+      ...(chatOptions.openai !== undefined && { openai: chatOptions.openai }),
+      ...(chatOptions.anthropic !== undefined && { anthropic: chatOptions.anthropic }),
+      ...(chatOptions.google !== undefined && { google: chatOptions.google }),
+      ...(chatOptions.effortResolution !== undefined && {
+        effortResolution: chatOptions.effortResolution,
+      }),
+      ...(chatOptions.preserveContextWindow !== undefined && {
+        preserveContextWindow: chatOptions.preserveContextWindow,
+      }),
+    },
+  };
+  let snapshot: { messages: TUniversalMessage[]; options: typeof cacheOptions } | undefined;
   // A text-only entry cannot represent tools, external resources, or opaque native state.
   if (
     cacheService &&
+    scope !== undefined &&
+    typeof chatOptions.model === 'string' &&
+    chatOptions.effort !== null &&
     (chatOptions.tools?.length ?? 0) === 0 &&
+    Reflect.ownKeys(chatOptions).every(
+      (key) => typeof key === 'string' && KNOWN_CHAT_OPTIONS.has(key),
+    ) &&
+    !CACHE_OPTION_KEYS.some(
+      (key) => Object.hasOwn(chatOptions, key) && chatOptions[key] === undefined,
+    ) &&
     outgoing.every(
       (message) =>
         message.metadata?.[PROVIDER_CONTINUATION_METADATA_KEY] === undefined &&
         (message.parts === undefined ||
           (Array.isArray(message.parts) && message.parts.every((part) => part?.type === 'text'))),
     ) &&
-    !mayUseNativeWebTools(chatOptions, resolved.provider)
+    !mayUseNativeWebTools(chatOptions, resolved.provider) &&
+    isCacheIdentitySafe(outgoing, cacheModel, cacheProvider, cacheOptions)
   ) {
-    const cacheMessages = structuredClone(outgoing);
-    // Snapshot output-affecting options once so a provider cannot change the store identity
-    // after the lookup. Callbacks, signals, and execution-scoped tracing are not wire options.
-    const cacheOptions = {
-      temperature: chatOptions.temperature,
-      maxTokens: chatOptions.maxTokens,
-      effortCacheIdentity,
-      requestIdentity: structuredClone({
-        toolChoice: chatOptions.toolChoice,
-        nativeWebTools: chatOptions.nativeWebTools,
-        responseFormat: chatOptions.responseFormat,
-        openai: chatOptions.openai,
-        anthropic: chatOptions.anthropic,
-        google: chatOptions.google,
-        effortResolution: chatOptions.effortResolution,
-        preserveContextWindow: chatOptions.preserveContextWindow,
-      }),
-    };
+    try {
+      // Snapshot before invocation: adapters may mutate their inputs.
+      snapshot = { messages: structuredClone(outgoing), options: structuredClone(cacheOptions) };
+    } catch {
+      // An input that cannot be snapshotted can still be passed through to the provider.
+    }
+  }
+  if (cacheService && snapshot && scope !== undefined) {
+    const cacheMessages = snapshot.messages;
+    const snapshotOptions = snapshot.options;
     const cachedResponse = cacheService.lookup(
       cacheMessages,
-      routeModel(route, config.defaultModel.model),
-      route.current?.provider ?? config.defaultModel.provider,
-      cacheOptions,
+      cacheModel,
+      cacheProvider,
+      snapshotOptions,
     );
     if (cachedResponse) {
       onDispatch?.('cache-hit', chatOptions.model ?? model);
@@ -304,6 +385,7 @@ export async function callProviderWithCache(
       response.role === 'assistant' &&
       response.state === 'complete' &&
       typeof response.content === 'string' &&
+      cacheScope(resolved.provider, chatOptions, route) === scope &&
       containsOnlyUsageMetadata(response) &&
       (response.parts === undefined ||
         (Array.isArray(response.parts) && response.parts.length === 0)) &&
@@ -312,10 +394,10 @@ export async function callProviderWithCache(
     ) {
       cacheService.store(
         cacheMessages,
-        routeModel(route, config.defaultModel.model),
-        route.current?.provider ?? config.defaultModel.provider,
+        cacheModel,
+        cacheProvider,
         response.content,
-        cacheOptions,
+        snapshotOptions,
       );
     }
     return response;

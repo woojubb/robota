@@ -66,6 +66,83 @@ describe('response cache request identity', () => {
     expect(requests).toHaveLength(2);
   });
 
+  it.each([
+    { first: Number.NaN, second: Number.POSITIVE_INFINITY, name: 'non-finite values' },
+    { first: -0, second: 0, name: 'negative and positive zero' },
+  ])('does not collapse $name in request options', async ({ first, second }) => {
+    const { agent, requests } = fixture();
+    await agent.ensureReady();
+    agent.clearHistory();
+    await expect(agent.run('same input', { temperature: first })).resolves.toBe('first answer');
+    agent.clearHistory();
+    await expect(agent.run('same input', { temperature: second })).resolves.toBe('second answer');
+    expect(requests).toHaveLength(2);
+  });
+
+  it('does not equate a Date in message metadata with its ISO string', async () => {
+    const { agent, requests } = fixture();
+    await agent.ensureReady();
+    const timestamp = '2026-01-02T03:04:05.000Z';
+    const useMetadata = (sentAt: Date | string): void => {
+      agent.clearHistory();
+      agent.injectRawMessage({
+        id: 'metadata',
+        role: 'user',
+        content: 'same input',
+        state: 'complete',
+        timestamp: new Date(0),
+        metadata: { sentAt },
+      });
+    };
+    useMetadata(new Date(timestamp));
+    await expect(agent.run('continue')).resolves.toBe('first answer');
+    useMetadata(timestamp);
+    await expect(agent.run('continue')).resolves.toBe('second answer');
+    expect(requests).toHaveLength(2);
+  });
+
+  it('does not cache when the provider has not opted the request in', async () => {
+    const { provider, config, requests, resolved, cache, messages } = callFixture();
+    expect((await callProviderWithCache(messages, config, resolved, cache)).content).toBe(
+      'first answer',
+    );
+    delete provider.textResponseCacheScope;
+    expect((await callProviderWithCache(messages, config, resolved, cache)).content).toBe(
+      'second answer',
+    );
+    provider.textResponseCacheScope = () => 'scripted-test-provider';
+    expect((await callProviderWithCache(messages, config, resolved, cache)).content).toBe(
+      'first answer',
+    );
+    expect(requests).toHaveLength(2);
+  });
+
+  it('does not share entries across provider instances with the same name and model', async () => {
+    const { agent } = fixture();
+    await agent.ensureReady();
+    agent.clearHistory();
+    await expect(agent.run('same input')).resolves.toBe('first answer');
+    const replacement = createScriptedProvider([{ text: 'replacement answer' }]);
+    agent.swapDefaultProvider(replacement.provider, 'test-model');
+    agent.clearHistory();
+    await expect(agent.run('same input')).resolves.toBe('replacement answer');
+    expect(replacement.requests).toHaveLength(1);
+  });
+
+  it('separates cache entries when the provider changes its cache scope', async () => {
+    const { provider, config, requests, resolved, cache, messages } = callFixture();
+    let scope = 'first configuration';
+    provider.textResponseCacheScope = () => scope;
+    expect((await callProviderWithCache(messages, config, resolved, cache)).content).toBe(
+      'first answer',
+    );
+    scope = 'second configuration';
+    expect((await callProviderWithCache(messages, config, resolved, cache)).content).toBe(
+      'second answer',
+    );
+    expect(requests).toHaveLength(2);
+  });
+
   it('does not reuse an answer for different images with the same message text', async () => {
     const { agent, requests } = fixture();
     await agent.ensureReady();
@@ -296,6 +373,26 @@ describe('response cache request identity', () => {
         })
       ).content,
     ).toBe('second answer');
+    expect(requests).toHaveLength(2);
+  });
+
+  it('distinguishes an explicitly empty tool list from an omitted list', async () => {
+    const { config, requests, resolved, cache, messages } = callFixture();
+    expect((await callProviderWithCache(messages, config, resolved, cache)).content).toBe(
+      'first answer',
+    );
+    expect(
+      (await callProviderWithCache(messages, config, resolved, cache, { tools: [] })).content,
+    ).toBe('second answer');
+    expect(requests).toHaveLength(2);
+  });
+
+  it('does not collapse non-finite numbers in provider-specific options', async () => {
+    const { config, requests, resolved, cache, messages } = callFixture();
+    const run = (topP: number) =>
+      callProviderWithCache(messages, config, resolved, cache, { openai: { topP } });
+    expect((await run(Number.NaN)).content).toBe('first answer');
+    expect((await run(Number.POSITIVE_INFINITY)).content).toBe('second answer');
     expect(requests).toHaveLength(2);
   });
 

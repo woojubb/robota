@@ -1,3 +1,4 @@
+import { isCacheIdentitySafe } from './cache-key-builder';
 import type { CacheKeyBuilder, ICacheKeyOptions } from './cache-key-builder';
 import type { ICacheStorage, ICacheStats } from '../../interfaces/cache';
 import type { TUniversalMessage } from '../../interfaces/messages';
@@ -20,6 +21,7 @@ export class ExecutionCacheService {
     provider: string,
     options?: ICacheKeyOptions,
   ): string | undefined {
+    if (!isCacheIdentitySafe(messages, model, provider, options)) return undefined;
     const key = this.keyBuilder.build(messages, model, provider, options);
     const entry = this.storage.get(key.hash);
     return entry ? entry.response : undefined;
@@ -32,6 +34,7 @@ export class ExecutionCacheService {
     response: string,
     options?: ICacheKeyOptions,
   ): void {
+    if (!isCacheIdentitySafe(messages, model, provider, options)) return;
     const key = this.keyBuilder.build(messages, model, provider, options);
     this.storage.set({
       key,

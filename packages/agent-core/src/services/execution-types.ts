@@ -62,6 +62,8 @@ export interface IResolvedProviderInfo {
     capabilityTable?: () => IProviderCapabilityTable | undefined;
     /** Provider-hosted tools that may run independently of the host tool catalog. */
     getCapabilities?: () => IProviderCapabilities;
+    /** Explicit per-request cache safety and configuration scope. See `IAIProvider`. */
+    textResponseCacheScope?: (options: IChatOptions) => string | undefined;
     /**
      * Whether this provider is pointed at its vendor's own endpoint. Separate from the
      * table on purpose — a provider with no verified capability table must still be able to say it

@@ -18,8 +18,8 @@ function mockLogger(): ILogger {
 }
 
 function createResolvedProviderInfo(overrides: Partial<Record<string, unknown>> = {}): any {
+  const provider = overrides.provider ?? { chat: vi.fn() };
   return {
-    provider: { chat: vi.fn() },
     currentInfo: { provider: 'openai' },
     aiProviderInfo: {
       providerName: 'openai',
@@ -31,6 +31,7 @@ function createResolvedProviderInfo(overrides: Partial<Record<string, unknown>> 
     readAvailableTools: () => [],
     deferredTools: { listDeferredTools: () => [], loadDeferredTools: () => [] },
     ...overrides,
+    provider: { textResponseCacheScope: () => 'test-scope', ...(provider as object) },
   };
 }
 
