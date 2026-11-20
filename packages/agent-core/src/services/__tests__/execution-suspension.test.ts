@@ -124,6 +124,31 @@ async function suspended() {
 }
 
 describe('journaled tool suspension', () => {
+  it('does not record an approval when an unbound legacy batch has an invalid active policy', async () => {
+    const saved = await suspended();
+    for (const record of saved.records)
+      if (record.kind === 'tool-intent' || record.kind === 'tool-result') delete record.batchPolicy;
+    const fresh = fixture([{ text: 'must not run' }], {
+      policy: (calls) => ({
+        scheduling: new Map(calls.map((call) => [call.id, { resources: [], extra: true }])),
+      }),
+    });
+    await expect(
+      fresh.agent.resume({
+        ...saved,
+        toolResponses: [
+          {
+            requestId: saved.request.requestId,
+            responseId: 'approval',
+            response: { approved: true },
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(saved.records.some((record) => record.kind === 'tool-response')).toBe(false);
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
   it('does not record an approval when the saved batch policy conflicts', async () => {
     const saved = await suspended();
     const fresh = fixture([{ text: 'must not run' }], {

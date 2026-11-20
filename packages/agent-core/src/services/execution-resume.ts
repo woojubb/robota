@@ -252,7 +252,7 @@ export async function restoreJournaledRound(
   for (const action of batch.actions.values())
     for (const name of action.loadedDeferredTools ?? []) loaded.add(name);
   let preparedPolicy: TBatchScheduling | undefined;
-  if (batch.batchPolicy && calls.length > 0) {
+  if (calls.length > 0) {
     preparedPolicy = deps.toolExecutionService.withRestoredDeferredTools([...policyLoaded], () => {
       const policy = resolveBatchScheduling(calls, config);
       assertSavedBatchPolicy(

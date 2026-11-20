@@ -68,9 +68,11 @@ export class ToolExecutionService {
     const visible = this.restorableDeferredTools(names);
     if (this.tools.withTemporaryLoadedDeferredTools)
       return this.tools.withTemporaryLoadedDeferredTools(visible, inspect);
-    const loaded = new Set(this.tools.getLoadedDeferredTools?.() ?? []);
-    if (loaded.size === new Set(visible).size && visible.every((name) => loaded.has(name)))
-      return inspect();
+    if (this.tools.getLoadedDeferredTools) {
+      const loaded = new Set(this.tools.getLoadedDeferredTools());
+      if (loaded.size === new Set(visible).size && visible.every((name) => loaded.has(name)))
+        return inspect();
+    }
     throw new ExecutionRecoveryError(
       'EXECUTION_RECOVERY_INVALID',
       'Tool manager cannot inspect restored residency without changing live state',
