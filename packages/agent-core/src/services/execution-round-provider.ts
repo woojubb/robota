@@ -8,6 +8,7 @@ import { callProviderWithIdleTimeout } from './execution-provider-call.js';
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { applyStructuredOutputTransport } from './execution-structured-output-guard.js';
 import { routeModel } from './execution-model-route.js';
+import { isValidToolCallIdentity } from './tool-call-identity.js';
 import { withOutboundTraceContext } from './execution-trace-context.js';
 import { randomId } from '../utils/random-id.js';
 import { appendExecutionRecord, callJournaledProvider } from './execution-journal';
@@ -308,7 +309,7 @@ export function validateAndExtractResponse(
   // cannot be paired with distinct receipts or safely recovered, even if their inputs match.
   const callIds = new Set<string>();
   for (const call of assistantToolCalls) {
-    if (typeof call?.id !== 'string' || call.id.trim().length === 0) {
+    if (!isValidToolCallIdentity(call?.id)) {
       throw new Error('[EXECUTION] Tool call identity must be a non-empty string');
     }
     if (callIds.has(call.id)) {

@@ -63,6 +63,31 @@ async function interrupted(
 }
 
 describe('no-input execution continuation', () => {
+  it('refuses to resume a saved response whose call identity was rejected before dispatch', async () => {
+    const source = fixture([action]);
+    const chat = source.provider.chat.bind(source.provider);
+    source.provider.chat = async (messages, options) => {
+      const response = await chat(messages, options);
+      if (response.role === 'assistant' && response.toolCalls?.[0]) {
+        response.toolCalls[0].id = '   ';
+      }
+      return response;
+    };
+    const { records, journal } = journalFixture();
+    await expect(source.agent.run('input', { executionJournal: journal })).rejects.toThrow(
+      'Tool call identity must be a non-empty string',
+    );
+    expect(source.effect).not.toHaveBeenCalled();
+
+    const fresh = fixture([{ text: 'must not continue' }]);
+    await expect(
+      fresh.agent.resume({ executionId: records[0].executionId, journal }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(fresh.effect).not.toHaveBeenCalled();
+    expect(fresh.requests).toHaveLength(0);
+    expect(fresh.agent.getHistory()).toHaveLength(0);
+  });
+
   it('keeps a complete recoverable checkpoint when a recovery observer throws', async () => {
     const source = fixture([{ text: 'terminal' }], { systemMessage: 'Fixture instructions' });
     const { records, journal } = journalFixture();
