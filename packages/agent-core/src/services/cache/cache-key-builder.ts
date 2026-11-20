@@ -74,19 +74,20 @@ function isLosslessJson(value: unknown, seen: WeakSet<object>): boolean {
   if (Array.isArray(value)) {
     if (Object.getPrototypeOf(value) !== Array.prototype) return false;
     if (Reflect.ownKeys(value).length !== value.length + 1) return false;
+    if (Object.getOwnPropertyDescriptor(value, 'length')?.writable !== true) return false;
     for (let index = 0; index < value.length; index++) {
       const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
-      if (!descriptor?.enumerable || !('value' in descriptor)) return false;
+      if (!isOrdinaryDataProperty(descriptor)) return false;
       if (!isLosslessJson(descriptor.value, seen)) return false;
     }
     return true;
   }
   const prototype = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null) return false;
+  if (prototype !== Object.prototype) return false;
   for (const key of Reflect.ownKeys(value)) {
     if (typeof key !== 'string') return false;
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    if (!descriptor?.enumerable || !('value' in descriptor)) return false;
+    if (!isOrdinaryDataProperty(descriptor)) return false;
     if (!isLosslessJson(descriptor.value, seen)) return false;
   }
   return true;
@@ -101,6 +102,7 @@ export function isCacheIdentitySafe(
   try {
     for (const message of messages) {
       if (!isPlainDataObject(message)) return false;
+      if (Object.hasOwn(message, 'metadata') && message.metadata === undefined) return false;
       if (message.metadata !== undefined && !isPlainDataObject(message.metadata)) return false;
     }
     return isLosslessJson(cachePayload(messages, model, provider, options), new WeakSet());
@@ -109,13 +111,24 @@ export function isCacheIdentitySafe(
   }
 }
 
-function isPlainDataObject(value: object): boolean {
+export function isPlainDataObject(value: object): boolean {
   const prototype = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null) return false;
+  if (prototype !== Object.prototype) return false;
   return Reflect.ownKeys(value).every((key) => {
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    return typeof key === 'string' && descriptor?.enumerable === true && 'value' in descriptor;
+    return typeof key === 'string' && isOrdinaryDataProperty(descriptor);
   });
+}
+
+function isOrdinaryDataProperty(
+  descriptor: PropertyDescriptor | undefined,
+): descriptor is PropertyDescriptor & { value: unknown } {
+  return (
+    descriptor?.enumerable === true &&
+    descriptor.configurable === true &&
+    descriptor.writable === true &&
+    'value' in descriptor
+  );
 }
 
 export class CacheKeyBuilder {

@@ -10,7 +10,7 @@ import { applyStructuredOutputTransport } from './execution-structured-output-gu
 import { isValidToolCallIdentity } from './tool-call-identity.js';
 import { withOutboundTraceContext } from './execution-trace-context.js';
 import { randomId } from '../utils/random-id.js';
-import { isCacheIdentitySafe } from './cache/cache-key-builder';
+import { isCacheIdentitySafe, isPlainDataObject } from './cache/cache-key-builder';
 import { appendExecutionRecord, callJournaledProvider } from './execution-journal';
 import type { IModelJournalContext } from '../interfaces/execution-journal';
 
@@ -190,13 +190,32 @@ const USAGE_METADATA_KEYS = new Set([
 /** Cached responses have no provider call, so they must not repeat its usage. */
 function containsOnlyUsageMetadata(response: IAssistantMessage): boolean {
   const metadata = response.metadata;
+  if (metadata === undefined) return !Object.hasOwn(response, 'metadata');
   return (
-    metadata === undefined ||
-    (metadata !== null &&
-      typeof metadata === 'object' &&
-      !Array.isArray(metadata) &&
-      Object.keys(metadata).every((key) => USAGE_METADATA_KEYS.has(key)))
+    metadata !== null &&
+    typeof metadata === 'object' &&
+    isPlainDataObject(metadata) &&
+    Object.keys(metadata).every((key) => USAGE_METADATA_KEYS.has(key))
   );
+}
+
+const TEXT_RESPONSE_KEYS = new Set(['id', 'role', 'content', 'timestamp', 'state', 'metadata']);
+
+function isReconstructibleTextResponse(response: TUniversalMessage): boolean {
+  try {
+    return (
+      response.role === 'assistant' &&
+      response.state === 'complete' &&
+      typeof response.content === 'string' &&
+      isPlainDataObject(response) &&
+      Reflect.ownKeys(response).every(
+        (key) => typeof key === 'string' && TEXT_RESPONSE_KEYS.has(key),
+      ) &&
+      containsOnlyUsageMetadata(response)
+    );
+  } catch {
+    return false;
+  }
 }
 
 /** Call the AI provider with optional cache lookup/store */
@@ -313,7 +332,14 @@ export async function callProviderWithCache(
       }),
     },
   };
-  let snapshot: { messages: TUniversalMessage[]; options: typeof cacheOptions } | undefined;
+  let snapshot:
+    | {
+        messages: TUniversalMessage[];
+        options: typeof cacheOptions;
+        providerMessages: TUniversalMessage[];
+        providerOptions: IChatOptions;
+      }
+    | undefined;
   // A text-only entry cannot represent tools, external resources, or opaque native state.
   if (
     cacheService &&
@@ -337,8 +363,20 @@ export async function callProviderWithCache(
     isCacheIdentitySafe(outgoing, cacheModel, cacheProvider, cacheOptions)
   ) {
     try {
-      // Snapshot before invocation: adapters may mutate their inputs.
-      snapshot = { messages: structuredClone(outgoing), options: structuredClone(cacheOptions) };
+      // The provider consumes a separate snapshot of the very data used by the cache key.
+      // Callbacks and signals remain live, while mutations by the caller or adapter cannot
+      // change the request behind the saved identity.
+      const messages = structuredClone(outgoing);
+      const options = structuredClone(cacheOptions);
+      snapshot = {
+        messages,
+        options,
+        providerMessages: structuredClone(messages),
+        providerOptions: {
+          ...chatOptions,
+          ...structuredClone(options.requestIdentity),
+        },
+      };
     } catch {
       // An input that cannot be snapshotted can still be passed through to the provider.
     }
@@ -375,22 +413,16 @@ export async function callProviderWithCache(
     }
     const response = await callProviderWithIdleTimeout(
       observedChat,
-      outgoing,
-      chatOptions,
+      snapshot.providerMessages,
+      snapshot.providerOptions,
       config.timeout,
       awaitProviderSettlement || !!journalContext,
     );
     // Store only complete text frames the cache can reconstruct without provider metadata.
     if (
-      response.role === 'assistant' &&
-      response.state === 'complete' &&
-      typeof response.content === 'string' &&
+      isReconstructibleTextResponse(response) &&
       cacheScope(resolved.provider, chatOptions, route) === scope &&
-      containsOnlyUsageMetadata(response) &&
-      (response.parts === undefined ||
-        (Array.isArray(response.parts) && response.parts.length === 0)) &&
-      (response.toolCalls === undefined ||
-        (Array.isArray(response.toolCalls) && response.toolCalls.length === 0))
+      typeof response.content === 'string'
     ) {
       cacheService.store(
         cacheMessages,

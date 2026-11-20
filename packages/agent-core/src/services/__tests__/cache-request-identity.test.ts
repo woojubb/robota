@@ -16,6 +16,7 @@ afterEach(async () => {
 
 function fixture() {
   const scripted = createScriptedProvider([{ text: 'first answer' }, { text: 'second answer' }]);
+  scripted.provider.textResponseCacheScope = () => 'scripted-test-provider';
   const config: IAgentConfig = {
     name: 'cache-identity',
     aiProviders: [scripted.provider],
@@ -101,6 +102,52 @@ describe('response cache request identity', () => {
     expect(requests).toHaveLength(2);
   });
 
+  it('distinguishes absent metadata from an explicitly undefined property', async () => {
+    const { agent, requests } = fixture();
+    await agent.ensureReady();
+    const useMessage = (explicitUndefined: boolean): void => {
+      agent.clearHistory();
+      agent.injectRawMessage({
+        id: 'input',
+        role: 'user',
+        content: 'same input',
+        state: 'complete',
+        timestamp: new Date(0),
+        ...(explicitUndefined && { metadata: undefined }),
+      });
+    };
+    useMessage(false);
+    await expect(agent.run('continue')).resolves.toBe('first answer');
+    useMessage(false);
+    await expect(agent.run('continue')).resolves.toBe('first answer');
+    useMessage(true);
+    await expect(agent.run('continue')).resolves.toBe('second answer');
+    expect(requests).toHaveLength(2);
+  });
+
+  it('does not collapse null-prototype metadata values into ordinary objects', async () => {
+    const { agent, requests } = fixture();
+    await agent.ensureReady();
+    const useMetadata = (counts: Record<string, number>): void => {
+      agent.clearHistory();
+      agent.injectRawMessage({
+        id: 'input',
+        role: 'user',
+        content: 'same input',
+        state: 'complete',
+        timestamp: new Date(0),
+        metadata: { counts },
+      });
+    };
+    useMetadata(Object.assign(Object.create(null), { count: 1 }));
+    await expect(agent.run('continue')).resolves.toBe('first answer');
+    useMetadata({ count: 1 });
+    await expect(agent.run('continue')).resolves.toBe('second answer');
+    useMetadata({ count: 1 });
+    await expect(agent.run('continue')).resolves.toBe('second answer');
+    expect(requests).toHaveLength(2);
+  });
+
   it('does not cache when the provider has not opted the request in', async () => {
     const { provider, config, requests, resolved, cache, messages } = callFixture();
     expect((await callProviderWithCache(messages, config, resolved, cache)).content).toBe(
@@ -117,12 +164,30 @@ describe('response cache request identity', () => {
     expect(requests).toHaveLength(2);
   });
 
+  it('does not treat the stateful scripted provider as cache safe by default', async () => {
+    const scripted = createScriptedProvider([{ text: 'first' }, { text: 'second' }]);
+    const agent = new ConversationAgent({
+      name: 'stateful-script',
+      aiProviders: [scripted.provider],
+      defaultModel: { provider: scripted.provider.name, model: 'test-model' },
+      cache: { enabled: true, maxEntries: 10, ttlMs: 60_000 },
+    });
+    agents.push(agent);
+    await agent.ensureReady();
+    agent.clearHistory();
+    await expect(agent.run('same input')).resolves.toBe('first');
+    agent.clearHistory();
+    await expect(agent.run('same input')).resolves.toBe('second');
+    expect(scripted.requests).toHaveLength(2);
+  });
+
   it('does not share entries across provider instances with the same name and model', async () => {
     const { agent } = fixture();
     await agent.ensureReady();
     agent.clearHistory();
     await expect(agent.run('same input')).resolves.toBe('first answer');
     const replacement = createScriptedProvider([{ text: 'replacement answer' }]);
+    replacement.provider.textResponseCacheScope = () => 'scripted-test-provider';
     agent.swapDefaultProvider(replacement.provider, 'test-model');
     agent.clearHistory();
     await expect(agent.run('same input')).resolves.toBe('replacement answer');
@@ -140,6 +205,50 @@ describe('response cache request identity', () => {
     expect((await callProviderWithCache(messages, config, resolved, cache)).content).toBe(
       'second answer',
     );
+    expect(requests).toHaveLength(2);
+  });
+
+  it('does not store an answer when the provider configuration revision changes in flight', async () => {
+    const { provider, config, requests, resolved, cache, messages } = callFixture();
+    let revision = 1;
+    let configuration = 'A';
+    let enter!: () => void;
+    let observe!: () => void;
+    let observed!: () => void;
+    let finish!: () => void;
+    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const mayObserve = new Promise<void>((resolve) => (observe = resolve));
+    const didObserve = new Promise<void>((resolve) => (observed = resolve));
+    const mayFinish = new Promise<void>((resolve) => (finish = resolve));
+    provider.textResponseCacheScope = () => `configuration-revision-${revision}`;
+    const chat = provider.chat.bind(provider);
+    let firstCall = true;
+    provider.chat = async (input, options) => {
+      let answer = configuration;
+      if (firstCall) {
+        firstCall = false;
+        enter();
+        await mayObserve;
+        answer = configuration;
+        observed();
+        await mayFinish;
+      }
+      const response = await chat(input, options);
+      response.content = answer;
+      return response;
+    };
+    const first = callProviderWithCache(messages, config, resolved, cache);
+    await entered;
+    configuration = 'B';
+    revision++;
+    observe();
+    await didObserve;
+    configuration = 'A';
+    revision++;
+    finish();
+    expect((await first).content).toBe('B');
+    expect(cache.getStats().entries).toBe(0);
+    expect((await callProviderWithCache(messages, config, resolved, cache)).content).toBe('A');
     expect(requests).toHaveLength(2);
   });
 
@@ -241,6 +350,35 @@ describe('response cache request identity', () => {
     expect((await callProviderWithCache(messages, config, resolved, cache)).content).toBe(
       'second answer',
     );
+    expect(requests).toHaveLength(2);
+  });
+
+  it('does not cache a response with a non-enumerable continuation', async () => {
+    const { provider, config, requests, resolved, cache, messages } = callFixture();
+    const chat = provider.chat.bind(provider);
+    provider.chat = async (input, options) => {
+      const response = await chat(input, options);
+      response.metadata = {};
+      Object.defineProperty(response.metadata, 'providerContinuation', { value: 'cursor' });
+      return response;
+    };
+    const first = await callProviderWithCache(messages, config, resolved, cache);
+    const second = await callProviderWithCache(messages, config, resolved, cache);
+    expect(first.metadata?.providerContinuation).toBe('cursor');
+    expect(second.metadata?.providerContinuation).toBe('cursor');
+    expect(requests).toHaveLength(2);
+  });
+
+  it('does not cache a response with extra non-text state', async () => {
+    const { provider, config, requests, resolved, cache, messages } = callFixture();
+    const chat = provider.chat.bind(provider);
+    provider.chat = async (input, options) => {
+      const response = await chat(input, options);
+      if (response.role === 'assistant') response.toolCalls = [];
+      return response;
+    };
+    await callProviderWithCache(messages, config, resolved, cache);
+    await callProviderWithCache(messages, config, resolved, cache);
     expect(requests).toHaveLength(2);
   });
 
@@ -408,6 +546,38 @@ describe('response cache request identity', () => {
       callProviderWithCache(messages, config, resolved, cache, { openai: { topP: 0.1 } });
     expect((await run()).content).toBe('first answer');
     expect((await run()).content).toBe('first answer');
+    expect(requests).toHaveLength(1);
+  });
+
+  it('sends a detached snapshot if caller-owned messages or options change in flight', async () => {
+    const { provider, config, requests, resolved, cache, messages } = callFixture();
+    let release!: () => void;
+    let markEntered!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const entered = new Promise<void>((resolve) => (markEntered = resolve));
+    const chat = provider.chat.bind(provider);
+    provider.chat = async (input, options) => {
+      markEntered();
+      await gate;
+      const response = await chat(input, options);
+      response.content = `${input[0].metadata?.marker}:${options?.openai?.topP}`;
+      return response;
+    };
+    const metadata = { marker: 'A' };
+    messages[0].metadata = metadata;
+    const openai = { topP: 0.1 };
+    const first = callProviderWithCache(messages, config, resolved, cache, { openai });
+    await entered;
+    metadata.marker = 'B';
+    openai.topP = 0.9;
+    release();
+    expect((await first).content).toBe('A:0.1');
+    const original = structuredClone(messages);
+    original[0].metadata = { marker: 'A' };
+    expect(
+      (await callProviderWithCache(original, config, resolved, cache, { openai: { topP: 0.1 } }))
+        .content,
+    ).toBe('A:0.1');
     expect(requests).toHaveLength(1);
   });
 

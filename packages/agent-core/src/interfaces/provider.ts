@@ -278,10 +278,12 @@ export interface IAIProvider {
    * Opt a particular request into the text response cache. Return a nonempty, non-secret scope
    * only when this request is stateless and skipping the provider skips no effects, including
    * provider-hosted tools. The provider must not use message IDs, timestamps, host execution IDs,
-   * callbacks, signals, or tracing to change the answer. The scope must change whenever instance
-   * configuration can change the answer without changing the retained request. Return undefined
-   * when these guarantees cannot be made. Core also partitions entries by provider instance and
-   * refuses routed requests.
+   * callbacks, signals, tracing, or JavaScript object identity to change the answer, and must not
+   * require non-text observations to be reproduced on a cache hit. The scope must change whenever
+   * configurations can produce different answers for the same retained request. If configuration
+   * changes during a call, its scope must advance to a fresh revision and must not reuse an earlier
+   * value while that call can still settle. Return undefined when these guarantees cannot be made.
+   * Core also partitions entries by provider instance and refuses routed requests.
    */
   textResponseCacheScope?(options: IChatOptions): string | undefined;
 
