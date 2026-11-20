@@ -11,6 +11,7 @@ import {
 } from './tool-execution-constants';
 import type { IToolWaitState } from '../interfaces/tool-continuation';
 import { continuationObject } from '../utils/continuation-json';
+import { isValidToolCallIdentity } from './tool-call-identity';
 
 export interface IRecoveredAction {
   actionId: string;
@@ -296,7 +297,7 @@ function validateBatch(
   ids.clear();
   for (const call of response.toolCalls ?? []) {
     if (
-      !nonempty(call.id) ||
+      !isValidToolCallIdentity(call.id) ||
       ids.has(call.id) ||
       call.type !== 'function' ||
       !nonempty(call.function?.name) ||
