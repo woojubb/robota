@@ -11,6 +11,7 @@ import { EventEmitterPlugin } from '../../plugins/event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from '../../plugins/event-emitter/types';
 import { createScriptedProvider, type TScriptedTurn } from '../../testing/scripted-provider';
 import { FunctionTool } from '../../tool-registry/function-tool';
+import { ExecutionRecoveryError } from '../../utils/execution-recovery-error';
 import { ConversationAgent } from '../conversation-agent';
 
 import type { IPluginExecutionContext } from '../../abstracts/abstract-plugin-types';
@@ -162,6 +163,8 @@ describe('plugin hooks during a run', () => {
     let release!: () => void;
     const started = new Promise<void>((resolve) => (entered = resolve));
     const held = new Promise<void>((resolve) => (release = resolve));
+    const nextHook = vi.fn(async () => {});
+    const nextPlugin = vi.fn(async () => {});
     class Gate extends AbstractPlugin {
       readonly name = 'gate';
       readonly version = '1';
@@ -169,6 +172,12 @@ describe('plugin hooks during a run', () => {
         entered();
         await held;
       }
+      override beforeToolExecution = nextHook;
+    }
+    class Follower extends AbstractPlugin {
+      readonly name = 'follower';
+      readonly version = '1';
+      override beforeToolCall = nextPlugin;
     }
     const effect = vi.fn(async () => 'done');
     const provider = createScriptedProvider([]).provider;
@@ -182,7 +191,7 @@ describe('plugin hooks during a run', () => {
           effect,
         ),
       ],
-      plugins: [new Gate()],
+      plugins: [new Gate(), new Follower()],
     });
     const controller = new AbortController();
     const invocation = agent.invokeRuntimeTool(
@@ -208,8 +217,90 @@ describe('plugin hooks during a run', () => {
       release();
       expect(await invocation).toMatchObject({ success: false });
       expect(effect).not.toHaveBeenCalled();
+      expect(nextHook).not.toHaveBeenCalled();
+      expect(nextPlugin).not.toHaveBeenCalled();
     } finally {
       release();
+      await agent.destroy();
+    }
+  });
+
+  it('emits terminal events with caller attribution for direct tool outcomes', async () => {
+    const events = [
+      EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE,
+      EVENT_EMITTER_EVENTS.TOOL_SUCCESS,
+      EVENT_EMITTER_EVENTS.TOOL_ERROR,
+      EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE,
+    ];
+    const emitter = new EventEmitterPlugin({ events, async: false });
+    const seen: Array<{ event: string; id: unknown; userId: unknown }> = [];
+    for (const event of events) {
+      emitter.on(event, (data) => {
+        seen.push({ event, id: data.data?.['toolId'], userId: data.userId });
+      });
+    }
+    const agent = agentWith([emitter]);
+    try {
+      const invoke = (name: string, executionId: string) =>
+        agent.invokeRuntimeTool(
+          name,
+          {},
+          {
+            toolName: name,
+            parameters: {},
+            executionId,
+            sessionId: 'session',
+            userId: 'caller',
+          },
+        );
+      expect(await invoke('works', 'success')).toMatchObject({ success: true });
+      expect(await invoke('breaks', 'failure')).toMatchObject({ success: false });
+      expect(seen).toEqual([
+        { event: EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE, id: 'success', userId: 'caller' },
+        { event: EVENT_EMITTER_EVENTS.TOOL_SUCCESS, id: 'success', userId: 'caller' },
+        { event: EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE, id: 'success', userId: 'caller' },
+        { event: EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE, id: 'failure', userId: 'caller' },
+        { event: EVENT_EMITTER_EVENTS.TOOL_ERROR, id: 'failure', userId: 'caller' },
+        { event: EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE, id: 'failure', userId: 'caller' },
+      ]);
+    } finally {
+      await agent.destroy();
+    }
+  });
+
+  it('reports a terminal plugin outcome while preserving an effect-admission control error', async () => {
+    class Terminal extends AbstractPlugin {
+      readonly name = 'terminal';
+      readonly version = '1';
+      override afterToolExecution = vi.fn(async () => {});
+    }
+    const plugin = new Terminal();
+    const agent = agentWith([plugin]);
+    const failure = new ExecutionRecoveryError('EXECUTION_RECOVERY_CONFLICT', 'admission refused');
+    try {
+      await expect(
+        agent.invokeRuntimeTool(
+          'works',
+          {},
+          {
+            toolName: 'works',
+            parameters: {},
+            executionId: 'control-failure',
+            beforeToolEffect: async () => {
+              throw failure;
+            },
+          },
+        ),
+      ).rejects.toBe(failure);
+      expect(plugin.afterToolExecution).toHaveBeenCalledOnce();
+      expect(plugin.afterToolExecution).toHaveBeenCalledWith(
+        expect.objectContaining({ executionId: 'control-failure' }),
+        expect.objectContaining({
+          success: false,
+          toolCalls: [{ id: 'control-failure', name: 'works', result: null }],
+        }),
+      );
+    } finally {
       await agent.destroy();
     }
   });

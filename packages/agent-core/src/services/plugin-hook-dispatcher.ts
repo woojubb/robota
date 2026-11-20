@@ -144,6 +144,12 @@ export async function callPluginHook(
   }
 
   for (const plugin of plugins) {
+    if (
+      (hookName === 'beforeToolCall' || hookName === 'beforeToolExecution') &&
+      context.toolData?.signal?.aborted
+    ) {
+      return;
+    }
     try {
       await handler(plugin, context);
     } catch (error) {

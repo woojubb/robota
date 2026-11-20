@@ -4,10 +4,51 @@ import { AbstractTool } from '../abstracts/abstract-tool';
 import type { IToolSchema } from '../interfaces/provider';
 import { FunctionTool } from '../tool-registry/function-tool';
 import { createScriptedProvider } from '../testing/scripted-provider';
+import { ObservableEventService } from '../event-service/event-service';
 import type { IToolExecutionContext, IToolResult } from '../interfaces/tool';
 import type { IAIProvider } from '../interfaces/provider';
 
 describe('canonical runtime tools', () => {
+  it('reports an already-cancelled direct call as a tool error', async () => {
+    const provider = createScriptedProvider([]).provider;
+    const eventService = new ObservableEventService();
+    const events: string[] = [];
+    eventService.subscribe((event) => events.push(event));
+    const effect = vi.fn(async () => 'done');
+    const agent = new ConversationAgent({
+      name: 'runtime-cancellation',
+      aiProviders: [provider],
+      defaultModel: { provider: provider.name, model: 'test' },
+      eventService,
+      tools: [
+        new FunctionTool(
+          { name: 'act', description: 'Act', parameters: { type: 'object', properties: {} } },
+          effect,
+        ),
+      ],
+    });
+    const controller = new AbortController();
+    controller.abort();
+    try {
+      expect(
+        await agent.invokeRuntimeTool(
+          'act',
+          {},
+          {
+            toolName: 'act',
+            parameters: {},
+            executionId: 'cancelled',
+            signal: controller.signal,
+          },
+        ),
+      ).toMatchObject({ success: false });
+      expect(events.filter((event) => event.endsWith('call_error'))).toHaveLength(1);
+      expect(effect).not.toHaveBeenCalled();
+    } finally {
+      await agent.destroy();
+    }
+  });
+
   it('preserves the direct caller context through tool execution', async () => {
     const provider = createScriptedProvider([]).provider;
     const contexts: IToolExecutionContext[] = [];
