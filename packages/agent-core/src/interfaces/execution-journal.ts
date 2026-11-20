@@ -1,4 +1,5 @@
 import type { TUniversalMessage } from './messages';
+import type { IManagedToolReceipt } from './managed-provider';
 import type { IChatOptions } from './provider';
 import type { IToolExecutionResult, TToolParameters } from './tool';
 import type { TToolSearchSetting } from './tool-search';
@@ -124,6 +125,9 @@ export interface IExecutionJournal {
  * Reads the complete, ordered, current prefix from the same authority used for append.
  * The host must hold exclusive fenced ownership and drain the old runtime before recovery.
  * Appending an identical recordId is idempotent; conflicting content must be rejected.
+ * Stored records must round-trip their value types and shared references without collapsing them.
+ * Recovery applies the active tool execution policy; the host must keep that policy equivalent
+ * to the one used for the saved batch because policy identity is not stored in this journal.
  */
 export interface IRecoverableExecutionJournal extends IExecutionJournal {
   read(executionId: string): Promise<readonly TExecutionJournalRecord[]>;
@@ -135,6 +139,13 @@ export interface IResumeToolCallsOptions {
   journal: IRecoverableExecutionJournal;
   /** Exact replies to saved requests; receipts are persisted before further execution. */
   toolResponses?: readonly IToolWaitResponse[];
+  /**
+   * Return durable action receipts. A receipt alone does not prove that a native runtime is waiting
+   * for the same call; its connection, conversation, frame and action frontier must also match.
+   * Existing assistant history must match the complete saved response. Some model-step commits
+   * project away provider parts or metadata; in that case receipt recovery refuses the history.
+   */
+  includeReceipts?: boolean;
   signal?: AbortSignal;
   /** Observe newly committed recovery history using the ordinary history-mutation contract. */
   onExecutionEvent?: (event: string, data: Record<string, unknown>) => void;
@@ -146,7 +157,10 @@ export interface IResumeToolCallsOptions {
  * Turn-level lifecycle hooks are omitted because their effects have no durable receipts;
  * hosts requiring those effects must settle them separately. Recovered history remains available.
  */
-export interface IResumeExecutionOptions extends Omit<IResumeToolCallsOptions, 'callId'> {
+export interface IResumeExecutionOptions extends Omit<
+  IResumeToolCallsOptions,
+  'callId' | 'includeReceipts'
+> {
   onTextDelta?: IChatOptions['onTextDelta'];
   onThinkingDelta?: IChatOptions['onThinkingDelta'];
   traceContext?: IRunTraceContext;
@@ -156,6 +170,8 @@ export interface IResumeToolCallsResult {
   executionId: string;
   callId: string;
   messages: TUniversalMessage[];
+  /** Present when requested and all batch results have durable settlements. */
+  receipts?: readonly IManagedToolReceipt[];
 }
 
 /** Host-owned identity for a journaled provider invocation, including routing changes. */

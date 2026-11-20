@@ -5,7 +5,7 @@ import {
   prioritizeExecutionError,
 } from '../utils/execution-control-error';
 import { ExecutionSuspendedError } from '../utils/execution-suspended-error';
-import type { ExecutionRecoveryError } from '../utils/execution-recovery-error';
+import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { randomId } from '../utils/random-id.js';
 import { ToolBatchQueue } from './tool-batch-queue.js';
 import { spanIdFromMintedId, toolTraceContextFor, traceEnvFor } from '../utils/trace-context';
@@ -13,6 +13,7 @@ import { spanIdFromMintedId, toolTraceContextFor, traceEnvFor } from '../utils/t
 import {
   ARGUMENT_DECODE_ERROR_CODE,
   TOOL_CALL_SKIPPED_ERROR_CODE,
+  UNKNOWN_TOOL_ERROR_CODE,
   TOOL_EVENTS,
 } from './tool-execution-constants';
 
@@ -149,8 +150,7 @@ async function skipRequest(
     toolName: request.toolName,
     error: reason,
   });
-  await context.journal?.onResult(index, result);
-  return result;
+  return (await context.journal?.onResult(index, result)) ?? result;
 }
 
 async function runScheduledWorker(
@@ -588,19 +588,47 @@ async function executeRequest(
           error instanceof Error ? error : new Error(String(error)),
         );
       }
-      // This wrapper was entered. A tool's result cannot claim the owner's undispatched status.
-      if (result.metadata?.dispatchStatus !== undefined) {
-        const { dispatchStatus: _foreignStatus, ...metadata } = result.metadata;
-        void _foreignStatus;
-        result = { ...result, metadata };
+      // Unknown-tool classification is produced by the host before a tool body is entered.
+      const unknownTool = result.metadata?.errorCode === UNKNOWN_TOOL_ERROR_CODE;
+      if (context.lifecycle) {
+        let observation = result;
+        if (context.journal) {
+          try {
+            observation = structuredClone(result);
+          } catch {
+            throw new ExecutionRecoveryError(
+              'EXECUTION_RECOVERY_REQUIRED',
+              'Tool result cannot be observed safely before journal settlement',
+            );
+          }
+        }
+        await context.lifecycle.onResult(index, executionContext, observation);
       }
-      if (context.lifecycle) await context.lifecycle.onResult(index, executionContext, result);
+      const metadata = result.metadata;
+      if (metadata) {
+        const { dispatchStatus: _foreignStatus, errorCode, ...rest } = metadata;
+        void _foreignStatus;
+        const reserved =
+          errorCode === TOOL_CALL_SKIPPED_ERROR_CODE ||
+          errorCode === ARGUMENT_DECODE_ERROR_CODE ||
+          errorCode === UNKNOWN_TOOL_ERROR_CODE;
+        result = {
+          ...result,
+          metadata: {
+            ...rest,
+            ...(unknownTool
+              ? { errorCode: UNKNOWN_TOOL_ERROR_CODE }
+              : !reserved && errorCode !== undefined
+                ? { errorCode }
+                : {}),
+          },
+        };
+      }
     }
   }
   // Persist a settled sibling even after cancellation; this wait is not a new external effect.
   result = withIntentSource(request, result);
-  await context.journal?.onResult(index, result);
-  return result;
+  return (await context.journal?.onResult(index, result)) ?? result;
 }
 
 async function executeAndDrain(

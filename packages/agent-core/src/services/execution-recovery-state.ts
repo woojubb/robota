@@ -5,6 +5,7 @@ import type {
 import type { IAssistantMessage } from '../interfaces/messages';
 import type { IToolExecutionResult } from '../interfaces/tool';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
+import { isUniversalValueEqual } from '../utils/universal-value-equal';
 import {
   ARGUMENT_DECODE_ERROR_CODE,
   TOOL_CALL_SKIPPED_ERROR_CODE,
@@ -23,6 +24,8 @@ export interface IRecoveredAction {
   loadedDeferredTools?: string[];
 }
 export interface IRecoveredToolBatch {
+  executionId: string;
+  callId: string;
   checkpoint: IExecutionRoundCheckpoint;
   response: IAssistantMessage;
   actions: Map<string, IRecoveredAction>;
@@ -72,7 +75,7 @@ function validateBatch(
   if (!nonempty(executionId) || !nonempty(callId) || !Array.isArray(source))
     invalid('Missing recovery identity');
   const records: TExecutionJournalRecord[] = [];
-  const seen = new Map<string, string>();
+  const seen = new Map<string, TExecutionJournalRecord>();
   let latestCall: string | undefined;
   const actionOwners = new Map<string, string>();
   const waits = new Map<string, Extract<TExecutionJournalRecord, { kind: 'tool-wait' }>>();
@@ -81,13 +84,15 @@ function validateBatch(
   for (const record of source) {
     if (!record || record.executionId !== executionId || !nonempty(record.recordId))
       invalid('Journal execution identity mismatch');
-    const key = recoveryValueKey(record);
+    // The reader still requires JSON-representable records, but comparison must not collapse
+    // distinctions such as dates versus strings or negative zero versus zero.
+    recoveryValueKey(record);
     const previous = seen.get(record.recordId);
     if (previous !== undefined) {
-      if (key !== previous) invalid('Conflicting journal record identity');
+      if (!isUniversalValueEqual(record, previous)) invalid('Conflicting journal record identity');
       continue;
     }
-    seen.set(record.recordId, key);
+    seen.set(record.recordId, record);
     records.push(record);
     if ('callId' in record) {
       if (!nonempty(record.callId)) invalid('Missing model call identity');
@@ -318,6 +323,8 @@ function validateBatch(
       uncertain.map((action) => action.actionId),
     );
   return {
+    executionId,
+    callId,
     checkpoint,
     response,
     actions,

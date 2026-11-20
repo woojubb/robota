@@ -99,7 +99,12 @@ export { normalizeProviderConfig, createProviderFromConfig } from './providers/p
 
 // Message types
 export type { IToolCall, IUserMessage, ISystemMessage, IToolMessage } from './interfaces/agent';
-export type { TToolParameters, IToolResult, IToolAppView, IToolExecutionContext } from './interfaces/tool';
+export type {
+  TToolParameters,
+  IToolResult,
+  IToolAppView,
+  IToolExecutionContext,
+} from './interfaces/tool';
 export type { IToolExecutionResult } from './interfaces/tool';
 export type {
   TUniversalMessage,
@@ -170,6 +175,10 @@ export { utf8ByteLength } from './utils/utf8-byte-length.js';
 export { utf8Decode } from './utils/utf8-decode.js';
 export { base64UrlDecode } from './utils/base64-url.js';
 export { isJsonEqual } from './utils/json-equal.js';
+export {
+  isSnapshotableUniversalValue,
+  isUniversalValueEqual,
+} from './utils/universal-value-equal.js';
 export {
   basenamePath,
   dirnamePath,
@@ -260,7 +269,13 @@ export {
 } from './services/provider-call-usage';
 
 // Core types
-export type { IAgent, IAgentConfig, TAgentExecutionConfig, IAgentTemplate, IRunOptions } from './interfaces/agent';
+export type {
+  IAgent,
+  IAgentConfig,
+  TAgentExecutionConfig,
+  IAgentTemplate,
+  IRunOptions,
+} from './interfaces/agent';
 
 // Event history module
 export type {

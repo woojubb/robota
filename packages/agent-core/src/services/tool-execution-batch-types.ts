@@ -47,6 +47,6 @@ export interface IToolExecutionBatchContext {
     settle?(index: number): Promise<void>;
     beforeDispatch(index: number): Promise<void>;
     beforeEffect?(index: number, parameters: TToolParameters): Promise<void>;
-    onResult(index: number, result: IToolExecutionResult): Promise<void>;
+    onResult(index: number, result: IToolExecutionResult): Promise<IToolExecutionResult | void>;
   };
 }

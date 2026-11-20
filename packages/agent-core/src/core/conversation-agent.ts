@@ -258,7 +258,7 @@ export class ConversationAgent
     return this.runQueue.run(options.signal, async () => {
       this.assertProviderRunnable();
       await this.ensureFullyInitialized();
-      return this.executionService.resumeToolCalls(this.conversationId, options);
+      return this.executionService.resumeToolCalls(this.conversationId, options, this.config);
     });
   }
 
