@@ -13,7 +13,7 @@ import { bindWithOwnerPath } from '../event-service/index';
 
 import type { IExecutionEventEmitterSurface } from './execution-event-emitter-surface';
 import type { IResolvedProviderInfo } from './execution-types';
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 import type { IEventService, IEventContext } from '../interfaces/event-service';
 import type { TUniversalMessage } from '../interfaces/messages';
 

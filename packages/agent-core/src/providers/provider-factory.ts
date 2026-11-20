@@ -7,14 +7,12 @@ import { ENV_REFERENCE_PREFIX, isEnvReference, resolveEnvReference } from '../ut
 import type { TEnvResolver } from '../utils/env-resolver.js';
 
 import type {
-  IProviderDefinition,
   TProviderDefinition,
   IProviderDefinitionConfig,
   IProviderCredentialRequirement,
   TProviderCredentialField,
   TProviderCredentialReference,
 } from '../interfaces/provider-definition.js';
-import type { TExecutionProvider } from '../interfaces/managed-provider.js';
 import type { TUniversalValue } from '../interfaces/types.js';
 
 /**
@@ -87,10 +85,10 @@ export function normalizeProviderConfig(
  * registry, enforcing the definition's credential requirement. Throws a typed error naming the supported
  * provider types when the requested provider is not in the registry.
  */
-export function createProviderFromConfig<P extends TExecutionProvider>(
+export function createProviderFromConfig<D extends TProviderDefinition>(
   settings: IProviderDefinitionConfig,
-  providerDefinitions: readonly IProviderDefinition<P>[],
-): P {
+  providerDefinitions: readonly D[],
+): ReturnType<D['createProvider']> {
   if (settings.apiKeyRef !== undefined && !settings.apiKey) {
     throw new Error(
       `Provider ${settings.name} requires host credential resolution before construction`,
@@ -111,7 +109,7 @@ export function createProviderFromConfig<P extends TExecutionProvider>(
       `Provider ${settings.name} requires ${formatCredentialRequirement(credentialRequirement)}`,
     );
   }
-  return definition.createProvider(settings);
+  return definition.createProvider(settings) as ReturnType<D['createProvider']>;
 }
 
 /** Whether `settings` satisfies at least one of the credential fields the requirement allows. */

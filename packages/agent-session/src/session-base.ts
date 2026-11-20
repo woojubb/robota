@@ -1,5 +1,5 @@
 import { requireExecutionRoot } from './execution-root.js';
-import { TurnClaim } from './turn-claim.js';
+import { SessionBusyError, TurnClaim } from './turn-claim.js';
 import { isManagedRunProvider, ManagedRunUnavailableError } from '@robota-sdk/agent-core';
 
 import type { ContextWindowTracker, TAutoCompactThreshold } from './context-window-tracker.js';
@@ -152,6 +152,9 @@ export abstract class SessionBase {
     // (e.g. `/preset` right after launch) would otherwise hit the "must be fully initialized"
     // guard. Bring the agent to a ready state first — idempotent and side-effect-free.
     await this.agent.ensureReady();
+    if (this.turnClaim.isRunning()) {
+      throw new SessionBusyError('Cannot change the model while a session operation is active');
+    }
     const nextModel = options.model ?? this.model;
     // The system prompt is not model config; it is updated independently via updateSystemMessage.
     this.agent.setModel({

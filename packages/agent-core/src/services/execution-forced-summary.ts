@@ -26,7 +26,10 @@ import type {
   IExecutionRoundState,
   IResolvedProviderInfo,
 } from './execution-types';
-import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
+import type {
+  TAgentExecutionConfig as IAgentConfig,
+  TExecutionEventData,
+} from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { ConversationStore } from '../managers/conversation-history-manager';

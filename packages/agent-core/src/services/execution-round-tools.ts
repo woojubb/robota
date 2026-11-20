@@ -17,7 +17,7 @@ import { toolExecutionLifecycle } from './tool-execution-lifecycle';
 import type { IRoundDependencies } from './execution-round-types';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type {
-  IAgentConfig,
+  TAgentExecutionConfig as IAgentConfig,
   TExecutionEventCallback,
   TExecutionEventData,
 } from '../interfaces/agent';

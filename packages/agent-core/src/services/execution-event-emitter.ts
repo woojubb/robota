@@ -16,7 +16,7 @@ import { isDefaultEventService, bindWithOwnerPath } from '../event-service/index
 
 import type { IResolvedProviderInfo } from './execution-types';
 import type { IExecutionContextInjection } from '../interfaces/agent';
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 import type {
   IEventService,
   IEventContext,

@@ -105,11 +105,13 @@ export function readProviderSettings(
   throw new ProviderConfigError('No provider configuration found. Configure a provider before starting a session.');
 }
 
-export function createProviderFromSettings<P extends TExecutionProvider = IAIProvider>(
+export function createProviderFromSettings<D extends TProviderDefinition = IProviderDefinition>(
   sources: readonly TSettingsSource[],
   modelOverride?: string,
-  options: IReadProviderSettingsOptions<P> = {},
-): P {
+  options: Omit<IReadProviderSettingsOptions<TExecutionProvider>, 'providerDefinitions'> & {
+    providerDefinitions?: readonly D[];
+  } = {},
+): ReturnType<D['createProvider']> {
   const providerDefinitions = options.providerDefinitions ?? [];
   const settings = readProviderSettings(sources, { ...options, providerDefinitions });
   const model = modelOverride ?? settings.model;

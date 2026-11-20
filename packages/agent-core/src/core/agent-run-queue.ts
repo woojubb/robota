@@ -18,6 +18,11 @@ export class RunQueue {
   /** Slots claimed and not yet released: the run in flight plus every run waiting behind it. */
   private claimed = 0;
 
+  /** A run owns or is waiting for this conversation. */
+  get isBusy(): boolean {
+    return this.claimed > 0;
+  }
+
   /**
    * Wait for the previous run to settle, then hold the slot until the returned function is called.
    *

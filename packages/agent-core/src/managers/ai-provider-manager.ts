@@ -2,10 +2,14 @@ import { AbstractManager } from '../abstracts/abstract-manager';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { Validator } from '../utils/validation';
-import { isManagedRunProvider } from '../interfaces/managed-provider';
+import { isManagedRunProvider, ManagedRunUnavailableError } from '../interfaces/managed-provider';
 
-import type { IAIProviderManager } from '../interfaces/manager';
-import type { IProviderRegistrationOptions, TProviderOwnership } from '../interfaces/provider';
+import type { IExecutionProviderManager } from '../interfaces/manager';
+import type {
+  IAIProvider,
+  IProviderRegistrationOptions,
+  TProviderOwnership,
+} from '../interfaces/provider';
 import type { TExecutionProvider } from '../interfaces/managed-provider';
 
 /**
@@ -14,7 +18,7 @@ import type { TExecutionProvider } from '../interfaces/managed-provider';
  * Instance-based for isolated provider management
  * @internal
  */
-export class AIProviders extends AbstractManager implements IAIProviderManager {
+export class AIProviders extends AbstractManager implements IExecutionProviderManager {
   private providers = new Map<
     string,
     { provider: TExecutionProvider; ownership: TProviderOwnership }
@@ -158,7 +162,15 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
   /**
    * Get registered provider by name
    */
-  getProvider(name: string): TExecutionProvider | undefined {
+  getProvider(name: string): IAIProvider | undefined {
+    const provider = this.getExecutionProvider(name);
+    if (provider && isManagedRunProvider(provider))
+      throw new ManagedRunUnavailableError(provider.name);
+    return provider;
+  }
+
+  /** Get either provider execution contract. */
+  getExecutionProvider(name: string): TExecutionProvider | undefined {
     this.ensureInitialized();
     return this.providers.get(name)?.provider;
   }
@@ -166,7 +178,17 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
   /**
    * Get all registered providers
    */
-  getProviders(): Record<string, TExecutionProvider> {
+  getProviders(): Record<string, IAIProvider> {
+    const result: Record<string, IAIProvider> = {};
+    for (const name of this.getProviderNames()) {
+      const provider = this.getProvider(name);
+      if (provider) result[name] = provider;
+    }
+    return result;
+  }
+
+  /** Get the registry without narrowing its execution contracts. */
+  getExecutionProviders(): Record<string, TExecutionProvider> {
     this.ensureInitialized();
     return Object.fromEntries([...this.providers].map(([name, entry]) => [name, entry.provider]));
   }
@@ -223,7 +245,15 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
   /**
    * Get current provider instance
    */
-  getCurrentProviderInstance(): TExecutionProvider | undefined {
+  getCurrentProviderInstance(): IAIProvider | undefined {
+    const provider = this.getCurrentExecutionProviderInstance();
+    if (provider && isManagedRunProvider(provider))
+      throw new ManagedRunUnavailableError(provider.name);
+    return provider;
+  }
+
+  /** Get the selected instance without narrowing its execution contract. */
+  getCurrentExecutionProviderInstance(): TExecutionProvider | undefined {
     if (!this.isConfigured() || !this.currentProvider) {
       return undefined;
     }
@@ -242,14 +272,16 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
   /**
    * Get providers by pattern
    */
-  getProvidersByPattern(pattern: string | RegExp): Record<string, TExecutionProvider> {
+  getProvidersByPattern(pattern: string | RegExp): Record<string, IAIProvider> {
     this.ensureInitialized();
 
     const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
-    const result: Record<string, TExecutionProvider> = {};
+    const result: Record<string, IAIProvider> = {};
 
     for (const [name, registration] of this.providers) {
       if (regex.test(name)) {
+        if (isManagedRunProvider(registration.provider))
+          throw new ManagedRunUnavailableError(registration.provider.name);
         result[name] = registration.provider;
       }
     }

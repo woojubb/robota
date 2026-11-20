@@ -64,8 +64,16 @@ export interface IManagedRunProvider {
   close?(): Promise<void>;
 }
 
-/** The legacy step interface remains accepted while callers migrate to the discriminant. */
-export type TExecutionProvider = IAIProvider | IManagedRunProvider;
+/** Explicit model-step form for registries that use the discriminated contract. */
+export interface IModelStepProvider extends IAIProvider {
+  readonly kind: 'model-step';
+}
+
+/** Both new execution forms can be narrowed directly by their kind. */
+export type TDiscriminatedExecutionProvider = IModelStepProvider | IManagedRunProvider;
+
+/** Untagged model-step providers remain accepted during the compatibility window. */
+export type TExecutionProvider = IAIProvider | TDiscriminatedExecutionProvider;
 
 export class ManagedRunUnavailableError extends Error {
   readonly code = 'MANAGED_RUN_UNAVAILABLE';

@@ -43,6 +43,7 @@ import type {
   TSessionExecutionResult,
 } from './session-recoverable.js';
 import { SessionRuntimeTools, linkCancellation } from './session-runtime-tools.js';
+import { SessionBusyError } from './turn-claim.js';
 import type { IRuntimeToolInvokeOptions } from '@robota-sdk/agent-interface/session';
 
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
@@ -167,7 +168,7 @@ export class Session extends SessionBase {
   /** Absolute path to the session transcript file, if file-backed storage is active. */
   private readonly transcriptPath: string | undefined;
 
-  constructor(options: ISessionOptions) {
+  constructor(options: ISessionOptions<TExecutionProvider>) {
     super(options.cwd);
     const { tools, provider, systemMessage } = options;
 
@@ -582,7 +583,10 @@ export class Session extends SessionBase {
         known.add(tool.schema.name);
         fresh.push(tool);
       }
-      if (fresh.length === 0) return [];
+      if (fresh.length === 0) {
+        if (!this.turnClaim.isRunning()) await this.applyPendingTools();
+        return [];
+      }
       this.pendingTools.push(...fresh);
       if (!this.turnClaim.isRunning()) await this.applyPendingTools();
       return fresh.map((tool) => tool.schema.name);
@@ -602,10 +606,11 @@ export class Session extends SessionBase {
   /** Registers the queued tools with the agent. Only ever called inside `serializeToolChange`. */
   private async applyPendingTools(): Promise<void> {
     if (this.pendingTools.length === 0) return;
-    const fresh = this.pendingTools.splice(0);
+    const fresh = [...this.pendingTools];
     await this.agent.ensureReady();
     const wrapped = this.permissionEnforcer.wrapTools(this.wrapAddedTools?.(fresh) ?? fresh);
-    await this.agent.updateTools([...(this.agent.getConfig().tools ?? []), ...wrapped]);
+    await this.agent.updateTools([...(this.agent.getExecutionConfig().tools ?? []), ...wrapped]);
+    this.pendingTools.splice(0, fresh.length);
     this.toolSchemas.push(...wrapped.map((tool) => tool.schema));
   }
 
@@ -706,6 +711,9 @@ export class Session extends SessionBase {
     options?: IProviderRegistrationOptions,
   ): void {
     this.assertInputAllowed();
+    if (this.turnClaim.isRunning()) {
+      throw new SessionBusyError('Cannot change the provider while a session operation is active');
+    }
     this.agent.swapDefaultProvider(newProvider, model, options);
     if ('onServerToolUse' in newProvider) {
       (

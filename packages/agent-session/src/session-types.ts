@@ -20,6 +20,7 @@ import type {
 import type { ISessionLogger } from './session-logger.js';
 import type {
   TExecutionProvider,
+  IAIProvider,
   TProviderOwnership,
   IAgentConfig,
   IExecutionJournal,
@@ -53,7 +54,7 @@ export interface ISessionShutdownOptions {
 }
 
 /** Options for constructing a Session */
-export interface ISessionOptions {
+export interface ISessionOptions<P extends TExecutionProvider = IAIProvider> {
   readonly pathProtection?: IPathProtectionPolicy;
   /** Pre-constructed tools to register with the agent */
   tools: IToolWithEventService[];
@@ -66,7 +67,7 @@ export interface ISessionOptions {
    */
   wrapAddedTools?: (tools: IToolWithEventService[]) => IToolWithEventService[];
   /** Pre-constructed AI provider */
-  provider: TExecutionProvider;
+  provider: P;
   /** Defaults to owned; a borrowed provider is closed by its external owner. */
   providerOwnership?: TProviderOwnership;
   /** Pre-built system message string */

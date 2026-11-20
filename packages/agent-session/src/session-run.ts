@@ -10,6 +10,8 @@ import {
   createUserMessage,
   createSystemMessage,
   getProviderCapabilities,
+  isManagedRunProvider,
+  ManagedRunUnavailableError,
   runHooks,
   traceEnvFor,
   ExecutionSuspendedError,
@@ -40,6 +42,8 @@ export async function executeRun(
   abortSignal: AbortSignal,
   runOptions?: ISessionRunOptions,
 ): Promise<string> {
+  if (isManagedRunProvider(ctx.aiProvider))
+    throw new ManagedRunUnavailableError(ctx.aiProvider.name);
   // Command hooks fired on this prompt's path name its root span; hooks elsewhere get nothing.
   const traceContext = runOptions?.traceContext;
   const hookTraceEnv = traceContext

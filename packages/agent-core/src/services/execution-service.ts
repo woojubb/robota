@@ -33,7 +33,7 @@ import { isExecutionControlError } from '../utils/execution-control-error';
 import { createLogger, type ILogger } from '../utils/logger';
 
 import type {
-  IAgentConfig,
+  TAgentExecutionConfig as IAgentConfig,
   IAssistantMessage,
   IExecutionContextInjection,
 } from '../interfaces/agent';

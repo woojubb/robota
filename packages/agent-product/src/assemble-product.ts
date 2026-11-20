@@ -11,7 +11,8 @@ import type { IAssembledProduct, IBuildRuntimeInput, IProductProfile } from './p
 import type { TCompositionFieldPolicy } from './capability-pack/index.js';
 import type {
   FunctionTool,
-  IAIProvider,
+  IProviderDefinition,
+  TProviderDefinition,
   TExecutionProvider,
   IToolWithEventService,
   TPermissionMode,
@@ -62,6 +63,14 @@ interface IOverlayMaterials {
   /** The instance preset registry, so `/preset` discovers this product's presets. */
   presetRegistry: IPresetRegistry;
 }
+
+type TAssembledForDefinitions<D extends TProviderDefinition, P extends TExecutionProvider> = Omit<
+  IAssembledProduct<TExecutionProvider>,
+  'provider' | 'providerDefinitions'
+> & {
+  provider?: ReturnType<D['createProvider']> | P;
+  providerDefinitions: readonly D[];
+};
 
 /**
  * Overlay the assembled command modules, pack tools, and pack subagents onto the shell's session options.
@@ -178,9 +187,15 @@ function overlaySessionOptions(
  * Settings/args/env resolution and concrete transports/presentation stay in the shell; `assembleProduct`
  * receives already-resolved data and returns neutral materials the shell binds its own transport over.
  */
-export function assembleProduct<P extends TExecutionProvider = IAIProvider>(
-  profile: IProductProfile<P>,
-): IAssembledProduct<P> {
+export function assembleProduct<
+  D extends TProviderDefinition = IProviderDefinition,
+  P extends TExecutionProvider = ReturnType<D['createProvider']>,
+>(
+  profile: Omit<IProductProfile<TExecutionProvider>, 'providerDefinitions' | 'provider'> & {
+    providerDefinitions: readonly D[];
+    provider?: P;
+  },
+): TAssembledForDefinitions<D, P> {
   // (1) Per-call instance-scoped preset registry — pure w.r.t. process state. A caller that had to
   // resolve a preset BEFORE it could build this profile (a preset can carry the `model`/`agentName` the
   // profile is constructed from) hands its own instance in as `presetRegistry`; the assembler then uses

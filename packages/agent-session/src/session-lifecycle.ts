@@ -24,7 +24,7 @@ const logger = createLogger('SessionLifecycle');
  */
 export function configureProvider(
   provider: TExecutionProvider,
-  _options: ISessionOptions,
+  _options: ISessionOptions<TExecutionProvider>,
   log: (event: string, data: TSessionLogData) => void,
 ): void {
   // Wire server tool logging

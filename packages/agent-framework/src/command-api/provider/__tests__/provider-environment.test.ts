@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { createNodeHostSettingsSource } from '../../../config/node-host-settings-source.js';
 import { checkSettingsDocument } from '../settings-check.js';
@@ -24,7 +25,12 @@ import { testProviderProfileCommand } from '../provider-command-probe.js';
 import { buildProviderProfilesSnapshot } from '../provider-profile-summary.js';
 import { buildProviderSetupPatch, validateProviderProfile } from '../provider-settings.js';
 
-import type { IManagedRunProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IManagedRunProvider,
+  IProviderDefinition,
+  TExecutionProvider,
+} from '@robota-sdk/agent-core';
 import type { IProviderCommandModuleOptions } from '../provider-command-types.js';
 import type { TSettingsSource } from '../../../config/settings-source.js';
 
@@ -57,6 +63,38 @@ afterEach(() => {
 });
 
 describe('managed provider profiles', () => {
+  it('accepts inferred heterogeneous and mixed definition arrays', () => {
+    const step = createScriptedProvider([{ text: 'ok' }]).provider;
+    const managed: IManagedRunProvider = {
+      kind: 'managed-run',
+      name: 'managed',
+      version: 'test',
+      run: vi.fn(),
+      validateConfig: () => true,
+    };
+    const heterogeneous = [
+      { type: 'first', createProvider: () => ({ ...step, first: true }) },
+      { type: 'second', createProvider: () => ({ ...step, second: true }) },
+    ];
+    const mixed = [...heterogeneous, { type: 'managed', createProvider: () => managed }];
+    const legacySource = documentSource({
+      currentProvider: 'p',
+      providers: { p: { type: 'first', model: 'm' } },
+    });
+    const managedSource = documentSource({
+      currentProvider: 'p',
+      providers: { p: { type: 'managed', model: 'm' } },
+    });
+    const legacy: IAIProvider = createProviderFromSettings([legacySource], undefined, {
+      providerDefinitions: heterogeneous,
+    });
+    const selected: TExecutionProvider = createProviderFromSettings([managedSource], undefined, {
+      providerDefinitions: mixed,
+    });
+    expect(legacy.name).toBe(step.name);
+    expect(selected).toBe(managed);
+  });
+
   it('uses the same settings and definition registry for a managed provider', () => {
     const provider: IManagedRunProvider = {
       kind: 'managed-run',

@@ -12,7 +12,12 @@ import { PRODUCT_PROFILE_FIELD_POLICIES, assembleProduct } from '../assemble-pro
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IProductProfile } from '../product-profile.js';
-import type { IAIProvider, IManagedRunProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IManagedRunProvider,
+  IProviderDefinition,
+  TExecutionProvider,
+} from '@robota-sdk/agent-core';
 import type { IPreset } from '../preset/index.js';
 import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framework';
@@ -46,6 +51,32 @@ function subagent(name: string): IAgentDefinition {
 }
 
 describe('assembleProduct — capability fold', () => {
+  it('assembles inferred heterogeneous and mixed provider registries', () => {
+    const step = testProvider();
+    const managed: IManagedRunProvider = {
+      kind: 'managed-run',
+      name: 'managed',
+      version: 'test',
+      run: async () => ({
+        id: 'final', role: 'assistant', content: 'done', state: 'complete', timestamp: new Date(),
+      }),
+      validateConfig: () => true,
+    };
+    const heterogeneous = [
+      { type: 'first', createProvider: () => ({ ...step, first: true }) },
+      { type: 'second', createProvider: () => ({ ...step, second: true }) },
+    ];
+    const mixed = [...heterogeneous, { type: 'managed', createProvider: () => managed }];
+    const legacy: IAIProvider | undefined = assembleProduct({
+      id: 'legacy', providerDefinitions: heterogeneous, providerSettings: { name: 'first', model: 'm' },
+    }).provider;
+    const selected: TExecutionProvider | undefined = assembleProduct({
+      id: 'mixed', providerDefinitions: mixed, providerSettings: { name: 'managed', model: 'm' },
+    }).provider;
+    expect(legacy?.name).toBe(step.name);
+    expect(selected).toBe(managed);
+  });
+
   it('does not silently replace an unavailable managed provider with a shell provider', () => {
     const provider: IManagedRunProvider = {
       kind: 'managed-run',

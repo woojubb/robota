@@ -8,7 +8,7 @@ import { AgentConfigManager } from './agent-config-manager';
 import { AgentModuleManager } from './agent-module-manager';
 import { AgentPluginManager } from './agent-plugin-manager';
 
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 import type { IAgentEventData } from '../interfaces/event-service';
 import type { IEventService } from '../interfaces/event-service';
 import type { AIProviders } from '../managers/ai-provider-manager';

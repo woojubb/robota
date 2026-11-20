@@ -3,6 +3,7 @@ import type { IUserInteraction } from './interaction';
 import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
 import type { TExecutionProvider } from './managed-provider';
 import type {
+  IAIProvider,
   TProviderConfigValue,
   TModelEffortSelection,
   TToolChoice,
@@ -87,7 +88,7 @@ export interface IAgentProviderConfig {
 export interface IAgentConfig {
   id?: string;
   name: string;
-  aiProviders: TExecutionProvider[];
+  aiProviders: IAIProvider[];
   /** Registration names whose close responsibility differs from the owned default. */
   providerOwnership?: Readonly<Record<string, TProviderOwnership>>;
   defaultModel: {
@@ -199,6 +200,11 @@ export interface IAgentConfig {
    */
   ask?: IUserInteraction['ask'];
 }
+
+/** Agent configuration for a registry containing either execution contract. */
+export type TAgentExecutionConfig = Omit<IAgentConfig, 'aiProviders'> & {
+  aiProviders: TExecutionProvider[];
+};
 
 /**
  * Agent template interface

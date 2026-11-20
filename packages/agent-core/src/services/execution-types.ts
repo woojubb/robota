@@ -1,4 +1,8 @@
-import type { IAgentConfig, IAssistantMessage, TExecutionEventCallback } from '../interfaces/agent';
+import type {
+  TAgentExecutionConfig as IAgentConfig,
+  IAssistantMessage,
+  TExecutionEventCallback,
+} from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IProviderCapabilityTable } from '../interfaces/model-capability';
 import type { IProviderCapabilities } from '../interfaces/provider-capabilities';

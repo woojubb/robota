@@ -1,4 +1,4 @@
-import type { IToolSchema, IProviderRegistrationOptions } from './provider';
+import type { IAIProvider, IToolSchema, IProviderRegistrationOptions } from './provider';
 import type { TExecutionProvider } from './managed-provider';
 import type {
   ITool,
@@ -29,11 +29,7 @@ export interface IAIProviderManager {
   /**
    * Register an AI provider
    */
-  addProvider(
-    name: string,
-    provider: TExecutionProvider,
-    options?: IProviderRegistrationOptions,
-  ): void;
+  addProvider(name: string, provider: IAIProvider, options?: IProviderRegistrationOptions): void;
 
   /**
    * Remove an AI provider
@@ -43,12 +39,12 @@ export interface IAIProviderManager {
   /**
    * Get registered provider by name
    */
-  getProvider(name: string): TExecutionProvider | undefined;
+  getProvider(name: string): IAIProvider | undefined;
 
   /**
    * Get all registered providers
    */
-  getProviders(): Record<string, TExecutionProvider>;
+  getProviders(): Record<string, IAIProvider>;
 
   /**
    * Set current provider and model
@@ -64,6 +60,17 @@ export interface IAIProviderManager {
    * Check if provider is configured
    */
   isConfigured(): boolean;
+}
+
+/** Registry access for callers that can handle both execution contracts. */
+export interface IExecutionProviderManager extends IAIProviderManager {
+  addProvider(
+    name: string,
+    provider: TExecutionProvider,
+    options?: IProviderRegistrationOptions,
+  ): void;
+  getExecutionProvider(name: string): TExecutionProvider | undefined;
+  getExecutionProviders(): Record<string, TExecutionProvider>;
 }
 
 /**

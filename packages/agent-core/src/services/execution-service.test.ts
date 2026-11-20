@@ -110,13 +110,13 @@ describe('ExecutionService', () => {
     // Tests are skipped; stubs exist purely to satisfy typecheck.
     vi.spyOn(aiProviders, 'getCurrentProviderInstance').mockReturnValue(mockProvider);
     vi.spyOn(aiProviders, 'getCurrentProvider').mockReturnValue({
-      provider: 'mock-provider',
-      model: 'mock-model',
+      provider: 'openai',
+      model: 'gpt-4',
     });
     vi.spyOn(aiProviders, 'isConfigured').mockReturnValue(true);
     vi.spyOn(aiProviders, 'getProvider').mockReturnValue(mockProvider);
-    vi.spyOn(aiProviders, 'getProviders').mockReturnValue({ 'mock-provider': mockProvider });
-    vi.spyOn(aiProviders, 'getProviderNames').mockReturnValue(['mock-provider']);
+    vi.spyOn(aiProviders, 'getProviders').mockReturnValue({ openai: mockProvider });
+    vi.spyOn(aiProviders, 'getProviderNames').mockReturnValue(['openai']);
     vi.spyOn(aiProviders, 'supportsStreaming').mockReturnValue(true);
     vi.spyOn(aiProviders, 'getProviderCount').mockReturnValue(1);
 
@@ -152,6 +152,20 @@ describe('ExecutionService', () => {
   });
 
   describe('execute', () => {
+    it('refuses a provider selection that differs from the execution configuration', async () => {
+      const chat = vi.spyOn(mockProvider, 'chat');
+      const config: IAgentConfig = {
+        name: 'test-agent',
+        aiProviders: [mockProvider],
+        defaultModel: { provider: 'other-provider', model: 'other-model' },
+      };
+      await expect(
+        executionService.execute('hello', [], config, { conversationId: 'test-agent' }),
+      ).rejects.toThrow('Provider selection conflicts with the agent configuration');
+      expect(chat).not.toHaveBeenCalled();
+      expect(conversationHistory.getConversationStore('test-agent').getMessages()).toEqual([]);
+    });
+
     it('should execute a conversation without tool calls', async () => {
       const input = 'Hello, how are you?';
       const messages: TUniversalMessage[] = [];

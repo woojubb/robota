@@ -7,7 +7,7 @@ import { AIProviders } from '../managers/ai-provider-manager';
 import { CacheKeyBuilder, MemoryCacheStorage, ExecutionCacheService } from '../services/cache';
 import { ExecutionService } from '../services/execution-service';
 
-import type { IAgentConfig } from '../interfaces/agent';
+import type { TAgentExecutionConfig as IAgentConfig } from '../interfaces/agent';
 import type { IEventService } from '../interfaces/event-service';
 import type { IToolExecutionContext, IToolResult, TToolParameters } from '../interfaces/tool';
 import type { AgentFactory } from '../managers/agent-factory';

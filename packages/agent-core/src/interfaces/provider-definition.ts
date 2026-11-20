@@ -204,10 +204,10 @@ export interface IProviderDefinition<P extends TExecutionProvider = IAIProvider>
 /** A definition registry may contain both execution kinds. */
 export type TProviderDefinition = IProviderDefinition<TExecutionProvider>;
 
-export function findProviderDefinition<P extends TExecutionProvider>(
-  definitions: readonly IProviderDefinition<P>[],
+export function findProviderDefinition<D extends TProviderDefinition>(
+  definitions: readonly D[],
   type: string,
-): IProviderDefinition<P> | undefined {
+): D | undefined {
   return definitions.find(
     (definition) => definition.type === type || definition.aliases?.includes(type) === true,
   );
