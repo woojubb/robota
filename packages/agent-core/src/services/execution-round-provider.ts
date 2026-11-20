@@ -7,10 +7,10 @@ import { applyModelToolCapability } from './execution-model-capability-guards.js
 import { callProviderWithIdleTimeout } from './execution-provider-call.js';
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { applyStructuredOutputTransport } from './execution-structured-output-guard.js';
-import { routeModel } from './execution-model-route.js';
 import { isValidToolCallIdentity } from './tool-call-identity.js';
 import { withOutboundTraceContext } from './execution-trace-context.js';
 import { randomId } from '../utils/random-id.js';
+import { isCacheIdentitySafe, isPlainDataObject } from './cache/cache-key-builder';
 import { appendExecutionRecord, callJournaledProvider } from './execution-journal';
 import type { IModelJournalContext } from '../interfaces/execution-journal';
 
@@ -18,6 +18,7 @@ import type { IModelRoute } from './execution-model-route';
 import type { IStructuredOutputTransportOutcome } from './execution-structured-output-guard';
 import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
+import { PROVIDER_CONTINUATION_METADATA_KEY } from '../interfaces/messages';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
 import type { IChatOptions, TToolChoice } from '../interfaces/provider';
 import type { IDeferredToolCatalog } from '../interfaces/tool-search';
@@ -106,6 +107,117 @@ function buildRoundChatOptions(
   };
 }
 
+/** Known provider-hosted tools are effects too; a text cache cannot stand in for them. */
+function mayUseNativeWebTools(
+  options: IChatOptions,
+  provider: IResolvedProviderInfo['provider'],
+): boolean {
+  const requested = options.nativeWebTools;
+  if (requested?.webSearch === true || requested?.webFetch === true) return true;
+  try {
+    const capabilities = provider.getCapabilities?.().nativeWebTools;
+    return (
+      (requested?.webSearch !== false && capabilities?.webSearch.enabled === true) ||
+      (requested?.webFetch !== false && capabilities?.webFetch.enabled === true)
+    );
+  } catch {
+    // A failed capability check cannot establish that skipping the provider is safe.
+    return true;
+  }
+}
+
+const cacheProviderInstances = new WeakMap<object, string>();
+
+function cacheScope(
+  provider: IResolvedProviderInfo['provider'],
+  options: IChatOptions,
+  route: IModelRoute,
+): string | undefined {
+  // A wrapper's declaration may describe only its primary, not its selected or eventual route.
+  if (provider.resolveModelRoute !== undefined || route.current !== undefined) return undefined;
+  try {
+    const scope = provider.textResponseCacheScope?.(options);
+    if (typeof scope !== 'string' || scope.length === 0) return undefined;
+    let instance = cacheProviderInstances.get(provider);
+    if (!instance) {
+      instance = randomId();
+      cacheProviderInstances.set(provider, instance);
+    }
+    return JSON.stringify([instance, scope]);
+  } catch {
+    return undefined;
+  }
+}
+
+const CACHE_OPTION_KEYS = [
+  'model',
+  'temperature',
+  'maxTokens',
+  'effort',
+  'tools',
+  'toolChoice',
+  'nativeWebTools',
+  'responseFormat',
+  'openai',
+  'anthropic',
+  'google',
+  'effortResolution',
+  'preserveContextWindow',
+] as const;
+const KNOWN_CHAT_OPTIONS = new Set<string>([
+  ...CACHE_OPTION_KEYS,
+  'onModelEffortOutcome',
+  'onTextDelta',
+  'onThinkingDelta',
+  'onProviderNativeRawPayload',
+  'signal',
+  'outboundTraceContext',
+  'executionId',
+  'onModelFallback',
+]);
+
+const USAGE_METADATA_KEYS = new Set([
+  'inputTokens',
+  'outputTokens',
+  'promptTokens',
+  'completionTokens',
+  'totalTokens',
+  'cacheReadTokens',
+  'usageProvenance',
+  'usage',
+]);
+
+/** Cached responses have no provider call, so they must not repeat its usage. */
+function containsOnlyUsageMetadata(response: IAssistantMessage): boolean {
+  const metadata = response.metadata;
+  if (metadata === undefined) return !Object.hasOwn(response, 'metadata');
+  return (
+    metadata !== null &&
+    typeof metadata === 'object' &&
+    isPlainDataObject(metadata) &&
+    Object.keys(metadata).every((key) => USAGE_METADATA_KEYS.has(key))
+  );
+}
+
+const TEXT_RESPONSE_KEYS = new Set(['id', 'role', 'content', 'timestamp', 'state', 'metadata']);
+
+function isReconstructibleTextResponse(response: TUniversalMessage): boolean {
+  try {
+    return (
+      response.role === 'assistant' &&
+      response.state === 'complete' &&
+      typeof response.content === 'string' &&
+      isPlainDataObject(response) &&
+      Reflect.ownKeys(response).every(
+        (key) => typeof key === 'string' && TEXT_RESPONSE_KEYS.has(key),
+      ) &&
+      containsOnlyUsageMetadata(response)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Call the AI provider with optional cache lookup/store */
 export async function callProviderWithCache(
   conversationMessages: TUniversalMessage[],
@@ -161,11 +273,6 @@ export async function callProviderWithCache(
     model,
     resolved,
   );
-  onRequestAssembled?.({
-    messages: outgoing,
-    options: chatOptions,
-    ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
-  });
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
   const observedChat: TProviderChat = (messages, options) =>
     callJournaledProvider(
@@ -192,20 +299,115 @@ export async function callProviderWithCache(
   // `undefined` normalizes to `'auto'`, matching `buildRoundChatOptions`'s own default.
   const effortCacheIdentity = chatOptions.effort ?? 'auto';
 
-  // A cached string cannot carry the tool calls a fresh response might request. Do not let a
-  // previous tool-free answer suppress the provider when this request offers tools.
-  if (cacheService && (chatOptions.tools?.length ?? 0) === 0) {
+  const scope = cacheService ? cacheScope(resolved.provider, chatOptions, route) : undefined;
+  const cacheModel = chatOptions.model ?? model;
+  const cacheProvider = config.defaultModel.provider;
+  const cacheOptions = {
+    ...(chatOptions.temperature !== undefined && { temperature: chatOptions.temperature }),
+    ...(chatOptions.maxTokens !== undefined && { maxTokens: chatOptions.maxTokens }),
+    ...(scope !== undefined && { providerScope: scope }),
+    effortCacheIdentity,
+    requestIdentity: {
+      ...(chatOptions.tools !== undefined && { tools: chatOptions.tools }),
+      ...(chatOptions.toolChoice !== undefined && { toolChoice: chatOptions.toolChoice }),
+      ...(chatOptions.nativeWebTools !== undefined && {
+        nativeWebTools: chatOptions.nativeWebTools,
+      }),
+      ...(chatOptions.responseFormat !== undefined && {
+        responseFormat: chatOptions.responseFormat,
+      }),
+      ...(chatOptions.openai !== undefined && { openai: chatOptions.openai }),
+      ...(chatOptions.anthropic !== undefined && { anthropic: chatOptions.anthropic }),
+      ...(chatOptions.google !== undefined && { google: chatOptions.google }),
+      ...(chatOptions.effortResolution !== undefined && {
+        effortResolution: chatOptions.effortResolution,
+      }),
+      ...(chatOptions.preserveContextWindow !== undefined && {
+        preserveContextWindow: chatOptions.preserveContextWindow,
+      }),
+    },
+  };
+  let snapshot:
+    | {
+        messages: TUniversalMessage[];
+        options: typeof cacheOptions;
+        providerMessages: TUniversalMessage[];
+        providerOptions: IChatOptions;
+        eventMessages: TUniversalMessage[];
+        eventOptions: IChatOptions;
+      }
+    | undefined;
+  // A text-only entry cannot represent tools, external resources, or opaque native state.
+  if (
+    cacheService &&
+    scope !== undefined &&
+    typeof chatOptions.model === 'string' &&
+    typeof chatOptions.effort === 'string' &&
+    (chatOptions.temperature === undefined || typeof chatOptions.temperature === 'number') &&
+    (chatOptions.maxTokens === undefined || typeof chatOptions.maxTokens === 'number') &&
+    (chatOptions.tools?.length ?? 0) === 0 &&
+    Reflect.ownKeys(chatOptions).every(
+      (key) => typeof key === 'string' && KNOWN_CHAT_OPTIONS.has(key),
+    ) &&
+    !CACHE_OPTION_KEYS.some(
+      (key) => Object.hasOwn(chatOptions, key) && chatOptions[key] === undefined,
+    ) &&
+    outgoing.every(
+      (message) =>
+        message.metadata?.[PROVIDER_CONTINUATION_METADATA_KEY] === undefined &&
+        (message.parts === undefined ||
+          (Array.isArray(message.parts) && message.parts.every((part) => part?.type === 'text'))),
+    ) &&
+    !mayUseNativeWebTools(chatOptions, resolved.provider) &&
+    isCacheIdentitySafe(outgoing, cacheModel, cacheProvider, cacheOptions)
+  ) {
+    try {
+      // The provider consumes a separate snapshot of the very data used by the cache key.
+      // Callbacks and signals remain live, while mutations by the caller or adapter cannot
+      // change the request behind the saved identity.
+      const messages = structuredClone(outgoing);
+      const options = structuredClone(cacheOptions);
+      snapshot = {
+        messages,
+        options,
+        providerMessages: structuredClone(messages),
+        providerOptions: {
+          ...chatOptions,
+          ...structuredClone(options.requestIdentity),
+        },
+        eventMessages: structuredClone(messages),
+        eventOptions: {
+          ...chatOptions,
+          ...structuredClone(options.requestIdentity),
+        },
+      };
+    } catch {
+      // An input that cannot be snapshotted can still be passed through to the provider.
+    }
+  }
+  onRequestAssembled?.({
+    messages: snapshot?.eventMessages ?? outgoing,
+    options: snapshot?.eventOptions ?? chatOptions,
+    ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
+  });
+  if (
+    cacheService &&
+    snapshot &&
+    scope !== undefined &&
+    cacheScope(resolved.provider, snapshot.providerOptions, route) === scope
+  ) {
+    const cacheMessages = snapshot.messages;
+    const snapshotOptions = snapshot.options;
     const cachedResponse = cacheService.lookup(
-      outgoing,
-      routeModel(route, config.defaultModel.model),
-      route.current?.provider ?? config.defaultModel.provider,
-      {
-        temperature: config.defaultModel.temperature,
-        maxTokens: config.defaultModel.maxTokens,
-        effortCacheIdentity,
-      },
+      cacheMessages,
+      cacheModel,
+      cacheProvider,
+      snapshotOptions,
     );
-    if (cachedResponse) {
+    if (
+      cachedResponse &&
+      cacheScope(resolved.provider, snapshot.providerOptions, route) === scope
+    ) {
       onDispatch?.('cache-hit', chatOptions.model ?? model);
       const response: TUniversalMessage = {
         role: 'assistant',
@@ -228,28 +430,23 @@ export async function callProviderWithCache(
     }
     const response = await callProviderWithIdleTimeout(
       observedChat,
-      outgoing,
-      chatOptions,
+      snapshot.providerMessages,
+      snapshot.providerOptions,
       config.timeout,
       awaitProviderSettlement || !!journalContext,
     );
-    // The cache stores text only, so it cannot reconstruct tool calls in the same frame.
+    // Store only complete text frames the cache can reconstruct without provider metadata.
     if (
-      response.role === 'assistant' &&
-      typeof response.content === 'string' &&
-      (response.toolCalls === undefined ||
-        (Array.isArray(response.toolCalls) && response.toolCalls.length === 0))
+      isReconstructibleTextResponse(response) &&
+      cacheScope(resolved.provider, snapshot.providerOptions, route) === scope &&
+      typeof response.content === 'string'
     ) {
       cacheService.store(
-        outgoing,
-        routeModel(route, config.defaultModel.model),
-        route.current?.provider ?? config.defaultModel.provider,
+        cacheMessages,
+        cacheModel,
+        cacheProvider,
         response.content,
-        {
-          temperature: config.defaultModel.temperature,
-          maxTokens: config.defaultModel.maxTokens,
-          effortCacheIdentity,
-        },
+        snapshotOptions,
       );
     }
     return response;
@@ -257,8 +454,8 @@ export async function callProviderWithCache(
 
   return callProviderWithIdleTimeout(
     observedChat,
-    outgoing,
-    chatOptions,
+    snapshot?.providerMessages ?? outgoing,
+    snapshot?.providerOptions ?? chatOptions,
     config.timeout,
     awaitProviderSettlement || !!journalContext,
   );
