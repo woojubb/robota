@@ -189,11 +189,12 @@ export async function callProviderWithCache(
   // reports the same "not applied" outcome regardless of the actual selection, which would let
   // different selections collide. Keying on the raw selection sidesteps that entirely: it is known
   // upfront, is identical for every provider, and is exactly what the caller asked for.
-  // `undefined` normalizes to `'auto'`, matching `buildRoundChatOptions`'s own default. The cache is always
-  // consulted, including for an explicit selection.
+  // `undefined` normalizes to `'auto'`, matching `buildRoundChatOptions`'s own default.
   const effortCacheIdentity = chatOptions.effort ?? 'auto';
 
-  if (cacheService) {
+  // A cached string cannot carry the tool calls a fresh response might request. Do not let a
+  // previous tool-free answer suppress the provider when this request offers tools.
+  if (cacheService && (chatOptions.tools?.length ?? 0) === 0) {
     const cachedResponse = cacheService.lookup(
       outgoing,
       routeModel(route, config.defaultModel.model),
