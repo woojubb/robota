@@ -40,7 +40,7 @@ function makeFixture({ failure = '', trusted = false } = {}) {
     'scripts/publish',
   ])
     mkdirSync(path.join(directory, relative), { recursive: true });
-  writeJson(path.join(directory, 'package.json'), { private: true, packageManager: 'pnpm@8.15.4' });
+  writeJson(path.join(directory, 'package.json'), { private: true, packageManager: 'pnpm@10.34.9' });
   writeFileSync(path.join(directory, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
   const preFile = path.join(directory, '.changeset/pre.json');
   writeJson(preFile, { mode: 'pre', tag: 'beta', changesets: [] });

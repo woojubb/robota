@@ -1,7 +1,7 @@
 # Disposable KVM guest reproduction
 
 This requires Linux x86_64, an accessible `/dev/kvm`, QEMU/qemu-img, xorriso, curl, sha256sum,
-OpenSSH, Python 3.11 or later, Node 22.22.0, pnpm 8.15.4, and a built repository. The actual research
+OpenSSH, Python 3.11 or later, Node 22.22.0, pnpm 10.34.9, and a built repository. The actual research
 used QEMU 10.2.1 and an Ubuntu 24.04 image. This is not a procedure for reproducing cloud costs or
 cloud API behavior. Commands are run from the repository root and create resources only in a
 separate experiment directory. Downloading the official image is needed only in the preparation

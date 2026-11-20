@@ -120,7 +120,6 @@ jobs:
         timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 10 }}
         uses: pnpm/action-setup@v6
         with:
-          version: 8.15.4
           run_install: false
 
       - name: Setup Node.js
@@ -283,8 +282,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-        with:
-          version: 8.15.4
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
