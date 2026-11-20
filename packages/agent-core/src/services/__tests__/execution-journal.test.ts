@@ -20,7 +20,7 @@ afterEach(async () => {
   await Promise.all(agents.splice(0).map((agent) => agent.destroy()));
 });
 
-function fixture(turns: TScriptedTurn[], effect = vi.fn(async () => 'tool answer')) {
+function fixture(turns: TScriptedTurn[], effect = vi.fn(async () => 'tool answer'), cache = false) {
   const scripted = createScriptedProvider(turns);
   const agent = new ConversationAgent({
     // These fixtures exercise independent calls settling concurrently.
@@ -30,6 +30,7 @@ function fixture(turns: TScriptedTurn[], effect = vi.fn(async () => 'tool answer
     name: 'journal-test',
     aiProviders: [scripted.provider],
     defaultModel: { provider: scripted.provider.name, model: 'test-model' },
+    ...(cache ? { cache: { enabled: true, maxEntries: 10, ttlMs: 60_000 } } : {}),
     tools: [
       new FunctionTool(
         { name: 'act', description: 'Test action', parameters: { type: 'object', properties: {} } },
@@ -474,5 +475,120 @@ describe('awaited execution journal through public ConversationAgent runs', () =
         .slice(0, 2)
         .map((r) => r.callId),
     );
+  });
+
+  it.each([
+    { journaled: false, streaming: false },
+    { journaled: true, streaming: false },
+    { journaled: false, streaming: true },
+    { journaled: true, streaming: true },
+  ])(
+    'refuses a batch with conflicting call identities before any tool runs ($journaled, $streaming)',
+    async ({ journaled, streaming }) => {
+      const { agent, effect, provider, requests } = fixture([
+        {
+          toolCalls: [
+            { name: 'act', args: { value: 'first' } },
+            { name: 'act', args: { value: 'second' } },
+          ],
+        },
+        { text: 'done' },
+      ]);
+      const chat = provider.chat.bind(provider);
+      provider.chat = async (messages, options) => {
+        const response = await chat(messages, options);
+        if (response.role === 'assistant') {
+          for (const call of response.toolCalls ?? []) call.id = 'same-call';
+        }
+        return response;
+      };
+      const records: TExecutionJournalRecord[] = [];
+      const options: IRunOptions = journaled
+        ? { executionJournal: { append: async (record) => void records.push(record) } }
+        : {};
+
+      await expect(execute(agent, options, streaming)).rejects.toThrow(
+        'Duplicate tool call identity',
+      );
+      expect(effect).not.toHaveBeenCalled();
+      expect(requests).toHaveLength(1);
+      expect(records.some((record) => record.kind.startsWith('tool-'))).toBe(false);
+      expect(agent.getHistory().some((message) => message.role === 'tool')).toBe(false);
+    },
+  );
+
+  it.each([
+    { ids: ['same-call', 'same-call'], error: 'Duplicate tool call identity' },
+    { ids: ['valid-call', '  '], error: 'Tool call identity must be a non-empty string' },
+  ])('refuses ambiguous or empty call identities before dispatch', async ({ ids, error }) => {
+    const { agent, effect, provider } = fixture([
+      {
+        toolCalls: [
+          { name: 'act', args: {} },
+          { name: 'act', args: {} },
+        ],
+      },
+    ]);
+    const chat = provider.chat.bind(provider);
+    provider.chat = async (messages, options) => {
+      const response = await chat(messages, options);
+      if (response.role === 'assistant') {
+        response.toolCalls?.forEach((call, index) => (call.id = ids[index]));
+      }
+      return response;
+    };
+    await expect(agent.run('test')).rejects.toThrow(error);
+    expect(effect).not.toHaveBeenCalled();
+  });
+
+  it('does not cache the text of a rejected tool batch as a completed answer', async () => {
+    const turn: TScriptedTurn = {
+      toolCalls: [
+        { name: 'act', args: { value: 'first' } },
+        { name: 'act', args: { value: 'second' } },
+      ],
+    };
+    const { agent, effect, provider, requests } = fixture([turn, turn], undefined, true);
+    const chat = provider.chat.bind(provider);
+    provider.chat = async (messages, options) => {
+      const response = await chat(messages, options);
+      if (response.role === 'assistant') {
+        response.content = 'Preparing the actions';
+        for (const call of response.toolCalls ?? []) call.id = 'same-call';
+      }
+      return response;
+    };
+    await agent.ensureReady();
+    agent.clearHistory();
+
+    await expect(agent.run('test')).rejects.toThrow('Duplicate tool call identity');
+    agent.clearHistory();
+    await expect(agent.run('test')).rejects.toThrow('Duplicate tool call identity');
+    expect(requests).toHaveLength(2);
+    expect(effect).not.toHaveBeenCalled();
+  });
+
+  it('does not replay the text of a tool batch without its actions', async () => {
+    const turn: TScriptedTurn = { toolCalls: [{ name: 'act', args: {} }] };
+    const { agent, effect, provider } = fixture(
+      [turn, { text: 'done' }, turn, { text: 'done' }],
+      undefined,
+      true,
+    );
+    const chat = provider.chat.bind(provider);
+    provider.chat = async (messages, options) => {
+      const response = await chat(messages, options);
+      if (response.role === 'assistant' && response.toolCalls?.length) {
+        response.content = 'Preparing the action';
+      }
+      return response;
+    };
+    await agent.ensureReady();
+    agent.clearHistory();
+
+    await expect(agent.run('test')).resolves.toBe('done');
+    agent.clearHistory();
+    await expect(agent.run('test')).resolves.toBe('done');
+    expect(effect).toHaveBeenCalledTimes(2);
   });
 });

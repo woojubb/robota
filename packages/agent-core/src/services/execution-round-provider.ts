@@ -231,7 +231,13 @@ export async function callProviderWithCache(
       config.timeout,
       awaitProviderSettlement || !!journalContext,
     );
-    if (typeof response.content === 'string') {
+    // The cache stores text only, so it cannot reconstruct tool calls in the same frame.
+    if (
+      response.role === 'assistant' &&
+      typeof response.content === 'string' &&
+      (response.toolCalls === undefined ||
+        (Array.isArray(response.toolCalls) && response.toolCalls.length === 0))
+    ) {
       cacheService.store(
         outgoing,
         routeModel(route, config.defaultModel.model),
@@ -296,6 +302,19 @@ export function validateAndExtractResponse(
   const assistantToolCalls = assistantResponse.toolCalls ?? [];
   if (!Array.isArray(assistantToolCalls)) {
     throw new Error('[EXECUTION] assistantResponse.toolCalls must be an array');
+  }
+
+  // A call ID identifies a single action within an assistant frame. Two calls sharing it
+  // cannot be paired with distinct receipts or safely recovered, even if their inputs match.
+  const callIds = new Set<string>();
+  for (const call of assistantToolCalls) {
+    if (typeof call?.id !== 'string' || call.id.trim().length === 0) {
+      throw new Error('[EXECUTION] Tool call identity must be a non-empty string');
+    }
+    if (callIds.has(call.id)) {
+      throw new Error('[EXECUTION] Duplicate tool call identity in assistant response');
+    }
+    callIds.add(call.id);
   }
 
   return { assistantResponse, assistantToolCalls };
