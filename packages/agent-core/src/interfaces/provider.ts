@@ -277,7 +277,8 @@ export interface IAIProvider {
   /**
    * Opt a particular request into the text response cache. Return a nonempty, non-secret scope
    * only when this request is stateless and skipping the provider skips no effects, including
-   * provider-hosted tools. The provider must not use message IDs, timestamps, host execution IDs,
+   * provider-hosted tools. This synchronous probe must not mutate inputs or produce effects.
+   * The provider must not use message IDs, timestamps, host execution IDs,
    * callbacks, signals, tracing, or JavaScript object identity to change the answer, and must not
    * require non-text observations to be reproduced on a cache hit. The scope must change whenever
    * configurations can produce different answers for the same retained request. If configuration

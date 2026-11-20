@@ -208,6 +208,39 @@ describe('response cache request identity', () => {
     expect(requests).toHaveLength(2);
   });
 
+  it('rechecks the provider scope after announcing the request', async () => {
+    const { agent, provider, requests } = fixture();
+    let revision = 1;
+    let configuration = 'A';
+    provider.textResponseCacheScope = () => `revision-${revision}`;
+    provider.chat = async (messages, options) => {
+      requests.push([...messages]);
+      options?.onTextDelta?.(configuration);
+      return {
+        id: 'scope-test',
+        role: 'assistant',
+        content: configuration,
+        state: 'complete',
+        timestamp: new Date(),
+      };
+    };
+    await agent.ensureReady();
+    agent.clearHistory();
+    await expect(agent.run('same input')).resolves.toBe('A');
+    agent.clearHistory();
+    await expect(
+      agent.run('same input', {
+        onExecutionEvent: (name) => {
+          if (name === 'provider_request') {
+            configuration = 'B';
+            revision++;
+          }
+        },
+      }),
+    ).resolves.toBe('B');
+    expect(requests).toHaveLength(2);
+  });
+
   it('does not store an answer when the provider configuration revision changes in flight', async () => {
     const { provider, config, requests, resolved, cache, messages } = callFixture();
     let revision = 1;

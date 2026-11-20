@@ -390,7 +390,12 @@ export async function callProviderWithCache(
     options: snapshot?.eventOptions ?? chatOptions,
     ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
   });
-  if (cacheService && snapshot && scope !== undefined) {
+  if (
+    cacheService &&
+    snapshot &&
+    scope !== undefined &&
+    cacheScope(resolved.provider, snapshot.providerOptions, route) === scope
+  ) {
     const cacheMessages = snapshot.messages;
     const snapshotOptions = snapshot.options;
     const cachedResponse = cacheService.lookup(
@@ -399,7 +404,10 @@ export async function callProviderWithCache(
       cacheProvider,
       snapshotOptions,
     );
-    if (cachedResponse) {
+    if (
+      cachedResponse &&
+      cacheScope(resolved.provider, snapshot.providerOptions, route) === scope
+    ) {
       onDispatch?.('cache-hit', chatOptions.model ?? model);
       const response: TUniversalMessage = {
         role: 'assistant',
@@ -430,7 +438,7 @@ export async function callProviderWithCache(
     // Store only complete text frames the cache can reconstruct without provider metadata.
     if (
       isReconstructibleTextResponse(response) &&
-      cacheScope(resolved.provider, chatOptions, route) === scope &&
+      cacheScope(resolved.provider, snapshot.providerOptions, route) === scope &&
       typeof response.content === 'string'
     ) {
       cacheService.store(
@@ -446,8 +454,8 @@ export async function callProviderWithCache(
 
   return callProviderWithIdleTimeout(
     observedChat,
-    outgoing,
-    chatOptions,
+    snapshot?.providerMessages ?? outgoing,
+    snapshot?.providerOptions ?? chatOptions,
     config.timeout,
     awaitProviderSettlement || !!journalContext,
   );
