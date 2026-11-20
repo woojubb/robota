@@ -39,17 +39,13 @@ export function assertSavedBatchPolicy(
   }
 }
 
-const validScheduling = z.array(
-  z.tuple([
-    z.string(),
-    z.object({
-      dependsOn: z.array(z.string()).nullish(),
-      resources: z
-        .array(z.object({ key: z.string(), access: z.enum(['read', 'write']) }))
-        .nullish(),
-    }),
-  ]),
-);
+const validSchedulingEntry = z.tuple([
+  z.string(),
+  z.object({
+    dependsOn: z.array(z.string()).nullish(),
+    resources: z.array(z.object({ key: z.string(), access: z.enum(['read', 'write']) })).nullish(),
+  }),
+]);
 const policy = z
   .object({
     version: z.literal(1),
@@ -100,51 +96,72 @@ function isPolicyData(value: unknown): boolean {
   return visit(value);
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype
+  );
+}
+
 /** Canonicalize policy details whose ordering or nullish defaults do not affect the scheduler. */
 function normalizeScheduling(
-  value: unknown,
+  value: Array<[unknown, unknown]> | undefined,
   knownIds: ReadonlySet<string>,
-):
-  | Array<
-      [
-        string,
-        {
-          dependsOn: string[];
-          resources?: Array<{ key: string; access: 'read' | 'write' }>;
-        },
-      ]
-    >
-  | undefined {
-  const valid = validScheduling.safeParse(value);
-  if (!valid.success || new Set(valid.data.map(([id]) => id)).size !== valid.data.length)
+): Array<[unknown, unknown]> | undefined {
+  if (value === undefined || new Set(value.map(([id]) => id)).size !== value.length)
     return undefined;
-  const entries = valid.data.map(
-    ([id, entry]): [
-      string,
-      {
-        dependsOn: string[];
-        resources?: Array<{ key: string; access: 'read' | 'write' }>;
-      },
-    ] => [
-      id,
-      {
-        dependsOn: (entry.dependsOn ?? []).sort(),
-        ...(entry.resources != null && {
-          resources: entry.resources.sort((left, right) => {
-            const a = `${left.key}\u0000${left.access}`;
-            const b = `${right.key}\u0000${right.access}`;
-            return a < b ? -1 : a > b ? 1 : 0;
-          }),
-        }),
-      },
-    ],
-  );
-  const effective = entries.filter(
-    ([id, entry]) =>
-      !(knownIds.has(id) && entry.dependsOn.length === 0 && entry.resources === undefined),
-  );
-  effective.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
-  return effective;
+  const entries: Array<[unknown, unknown]> = [];
+  let sortable = true;
+  for (const original of value) {
+    const parsed = validSchedulingEntry.safeParse(original);
+    if (!parsed.success) {
+      sortable = false;
+      const [id, raw] = original;
+      if (isPlainObject(raw)) {
+        const { dependsOn, resources } = raw;
+        const normalizedResources = Array.isArray(resources)
+          ? resources.map((resource: unknown) => {
+              if (!isPlainObject(resource)) return resource;
+              const { key, access } = resource;
+              return { ...(key !== undefined && { key }), ...(access !== undefined && { access }) };
+            })
+          : resources;
+        entries.push([
+          id,
+          {
+            ...(dependsOn != null && { dependsOn }),
+            ...(normalizedResources != null && { resources: normalizedResources }),
+          },
+        ]);
+      } else entries.push(original);
+      continue;
+    }
+    const [id, entry] = parsed.data;
+    const dependsOn = (entry.dependsOn ?? []).sort();
+    const resources = entry.resources?.sort((left, right) => {
+      const a = `${left.key}\u0000${left.access}`;
+      const b = `${right.key}\u0000${right.access}`;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+    if (
+      !knownIds.has(id) ||
+      dependsOn.some((dependency) => !knownIds.has(dependency)) ||
+      resources?.some((resource) => !resource.key.trim())
+    )
+      sortable = false;
+    if (knownIds.has(id) && dependsOn.length === 0 && resources === undefined) continue;
+    entries.push([id, { dependsOn, ...(resources !== undefined && { resources }) }]);
+  }
+  if (sortable)
+    entries.sort(([left], [right]) =>
+      typeof left === 'string' && typeof right === 'string'
+        ? left < right
+          ? -1
+          : left > right
+            ? 1
+            : 0
+        : 0,
+    );
+  return entries;
 }
 
 /** Parse durable policy at the journal boundary, rejecting unsupported or ambiguous versions. */
@@ -193,12 +210,9 @@ export function snapshotBatchPolicy(
         'Tool batch policy cannot be recorded',
       );
     const detached = structuredClone(supplied);
-    const knownIds = new Set(callIds.filter((id): id is string => typeof id === 'string'));
-    const schedulingEntries = normalizeScheduling(detached, knownIds) ?? detached;
     // A cyclic policy cannot be recovered by the journal reader's JSON comparison.
-    JSON.stringify(schedulingEntries);
-    const detachedScheduling =
-      schedulingEntries === undefined ? undefined : new Map(structuredClone(schedulingEntries));
+    JSON.stringify(detached);
+    const detachedScheduling = detached === undefined ? undefined : new Map(detached);
     const snapshot = parseBatchPolicy(
       {
         version: 1,

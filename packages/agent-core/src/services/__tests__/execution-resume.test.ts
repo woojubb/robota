@@ -481,6 +481,35 @@ describe('provider-free journal continuation', () => {
     ).toBe(true);
   });
 
+  it.each(['default entry', 'undefined access'] as const)(
+    'normalizes %s alongside an invalid resource declaration',
+    async (variant) => {
+      const policy =
+        (alternate: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
+        (calls) => {
+          const resource: { key: string; access: 'read' | 'write' } = { key: 'db', access: 'read' };
+          if (variant === 'undefined access' && alternate)
+            Object.assign(resource, { access: undefined });
+          else Reflect.deleteProperty(resource, 'access');
+          const entries: Array<[string, IToolCallScheduling]> = [
+            [calls[0].id, { resources: [resource] }],
+          ];
+          if (variant === 'default entry' && alternate) entries.push([calls[1].id, {}]);
+          return { scheduling: new Map(entries) };
+        };
+      const source = fixture(undefined, undefined, undefined, policy(false));
+      const saved = await stoppedAt('tool-result', true, source);
+      const fresh = fixture(undefined, undefined, undefined, policy(true));
+      const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+      expect(fresh.effect).not.toHaveBeenCalled();
+      expect(
+        result.receipts?.every(
+          (receipt) => receipt.result.metadata?.errorCode === 'tool_call_skipped',
+        ),
+      ).toBe(true);
+    },
+  );
+
   it('rejects a scheduling accessor before it can change effect concurrency', async () => {
     let reads = 0;
     const getter = vi.fn(() => (++reads === 1 ? 'read' : 'write'));
