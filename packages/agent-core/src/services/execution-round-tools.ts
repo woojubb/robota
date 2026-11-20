@@ -7,6 +7,7 @@ import {
 import { type IExecutionRoundState } from './execution-types';
 import { getModelContextWindow } from '../context/models';
 import { SameToolInputLoopError } from '../utils/errors';
+import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { attachToolBatchJournal } from './execution-tool-journal';
 import { snapshotReceiptFrame } from './execution-receipt-frame';
 import type {
@@ -102,6 +103,10 @@ export async function executeAndRecordToolCalls(
     assistantToolCalls = snapshot.calls;
     effectiveJournalContext = snapshot.context;
   }
+  const emitExecutionEvent: TExecutionEventCallback | undefined =
+    effectiveJournalContext?.captureReceipts && onExecutionEvent
+      ? (event, data) => onExecutionEvent(event, structuredClone(data))
+      : onExecutionEvent;
 
   const resolvedMaxSameToolInputs = maxSameToolInputs ?? config?.maxSameToolInputs;
   if (resolvedMaxSameToolInputs !== undefined) {
@@ -224,7 +229,7 @@ export async function executeAndRecordToolCalls(
     );
   }
 
-  onExecutionEvent?.('tool_batch_started', {
+  emitExecutionEvent?.('tool_batch_started', {
     executionId,
     conversationId,
     round: currentRound,
@@ -235,7 +240,7 @@ export async function executeAndRecordToolCalls(
     tools: toolRequests.map((request) => request.toolName),
   } as TExecutionEventData);
   toolRequests.forEach((request, index) => {
-    onExecutionEvent?.('tool_execution_request', {
+    emitExecutionEvent?.('tool_execution_request', {
       executionId,
       conversationId,
       round: currentRound,
@@ -254,14 +259,25 @@ export async function executeAndRecordToolCalls(
     } as TExecutionEventData);
   });
 
-  const toolSummary = await toolExecutionService.executeTools(toolContext);
+  const executorSummary = await toolExecutionService.executeTools(toolContext);
+  const receipts = journalSettlement?.receipts();
+  if (effectiveJournalContext?.captureReceipts && !receipts)
+    throw new ExecutionRecoveryError(
+      'EXECUTION_RECOVERY_INVALID',
+      'Tool batch has no complete set of durable settlements',
+    );
+  // History and receipts must reflect the same journaled snapshot, even if a tool retains and
+  // mutates its original output while the journal is awaiting acknowledgement.
+  const toolSummary = receipts
+    ? { ...executorSummary, results: receipts.map((receipt) => structuredClone(receipt.result)) }
+    : executorSummary;
   const unknownToolNames = toolSummary.results
     .filter(isUnknownToolExecutionResult)
     .map((result) => result.toolName)
     .filter((toolName): toolName is string => typeof toolName === 'string' && toolName.length > 0);
 
   toolSummary.results.forEach((result, index) => {
-    onExecutionEvent?.('tool_execution_result', {
+    emitExecutionEvent?.('tool_execution_result', {
       executionId,
       conversationId,
       round: currentRound,
@@ -316,7 +332,7 @@ export async function executeAndRecordToolCalls(
       round: currentRound,
       batchId,
     },
-    onExecutionEvent,
+    emitExecutionEvent,
   );
 
   eventEmitter.emitToolResultsEvents(
@@ -332,7 +348,6 @@ export async function executeAndRecordToolCalls(
 
   eventEmitter.clearToolEventServices();
 
-  const receipts = journalSettlement?.receipts();
   return {
     ...toolResultsOutcome,
     unknownToolFailureCount: unknownToolNames.length,

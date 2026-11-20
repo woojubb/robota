@@ -9,9 +9,13 @@ export async function executeWithToolAdmission(
 ): Promise<IToolResult> {
   const { beforeToolEffect, ...bodyContext } = context;
   if (!beforeToolEffect) return tool.execute(parameters, context);
+  // Hooks may retain the dispatch input. The admitted body must not share that reference while
+  // the journal is waiting for acknowledgement.
+  const ownedParameters = structuredClone(parameters);
+  const ownedContext = { ...bodyContext, parameters: ownedParameters };
   if (tool.executeWithAdmission)
-    return tool.executeWithAdmission(parameters, bodyContext, beforeToolEffect);
-  await beforeToolEffect(parameters);
-  bodyContext.signal?.throwIfAborted();
-  return tool.execute(parameters, bodyContext);
+    return tool.executeWithAdmission(ownedParameters, ownedContext, beforeToolEffect);
+  await beforeToolEffect(ownedParameters);
+  ownedContext.signal?.throwIfAborted();
+  return tool.execute(ownedParameters, ownedContext);
 }

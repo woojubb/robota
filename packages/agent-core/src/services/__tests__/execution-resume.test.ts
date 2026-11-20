@@ -1,16 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationAgent } from '../../core/conversation-agent';
+import { AbstractPlugin } from '../../abstracts/abstract-plugin';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 import { FunctionTool } from '../../tool-registry';
 import type { TExecutionJournalRecord } from '../../interfaces/execution-journal';
 import type { IManagedRunProvider } from '../../interfaces/managed-provider';
+import type {
+  IToolExecutionResult,
+  TToolEffectAdmission,
+  TToolParameters,
+} from '../../interfaces/tool';
 
 const agents: ConversationAgent[] = [];
 afterEach(async () => {
   await Promise.all(agents.splice(0).map((agent) => agent.destroy()));
 });
 
-function fixture() {
+function fixture(plugin?: AbstractPlugin, replacement?: FunctionTool) {
   const scripted = createScriptedProvider([
     {
       toolCalls: [
@@ -29,18 +35,20 @@ function fixture() {
     name: 'resume-test',
     aiProviders: [scripted.provider],
     defaultModel: { provider: scripted.provider.name, model: 'test-model' },
+    ...(plugin && { plugins: [plugin] }),
     tools: [
-      new FunctionTool(
-        {
-          name: 'act',
-          description: 'Test action',
-          parameters: {
-            type: 'object',
-            properties: { n: { type: 'number' } },
+      replacement ??
+        new FunctionTool(
+          {
+            name: 'act',
+            description: 'Test action',
+            parameters: {
+              type: 'object',
+              properties: { n: { type: 'number' } },
+            },
           },
-        },
-        effect,
-      ),
+          effect,
+        ),
     ],
   });
   agents.push(agent);
@@ -157,6 +165,270 @@ describe('provider-free journal continuation', () => {
     expect(fresh.effect).toHaveBeenCalledTimes(2);
   });
 
+  it('publishes the saved result when a tool mutates its output during journal acknowledgement', async () => {
+    const saved = await stoppedAt('model-response', true);
+    const fresh = fixture();
+    const outputs = [{ value: 'original' }, { value: 'original' }];
+    fresh.effect.mockImplementation(async ({ n }) => outputs[Number(n) - 1] as unknown as string);
+    let reached!: () => void;
+    let release!: () => void;
+    const appending = new Promise<void>((resolve) => (reached = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    saved.journal.append.mockImplementation(async (record) => {
+      if (record.kind === 'tool-result') {
+        reached();
+        await gate;
+      }
+      const existing = saved.records.find((entry) => entry.recordId === record.recordId);
+      if (existing) expect(record).toEqual(existing);
+      else saved.records.push(structuredClone(record));
+    });
+
+    const pending = fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    await appending;
+    outputs[0].value = 'changed';
+    release();
+    const first = await pending;
+    expect(first.receipts?.map((receipt) => receipt.result.result)).toEqual([
+      { value: 'original' },
+      { value: 'original' },
+    ]);
+    expect(
+      first.messages.filter((message) => message.role === 'tool').map((m) => m.content),
+    ).toEqual(['{"value":"original"}', '{"value":"original"}']);
+    const repeated = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(repeated.receipts).toEqual(first.receipts);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs the admitted arguments when a pre-tool observer mutates its retained reference', async () => {
+    const saved = await stoppedAt('model-response', true);
+    let observed: TToolParameters | undefined;
+    class Observer extends AbstractPlugin {
+      readonly name = 'observer';
+      readonly version = '1';
+      override async beforeToolCall(_name: string, parameters: TToolParameters): Promise<void> {
+        if (parameters.n === 1) observed = parameters;
+      }
+    }
+    const fresh = fixture(new Observer());
+    let reached!: () => void;
+    let release!: () => void;
+    const appending = new Promise<void>((resolve) => (reached = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    saved.journal.append.mockImplementation(async (record) => {
+      if (record.kind === 'tool-effect-start' && record.parameters.n === 1) {
+        reached();
+        await gate;
+      }
+      const existing = saved.records.find((entry) => entry.recordId === record.recordId);
+      if (existing) expect(record).toEqual(existing);
+      else saved.records.push(structuredClone(record));
+    });
+    const pending = fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    await appending;
+    if (!observed) throw new Error('Missing plugin observation');
+    observed.n = 99;
+    release();
+    const resumed = await pending;
+    expect(fresh.effect.mock.calls.map(([parameters]) => parameters.n)).toEqual([1, 2]);
+    expect(resumed.receipts?.map((receipt) => receipt.result.result)).toEqual([
+      'result 1',
+      'result 2',
+    ]);
+    expect(
+      saved.records
+        .filter((record) => record.kind === 'tool-effect-start')
+        .map((r) => r.parameters.n),
+    ).toEqual([1, 2]);
+  });
+
+  it('isolates receipt-bound execution from mutations by event observers', async () => {
+    const saved = await stoppedAt('model-response', true);
+    const fresh = fixture();
+    fresh.effect.mockImplementation(async ({ n }) => ({ value: n }) as unknown as string);
+    const outcome = await fresh.agent.resumeToolCalls({
+      ...saved,
+      includeReceipts: true,
+      onExecutionEvent: (event, data) => {
+        if (event === 'tool_execution_request') (data.parameters as { n: number }).n = 99;
+        if (event === 'tool_execution_result') (data.result as { value: number }).value = 99;
+        if (event === 'tool_message_committed')
+          (data.message as { content: string }).content = 'changed';
+      },
+    });
+    expect(fresh.effect.mock.calls.map(([parameters]) => parameters.n)).toEqual([1, 2]);
+    expect(outcome.receipts?.map((receipt) => receipt.result.result)).toEqual([
+      { value: 1 },
+      { value: 2 },
+    ]);
+    expect(
+      outcome.messages.filter((message) => message.role === 'tool').map((m) => m.content),
+    ).toEqual(['{"value":1}', '{"value":2}']);
+  });
+
+  it.each(['tool_call_skipped', 'argument_decode_error', 'unknown_tool'])(
+    'does not let an executed tool claim the host-owned %s classification',
+    async (errorCode) => {
+      const saved = await stoppedAt('model-response', true);
+      const effect = vi.fn(async () => ({
+        success: false,
+        error: 'failed',
+        data: null,
+        metadata: { errorCode },
+      }));
+      const tool = FunctionTool.fromResult(
+        {
+          name: 'act',
+          description: 'Test action',
+          parameters: { type: 'object', properties: { n: { type: 'number' } } },
+        },
+        effect,
+      );
+      const fresh = fixture(undefined, tool);
+      const first = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+      expect(effect).toHaveBeenCalledTimes(2);
+      expect(
+        first.receipts?.every((receipt) => receipt.result.metadata?.errorCode !== errorCode),
+      ).toBe(true);
+      const repeated = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+      expect(repeated.receipts).toEqual(first.receipts);
+      expect(effect).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('prevents a result observer from claiming a dispatched effect was skipped', async () => {
+    const saved = await stoppedAt('model-response', true);
+    class Observer extends AbstractPlugin {
+      readonly name = 'observer';
+      readonly version = '1';
+      override async afterToolCall(
+        _name: string,
+        _parameters: TToolParameters,
+        result: IToolExecutionResult,
+      ): Promise<void> {
+        result.metadata = {
+          ...result.metadata,
+          errorCode: 'tool_call_skipped',
+          dispatchStatus: 'not-dispatched',
+        };
+      }
+    }
+    const fresh = fixture(new Observer());
+    const first = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(
+      first.receipts?.every(
+        (receipt) => receipt.result.metadata?.errorCode !== 'tool_call_skipped',
+      ),
+    ).toBe(true);
+    expect(
+      (await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true })).receipts,
+    ).toEqual(first.receipts);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops before a custom wrapper effect if its admitted parameters change during persistence', async () => {
+    const saved = await stoppedAt('model-response', true);
+    let owned: TToolParameters | undefined;
+    const effect = vi.fn(async () => 'done');
+    const tool = new FunctionTool(
+      {
+        name: 'act',
+        description: 'Test action',
+        parameters: { type: 'object', properties: { n: { type: 'number' } } },
+      },
+      effect,
+    );
+    Object.assign(tool, {
+      executeWithAdmission: async (
+        parameters: TToolParameters,
+        _context: unknown,
+        admit: TToolEffectAdmission,
+      ) => {
+        owned = parameters;
+        await admit(parameters);
+        return { success: true, data: await effect() };
+      },
+    });
+    const fresh = fixture(undefined, tool);
+    let reached!: () => void;
+    let release!: () => void;
+    const appending = new Promise<void>((resolve) => (reached = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    saved.journal.append.mockImplementation(async (record) => {
+      if (record.kind === 'tool-effect-start' && record.parameters.n === 1) {
+        reached();
+        await gate;
+      }
+      saved.records.push(structuredClone(record));
+    });
+    const pending = fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    await appending;
+    if (!owned) throw new Error('Missing wrapper arguments');
+    owned.n = 99;
+    release();
+    await expect(pending).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(effect).not.toHaveBeenCalled();
+  });
+
+  it('refuses a changed committed assistant frame before dispatching recovered actions', async () => {
+    const saved = await stoppedAt('model-response', true);
+    const request = saved.records.find((record) => record.kind === 'model-request');
+    const response = saved.records.find((record) => record.kind === 'model-response');
+    if (
+      !request ||
+      request.kind !== 'model-request' ||
+      !request.checkpoint ||
+      !response ||
+      response.kind !== 'model-response' ||
+      response.response.role !== 'assistant'
+    )
+      throw new Error('Missing recovery checkpoint');
+    const fresh = fixture();
+    for (const message of request.checkpoint.messages) fresh.agent.injectRawMessage(message);
+    fresh.agent.injectRawMessage({
+      ...response.response,
+      parts: [{ type: 'text', text: 'a different frame' }],
+      metadata: { executionId: saved.executionId, providerCallId: saved.callId },
+    });
+    await expect(
+      fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    expect(fresh.effect).not.toHaveBeenCalled();
+    expect(saved.journal.append).not.toHaveBeenCalled();
+  });
+
+  it.each(['assistant', 'tool'] as const)(
+    'refuses altered %s parts when delivering saved receipts',
+    async (role) => {
+      const saved = await stoppedAt('model-response', true);
+      const first = fixture();
+      const restored = await first.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+      const fresh = fixture();
+      let changed = false;
+      for (const message of restored.messages) {
+        if (!changed && message.role === role) {
+          fresh.agent.injectRawMessage({
+            ...message,
+            parts: [{ type: 'text', text: 'a different observation' }],
+          });
+          changed = true;
+        } else fresh.agent.injectRawMessage(message);
+      }
+      expect(changed).toBe(true);
+      saved.journal.append.mockClear();
+      await expect(
+        fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+      ).rejects.toMatchObject({
+        code: 'EXECUTION_RECOVERY_CONFLICT',
+      });
+      expect(fresh.effect).not.toHaveBeenCalled();
+      expect(saved.journal.append).not.toHaveBeenCalled();
+    },
+  );
+
   it('uses existing action ids when a dispatch stopped before body entry', async () => {
     const saved = await stoppedAt('tool-effect-start');
     const ids = saved.records.filter((r) => r.kind === 'tool-intent').map((r) => r.actionId);
@@ -231,6 +503,13 @@ describe('provider-free journal continuation', () => {
         .map((m) => m.id),
     ).toEqual([assistant!.id]);
     expect(saved.source.requests).toHaveLength(1);
+  });
+
+  it('accepts a matching original assistant when durable receipts are requested', async () => {
+    const saved = await stoppedAt('tool-effect-start');
+    const resumed = await saved.source.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(resumed.receipts).toHaveLength(2);
+    expect(saved.source.effect).toHaveBeenCalledTimes(2);
   });
 
   it('preserves fatal persistence errors and commits no partial restored history', async () => {

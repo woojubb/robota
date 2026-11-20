@@ -17,6 +17,14 @@ function sameFrame(left: IAssistantMessage, right: IAssistantMessage): boolean {
     Object.hasOwn(left, 'metadata') !== Object.hasOwn(right, 'metadata')
   )
     return false;
+  return sameReceiptMetadata(leftMetadata, rightMetadata);
+}
+
+/** Compare the data-bearing metadata used to bind a receipt to its committed history. */
+export function sameReceiptMetadata(
+  leftMetadata: IAssistantMessage['metadata'],
+  rightMetadata: IAssistantMessage['metadata'],
+): boolean {
   if (leftMetadata === undefined || rightMetadata === undefined)
     return leftMetadata === rightMetadata;
   if (

@@ -13,6 +13,7 @@ import { spanIdFromMintedId, toolTraceContextFor, traceEnvFor } from '../utils/t
 import {
   ARGUMENT_DECODE_ERROR_CODE,
   TOOL_CALL_SKIPPED_ERROR_CODE,
+  UNKNOWN_TOOL_ERROR_CODE,
   TOOL_EVENTS,
 } from './tool-execution-constants';
 
@@ -588,13 +589,29 @@ async function executeRequest(
           error instanceof Error ? error : new Error(String(error)),
         );
       }
-      // This wrapper was entered. A tool's result cannot claim the owner's undispatched status.
-      if (result.metadata?.dispatchStatus !== undefined) {
-        const { dispatchStatus: _foreignStatus, ...metadata } = result.metadata;
-        void _foreignStatus;
-        result = { ...result, metadata };
-      }
+      // Unknown-tool classification is produced by the host before a tool body is entered.
+      const unknownTool = result.metadata?.errorCode === UNKNOWN_TOOL_ERROR_CODE;
       if (context.lifecycle) await context.lifecycle.onResult(index, executionContext, result);
+      const metadata = result.metadata;
+      if (metadata) {
+        const { dispatchStatus: _foreignStatus, errorCode, ...rest } = metadata;
+        void _foreignStatus;
+        const reserved =
+          errorCode === TOOL_CALL_SKIPPED_ERROR_CODE ||
+          errorCode === ARGUMENT_DECODE_ERROR_CODE ||
+          errorCode === UNKNOWN_TOOL_ERROR_CODE;
+        result = {
+          ...result,
+          metadata: {
+            ...rest,
+            ...(unknownTool
+              ? { errorCode: UNKNOWN_TOOL_ERROR_CODE }
+              : !reserved && errorCode !== undefined
+                ? { errorCode }
+                : {}),
+          },
+        };
+      }
     }
   }
   // Persist a settled sibling even after cancellation; this wait is not a new external effect.

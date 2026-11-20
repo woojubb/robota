@@ -9,6 +9,7 @@ import type { IManagedToolReceipt } from '../interfaces/managed-provider';
 import { ConversationStore } from '../managers/conversation-history-manager';
 import { createAbortError } from '../utils/abort-classification';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
+import { isJsonEqual } from '../utils/json-equal';
 import {
   recoverToolBatch,
   recoveryValueKey,
@@ -17,6 +18,7 @@ import {
 import { collectCommittedUsageMetadata } from './execution-usage';
 import { addToolResultsToHistory } from './execution-round-tool-results';
 import { executeAndRecordToolCalls } from './execution-round-tools';
+import { sameReceiptMetadata } from './execution-receipt-frame';
 import type { IRoundDependencies } from './execution-round-types';
 import type { IExecutionRoundState } from './execution-types';
 import { acceptToolResponses } from './execution-tool-waits';
@@ -65,6 +67,43 @@ function matchesAssistant(
   );
 }
 
+/** Message IDs and timestamps are regenerated on recovery; the model-visible data is not. */
+function matchesReceiptHistory(
+  actual: TUniversalMessage,
+  expected: TUniversalMessage,
+  assistant: boolean,
+): boolean {
+  const { id: _actualId, timestamp: _actualTime, metadata: actualMetadata, ...actualData } = actual;
+  const {
+    id: _expectedId,
+    timestamp: _expectedTime,
+    metadata: expectedMetadata,
+    ...expectedData
+  } = expected;
+  void _actualId;
+  void _actualTime;
+  void _expectedId;
+  void _expectedTime;
+  const ownerFields = new Set([
+    'executionId',
+    'providerCallId',
+    'providerId',
+    'modelId',
+    'round',
+    'usageObservationId',
+  ]);
+  const semanticMetadata = (metadata: TUniversalMessage['metadata']) =>
+    Object.fromEntries(
+      Object.entries(metadata ?? {}).filter(([key]) => !assistant || !ownerFields.has(key)),
+    );
+  const normalize = (data: typeof actualData) =>
+    assistant && data.role === 'assistant' ? { ...data, content: data.content ?? '' } : data;
+  return (
+    isJsonEqual(normalize(actualData), normalize(expectedData)) &&
+    sameReceiptMetadata(semanticMetadata(actualMetadata), semanticMetadata(expectedMetadata))
+  );
+}
+
 /** Verify the saved prefix and any already-published, settled tool-result prefix before effects. */
 function validateHistory(
   existing: TUniversalMessage[],
@@ -91,6 +130,11 @@ function validateHistory(
     )
   )
     conflict('Current assistant does not match the saved response');
+  if (
+    options.includeReceipts &&
+    !matchesReceiptHistory(suffix[0], recoveredAssistant(batch, options), true)
+  )
+    conflict('Current assistant frame differs from the durable response');
   const calls = batch.response.toolCalls ?? [];
   if (suffix.length > calls.length + 1)
     conflict('History has advanced beyond the recovered tool batch');
@@ -122,7 +166,8 @@ function validateHistory(
       expected.role !== 'tool' ||
       actual.toolCallId !== expected.toolCallId ||
       actual.name !== expected.name ||
-      actual.content !== expected.content
+      actual.content !== expected.content ||
+      (options.includeReceipts && !matchesReceiptHistory(actual, expected, false))
     )
       conflict('Existing tool result conflicts with the durable result');
   }

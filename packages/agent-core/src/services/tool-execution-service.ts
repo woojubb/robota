@@ -28,7 +28,12 @@ export {
   UNKNOWN_TOOL_ERROR_CODE,
   ARGUMENT_DECODE_ERROR_CODE,
 } from './tool-execution-constants';
-import { TOOL_EVENTS, UNKNOWN_TOOL_ERROR_CODE } from './tool-execution-constants';
+import {
+  TOOL_EVENTS,
+  UNKNOWN_TOOL_ERROR_CODE,
+  ARGUMENT_DECODE_ERROR_CODE,
+  TOOL_CALL_SKIPPED_ERROR_CODE,
+} from './tool-execution-constants';
 
 /**
  * Simplified ToolExecutionService
@@ -184,7 +189,23 @@ export class ToolExecutionService {
             success: true,
             data: await this.tools.executeTool(toolName, parameters, executionContext),
           };
-      const envelope = withToolProvenance(rawEnvelope, provenance);
+      // Only the host can classify a call as unknown, undecodable, or skipped. A tool's
+      // own metadata cannot turn an entered body into one of those pre-dispatch outcomes.
+      const metadata = rawEnvelope.metadata;
+      const reserved =
+        metadata?.errorCode === UNKNOWN_TOOL_ERROR_CODE ||
+        metadata?.errorCode === ARGUMENT_DECODE_ERROR_CODE ||
+        metadata?.errorCode === TOOL_CALL_SKIPPED_ERROR_CODE;
+      let safeEnvelope = rawEnvelope;
+      if (metadata && (reserved || metadata.dispatchStatus !== undefined)) {
+        const { errorCode, dispatchStatus: _dispatchStatus, ...rest } = metadata;
+        void _dispatchStatus;
+        safeEnvelope = {
+          ...rawEnvelope,
+          metadata: { ...rest, ...(!reserved && errorCode !== undefined && { errorCode }) },
+        };
+      }
+      const envelope = withToolProvenance(safeEnvelope, provenance);
       if (!envelope.success) {
         const error = envelope.error || 'Tool execution failed';
         eventService?.emit(TOOL_EVENTS.CALL_ERROR, { timestamp: new Date(), toolName, error });

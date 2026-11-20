@@ -1,6 +1,7 @@
 import { randomId } from '../utils/random-id';
 import { ExecutionJournalError } from '../utils/execution-journal-error';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
+import { isJsonEqual } from '../utils/json-equal';
 import { appendExecutionRecord } from './execution-journal';
 import { toolContinuation } from './execution-tool-waits';
 import type { IExecutionJournal } from '../interfaces/execution-journal';
@@ -10,6 +11,11 @@ import type { IToolExecutionResult } from '../interfaces/tool';
 import type { IRecoveredToolBatch } from './execution-recovery-state';
 import type { IToolExecutionBatchContext } from './tool-execution-batch-types';
 import { isValidToolCallIdentity } from './tool-call-identity';
+import {
+  ARGUMENT_DECODE_ERROR_CODE,
+  TOOL_CALL_SKIPPED_ERROR_CODE,
+  UNKNOWN_TOOL_ERROR_CODE,
+} from './tool-execution-constants';
 
 export interface IToolBatchJournalContext {
   journal: IExecutionJournal;
@@ -30,13 +36,23 @@ function validSettlement(
   action: { toolCallId: string; toolName: string },
   result: IToolExecutionResult,
   effectStarted: boolean,
+  dispatched: boolean,
 ): boolean {
+  const code = result?.metadata?.errorCode;
   return (
     result !== null &&
     typeof result === 'object' &&
     result.executionId === action.toolCallId &&
     result.toolName === action.toolName &&
     typeof result.success === 'boolean' &&
+    (code !== TOOL_CALL_SKIPPED_ERROR_CODE ||
+      (!result.success &&
+        !dispatched &&
+        !effectStarted &&
+        result.metadata?.dispatchStatus === 'not-dispatched' &&
+        result.result === null)) &&
+    (code !== ARGUMENT_DECODE_ERROR_CODE || (!dispatched && !effectStarted)) &&
+    (code !== UNKNOWN_TOOL_ERROR_CODE || !effectStarted) &&
     (result.success
       ? effectStarted && result.result !== undefined
       : typeof result.error === 'string' && result.error.length > 0)
@@ -82,7 +98,12 @@ export async function attachToolBatchJournal(
         const result = entry?.result;
         return (
           result !== undefined &&
-          !validSettlement(actions[index], result, entry?.effectStarted === true)
+          !validSettlement(
+            actions[index],
+            result,
+            entry?.effectStarted === true,
+            entry?.dispatched === true,
+          )
         );
       })
     ) {
@@ -108,6 +129,9 @@ export async function attachToolBatchJournal(
   const admitted = context.captureReceipts
     ? recovered.map((action) => action?.effectStarted === true)
     : undefined;
+  const dispatched = context.captureReceipts
+    ? recovered.map((action) => action?.dispatched === true)
+    : undefined;
   const continuations = actions.map((action, index) =>
     toolContinuation(journal, action, recovered[index]?.waits),
   );
@@ -130,14 +154,15 @@ export async function attachToolBatchJournal(
   batch.journal = {
     continuation: (index) => continuations[index].continuation,
     settle: (index) => continuations[index].settle(),
-    beforeDispatch: (index) =>
-      recovered[index]?.dispatched
-        ? Promise.resolve()
-        : appendExecutionRecord(journal, {
-            kind: 'tool-dispatch',
-            recordId: `${actions[index].actionId}:dispatch`,
-            ...actions[index],
-          }),
+    beforeDispatch: async (index) => {
+      if (!recovered[index]?.dispatched)
+        await appendExecutionRecord(journal, {
+          kind: 'tool-dispatch',
+          recordId: `${actions[index].actionId}:dispatch`,
+          ...actions[index],
+        });
+      if (dispatched) dispatched[index] = true;
+    },
     onResult: async (index, result) => {
       // The receipt must use the same snapshot the journal accepted, even if a caller later
       // mutates the executor's result while the append is pending.
@@ -152,7 +177,14 @@ export async function attachToolBatchJournal(
         await appendExecutionRecord(journal, record);
         return;
       }
-      if (!validSettlement(actions[index], result, admitted?.[index] === true)) {
+      if (
+        !validSettlement(
+          actions[index],
+          result,
+          admitted?.[index] === true,
+          dispatched?.[index] === true,
+        )
+      ) {
         throw new ExecutionJournalError(record, new Error('Invalid tool settlement'));
       }
       let snapshot: typeof record;
@@ -165,14 +197,31 @@ export async function attachToolBatchJournal(
       settlements[index] = snapshot.result;
     },
     beforeEffect: async (index, parameters) => {
+      let snapshot = parameters;
+      if (settlements) {
+        try {
+          snapshot = structuredClone(parameters);
+        } catch {
+          throw new ExecutionRecoveryError(
+            'EXECUTION_RECOVERY_INVALID',
+            'Tool parameters cannot be recorded for effect admission',
+          );
+        }
+      }
       await continuations[index].admit(() =>
         appendExecutionRecord(journal, {
           kind: 'tool-effect-start',
           recordId: `${actions[index].actionId}:effect-start`,
           ...actions[index],
-          parameters,
+          parameters: snapshot,
         }),
       );
+      if (settlements && !isJsonEqual(parameters, snapshot))
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_REQUIRED',
+          'Tool parameters changed while effect admission was being recorded',
+          [actions[index].actionId],
+        );
       if (admitted) admitted[index] = true;
     },
   };
