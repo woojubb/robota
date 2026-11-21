@@ -10,14 +10,12 @@ import type { TAgentExecutionConfig } from '../interfaces/agent';
 import { ConversationStore } from '../managers/conversation-history-manager';
 import { createAbortError } from '../utils/abort-classification';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
-import { isJsonEqual } from '../utils/json-equal';
 import { isUniversalValueEqual } from '../utils/universal-value-equal';
 import {
   recoverToolBatch,
   recoveryValueKey,
   type IRecoveredToolBatch,
 } from './execution-recovery-state';
-import { collectCommittedUsageMetadata } from './execution-usage';
 import { addToolResultsToHistory } from './execution-round-tool-results';
 import { executeAndRecordToolCalls } from './execution-round-tools';
 import {
@@ -27,105 +25,19 @@ import {
   snapshotBatchPolicy,
 } from './execution-batch-policy';
 import type { TBatchScheduling } from './execution-batch-policy';
-import { sameReceiptMetadata } from './execution-receipt-frame';
+import {
+  matchesAssistant,
+  matchesReceiptHistory,
+  matchesSavedProviderMetadata,
+  recoveredAssistant,
+  recoveredInputTokens,
+} from './execution-recovery-history';
 import type { IRoundDependencies } from './execution-round-types';
 import type { IExecutionRoundState } from './execution-types';
 import { acceptToolResponses } from './execution-tool-waits';
 
 function conflict(message: string): never {
   throw new ExecutionRecoveryError('EXECUTION_RECOVERY_CONFLICT', message);
-}
-
-function recoveredAssistant(
-  batch: IRecoveredToolBatch,
-  options: IResumeToolCallsOptions,
-): TUniversalMessage {
-  return {
-    ...structuredClone(batch.response),
-    // Provider message IDs may repeat after reopening a client; the journal call owns this commit.
-    id: `recovery:${options.executionId}:${options.callId}:assistant`,
-    ...(batch.checkpoint.continuation?.kind === 'summary' && {
-      content:
-        batch.response.content ||
-        'Maximum rounds reached. Partial results available in conversation history.',
-      toolCalls: [],
-    }),
-    metadata: {
-      ...batch.response.metadata,
-      ...collectCommittedUsageMetadata(batch.response),
-      executionId: options.executionId,
-      providerCallId: options.callId,
-      round: batch.checkpoint.round,
-    },
-  };
-}
-
-function matchesAssistant(
-  actual: TUniversalMessage,
-  expected: TUniversalMessage,
-  callId: string,
-  executionId: string,
-): boolean {
-  return (
-    actual.role === 'assistant' &&
-    expected.role === 'assistant' &&
-    (actual.content ?? '') === (expected.content ?? '') &&
-    recoveryValueKey(actual.toolCalls ?? []) === recoveryValueKey(expected.toolCalls ?? []) &&
-    actual.metadata?.providerCallId === callId &&
-    actual.metadata.executionId === executionId
-  );
-}
-
-/** Message IDs and timestamps are regenerated on recovery; the model-visible data is not. */
-function matchesReceiptHistory(
-  actual: TUniversalMessage,
-  expected: TUniversalMessage,
-  assistant: boolean,
-): boolean {
-  const { id: _actualId, timestamp: _actualTime, metadata: actualMetadata, ...actualData } = actual;
-  const {
-    id: _expectedId,
-    timestamp: _expectedTime,
-    metadata: expectedMetadata,
-    ...expectedData
-  } = expected;
-  void _actualId;
-  void _actualTime;
-  void _expectedId;
-  void _expectedTime;
-  const ownerFields = new Set([
-    'executionId',
-    'providerCallId',
-    'providerId',
-    'modelId',
-    'round',
-    'usageObservationId',
-  ]);
-  const semanticMetadata = (metadata: TUniversalMessage['metadata']) =>
-    Object.fromEntries(
-      Object.entries(metadata ?? {}).filter(([key]) => !assistant || !ownerFields.has(key)),
-    );
-  const normalize = (data: typeof actualData) =>
-    assistant && data.role === 'assistant' ? { ...data, content: data.content ?? '' } : data;
-  return (
-    isJsonEqual(normalize(actualData), normalize(expectedData)) &&
-    sameReceiptMetadata(semanticMetadata(actualMetadata), semanticMetadata(expectedMetadata))
-  );
-}
-
-/** Provider metadata cannot be treated as host-added merely because its key is also host-owned. */
-function matchesSavedProviderMetadata(
-  actual: TUniversalMessage,
-  batch: IRecoveredToolBatch,
-): boolean {
-  const saved = batch.response.metadata;
-  if (!saved) return true;
-  if (!actual.metadata) return false;
-  return Object.keys(saved).every(
-    (key) =>
-      Object.hasOwn(actual.metadata!, key) &&
-      sameReceiptMetadata({ [key]: actual.metadata![key] }, { [key]: saved[key] }),
-  );
 }
 
 /** Verify the saved prefix and any already-published, settled tool-result prefix before effects. */
@@ -197,11 +109,6 @@ function validateHistory(
     )
       conflict('Existing tool result conflicts with the durable result');
   }
-}
-
-function recoveredInputTokens(batch: IRecoveredToolBatch): number {
-  const observed = collectCommittedUsageMetadata(batch.response).inputTokens ?? 0;
-  return observed > 0 ? observed : batch.checkpoint.cumulativeInputTokens;
 }
 
 export interface IRestoredExecutionRound extends IResumeToolCallsResult {
