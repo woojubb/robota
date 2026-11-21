@@ -27,6 +27,8 @@ export function createManagedToolExecutor(input: {
 }): {
   execute(frame: TManagedToolBatch): Promise<readonly IManagedToolReceipt[]>;
   assertHealthy(): void;
+  /** Revoke the callback and settle any in-flight frame before releasing turn ownership. */
+  close(): Promise<void>;
 } {
   const { journal, store, conversationId, context, config, deps } = input;
   const tools = structuredClone(input.tools);
@@ -40,6 +42,8 @@ export function createManagedToolExecutor(input: {
   let stopped = false;
   let failed = false;
   let failure: unknown;
+  let closed = false;
+  let closing: Promise<void> | undefined;
   let active:
     | {
         frame: TManagedToolBatch;
@@ -124,6 +128,7 @@ export function createManagedToolExecutor(input: {
 
   const execute = (frame: TManagedToolBatch): Promise<readonly IManagedToolReceipt[]> => {
     if (failed) return Promise.reject(failure);
+    if (closed) return Promise.reject(conflict('Managed turn has ended'));
     let snapshot: TManagedToolBatch;
     try {
       snapshot = structuredClone(frame);
@@ -166,6 +171,29 @@ export function createManagedToolExecutor(input: {
       if (failed) throw failure;
       if (active) throw required('Managed assistant frame is still awaiting durable receipts');
       signal.throwIfAborted();
+    },
+    close: () => {
+      if (closing) return closing;
+      closed = true;
+      const pending = active?.promise;
+      if (pending) {
+        if (!failed) {
+          failed = true;
+          failure = required('Managed turn ended before its tool frame settled');
+        }
+        controller.abort(failure);
+      }
+      closing = (async () => {
+        if (pending) {
+          try {
+            await pending;
+          } catch {
+            // The latched host failure is the turn's outcome.
+          }
+        }
+        if (failed) throw failure;
+      })();
+      return closing;
     },
   };
 }
