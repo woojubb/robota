@@ -1,5 +1,6 @@
 import type {
   IExecutionJournal,
+  IRecoverableExecutionJournal,
   IExecutionRoundCheckpoint,
   IModelJournalContext,
   TExecutionJournalRecord,
@@ -11,6 +12,8 @@ import type { IToolSchema } from '../interfaces/tool-schema';
 import type { IChatOptions } from '../interfaces/provider';
 import { ExecutionJournalError } from '../utils/execution-journal-error';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
+import { isUniversalValueEqual } from '../utils/universal-value-equal';
+import { assertRawJournalPolicyRecords } from './execution-batch-policy';
 import { recoverToolBatch } from './execution-recovery-state';
 
 export async function appendExecutionRecord(
@@ -26,7 +29,7 @@ export async function appendExecutionRecord(
 
 /** Commit a complete managed assistant frame before any of its tool actions can be journaled. */
 export async function commitManagedToolFrame(
-  journal: IExecutionJournal,
+  journal: IRecoverableExecutionJournal,
   identity: {
     executionId: string;
     callId: string;
@@ -56,7 +59,86 @@ export async function commitManagedToolFrame(
       'Managed assistant frame cannot be recorded',
     );
   }
-  recoverToolBatch([record], identity.executionId, identity.callId);
+  const observed = await journal.read(identity.executionId);
+  assertRawJournalPolicyRecords(observed);
+  let source: readonly TExecutionJournalRecord[];
+  try {
+    source = structuredClone(observed);
+  } catch {
+    throw new ExecutionRecoveryError(
+      'EXECUTION_RECOVERY_INVALID',
+      'Managed assistant frame has an invalid journal prefix',
+    );
+  }
+  recoverToolBatch([...source, record], identity.executionId, identity.callId);
+  const seen = new Set<string>();
+  const nativeCallIds = new Set<string>();
+  const frameIds = new Set<string>();
+  let preceding: Extract<TExecutionJournalRecord, { kind: 'managed-frame' }> | undefined;
+  let segment: TExecutionJournalRecord[] = [];
+  const requireSettlement = (): void => {
+    if (!preceding) return;
+    const batch = recoverToolBatch(segment, identity.executionId, preceding.callId);
+    if (batch.response.toolCalls?.some((call) => !batch.actions.get(call.id)?.result))
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_REQUIRED',
+        'Previous managed assistant frame has unsettled tool calls',
+      );
+  };
+  for (const saved of source) {
+    if (seen.has(saved.recordId)) continue;
+    seen.add(saved.recordId);
+    if (saved.kind === 'managed-frame') {
+      requireSettlement();
+      recoverToolBatch([saved], identity.executionId, saved.callId);
+      if (saved.providerId !== record.providerId || saved.modelId !== record.modelId)
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_CONFLICT',
+          'Managed assistant frames belong to different provider routes',
+        );
+      if (!isUniversalValueEqual(saved.tools, record.tools))
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_CONFLICT',
+          'Managed tool projection changed between assistant frames',
+        );
+      if (frameIds.has(saved.response.id))
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_INVALID',
+          'Managed assistant frame identity was reused',
+        );
+      frameIds.add(saved.response.id);
+      for (const call of saved.response.toolCalls) {
+        if (nativeCallIds.has(call.id))
+          throw new ExecutionRecoveryError(
+            'EXECUTION_RECOVERY_INVALID',
+            'Managed native call identity was reused',
+          );
+        nativeCallIds.add(call.id);
+      }
+      preceding = saved;
+      segment = [saved];
+    } else {
+      if (!preceding || !('parentCallId' in saved) || saved.parentCallId !== preceding.callId)
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_INVALID',
+          'Managed assistant frame crossed another invocation',
+        );
+      segment.push(saved);
+    }
+  }
+  if (preceding?.callId !== record.callId) {
+    requireSettlement();
+    if (frameIds.has(record.response.id))
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_CONFLICT',
+        'Managed assistant frame identity was reused',
+      );
+    if (record.response.toolCalls.some((call) => nativeCallIds.has(call.id)))
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_CONFLICT',
+        'Managed native call identity was reused',
+      );
+  }
   await appendExecutionRecord(journal, record);
   return structuredClone(record.response);
 }

@@ -55,6 +55,7 @@ function fixture() {
   const records: TExecutionJournalRecord[] = [];
   const journal = {
     append: vi.fn(async (record: TExecutionJournalRecord) => {
+      if (records.some((saved) => saved.recordId === record.recordId)) return;
       records.push(structuredClone(record));
     }),
     read: vi.fn(async () => structuredClone(records)),
@@ -68,6 +69,39 @@ function fixture() {
     tools: [schema],
   };
   return { frame, checkpoint, records, journal, identity };
+}
+
+async function settle(f: ReturnType<typeof fixture>) {
+  const effects = vi.fn(async () => 'effect completed');
+  const tools = new Tools({ resolveToolSearchMode: () => 'off' });
+  tools.addTool(schema, async (parameters, context) => {
+    expect(f.records[0]?.kind).toBe('managed-frame');
+    await context!.beforeToolEffect!(parameters);
+    return effects();
+  });
+  const store = new ConversationStore();
+  const outcome = await resumeJournaledToolCalls(
+    store,
+    'conversation',
+    {
+      executionId: 'execution',
+      callId: 'managed-frame-call',
+      journal: f.journal,
+      includeReceipts: true,
+    },
+    {
+      toolExecutionService: new ToolExecutionService(tools),
+      plugins: [],
+      logger: SilentLogger,
+      eventEmitter: new ExecutionEventEmitter(DEFAULT_ABSTRACT_EVENT_SERVICE, SilentLogger),
+    },
+    {
+      name: 'managed-fixture',
+      aiProviders: [],
+      defaultModel: { provider: 'managed-provider', model: 'managed-model' },
+    },
+  );
+  return { outcome, effects };
 }
 
 describe('managed assistant frame journal', () => {
@@ -84,40 +118,124 @@ describe('managed assistant frame journal', () => {
       committed,
     );
 
-    const effects = vi.fn(async () => 'effect completed');
-    const tools = new Tools({ resolveToolSearchMode: () => 'off' });
-    tools.addTool(schema, async (parameters, context) => {
-      expect(f.records[0]?.kind).toBe('managed-frame');
-      await context!.beforeToolEffect!(parameters);
-      return effects();
-    });
-    const store = new ConversationStore();
-    const outcome = await resumeJournaledToolCalls(
-      store,
-      'conversation',
-      {
-        executionId: 'execution',
-        callId: 'managed-frame-call',
-        journal: f.journal,
-        includeReceipts: true,
-      },
-      {
-        toolExecutionService: new ToolExecutionService(tools),
-        plugins: [],
-        logger: SilentLogger,
-        eventEmitter: new ExecutionEventEmitter(DEFAULT_ABSTRACT_EVENT_SERVICE, SilentLogger),
-      },
-      {
-        name: 'managed-fixture',
-        aiProviders: [],
-        defaultModel: { provider: 'managed-provider', model: 'managed-model' },
-      },
-    );
+    const { outcome, effects } = await settle(f);
     expect(effects).toHaveBeenCalledOnce();
     expect(outcome.receipts).toHaveLength(1);
     expect(outcome.receipts?.[0]?.toolCallId).toBe('native-call');
     expect(f.records.map((record) => record.kind)).toContain('tool-result');
     expect(outcome.messages.map((message) => message.role)).toEqual(['user', 'assistant', 'tool']);
+    const replay = await settle(f);
+    expect(replay.effects).not.toHaveBeenCalled();
+    expect(replay.outcome.receipts).toEqual(outcome.receipts);
+  });
+
+  it('advances only from a settled frame and rejects a reused native call identity', async () => {
+    const f = fixture();
+    const first = await commitManagedToolFrame(f.journal, f.identity, f.frame);
+    await expect(commitManagedToolFrame(f.journal, f.identity, f.frame)).resolves.toEqual(first);
+    expect(f.records).toHaveLength(1);
+
+    const next = structuredClone(f.frame);
+    next.id = 'assistant-frame-two';
+    const nextIdentity = {
+      ...f.identity,
+      callId: 'managed-frame-call-two',
+      checkpoint: { ...f.checkpoint, round: 2 },
+    };
+    await expect(commitManagedToolFrame(f.journal, nextIdentity, next)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+    });
+    expect(f.records).toHaveLength(1);
+
+    const { outcome, effects } = await settle(f);
+    expect(effects).toHaveBeenCalledOnce();
+    nextIdentity.checkpoint.messages = outcome.messages;
+    await expect(commitManagedToolFrame(f.journal, nextIdentity, next)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    next.toolCalls[0].id = 'native-call-two';
+    next.id = f.frame.id;
+    await expect(commitManagedToolFrame(f.journal, nextIdentity, next)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    next.id = 'assistant-frame-two';
+    await expect(
+      commitManagedToolFrame(
+        f.journal,
+        { ...nextIdentity, providerId: 'other-managed-provider' },
+        next,
+      ),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+    await expect(
+      commitManagedToolFrame(
+        f.journal,
+        { ...nextIdentity, tools: [{ ...schema, description: 'changed projection' }] },
+        next,
+      ),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+    await expect(commitManagedToolFrame(f.journal, nextIdentity, next)).resolves.toEqual(next);
+    expect(f.records.filter((record) => record.kind === 'managed-frame')).toHaveLength(2);
+    expect(recoverToolBatch(f.records, 'execution', 'managed-frame-call-two').response).toEqual(
+      next,
+    );
+  });
+
+  it('refuses a conflicting replay of an already committed frame', async () => {
+    const f = fixture();
+    await commitManagedToolFrame(f.journal, f.identity, f.frame);
+    f.frame.toolCalls[0].function.arguments = '{"value":2}';
+    await expect(commitManagedToolFrame(f.journal, f.identity, f.frame)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_INVALID',
+    });
+    expect(f.records).toHaveLength(1);
+  });
+
+  it('does not advance after an admitted effect loses its durable result', async () => {
+    const f = fixture();
+    await commitManagedToolFrame(f.journal, f.identity, f.frame);
+    const append = f.journal.append.getMockImplementation()!;
+    f.journal.append.mockImplementation(async (record) => {
+      if (record.kind === 'tool-result') throw new Error('result storage unavailable');
+      await append(record);
+    });
+    const effects = vi.fn(async () => 'effect completed');
+    const tools = new Tools({ resolveToolSearchMode: () => 'off' });
+    tools.addTool(schema, async (parameters, context) => {
+      await context!.beforeToolEffect!(parameters);
+      return effects();
+    });
+    await expect(
+      resumeJournaledToolCalls(
+        new ConversationStore(),
+        'conversation',
+        {
+          executionId: 'execution',
+          callId: 'managed-frame-call',
+          journal: f.journal,
+          includeReceipts: true,
+        },
+        {
+          toolExecutionService: new ToolExecutionService(tools),
+          plugins: [],
+          logger: SilentLogger,
+          eventEmitter: new ExecutionEventEmitter(DEFAULT_ABSTRACT_EVENT_SERVICE, SilentLogger),
+        },
+        {
+          name: 'managed-fixture',
+          aiProviders: [],
+          defaultModel: { provider: 'managed-provider', model: 'managed-model' },
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'EXECUTION_JOURNAL_FAILED' });
+    expect(effects).toHaveBeenCalledOnce();
+    const next = structuredClone(f.frame);
+    next.id = 'assistant-frame-two';
+    next.toolCalls[0].id = 'native-call-two';
+    await expect(
+      commitManagedToolFrame(f.journal, { ...f.identity, callId: 'managed-frame-call-two' }, next),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(effects).toHaveBeenCalledOnce();
+    expect(f.records.filter((record) => record.kind === 'managed-frame')).toHaveLength(1);
   });
 
   it('refuses an invalid frame before writing it', async () => {
