@@ -1,7 +1,8 @@
 import type { TUniversalMessage } from './messages';
-import type { IManagedToolReceipt } from './managed-provider';
+import type { IManagedToolReceipt, TManagedToolBatch } from './managed-provider';
 import type { IChatOptions } from './provider';
 import type { IToolExecutionResult, TToolParameters } from './tool';
+import type { IToolSchema } from './tool-schema';
 import type { TToolSearchSetting } from './tool-search';
 import type { IRunTraceContext } from './trace-context';
 import type { TMetadata } from './types';
@@ -107,6 +108,12 @@ export type TExecutionJournalRecord = IJournalIdentity &
         checkpoint?: IExecutionRoundCheckpoint;
       })
     | (IJournalModelIdentity & { kind: 'model-response'; response: TUniversalMessage })
+    | (IJournalModelIdentity & {
+        kind: 'managed-frame';
+        response: TManagedToolBatch;
+        checkpoint: IExecutionRoundCheckpoint;
+        tools: readonly IToolSchema[];
+      })
     | (IJournalModelIdentity & {
         kind: 'model-cache-hit';
         response: TUniversalMessage;
