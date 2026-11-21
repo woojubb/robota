@@ -248,6 +248,12 @@ export async function restoreJournaledRound(
   options.signal?.throwIfAborted();
   unchanged();
   if (
+    batch.managedRoute &&
+    (config?.defaultModel.provider !== batch.managedRoute.providerId ||
+      config.defaultModel.model !== batch.managedRoute.modelId)
+  )
+    conflict('Active provider and model differ from the saved managed frame');
+  if (
     options.includeReceipts &&
     !matchesSavedProviderMetadata(recoveredAssistant(batch, options), batch)
   )
