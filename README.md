@@ -1,13 +1,23 @@
 # Robota — An adaptable foundation for AI agents
 
+A composable TypeScript SDK for building AI agents, plus a terminal coding agent built on the same foundation.
+
+[![agent-core npm version](https://img.shields.io/npm/v/%40robota-sdk/agent-core?label=agent-core)](https://www.npmjs.com/package/@robota-sdk/agent-core)
+[![agent-cli npm version](https://img.shields.io/npm/v/%40robota-sdk/agent-cli?label=agent-cli)](https://www.npmjs.com/package/@robota-sdk/agent-cli)
+[![agent-core weekly downloads](https://img.shields.io/npm/dw/%40robota-sdk/agent-core?label=agent-core%20downloads%2Fweek)](https://www.npmjs.com/package/@robota-sdk/agent-core)
+[![Node.js >=22.12.0](https://img.shields.io/badge/Node.js-%E2%89%A522.12.0-339933?logo=nodedotjs&logoColor=white)](./content/guide/runtime-migration.md)
+[![Latest GitHub release](https://img.shields.io/github/v/release/woojubb/robota)](https://github.com/woojubb/robota/releases/latest)
+[![AGPL-3.0 OR Commercial license](https://img.shields.io/badge/license-AGPL--3.0%20OR%20Commercial-blue)](./LICENSING.md)
+
+[Docs](https://docs.robota.io/en/) · [Packages](https://docs.robota.io/en/packages/) · [SDK Quick Start](#quick-start-embed-an-agent) · [CLI Quick Start](#use-the-cli-coding-assistant) · [Releases](https://github.com/woojubb/robota/releases)
+
 **Our agents develop and advance our agents.** We are building toward agents that can carry their
 own development forward on a dependable, adaptable foundation. [VISION.md](./VISION.md) defines
 this direction; reliable autonomous self-evolution remains an ambition to build and demonstrate.
 
-Today, Robota provides composable TypeScript libraries with strict types, multi-provider
-support, tool calling and a plugin/event architecture. The SDK and maintained interfaces belong to
-the same environment. `@robota-sdk/agent-cli` delivers a terminal agent with coding capabilities,
-assembled from the same neutral building blocks you can embed in your own application.
+Its packages provide strict types, multi-provider support, tool calling, and a plugin/event
+architecture. The terminal agent uses the same neutral building blocks you can embed in your own
+application.
 
 > Evaluating with an AI agent? Start at [`llms.txt`](./llms.txt) — the consumer map (minimal
 > package set, capabilities, behavior contracts).
