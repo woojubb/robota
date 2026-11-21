@@ -129,6 +129,55 @@ describe('managed assistant frame journal', () => {
     expect(f.journal.append).not.toHaveBeenCalled();
   });
 
+  it('refuses a call outside the managed tool projection during commit and recovery', async () => {
+    const f = fixture();
+    f.identity.tools = [];
+    await expect(commitManagedToolFrame(f.journal, f.identity, f.frame)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_INVALID',
+    });
+    expect(f.journal.append).not.toHaveBeenCalled();
+
+    f.records.push({
+      kind: 'managed-frame',
+      recordId: 'managed-frame-call:frame',
+      executionId: 'execution',
+      callId: 'managed-frame-call',
+      providerId: 'managed-provider',
+      modelId: 'managed-model',
+      response: structuredClone(f.frame),
+      checkpoint: structuredClone(f.checkpoint),
+      tools: [],
+    });
+    const effects = vi.fn(async () => 'effect completed');
+    const tools = new Tools({ resolveToolSearchMode: () => 'off' });
+    tools.addTool(schema, async () => effects());
+    await expect(
+      resumeJournaledToolCalls(
+        new ConversationStore(),
+        'conversation',
+        {
+          executionId: 'execution',
+          callId: 'managed-frame-call',
+          journal: f.journal,
+          includeReceipts: true,
+        },
+        {
+          toolExecutionService: new ToolExecutionService(tools),
+          plugins: [],
+          logger: SilentLogger,
+          eventEmitter: new ExecutionEventEmitter(DEFAULT_ABSTRACT_EVENT_SERVICE, SilentLogger),
+        },
+        {
+          name: 'managed-fixture',
+          aiProviders: [],
+          defaultModel: { provider: 'managed-provider', model: 'managed-model' },
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(effects).not.toHaveBeenCalled();
+    expect(f.records).toHaveLength(1);
+  });
+
   it('refuses an active route change before recovering any managed tool effect', async () => {
     const f = fixture();
     await commitManagedToolFrame(f.journal, f.identity, f.frame);

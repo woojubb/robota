@@ -359,6 +359,18 @@ function validateBatch(
       invalid('Invalid or duplicate saved tool call');
     ids.add(call.id);
   }
+  if (managedTools) {
+    const offered = new Set<string>();
+    for (const tool of managedTools) {
+      if (!tool || !nonempty(tool.name) || offered.has(tool.name))
+        invalid('Invalid managed tool projection');
+      offered.add(tool.name);
+    }
+    for (const call of response.toolCalls ?? []) {
+      if (!offered.has(call.function.name))
+        invalid('Managed frame requested a tool outside its saved projection');
+    }
+  }
   if (request?.options.toolChoice === 'none' && (response.toolCalls?.length ?? 0) > 0)
     invalid('Saved invocation prohibited tool execution');
   const uncertain = [...actions.values()].filter(
