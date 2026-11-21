@@ -260,6 +260,38 @@ describe('managed host tool boundary', () => {
     expect(f.effects).not.toHaveBeenCalled();
   });
 
+  it('reserves the active frame before a journal read can close the turn', async () => {
+    const f = fixture();
+    let closing: Promise<void> | undefined;
+    f.journal.read.mockImplementation(() => {
+      closing = f.close();
+      return Promise.resolve([]);
+    });
+    await expect(f.execute(frame('frame-one', [['call-one', 1]]))).rejects.toBeDefined();
+    await expect(closing).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(f.records).toHaveLength(0);
+    expect(f.effects).not.toHaveBeenCalled();
+  });
+
+  it('refuses a frame whose snapshot getter closes the turn', async () => {
+    const f = fixture();
+    const incoming = frame('frame-one', [['call-one', 1]]);
+    let closing: Promise<void> | undefined;
+    Object.defineProperty(incoming, 'id', {
+      enumerable: true,
+      get: () => {
+        closing = f.close();
+        return 'frame-one';
+      },
+    });
+    await expect(f.execute(incoming)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    await closing;
+    expect(f.records).toHaveLength(0);
+    expect(f.effects).not.toHaveBeenCalled();
+  });
+
   it('rejects a second frame while the first has not returned its receipts', async () => {
     const f = fixture();
     let enter!: () => void;

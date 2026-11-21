@@ -135,6 +135,8 @@ export function createManagedToolExecutor(input: {
     } catch {
       return rejectAndLatch(conflict('Managed assistant frame cannot be captured'));
     }
+    if (failed) return Promise.reject(failure);
+    if (closed) return Promise.reject(conflict('Managed turn has ended'));
     if (signal.aborted)
       return rejectAndLatch(createAbortError('Managed turn interrupted', signal.reason));
     if (active) {
@@ -150,7 +152,8 @@ export function createManagedToolExecutor(input: {
         return rejectAndLatch(conflict('Managed assistant frame replay changed'));
       return Promise.resolve(structuredClone(prior.receipts));
     }
-    const promise = perform(snapshot)
+    const promise = Promise.resolve()
+      .then(() => perform(snapshot))
       .catch((error: unknown) => {
         if (!failed) {
           failed = true;
