@@ -24,7 +24,10 @@ import type { ExecutionCacheService } from './cache/execution-cache-service';
 const DEFAULT_MAX_EXECUTION_ROUNDS = 10;
 const UNLIMITED_EXECUTION_ROUNDS = 0;
 
-function resolveMaxExecutionRounds(config: IAgentConfig, context: IExecutionContext): number {
+export function resolveMaxExecutionRounds(
+  config: IAgentConfig,
+  context: IExecutionContext,
+): number {
   const configured = context.maxExecutionRounds ?? config.maxExecutionRounds;
   if (configured === undefined) {
     return DEFAULT_MAX_EXECUTION_ROUNDS;
@@ -35,7 +38,7 @@ function resolveMaxExecutionRounds(config: IAgentConfig, context: IExecutionCont
   return configured;
 }
 
-function hasRoundCapacity(currentRound: number, maxRounds: number): boolean {
+export function hasRoundCapacity(currentRound: number, maxRounds: number): boolean {
   return maxRounds === UNLIMITED_EXECUTION_ROUNDS || currentRound < maxRounds;
 }
 
