@@ -3,6 +3,7 @@ import type { IRunTraceContext } from './trace-context';
 import type { TMetadata } from './types';
 import type { TStructuredOutputSchema } from '../schema/structured-output';
 import type { IExecutionJournal } from './execution-journal';
+import type { IManagedTurnAdmission } from './managed-provider';
 
 /**
  * The per-RUN contract: what one `run()` may override or observe, as distinct from the agent's
@@ -84,6 +85,8 @@ export interface IRunOptions {
   onExecutionEvent?: TExecutionEventCallback;
   /** Awaited model/tool admission and result records. Failures terminate this run. */
   executionJournal?: IExecutionJournal;
+  /** Internal Session authority required for a managed provider run. */
+  managedTurn?: IManagedTurnAdmission;
   /**
    * Maximum execution rounds for this run. A **round** is one provider (model) call plus the
    * execution of every tool call that reply requested; a reply with no tool calls ends the loop,

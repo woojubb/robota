@@ -83,6 +83,11 @@ export class TurnClaim {
     }
   }
 
+  /** Test the identity of a still-held turn, not merely whether some turn is running. */
+  holds(controller: AbortController): boolean {
+    return this.controller === controller;
+  }
+
   /**
    * Signal the running turn to stop. Idempotent; a no-op if nothing is running.
    *

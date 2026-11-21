@@ -21,7 +21,7 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
 
 ## Boundaries / Non-goals
 
-- Does not own AI provider creation — accepts a pre-constructed execution provider via injection, with explicit borrowed lifetime leaving close responsibility to its external owner and owned lifetime as the default. A managed provider without a qualified host execution path is refused before a turn or helper can cause provider effects. Which hosted tools (such as model-native web search) a provider runs is decided where it is constructed; creating a session or swapping its provider never switches one on.
+- Does not own AI provider creation — accepts a pre-constructed execution provider via injection, with explicit borrowed lifetime leaving close responsibility to its external owner and owned lifetime as the default. A managed provider may run a fresh turn only under a claimed Session with a readable host journal; continuation, streaming, helper requests and unqualified capability modes are refused before provider or tool effects. Which hosted tools (such as model-native web search) a provider runs is decided where it is constructed; creating a session or swapping its provider never switches one on.
 - Does not own tool implementations — accepts pre-constructed tools via injection.
 - Does not own system-prompt building — accepts a pre-built system message string. It owns
   exactly one model-facing prompt surface: the compaction summarization prompt, whose base

@@ -7,6 +7,7 @@ import type {
   IResumeToolCallsResult,
 } from '../interfaces/execution-journal';
 import { runExecutionLoop, finalizeExecution } from './execution-pipeline';
+import { executeManagedRun } from './execution-managed-run';
 import {
   resolveProviderAndTools,
   validateProvider,
@@ -38,7 +39,8 @@ import type {
   IExecutionContextInjection,
 } from '../interfaces/agent';
 import type { IEventService } from '../interfaces/event-service';
-import type { IAIProviderManager, IToolManager } from '../interfaces/manager';
+import type { IExecutionProviderManager, IToolManager } from '../interfaces/manager';
+import { isManagedRunProvider } from '../interfaces/managed-provider';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type {
   IToolExecutionContext,
@@ -55,7 +57,7 @@ export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './execution-constants'
 /** Orchestrates the execution pipeline: AI provider, tool execution, and plugin lifecycle. */
 export class ExecutionService {
   private toolExecutionService: ToolExecutionService;
-  private aiProviders: IAIProviderManager;
+  private aiProviders: IExecutionProviderManager;
   private tools: IToolManager;
   private conversationHistory: ConversationHistory;
   private plugins: TPluginWithHooks[] = [];
@@ -64,7 +66,7 @@ export class ExecutionService {
   private cacheService?: ExecutionCacheService;
 
   constructor(
-    aiProviders: IAIProviderManager,
+    aiProviders: IExecutionProviderManager,
     tools: IToolManager,
     conversationHistory: ConversationHistory,
     eventService?: IEventService,
@@ -266,6 +268,32 @@ export class ExecutionService {
       conversationId,
       context,
     );
+
+    const selected = this.aiProviders.getCurrentProvider();
+    const candidate = selected
+      ? this.aiProviders.getExecutionProvider(selected.provider)
+      : undefined;
+    if (selected && candidate && isManagedRunProvider(candidate)) {
+      this.eventEmitter.prepareOwnerPathBases(conversationId);
+      try {
+        return await executeManagedRun({
+          input,
+          messages,
+          config,
+          context: fullContext,
+          provider: candidate,
+          selected,
+          conversationHistory: this.conversationHistory,
+          tools: this.tools,
+          toolExecutionService: this.toolExecutionService,
+          plugins: this.plugins,
+          logger: this.logger,
+          eventEmitter: this.eventEmitter,
+        });
+      } finally {
+        this.eventEmitter.resetOwnerPathBases();
+      }
+    }
 
     this.eventEmitter.prepareOwnerPathBases(conversationId);
 
