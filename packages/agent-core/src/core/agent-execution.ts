@@ -41,6 +41,7 @@ function buildRunContext(
     ...(options.onThinkingDelta && { onThinkingDelta: options.onThinkingDelta }),
     ...(options.onExecutionEvent && { onExecutionEvent: options.onExecutionEvent }),
     ...(options.executionJournal && { executionJournal: options.executionJournal }),
+    ...(options.managedTurn && { managedTurn: options.managedTurn }),
     ...(options.maxExecutionRounds !== undefined && {
       maxExecutionRounds: options.maxExecutionRounds,
     }),

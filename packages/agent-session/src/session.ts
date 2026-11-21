@@ -283,7 +283,10 @@ export class Session extends SessionBase {
   ): Promise<string> {
     const options = value ? { ...value } : undefined;
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
-    this.assertProviderRunnable();
+    const managed = isManagedRunProvider(this.aiProvider);
+    const journal = options?.executionJournal;
+    const readable = journal && 'read' in journal && typeof journal.read === 'function';
+    this.assertProviderRunnable(!!(managed && checkpointedApprovals && readable));
     this.assertInputAllowed();
     const controller = this.turnClaim.claim(); // Synchronously, before any await.
     const unlink = linkCancellation(controller, options?.signal);
@@ -292,6 +295,11 @@ export class Session extends SessionBase {
     this.permissionEnforcer.beginTurn(options?.peerTurn === true, checkpointedApprovals);
     try {
       signal.throwIfAborted();
+      if (managed && this.agent.getHistory().some((entry) => entry.role !== 'system'))
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_REQUIRED',
+          'Managed continuation requires a verified conversation binding',
+        );
       // Tools added while the last turn ran join at this boundary, before any request of this turn;
       // a change already in flight finishes first, so the turn never sees a list mid-update.
       await this.serializeToolChange(() => this.applyPendingTools());
@@ -312,6 +320,17 @@ export class Session extends SessionBase {
         this.buildRunContext(options?.executionJournal !== undefined),
         signal,
         runOptions,
+        managed
+          ? {
+              assertActive: () => {
+                if (!this.turnClaim.holds(controller) || signal.aborted)
+                  throw new ExecutionRecoveryError(
+                    'EXECUTION_RECOVERY_CONFLICT',
+                    'Managed turn no longer owns the Session',
+                  );
+              },
+            }
+          : undefined,
       );
       this.setPending(undefined);
       this.commitConversation();
@@ -448,8 +467,8 @@ export class Session extends SessionBase {
         'Resume or abandon the pending Session execution before submitting new input',
       );
   }
-  private assertProviderRunnable(): void {
-    if (isManagedRunProvider(this.aiProvider)) {
+  private assertProviderRunnable(allowManaged = false): void {
+    if (isManagedRunProvider(this.aiProvider) && !allowManaged) {
       throw new ManagedRunUnavailableError(this.aiProvider.name);
     }
   }

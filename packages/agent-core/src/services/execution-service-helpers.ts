@@ -289,6 +289,7 @@ export function buildFullExecutionContext(
     ...(context?.onThinkingDelta && { onThinkingDelta: context.onThinkingDelta }),
     ...(context?.onExecutionEvent && { onExecutionEvent: context.onExecutionEvent }),
     ...(context?.executionJournal && { executionJournal: context.executionJournal }),
+    ...(context?.managedTurn && { managedTurn: context.managedTurn }),
     ...(context?.maxExecutionRounds !== undefined && {
       maxExecutionRounds: context.maxExecutionRounds,
     }),

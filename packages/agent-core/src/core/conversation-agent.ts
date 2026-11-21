@@ -59,6 +59,7 @@ import type { Tools } from '../managers/tool-manager';
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import type { IJsonSchemaOutput } from '../schema/structured-output';
 import type { ExecutionService } from '../services/execution-service';
+import { assertManagedRunPreflight } from '../services/execution-managed-run';
 import type { ZodType, TypeOf } from 'zod';
 
 export type { TAgentStatsMetadata } from './agent-config-manager';
@@ -279,7 +280,8 @@ export class ConversationAgent
   async run(input: string, options: IRunOptions = {}): Promise<unknown> {
     this.assertNotDestroyed();
     return this.runQueue.run(options.signal, async () => {
-      this.assertProviderRunnable();
+      this.assertProviderRunnable(options.managedTurn !== undefined);
+      this.assertManagedRunSupported(options);
       await this.ensureFullyInitialized();
       try {
         if (options.output) {
@@ -291,6 +293,14 @@ export class ConversationAgent
         this.resetEphemeralHistory();
       }
     });
+  }
+
+  /** Refuse an unsupported managed request before Session executes prompt hooks. */
+  assertManagedRunSupported(options: IRunOptions): void {
+    const provider = this.aiProviders.getCurrentExecutionProviderInstance();
+    if (!provider || !isManagedRunProvider(provider)) return;
+    if (options.output) throw new ManagedRunUnavailableError(provider.name);
+    assertManagedRunPreflight(this.getHistory(), options, this.config);
   }
 
   runStream<S extends ZodType>(
@@ -341,7 +351,7 @@ export class ConversationAgent
     }
   }
 
-  private assertProviderRunnable(): void {
+  private assertProviderRunnable(allowManaged = false): void {
     const current = this.aiProviders.getCurrentProvider();
     if (
       current &&
@@ -351,7 +361,7 @@ export class ConversationAgent
       throw new Error('Provider selection conflicts with the agent configuration');
     }
     const provider = this.aiProviders.getCurrentExecutionProviderInstance();
-    if (provider && isManagedRunProvider(provider)) {
+    if (provider && isManagedRunProvider(provider) && !allowManaged) {
       throw new ManagedRunUnavailableError(provider.name);
     }
   }

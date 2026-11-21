@@ -93,6 +93,7 @@ export type {
   TManagedTurnEvent,
   TManagedTurnResult,
   IManagedTurnHost,
+  IManagedTurnAdmission,
   IManagedRunProvider,
   IModelStepProvider,
   TDiscriminatedExecutionProvider,
