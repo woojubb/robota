@@ -15,6 +15,7 @@ import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { isUniversalValueEqual } from '../utils/universal-value-equal';
 import { assertRawJournalPolicyRecords } from './execution-batch-policy';
 import { recoverToolBatch } from './execution-recovery-state';
+import { assertManagedFrameHistory } from './execution-recovery-history';
 
 export async function appendExecutionRecord(
   journal: IExecutionJournal,
@@ -76,7 +77,7 @@ export async function commitManagedToolFrame(
   const frameIds = new Set<string>();
   let preceding: Extract<TExecutionJournalRecord, { kind: 'managed-frame' }> | undefined;
   let segment: TExecutionJournalRecord[] = [];
-  const requireSettlement = (): void => {
+  const requireSettlement = (nextMessages: readonly TUniversalMessage[]): void => {
     if (!preceding) return;
     const batch = recoverToolBatch(segment, identity.executionId, preceding.callId);
     if (batch.response.toolCalls?.some((call) => !batch.actions.get(call.id)?.result))
@@ -84,13 +85,14 @@ export async function commitManagedToolFrame(
         'EXECUTION_RECOVERY_REQUIRED',
         'Previous managed assistant frame has unsettled tool calls',
       );
+    assertManagedFrameHistory(batch, nextMessages);
   };
   for (const saved of source) {
     if (seen.has(saved.recordId)) continue;
     seen.add(saved.recordId);
     if (saved.kind === 'managed-frame') {
-      requireSettlement();
       recoverToolBatch([saved], identity.executionId, saved.callId);
+      requireSettlement(saved.checkpoint.messages);
       if (saved.providerId !== record.providerId || saved.modelId !== record.modelId)
         throw new ExecutionRecoveryError(
           'EXECUTION_RECOVERY_CONFLICT',
@@ -127,7 +129,7 @@ export async function commitManagedToolFrame(
     }
   }
   if (preceding?.callId !== record.callId) {
-    requireSettlement();
+    requireSettlement(record.checkpoint.messages);
     if (frameIds.has(record.response.id))
       throw new ExecutionRecoveryError(
         'EXECUTION_RECOVERY_CONFLICT',

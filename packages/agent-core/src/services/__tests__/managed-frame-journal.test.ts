@@ -149,11 +149,27 @@ describe('managed assistant frame journal', () => {
 
     const { outcome, effects } = await settle(f);
     expect(effects).toHaveBeenCalledOnce();
+    next.toolCalls[0].id = 'native-call-two';
+    await expect(commitManagedToolFrame(f.journal, nextIdentity, next)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    next.toolCalls[0].id = 'native-call';
     nextIdentity.checkpoint.messages = outcome.messages;
     await expect(commitManagedToolFrame(f.journal, nextIdentity, next)).rejects.toMatchObject({
       code: 'EXECUTION_RECOVERY_CONFLICT',
     });
     next.toolCalls[0].id = 'native-call-two';
+    const alteredHistory = structuredClone(outcome.messages);
+    const last = alteredHistory.at(-1);
+    if (last?.role !== 'tool') throw new Error('Missing settled tool observation');
+    last.content = 'different result';
+    await expect(
+      commitManagedToolFrame(
+        f.journal,
+        { ...nextIdentity, checkpoint: { ...nextIdentity.checkpoint, messages: alteredHistory } },
+        next,
+      ),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
     next.id = f.frame.id;
     await expect(commitManagedToolFrame(f.journal, nextIdentity, next)).rejects.toMatchObject({
       code: 'EXECUTION_RECOVERY_CONFLICT',
