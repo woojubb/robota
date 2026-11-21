@@ -421,9 +421,6 @@ describe('provider-free journal continuation', () => {
 
   it.each([
     'proxy map',
-    'proxy declaration',
-    'proxy resource',
-    'proxy array',
     'accessor',
     'class',
     'array subclass',
@@ -434,26 +431,6 @@ describe('provider-free journal continuation', () => {
     const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
       const resource: { key: string; access: 'read' | 'write' } = { key: 'shared', access: 'read' };
       const declaration: IToolCallScheduling = { resources: [resource] };
-      if (kind === 'proxy array')
-        Object.assign(declaration, {
-          resources: new Proxy([resource], {
-            get(target, key, receiver) {
-              if (key === 'length') getter();
-              return Reflect.get(target, key, receiver);
-            },
-          }),
-        });
-      if (kind === 'proxy resource')
-        Object.assign(declaration, {
-          resources: [
-            new Proxy(resource, {
-              get(target, key, receiver) {
-                if (key === 'access') return getter();
-                return Reflect.get(target, key, receiver);
-              },
-            }),
-          ],
-        });
       if (kind === 'accessor')
         Object.defineProperty(resource, 'access', { get: getter, enumerable: true });
       if (kind === 'extra field') Object.assign(declaration, { unused: true });
@@ -463,8 +440,7 @@ describe('provider-free journal continuation', () => {
         Object.assign(declaration, { resources: new Resources() });
       }
       if (kind === 'class') Object.setPrototypeOf(declaration, { marker: true });
-      const actual = kind === 'proxy declaration' ? new Proxy(declaration, {}) : declaration;
-      const scheduling = new Map(calls.map((call) => [call.id, actual]));
+      const scheduling = new Map(calls.map((call) => [call.id, declaration]));
       return { scheduling: kind === 'proxy map' ? new Proxy(scheduling, {}) : scheduling };
     };
     const source = fixture(undefined, undefined, undefined, policy);
@@ -481,6 +457,42 @@ describe('provider-free journal continuation', () => {
     expect(getter).not.toHaveBeenCalled();
     expect(source.effect).not.toHaveBeenCalled();
     expect(records.some((record) => record.kind === 'tool-intent')).toBe(false);
+  });
+
+  it('runs against a detached snapshot when a declaration mutates during inspection', async () => {
+    const getter = vi.fn(() => 'changed');
+    const first = { key: 'original', access: 'read' as const };
+    const target = { key: 'other', access: 'read' as const };
+    const resources: Array<{ key: string; access: 'read' | 'write' }> = [first, target];
+    const dynamic = new Proxy(target, {
+      getPrototypeOf(value) {
+        Object.defineProperty(first, 'key', { get: getter, enumerable: true });
+        resources[1] = { key: 'replacement', access: 'write' };
+        return Object.getPrototypeOf(value);
+      },
+    });
+    resources[1] = dynamic;
+    const source = fixture(undefined, undefined, undefined, (calls) => ({
+      scheduling: new Map([
+        [calls[0].id, { resources }],
+        [calls[1].id, { resources: [] }],
+      ]),
+    }));
+    const records: TExecutionJournalRecord[] = [];
+    await source.agent.run('perform actions', {
+      executionJournal: {
+        append: async (record) => {
+          records.push(structuredClone(record));
+        },
+      },
+    });
+    const intent = records.find((record) => record.kind === 'tool-intent');
+    expect(intent?.batchPolicy?.scheduling?.[0]?.[1].resources).toEqual([
+      { key: 'original', access: 'read' },
+      { key: 'other', access: 'read' },
+    ]);
+    expect(getter).not.toHaveBeenCalled();
+    expect(source.effect).toHaveBeenCalledTimes(2);
   });
 
   it('accepts frozen plain scheduling data', async () => {
@@ -582,6 +594,31 @@ describe('provider-free journal continuation', () => {
     expect(failure).toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
     expect(getter).not.toHaveBeenCalled();
     expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
+  it('rejects a modified array intrinsic without reading a policy accessor', async () => {
+    const getter = vi.fn(() => []);
+    const originalEvery = Array.prototype.every;
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      Array.prototype.every = (() => true) as unknown as typeof Array.prototype.every;
+      const declaration = Object.defineProperty({}, 'resources', {
+        enumerable: true,
+        get: getter,
+      });
+      return { scheduling: new Map(calls.map((call) => [call.id, declaration])) };
+    };
+    const source = fixture(undefined, undefined, undefined, policy);
+    let failure: unknown;
+    try {
+      await source.agent.run('perform actions', { executionJournal: { append: async () => {} } });
+    } catch (error) {
+      failure = error;
+    } finally {
+      Array.prototype.every = originalEvery;
+    }
+    expect(failure).toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(getter).not.toHaveBeenCalled();
+    expect(source.effect).not.toHaveBeenCalled();
   });
 
   it('uses a detached policy if the caller mutates it during an append', async () => {

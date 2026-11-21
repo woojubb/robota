@@ -44,6 +44,7 @@ const mapHas = Map.prototype.has;
 const mapIterator = Map.prototype[Symbol.iterator];
 const arrayMap = Array.prototype.map;
 const arraySome = Array.prototype.some;
+const arrayEvery = Array.prototype.every;
 const arrayIterator = Array.prototype[Symbol.iterator];
 const arraySpecies = Object.getOwnPropertyDescriptor(Array, Symbol.species)?.get;
 
@@ -59,6 +60,7 @@ function assertSchedulingIntrinsics(): void {
     mapIterator !== mapEntries ||
     Array.prototype.map !== arrayMap ||
     Array.prototype.some !== arraySome ||
+    Array.prototype.every !== arrayEvery ||
     Array.prototype[Symbol.iterator] !== arrayIterator ||
     Array.prototype.constructor !== Array ||
     Object.getOwnPropertyDescriptor(Array, Symbol.species)?.get !== arraySpecies ||
@@ -77,12 +79,12 @@ function assertSchedulingIntrinsics(): void {
     invalid('Runtime scheduling intrinsics changed');
 }
 
-/** Check descriptors before cloning, so no accessor is invoked or hidden property discarded. */
-function isPlainData(
+/** Capture data descriptors once so user objects cannot change what the scheduler later reads. */
+function copyPlainData(
   value: unknown,
-  seen = new WeakSet<object>(),
+  copies = new WeakMap<object, unknown>(),
   active = new WeakSet<object>(),
-): boolean {
+): unknown {
   if (
     value === null ||
     value === undefined ||
@@ -90,42 +92,56 @@ function isPlainData(
     typeof value === 'number' ||
     typeof value === 'boolean'
   )
-    return true;
-  if (typeof value !== 'object' || active.has(value)) return false;
-  if (seen.has(value)) return true;
+    return value;
+  if (typeof value !== 'object' || active.has(value))
+    invalid('Tool batch policy must be plain cloneable data');
+  if (copies.has(value)) return copies.get(value);
   const array = Array.isArray(value);
-  if (Object.getPrototypeOf(value) !== (array ? Array.prototype : Object.prototype)) return false;
+  if (Object.getPrototypeOf(value) !== (array ? Array.prototype : Object.prototype))
+    invalid('Tool batch policy must be plain cloneable data');
   const length = array ? Object.getOwnPropertyDescriptor(value, 'length')?.value : undefined;
-  if (array && (!Number.isSafeInteger(length) || length < 0)) return false;
-  seen.add(value);
+  if (array && (!Number.isSafeInteger(length) || length < 0))
+    invalid('Tool batch policy must be plain cloneable data');
+  const keys = Reflect.ownKeys(value);
+  const descriptors = keys.map(
+    (key) => [key, Object.getOwnPropertyDescriptor(value, key)] as const,
+  );
+  const copy: Record<string, unknown> | unknown[] = array ? new Array(length) : {};
+  copies.set(value, copy);
   active.add(value);
   let count = 0;
-  const valid = Reflect.ownKeys(value).every((key) => {
-    if (array && key === 'length') return true;
-    if (typeof key !== 'string') return false;
+  for (const [key, descriptor] of descriptors) {
+    if (array && key === 'length') continue;
+    if (
+      typeof key !== 'string' ||
+      !descriptor ||
+      !descriptor.enumerable ||
+      !('value' in descriptor)
+    )
+      invalid('Tool batch policy must be plain cloneable data');
     if (array) {
       const index = Number(key);
       if (!Number.isSafeInteger(index) || index < 0 || index >= length || String(index) !== key)
-        return false;
+        invalid('Tool batch policy must be plain cloneable data');
       count++;
     }
-    const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    return (
-      !!descriptor &&
-      descriptor.enumerable &&
-      'value' in descriptor &&
-      isPlainData(descriptor.value, seen, active)
-    );
-  });
+    Object.defineProperty(copy, key, {
+      value: copyPlainData(descriptor.value, copies, active),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
   active.delete(value);
-  return valid && (!array || count === length);
+  if (array && count !== length) invalid('Tool batch policy must be plain cloneable data');
+  return copy;
 }
 
 function clonePlainData(value: unknown): unknown {
   try {
-    if (!isPlainData(value)) return invalid('Tool batch policy must be plain cloneable data');
-    // Cloning rejects Proxy objects even when their descriptors impersonate ordinary data.
-    return structuredClone(value);
+    const copy = copyPlainData(value);
+    assertSchedulingIntrinsics();
+    return copy;
   } catch (error) {
     if (error instanceof ExecutionRecoveryError) throw error;
     return invalid('Tool batch policy must be plain cloneable data');
