@@ -13,6 +13,7 @@ export type {
   IRecoverableExecutionJournal,
   IExecutionRoundCheckpoint,
   IExecutionContinuationState,
+  IJournalToolBatchPolicy,
   IResumeExecutionOptions,
   IResumeToolCallsOptions,
   IResumeToolCallsResult,

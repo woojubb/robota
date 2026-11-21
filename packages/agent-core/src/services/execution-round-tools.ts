@@ -9,6 +9,7 @@ import { getModelContextWindow } from '../context/models';
 import { SameToolInputLoopError } from '../utils/errors';
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { attachToolBatchJournal } from './execution-tool-journal';
+import { resolveBatchScheduling } from './execution-batch-policy';
 import { snapshotReceiptFrame } from './execution-receipt-frame';
 import type {
   IToolBatchJournalContext,
@@ -200,13 +201,11 @@ export async function executeAndRecordToolCalls(
       ...(traceContext ? { traceContext } : {}),
     };
   });
-  const policy = config?.toolExecutionPolicy?.(structuredClone(assistantToolCalls));
+  const policy =
+    effectiveJournalContext?.preparedPolicy ?? resolveBatchScheduling(assistantToolCalls, config);
   const toolContext: IToolExecutionBatchContext = {
     requests: toolRequests,
-    mode: policy?.mode ?? 'parallel',
-    maxConcurrency: policy?.maxConcurrency ?? 5,
-    continueOnError: policy?.continueOnError ?? true,
-    scheduling: policy?.scheduling ?? new Map(),
+    ...policy,
     signal,
   };
   toolContext.lifecycle = toolExecutionLifecycle({

@@ -74,6 +74,27 @@ async function stopped(peerTurn = false) {
 }
 
 describe('Session execution continuation', () => {
+  it('rejects a saved policy with a hidden property before Session clones the journal', async () => {
+    const saved = await stopped();
+    saved.journal.append.mockImplementation(async (record) => {
+      saved.records.push(structuredClone(record));
+      if (record.kind === 'tool-intent') throw new Error('lost intent acknowledgement');
+    });
+    const first = fixture([{ text: 'must not run' }]);
+    await expect(first.session.resume(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_JOURNAL_FAILED',
+    });
+    const intent = saved.records.find((record) => record.kind === 'tool-intent');
+    if (intent?.kind !== 'tool-intent' || !intent.batchPolicy?.scheduling)
+      throw new Error('Missing policy');
+    Object.defineProperty(intent.batchPolicy.scheduling, 'map', { value: 1, enumerable: false });
+    saved.journal.read.mockImplementation(async () => saved.records);
+    const fresh = fixture([{ text: 'must not run' }]);
+    await expect(fresh.session.resume(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_INVALID',
+    });
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
   it('replays the complete recovered history through the ordinary session-log codec', async () => {
     const saved = await stopped();
     const chunks: string[] = [];

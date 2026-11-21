@@ -11,6 +11,7 @@ import type { TUniversalMessage } from '../../interfaces/messages';
 import type { IAgentConfig } from '../../interfaces/agent';
 import type {
   IToolExecutionResult,
+  IToolCallScheduling,
   TToolEffectAdmission,
   TToolParameters,
 } from '../../interfaces/tool';
@@ -185,6 +186,470 @@ describe('provider-free journal continuation', () => {
     const repeated = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
     expect(repeated.receipts).toEqual(first.receipts);
     expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['mode', 'concurrency', 'failure handling', 'dependencies', 'resources'] as const)(
+    'refuses a changed %s policy after a partial intent write',
+    async (changed) => {
+      const saved = await stoppedAt('tool-intent', true);
+      const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+        ...(changed === 'mode' && { mode: 'sequential' }),
+        ...(changed === 'concurrency' && { maxConcurrency: 1 }),
+        ...(changed === 'failure handling' && { continueOnError: false }),
+        scheduling: new Map(
+          calls.map((call, index) => [
+            call.id,
+            {
+              resources:
+                changed === 'resources' && index === 0 ? [{ key: 'shared', access: 'write' }] : [],
+              ...(changed === 'dependencies' && index === 1 && { dependsOn: [calls[0].id] }),
+            },
+          ]),
+        ),
+      });
+      const fresh = fixture(undefined, undefined, undefined, policy);
+      await expect(
+        fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+      ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+      expect(fresh.effect).not.toHaveBeenCalled();
+      expect(saved.journal.append).not.toHaveBeenCalled();
+    },
+  );
+
+  it('records one policy binding and resolves it once when a batch resumes', async () => {
+    const saved = await stoppedAt('tool-intent', true);
+    const policy = vi.fn<NonNullable<IAgentConfig['toolExecutionPolicy']>>((calls) => ({
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    }));
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(policy).toHaveBeenCalledOnce();
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+    expect(result.receipts).toHaveLength(2);
+    const records = saved.records.filter(
+      (record) => record.kind === 'tool-intent' || record.kind === 'tool-result',
+    );
+    expect(records).toHaveLength(4);
+    expect(records[0]).toHaveProperty('batchPolicy');
+    for (const record of records.slice(1)) expect(record).not.toHaveProperty('batchPolicy');
+  });
+
+  it('reads a top-level policy field once and binds the resolved value', async () => {
+    const read = vi.fn(() => 'parallel' as const);
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      get mode() {
+        return read();
+      },
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-intent', true, source);
+    expect(read).toHaveBeenCalledOnce();
+    read.mockClear();
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    await fresh.agent.resumeToolCalls(saved);
+    expect(read).toHaveBeenCalledOnce();
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('checks policy before continuing after a durable effect result', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      mode: 'sequential',
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-result', true, source);
+    expect(source.effect).toHaveBeenCalledTimes(1);
+    const changed = fixture();
+    await expect(
+      changed.agent.resumeToolCalls({ ...saved, includeReceipts: true }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+    expect(changed.effect).not.toHaveBeenCalled();
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    const result = await fresh.agent.resumeToolCalls({ ...saved, includeReceipts: true });
+    expect(fresh.effect).toHaveBeenCalledTimes(1);
+    expect(fresh.effect).toHaveBeenCalledWith({ n: 2 }, expect.anything());
+    expect(result.receipts).toHaveLength(2);
+  });
+
+  it('binds a batch consisting only of malformed tool arguments through its first result', async () => {
+    const source = fixture(undefined, undefined, (message) => {
+      if (message.role !== 'assistant' || !message.toolCalls) return message;
+      return {
+        ...message,
+        toolCalls: message.toolCalls.map((call) => ({
+          ...call,
+          function: { ...call.function, arguments: '{invalid' },
+        })),
+      };
+    });
+    const saved = await stoppedAt('tool-result', true, source);
+    expect(source.effect).not.toHaveBeenCalled();
+    const recorded = saved.records.find((record) => record.kind === 'tool-result');
+    expect(recorded).toHaveProperty('batchPolicy');
+    const changed = fixture(undefined, undefined, undefined, (calls) => ({
+      mode: 'sequential',
+      scheduling: new Map(calls.map((call) => [call.id, { resources: [] }])),
+    }));
+    await expect(changed.agent.resumeToolCalls(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    expect(changed.effect).not.toHaveBeenCalled();
+  });
+
+  it('does not persist a second malformed result before the policy binding is acknowledged', async () => {
+    const source = fixture(undefined, undefined, (message) => {
+      if (message.role !== 'assistant' || !message.toolCalls) return message;
+      return {
+        ...message,
+        toolCalls: message.toolCalls.map((call) => ({
+          ...call,
+          function: { ...call.function, arguments: '{invalid' },
+        })),
+      };
+    });
+    const records: TExecutionJournalRecord[] = [];
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const run = source.agent.run('perform actions', {
+      executionJournal: {
+        append: async (record) => {
+          records.push(structuredClone(record));
+          if (record.kind === 'tool-result') {
+            enter();
+            await gate;
+            throw new Error('lost acknowledgement');
+          }
+        },
+      },
+    });
+    const rejected = expect(run).rejects.toMatchObject({ code: 'EXECUTION_JOURNAL_FAILED' });
+    await entered;
+    try {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      const results = records.filter((record) => record.kind === 'tool-result');
+      expect(results).toHaveLength(1);
+      expect(results[0]).toHaveProperty('batchPolicy');
+    } finally {
+      release();
+    }
+    await rejected;
+    expect(records.filter((record) => record.kind === 'tool-result')).toHaveLength(1);
+    expect(source.effect).not.toHaveBeenCalled();
+  });
+
+  it('rejects conflicting saved policy bindings before dispatch', async () => {
+    const saved = await stoppedAt('tool-dispatch');
+    const intents = saved.records.filter((record) => record.kind === 'tool-intent');
+    if (intents.length !== 2 || !intents[0].batchPolicy) throw new Error('Missing policy binding');
+    intents[1].batchPolicy = structuredClone(intents[0].batchPolicy);
+    intents[1].batchPolicy.mode = 'sequential';
+    const fresh = fixture();
+    await expect(fresh.agent.resumeToolCalls(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_INVALID',
+    });
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
+  it('accepts equivalent policy ordering, duplicates and default entries', async () => {
+    const policy =
+      (alternate: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
+      (calls) => ({
+        scheduling: new Map(
+          alternate
+            ? [
+                [calls[1].id, { dependsOn: [calls[0].id], resources: [] }],
+                [calls[0].id, { resources: [{ key: 'db', access: 'write' }] }],
+              ]
+            : [
+                [
+                  calls[0].id,
+                  {
+                    resources: [
+                      { key: 'db', access: 'write' },
+                      { key: 'db', access: 'write' },
+                    ],
+                  },
+                ],
+                [calls[1].id, { dependsOn: [calls[0].id, calls[0].id], resources: [] }],
+              ],
+        ),
+      });
+    const source = fixture(undefined, undefined, undefined, policy(false));
+    const saved = await stoppedAt('tool-intent', true, source);
+    const fresh = fixture(undefined, undefined, undefined, policy(true));
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves unknown dependency refusal order during recovery', async () => {
+    const policy =
+      (reverse: boolean): NonNullable<IAgentConfig['toolExecutionPolicy']> =>
+      (calls) => ({
+        scheduling: new Map([
+          [
+            calls[0].id,
+            { dependsOn: reverse ? ['missing-a', 'missing-z'] : ['missing-z', 'missing-a'] },
+          ],
+        ]),
+      });
+    const source = fixture(undefined, undefined, undefined, policy(false));
+    const saved = await stoppedAt('tool-result', true, source);
+    const first = saved.records.find((record) => record.kind === 'tool-result');
+    if (first?.kind !== 'tool-result') throw new Error('Missing refusal');
+    expect(first.result.error).toContain('missing-z');
+    const fresh = fixture(undefined, undefined, undefined, policy(true));
+    await expect(fresh.agent.resumeToolCalls(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
+  it('keeps legacy batches unbound under the equivalent host policy', async () => {
+    const saved = await stoppedAt('tool-intent', true);
+    for (const record of saved.records)
+      if (record.kind === 'tool-intent' || record.kind === 'tool-result') delete record.batchPolicy;
+    const fresh = fixture();
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+    for (const record of saved.records)
+      if (record.kind === 'tool-intent' || record.kind === 'tool-result')
+        expect(record).not.toHaveProperty('batchPolicy');
+  });
+
+  it.each([
+    'proxy map',
+    'accessor',
+    'class',
+    'array subclass',
+    'extra field',
+    'invalid access',
+  ] as const)('refuses %s before a journaled tool effect', async (kind) => {
+    const getter = vi.fn(() => 'write');
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      const resource: { key: string; access: 'read' | 'write' } = { key: 'shared', access: 'read' };
+      const declaration: IToolCallScheduling = { resources: [resource] };
+      if (kind === 'accessor')
+        Object.defineProperty(resource, 'access', { get: getter, enumerable: true });
+      if (kind === 'extra field') Object.assign(declaration, { unused: true });
+      if (kind === 'invalid access') Object.assign(resource, { access: 'invalid' });
+      if (kind === 'array subclass') {
+        class Resources extends Array<{ key: string; access: 'read' | 'write' }> {}
+        Object.assign(declaration, { resources: new Resources() });
+      }
+      if (kind === 'class') Object.setPrototypeOf(declaration, { marker: true });
+      const scheduling = new Map(calls.map((call) => [call.id, declaration]));
+      return { scheduling: kind === 'proxy map' ? new Proxy(scheduling, {}) : scheduling };
+    };
+    const source = fixture(undefined, undefined, undefined, policy);
+    const records: TExecutionJournalRecord[] = [];
+    await expect(
+      source.agent.run('perform actions', {
+        executionJournal: {
+          append: async (record) => {
+            records.push(structuredClone(record));
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(getter).not.toHaveBeenCalled();
+    expect(source.effect).not.toHaveBeenCalled();
+    expect(records.some((record) => record.kind === 'tool-intent')).toBe(false);
+  });
+
+  it('runs against a detached snapshot when a declaration mutates during inspection', async () => {
+    const getter = vi.fn(() => 'changed');
+    const first = { key: 'original', access: 'read' as const };
+    const target = { key: 'other', access: 'read' as const };
+    const resources: Array<{ key: string; access: 'read' | 'write' }> = [first, target];
+    const dynamic = new Proxy(target, {
+      getPrototypeOf(value) {
+        Object.defineProperty(first, 'key', { get: getter, enumerable: true });
+        resources[1] = { key: 'replacement', access: 'write' };
+        return Object.getPrototypeOf(value);
+      },
+    });
+    resources[1] = dynamic;
+    const source = fixture(undefined, undefined, undefined, (calls) => ({
+      scheduling: new Map([
+        [calls[0].id, { resources }],
+        [calls[1].id, { resources: [] }],
+      ]),
+    }));
+    const records: TExecutionJournalRecord[] = [];
+    await source.agent.run('perform actions', {
+      executionJournal: {
+        append: async (record) => {
+          records.push(structuredClone(record));
+        },
+      },
+    });
+    const intent = records.find((record) => record.kind === 'tool-intent');
+    expect(intent?.batchPolicy?.scheduling?.[0]?.[1].resources).toEqual([
+      { key: 'original', access: 'read' },
+      { key: 'other', access: 'read' },
+    ]);
+    expect(getter).not.toHaveBeenCalled();
+    expect(source.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it('accepts frozen plain scheduling data', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      scheduling: new Map(
+        calls.map((call) => [call.id, Object.freeze({ resources: Object.freeze([]) })]),
+      ),
+    });
+    const source = fixture(undefined, undefined, undefined, policy);
+    const saved = await stoppedAt('tool-intent', true, source);
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    await fresh.agent.resumeToolCalls(saved);
+    expect(fresh.effect).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['hidden array property', 'array accessor', 'policy accessor'] as const)(
+    'rejects %s in a journal before cloning it',
+    async (kind) => {
+      const saved = await stoppedAt('tool-intent', true);
+      const intent = saved.records.find((record) => record.kind === 'tool-intent');
+      if (intent?.kind !== 'tool-intent') throw new Error('Missing intent');
+      const resources = intent.batchPolicy?.scheduling?.[0]?.[1].resources;
+      if (!resources) throw new Error('Missing resources');
+      const getter = vi.fn(() => 1);
+      if (kind === 'hidden array property')
+        Object.defineProperty(resources, 'map', { value: 1, enumerable: false });
+      if (kind === 'array accessor')
+        Object.defineProperty(resources, 'map', { get: getter, enumerable: true });
+      if (kind === 'policy accessor')
+        Object.defineProperty(intent, 'batchPolicy', { get: getter, enumerable: true });
+      saved.journal.read.mockImplementation(async () => saved.records);
+      const fresh = fixture();
+      await expect(fresh.agent.resumeToolCalls(saved)).rejects.toMatchObject({
+        code: 'EXECUTION_RECOVERY_INVALID',
+      });
+      expect(getter).not.toHaveBeenCalled();
+      expect(fresh.effect).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not read a journal record kind accessor during execution continuation', async () => {
+    const saved = await stoppedAt('tool-intent', true);
+    const intent = saved.records.find((record) => record.kind === 'tool-intent');
+    if (!intent) throw new Error('Missing intent');
+    const getter = vi.fn(() => 'tool-intent');
+    Object.defineProperty(intent, 'kind', { get: getter, enumerable: true });
+    saved.journal.read.mockImplementation(async () => saved.records);
+    const fresh = fixture();
+    await expect(
+      fresh.agent.resume({ executionId: saved.executionId, journal: saved.journal }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(getter).not.toHaveBeenCalled();
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
+  it('does not read a proxied journal array before rejecting it', async () => {
+    const saved = await stoppedAt('tool-intent', true);
+    const getter = vi.fn();
+    saved.journal.read.mockImplementation(
+      async () =>
+        new Proxy(saved.records, {
+          get(target, key, receiver) {
+            if (key === 'length') getter();
+            return Reflect.get(target, key, receiver);
+          },
+        }),
+    );
+    const fresh = fixture();
+    await expect(fresh.agent.resumeToolCalls(saved)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_INVALID',
+    });
+    expect(getter).not.toHaveBeenCalled();
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
+  it('rejects inherited policy accessors before parsing a saved policy', async () => {
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => ({
+      scheduling: new Map([
+        [calls[0].id, { dependsOn: [calls[1].id] }],
+        [calls[1].id, { resources: [] }],
+      ]),
+    });
+    const saved = await stoppedAt(
+      'tool-intent',
+      true,
+      fixture(undefined, undefined, undefined, policy),
+    );
+    const fresh = fixture(undefined, undefined, undefined, policy);
+    const getter = vi.fn(() => []);
+    let failure: unknown;
+    Object.defineProperty(Object.prototype, 'resources', { configurable: true, get: getter });
+    try {
+      await fresh.agent.resumeToolCalls(saved);
+    } catch (error) {
+      failure = error;
+    } finally {
+      delete (Object.prototype as { resources?: unknown }).resources;
+    }
+    expect(failure).toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(getter).not.toHaveBeenCalled();
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
+  it('rejects a modified array intrinsic without reading a policy accessor', async () => {
+    const getter = vi.fn(() => []);
+    const originalEvery = Array.prototype.every;
+    const policy: NonNullable<IAgentConfig['toolExecutionPolicy']> = (calls) => {
+      Array.prototype.every = (() => true) as unknown as typeof Array.prototype.every;
+      const declaration = Object.defineProperty({}, 'resources', {
+        enumerable: true,
+        get: getter,
+      });
+      return { scheduling: new Map(calls.map((call) => [call.id, declaration])) };
+    };
+    const source = fixture(undefined, undefined, undefined, policy);
+    let failure: unknown;
+    try {
+      await source.agent.run('perform actions', { executionJournal: { append: async () => {} } });
+    } catch (error) {
+      failure = error;
+    } finally {
+      Array.prototype.every = originalEvery;
+    }
+    expect(failure).toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
+    expect(getter).not.toHaveBeenCalled();
+    expect(source.effect).not.toHaveBeenCalled();
+  });
+
+  it('uses a detached policy if the caller mutates it during an append', async () => {
+    let captured = new Map<string, IToolCallScheduling>();
+    let firstId = '';
+    const source = fixture(undefined, undefined, undefined, (calls) => {
+      firstId = calls[0].id;
+      captured = new Map(calls.map((call) => [call.id, { resources: [] }]));
+      return { scheduling: captured };
+    });
+    let entered!: () => void;
+    let release!: () => void;
+    const appending = new Promise<void>((resolve) => (entered = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let first = true;
+    const run = source.agent.run('perform actions', {
+      executionJournal: {
+        append: async (record) => {
+          if (record.kind === 'tool-intent' && first) {
+            first = false;
+            entered();
+            await gate;
+          }
+        },
+      },
+    });
+    await appending;
+    captured.set(firstId, { resources: [], dependsOn: ['missing'] });
+    release();
+    await run;
+    expect(source.effect).toHaveBeenCalledTimes(2);
   });
 
   it.each(['sequential', 'dependent'] as const)(
