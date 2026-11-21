@@ -31,6 +31,10 @@ export function createManagedToolExecutor(input: {
   const { journal, store, conversationId, context, config, deps } = input;
   const tools = structuredClone(input.tools);
   const maxRounds = resolveMaxExecutionRounds(config, context);
+  const controller = new AbortController();
+  const signal = context.signal
+    ? AbortSignal.any([context.signal, controller.signal])
+    : controller.signal;
   let state = input.state;
   let started = false;
   let stopped = false;
@@ -54,17 +58,19 @@ export function createManagedToolExecutor(input: {
   const rejectAndLatch = (error: unknown): Promise<never> => {
     failed = true;
     failure = error;
+    controller.abort(error);
     return Promise.reject(error);
   };
 
   async function perform(frame: TManagedToolBatch): Promise<readonly IManagedToolReceipt[]> {
-    context.signal?.throwIfAborted();
+    signal.throwIfAborted();
     if (context.executionId.length === 0 || context.conversationId !== conversationId)
       throw conflict('Managed turn identity differs from its host');
     if (!started) {
       started = true;
-      if ((await journal.read(context.executionId)).length > 0)
-        throw required('A previous managed turn requires explicit recovery');
+      const previous = await journal.read(context.executionId);
+      signal.throwIfAborted();
+      if (previous.length > 0) throw required('A previous managed turn requires explicit recovery');
     }
     if (stopped || !hasRoundCapacity(state.currentRound, maxRounds))
       throw conflict('Managed turn has no remaining tool round capacity');
@@ -91,7 +97,7 @@ export function createManagedToolExecutor(input: {
       },
       frame,
     );
-    context.signal?.throwIfAborted();
+    signal.throwIfAborted();
     const restored = await restoreJournaledRound(
       store,
       conversationId,
@@ -100,7 +106,7 @@ export function createManagedToolExecutor(input: {
         callId,
         journal,
         includeReceipts: true,
-        signal: context.signal,
+        signal,
         onExecutionEvent: context.onExecutionEvent,
       },
       deps,
@@ -124,8 +130,8 @@ export function createManagedToolExecutor(input: {
     } catch {
       return rejectAndLatch(conflict('Managed assistant frame cannot be captured'));
     }
-    if (context.signal?.aborted)
-      return rejectAndLatch(createAbortError('Managed turn interrupted', context.signal.reason));
+    if (signal.aborted)
+      return rejectAndLatch(createAbortError('Managed turn interrupted', signal.reason));
     if (active) {
       if (isUniversalValueEqual(active.frame, snapshot))
         return active.promise.then((receipts) => structuredClone(receipts));
@@ -145,6 +151,7 @@ export function createManagedToolExecutor(input: {
           failed = true;
           failure = error;
         }
+        controller.abort(failure);
         throw error;
       })
       .finally(() => {
@@ -158,7 +165,7 @@ export function createManagedToolExecutor(input: {
     assertHealthy: () => {
       if (failed) throw failure;
       if (active) throw required('Managed assistant frame is still awaiting durable receipts');
-      context.signal?.throwIfAborted();
+      signal.throwIfAborted();
     },
   };
 }

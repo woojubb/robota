@@ -211,13 +211,64 @@ describe('managed host tool boundary', () => {
       code: 'EXECUTION_RECOVERY_CONFLICT',
     });
     release();
-    expect(await sameFrame).toEqual(await first);
+    await expect(first).rejects.toBeDefined();
+    await expect(sameFrame).rejects.toBeDefined();
     expect(f.effects).toHaveBeenCalledOnce();
     expect(f.records.filter((record) => record.kind === 'managed-frame')).toHaveLength(1);
     await expect(f.execute(frame('frame-three', [['call-three', 3]]))).rejects.toMatchObject({
       code: 'EXECUTION_RECOVERY_CONFLICT',
     });
     expect(() => f.assertHealthy()).toThrow(/awaiting durable receipts/);
+  });
+
+  it('stops a pending frame before admission when another frame conflicts', async () => {
+    const f = fixture();
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const read = f.journal.read.getMockImplementation()!;
+    f.journal.read.mockImplementation(async () => {
+      enter();
+      await gate;
+      return read();
+    });
+    const first = f.execute(frame('frame-one', [['call-one', 1]]));
+    const rejected = expect(first).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+    await entered;
+    await expect(f.execute(frame('frame-two', [['call-two', 2]]))).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    release();
+    await rejected;
+    expect(f.records).toHaveLength(0);
+    expect(f.effects).not.toHaveBeenCalled();
+  });
+
+  it('does not enter an effect after cancellation during durable admission', async () => {
+    const f = fixture();
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const append = f.journal.append.getMockImplementation()!;
+    f.journal.append.mockImplementation(async (record) => {
+      if (record.kind === 'tool-effect-start') {
+        enter();
+        await gate;
+      }
+      await append(record);
+    });
+    const first = f.execute(frame('frame-one', [['call-one', 1]]));
+    const rejected = expect(first).rejects.toBeDefined();
+    await entered;
+    await expect(f.execute(frame('frame-two', [['call-two', 2]]))).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    release();
+    await rejected;
+    expect(f.records.filter((record) => record.kind === 'tool-effect-start')).toHaveLength(1);
+    expect(f.effects).not.toHaveBeenCalled();
   });
 
   it('latches a lost durable result and refuses later effects', async () => {
