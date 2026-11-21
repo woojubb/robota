@@ -1,6 +1,7 @@
 import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { isJsonEqual } from '../utils/json-equal';
 import { isValidToolCallIdentity } from './tool-call-identity';
+import { sameReceiptMetadata } from '../utils/receipt-metadata';
 import type { IAssistantMessage, IToolCall } from '../interfaces/messages';
 import type { IToolBatchJournalContext } from './execution-tool-journal';
 
@@ -20,38 +21,7 @@ function sameFrame(left: IAssistantMessage, right: IAssistantMessage): boolean {
   return sameReceiptMetadata(leftMetadata, rightMetadata);
 }
 
-/** Compare the data-bearing metadata used to bind a receipt to its committed history. */
-export function sameReceiptMetadata(
-  leftMetadata: IAssistantMessage['metadata'],
-  rightMetadata: IAssistantMessage['metadata'],
-): boolean {
-  if (leftMetadata === undefined || rightMetadata === undefined)
-    return leftMetadata === rightMetadata;
-  if (
-    leftMetadata === null ||
-    rightMetadata === null ||
-    typeof leftMetadata !== 'object' ||
-    typeof rightMetadata !== 'object' ||
-    Object.getPrototypeOf(leftMetadata) !== Object.prototype ||
-    Object.getPrototypeOf(rightMetadata) !== Object.prototype
-  )
-    return false;
-  const keys = Object.keys(leftMetadata);
-  if (keys.length !== Object.keys(rightMetadata).length) return false;
-  return keys.every((key) => {
-    if (!Object.hasOwn(rightMetadata, key)) return false;
-    const a = leftMetadata[key];
-    const b = rightMetadata[key];
-    if (a instanceof Date || b instanceof Date)
-      return (
-        a instanceof Date &&
-        b instanceof Date &&
-        Number.isFinite(a.getTime()) &&
-        a.getTime() === b.getTime()
-      );
-    return isJsonEqual(a, b);
-  });
-}
+export { sameReceiptMetadata } from '../utils/receipt-metadata';
 
 /** Snapshot and bind a receipt-enabled batch before any asynchronous journal work begins. */
 export function snapshotReceiptFrame(
