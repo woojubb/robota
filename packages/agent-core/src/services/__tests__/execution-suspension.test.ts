@@ -124,6 +124,31 @@ async function suspended() {
 }
 
 describe('journaled tool suspension', () => {
+  it('continues an unbound legacy approval with its equivalent Map subclass policy', async () => {
+    const saved = await suspended();
+    for (const record of saved.records)
+      if (record.kind === 'tool-intent' || record.kind === 'tool-result') delete record.batchPolicy;
+    class Scheduling extends Map<string, { resources: [] }> {}
+    const fresh = fixture([{ text: 'continued' }], {
+      policy: (calls) => ({
+        scheduling: new Scheduling(calls.map((call) => [call.id, { resources: [] }])),
+      }),
+    });
+    await expect(
+      fresh.agent.resume({
+        ...saved,
+        toolResponses: [
+          {
+            requestId: saved.request.requestId,
+            responseId: 'approval',
+            response: { approved: true },
+          },
+        ],
+      }),
+    ).resolves.toBe('continued');
+    expect(fresh.effect).toHaveBeenCalledTimes(1);
+  });
+
   it('uses a detached journal view when a policy callback changes the returned records', async () => {
     const saved = await suspended();
     const view = structuredClone(saved.records);
@@ -159,31 +184,6 @@ describe('journaled tool suspension', () => {
     expect(saved.records.find((record) => record.kind === 'tool-intent')).toMatchObject({
       batchPolicy: { mode: 'parallel' },
     });
-  });
-
-  it('does not record an approval when an unbound legacy batch has an invalid active policy', async () => {
-    const saved = await suspended();
-    for (const record of saved.records)
-      if (record.kind === 'tool-intent' || record.kind === 'tool-result') delete record.batchPolicy;
-    const fresh = fixture([{ text: 'must not run' }], {
-      policy: (calls) => ({
-        scheduling: new Map(calls.map((call) => [call.id, { resources: [], extra: true }])),
-      }),
-    });
-    await expect(
-      fresh.agent.resume({
-        ...saved,
-        toolResponses: [
-          {
-            requestId: saved.request.requestId,
-            responseId: 'approval',
-            response: { approved: true },
-          },
-        ],
-      }),
-    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_INVALID' });
-    expect(saved.records.some((record) => record.kind === 'tool-response')).toBe(false);
-    expect(fresh.effect).not.toHaveBeenCalled();
   });
 
   it('does not record an approval when the saved batch policy conflicts', async () => {

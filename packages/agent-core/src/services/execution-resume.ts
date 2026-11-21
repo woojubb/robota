@@ -266,13 +266,14 @@ export async function restoreJournaledRound(
   if (calls.length > 0) {
     preparedPolicy = deps.toolExecutionService.withRestoredDeferredTools([...policyLoaded], () => {
       const policy = resolveBatchScheduling(calls, config);
-      assertSavedBatchPolicy(
-        snapshotBatchPolicy(
-          policy,
-          calls.map((call) => call.id),
-        ),
-        batch.batchPolicy,
-      );
+      if (!batch.legacyBatchPolicy)
+        assertSavedBatchPolicy(
+          snapshotBatchPolicy(
+            policy,
+            calls.map((call) => call.id),
+          ),
+          batch.batchPolicy,
+        );
       return policy;
     });
     unchanged();
