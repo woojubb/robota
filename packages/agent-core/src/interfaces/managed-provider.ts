@@ -39,8 +39,13 @@ export type TManagedTurnEvent =
   | { kind: 'thinking-delta'; frameId: string; text: string }
   | { kind: 'usage'; frameId: string; usage: ITokenUsage };
 
-/** A managed final frame cannot ask the host to execute tools a second time. */
-export type TManagedTurnResult = Omit<IAssistantMessage, 'toolCalls'> & { toolCalls?: never };
+/** A text final frame carries no deferred actions or unverified native continuation. */
+export type TManagedTurnResult = Pick<IAssistantMessage, 'id' | 'role' | 'timestamp' | 'state'> & {
+  content: string;
+  toolCalls?: never;
+  metadata?: never;
+  parts?: never;
+};
 
 /** Host-owned operations available only while the session turn is active. */
 export interface IManagedTurnHost {
@@ -51,6 +56,11 @@ export interface IManagedTurnHost {
    * Receipts are returned only after the corresponding results are durable.
    */
   execute(batch: TManagedToolBatch): Promise<readonly IManagedToolReceipt[]>;
+}
+
+/** A Session-owned, turn-scoped admission that becomes invalid when its claim is released. */
+export interface IManagedTurnAdmission {
+  assertActive(): void;
 }
 
 /** A provider that owns its native run and submits each complete tool batch to the host. */

@@ -27,6 +27,7 @@ export function createManagedToolExecutor(input: {
 }): {
   execute(frame: TManagedToolBatch): Promise<readonly IManagedToolReceipt[]>;
   assertHealthy(): void;
+  getState(): IExecutionRoundState;
   /** Revoke the callback and settle any in-flight frame before releasing turn ownership. */
   close(): Promise<void>;
 } {
@@ -175,6 +176,7 @@ export function createManagedToolExecutor(input: {
       if (active) throw required('Managed assistant frame is still awaiting durable receipts');
       signal.throwIfAborted();
     },
+    getState: () => state,
     close: () => {
       if (closing) return closing;
       closed = true;

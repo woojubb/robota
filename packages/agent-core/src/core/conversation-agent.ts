@@ -279,7 +279,8 @@ export class ConversationAgent
   async run(input: string, options: IRunOptions = {}): Promise<unknown> {
     this.assertNotDestroyed();
     return this.runQueue.run(options.signal, async () => {
-      this.assertProviderRunnable();
+      this.assertProviderRunnable(options.managedTurn !== undefined);
+      options.managedTurn?.assertActive();
       await this.ensureFullyInitialized();
       try {
         if (options.output) {
@@ -341,7 +342,7 @@ export class ConversationAgent
     }
   }
 
-  private assertProviderRunnable(): void {
+  private assertProviderRunnable(allowManaged = false): void {
     const current = this.aiProviders.getCurrentProvider();
     if (
       current &&
@@ -351,7 +352,7 @@ export class ConversationAgent
       throw new Error('Provider selection conflicts with the agent configuration');
     }
     const provider = this.aiProviders.getCurrentExecutionProviderInstance();
-    if (provider && isManagedRunProvider(provider)) {
+    if (provider && isManagedRunProvider(provider) && !allowManaged) {
       throw new ManagedRunUnavailableError(provider.name);
     }
   }

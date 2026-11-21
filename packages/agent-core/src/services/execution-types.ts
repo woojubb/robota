@@ -18,6 +18,7 @@ import type { IDeferredToolCatalog } from '../interfaces/tool-search';
 import type { IRunTraceContext } from '../interfaces/trace-context';
 import type { TMetadata } from '../interfaces/types';
 import type { IExecutionJournal } from '../interfaces/execution-journal';
+import type { IManagedTurnAdmission } from '../interfaces/managed-provider';
 
 /** Preview length for general content truncation */
 export const PREVIEW_LENGTH = 100;
@@ -180,6 +181,7 @@ export interface IExecutionContext {
   /** Per-run replay event callback for provider/tool execution boundaries. */
   onExecutionEvent?: TExecutionEventCallback;
   executionJournal?: IExecutionJournal;
+  managedTurn?: IManagedTurnAdmission;
   /** Per-run model/tool round limit. Use 0 for no core round cap. */
   maxExecutionRounds?: number;
   /** Max times the same tool may be called with identical input before aborting. Unset = no limit. */

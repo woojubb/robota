@@ -35,6 +35,7 @@ const RUN_OPTION_CONSUMERS: Record<keyof Required<IRunOptions>, string> = {
     'execution-round-streaming.ts and execution-forced-summary.ts hand it to the provider call; the reply path never sees it',
   onExecutionEvent: 'execution-round-streaming.ts replay event dispatch',
   executionJournal: 'execution-journal.ts provider gate and execution-round-tools.ts batch gate',
+  managedTurn: 'agent-execution.ts buildRunContext → execution-managed-run.ts turn admission',
   maxExecutionRounds: 'execution round loop cap',
   maxSameToolInputs: 'execution tool-repetition guard',
   allowToolOnlyCompletion: 'execution round completion policy',

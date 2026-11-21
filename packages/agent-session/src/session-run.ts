@@ -11,7 +11,6 @@ import {
   createSystemMessage,
   getProviderCapabilities,
   isManagedRunProvider,
-  ManagedRunUnavailableError,
   runHooks,
   traceEnvFor,
   ExecutionSuspendedError,
@@ -23,7 +22,7 @@ import { createRunObservers } from './session-run-observation.js';
 import type { IRunContext } from './session-run-context.js';
 export type { IRunContext } from './session-run-context.js';
 import type { ISessionRunOptions } from './session-types.js';
-import type { THooksConfig } from '@robota-sdk/agent-core';
+import type { IManagedTurnAdmission, THooksConfig } from '@robota-sdk/agent-core';
 
 const logger = createLogger('SessionRun');
 
@@ -41,9 +40,8 @@ export async function executeRun(
   ctx: IRunContext,
   abortSignal: AbortSignal,
   runOptions?: ISessionRunOptions,
+  managedTurn?: IManagedTurnAdmission,
 ): Promise<string> {
-  if (isManagedRunProvider(ctx.aiProvider))
-    throw new ManagedRunUnavailableError(ctx.aiProvider.name);
   // Command hooks fired on this prompt's path name its root span; hooks elsewhere get nothing.
   const traceContext = runOptions?.traceContext;
   const hookTraceEnv = traceContext
@@ -99,7 +97,9 @@ export async function executeRun(
 
   const history = ctx.agent.getHistory();
   const historyJson = JSON.stringify(history);
-  const providerCapabilities = getProviderCapabilities(ctx.aiProvider);
+  const providerCapabilities = isManagedRunProvider(ctx.aiProvider)
+    ? undefined
+    : getProviderCapabilities(ctx.aiProvider);
   ctx.log('pre_run', {
     historyLength: history.length,
     historyChars: historyJson.length,
@@ -109,10 +109,10 @@ export async function executeRun(
     model: ctx.model,
     provider: ctx.aiProvider.name,
     maxTokens: ctx.contextTracker.getContextState().maxTokens,
-    nativeWebSearchSupported: providerCapabilities.nativeWebTools.webSearch.supported,
-    nativeWebSearchEnabled: providerCapabilities.nativeWebTools.webSearch.enabled,
-    nativeWebFetchSupported: providerCapabilities.nativeWebTools.webFetch.supported,
-    nativeWebFetchEnabled: providerCapabilities.nativeWebTools.webFetch.enabled,
+    nativeWebSearchSupported: providerCapabilities?.nativeWebTools.webSearch.supported ?? false,
+    nativeWebSearchEnabled: providerCapabilities?.nativeWebTools.webSearch.enabled ?? false,
+    nativeWebFetchSupported: providerCapabilities?.nativeWebTools.webFetch.supported ?? false,
+    nativeWebFetchEnabled: providerCapabilities?.nativeWebTools.webFetch.enabled ?? false,
   });
   ctx.contextTracker.updateFromHistory([...history, ...pendingMessages]);
   ctx.onContextUpdate?.(ctx.contextTracker.getContextState());
@@ -126,6 +126,7 @@ export async function executeRun(
       ...perTurnRunOptions(runOptions),
       ...createRunObservers(ctx, traceContext),
       sessionId: ctx.sessionId,
+      ...(managedTurn ? { managedTurn } : {}),
     });
 
     // If execution was interrupted (abort fired during execution),
