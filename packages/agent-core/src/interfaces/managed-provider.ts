@@ -20,6 +20,8 @@ export interface IManagedTurnInput {
   messages: readonly TUniversalMessage[];
   tools: readonly IToolSchema[];
   model: string;
+  /** Host-owned live connection fence. A reconstructed Session cannot recreate it. */
+  binding: IManagedConnectionBinding;
   options: Omit<
     IChatOptions,
     | 'tools'
@@ -32,6 +34,17 @@ export interface IManagedTurnInput {
     | 'onModelFallback'
     | 'outboundTraceContext'
   >;
+}
+
+/** The committed host prefix a live native process may continue from. */
+export interface IManagedConnectionBinding {
+  version: 1;
+  sessionId: string;
+  connectionId: string;
+  revision: number;
+  actionFrontier: readonly string[];
+  /** Tool-frame identities this connection has already committed. */
+  frameIds: readonly string[];
 }
 
 export type TManagedTurnEvent =
@@ -59,7 +72,10 @@ export interface IManagedTurnHost {
 
 /** A Session-owned, turn-scoped admission that becomes invalid when its claim is released. */
 export interface IManagedTurnAdmission {
+  readonly binding: IManagedConnectionBinding;
   assertActive(): void;
+  /** Refuse a fork, compaction or changed tool projection before native input. */
+  assertHistory(messages: readonly TUniversalMessage[]): void;
 }
 
 /** A provider that owns its native run and submits each complete tool batch to the host. */
@@ -67,6 +83,8 @@ export interface IManagedRunProvider {
   readonly kind: 'managed-run';
   readonly name: string;
   readonly version: string;
+  /** Opts in to continuing committed turns on one live process; without it only a fresh conversation runs. */
+  readonly continuation?: 'live-process';
   run(input: IManagedTurnInput, host: IManagedTurnHost): Promise<TManagedTurnResult>;
   validateConfig(): boolean;
   dispose?(): Promise<void>;

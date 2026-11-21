@@ -9,10 +9,12 @@ import {
   ExecutionRecoveryError,
   ExecutionSuspendedError,
   isManagedRunProvider,
+  isUniversalValueEqual,
   ManagedRunUnavailableError,
 } from '@robota-sdk/agent-core';
 
 import { SessionBase } from './session-base.js';
+import type { IManagedTurnFence } from './managed-continuation.js';
 import {
   buildPermissionEnforcer,
   buildConversationAgent,
@@ -70,6 +72,7 @@ import type {
   TExecutionProvider,
   IProviderRegistrationOptions,
   IExecutionJournal,
+  TExecutionJournalRecord,
   IContextWindowState,
   IEventService,
   IToolSchema,
@@ -99,6 +102,10 @@ export type {
   TCompactTrigger,
 };
 export type { TAutoCompactThreshold } from './context-window-tracker.js';
+
+function managedChanged(message: string): ExecutionRecoveryError {
+  return new ExecutionRecoveryError('EXECUTION_RECOVERY_CONFLICT', message);
+}
 
 /** Wraps a ConversationAgent agent with project context, permission state, and optional persistence. */
 export class Session extends SessionBase {
@@ -283,7 +290,8 @@ export class Session extends SessionBase {
   ): Promise<string> {
     const options = value ? { ...value } : undefined;
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
-    const managed = isManagedRunProvider(this.aiProvider);
+    const managedProvider = isManagedRunProvider(this.aiProvider) ? this.aiProvider : undefined;
+    const managed = managedProvider !== undefined;
     const journal = options?.executionJournal;
     const readable = journal && 'read' in journal && typeof journal.read === 'function';
     this.assertProviderRunnable(!!(managed && checkpointedApprovals && readable));
@@ -295,25 +303,45 @@ export class Session extends SessionBase {
     this.permissionEnforcer.beginTurn(options?.peerTurn === true, checkpointedApprovals);
     try {
       signal.throwIfAborted();
-      if (managed && this.agent.getHistory().some((entry) => entry.role !== 'system'))
-        throw new ExecutionRecoveryError(
-          'EXECUTION_RECOVERY_REQUIRED',
-          'Managed continuation requires a verified conversation binding',
-        );
       // Tools added while the last turn ran join at this boundary, before any request of this turn;
       // a change already in flight finishes first, so the turn never sees a list mid-update.
       await this.serializeToolChange(() => this.applyPendingTools());
-      const runOptions = options?.executionJournal
-        ? {
-            ...options,
-            executionJournal: sessionExecutionJournal(options.executionJournal, {
-              sessionId: this.sessionId,
-              cwd: this.cwd,
-              peerTurn: options.peerTurn === true,
-              canonicalizePath: this.canonicalizePath,
-            }),
-          }
+      let fence: IManagedTurnFence | undefined;
+      const settledActions = new Set<string>();
+      const settledFrames = new Set<string>();
+      if (managedProvider)
+        fence = this.managedContinuation.admit({
+          sessionId: this.sessionId,
+          provider: managedProvider,
+          model: this.model,
+          history: this.agent.getHistory(),
+          tools: this.agent.getOfferedToolSchemas(),
+          hasStore: !!(this.checkpointHistoryCallback || this.sessionStore),
+        });
+      const hostJournal = options?.executionJournal
+        ? sessionExecutionJournal(options.executionJournal, {
+            sessionId: this.sessionId,
+            cwd: this.cwd,
+            peerTurn: options.peerTurn === true,
+            canonicalizePath: this.canonicalizePath,
+          })
+        : undefined;
+      // A settled action or frame counts only once its append was acknowledged.
+      const trackedJournal =
+        hostJournal && managedProvider && 'read' in hostJournal
+          ? {
+              ...hostJournal,
+              append: async (record: TExecutionJournalRecord) => {
+                await hostJournal.append(record);
+                if (record.kind === 'tool-result') settledActions.add(record.actionId);
+                if (record.kind === 'managed-frame') settledFrames.add(record.response.id);
+              },
+            }
+          : hostJournal;
+      const runOptions = trackedJournal
+        ? { ...options, executionJournal: trackedJournal }
         : options;
+      if (managedProvider) this.managedContinuation.begin(managedProvider);
       const response = await executeRun(
         message,
         rawInput,
@@ -322,11 +350,26 @@ export class Session extends SessionBase {
         runOptions,
         managed
           ? {
+              binding: fence!.binding,
               assertActive: () => {
                 if (!this.turnClaim.holds(controller) || signal.aborted)
                   throw new ExecutionRecoveryError(
                     'EXECUTION_RECOVERY_CONFLICT',
                     'Managed turn no longer owns the Session',
+                  );
+              },
+              assertHistory: (messages) => {
+                if (!isUniversalValueEqual(messages, fence!.history))
+                  throw managedChanged(
+                    'Managed native continuation history changed before admission',
+                  );
+                if (!isUniversalValueEqual(this.agent.getOfferedToolSchemas(), fence!.tools))
+                  throw managedChanged(
+                    'Managed native continuation tools changed before admission',
+                  );
+                if (this.model !== fence!.model)
+                  throw managedChanged(
+                    'Managed native continuation model changed before admission',
                   );
               },
             }
@@ -335,6 +378,16 @@ export class Session extends SessionBase {
       this.setPending(undefined);
       this.commitConversation();
       this.messageCount += 1;
+      // The turn is committed; recording its continuation does no I/O and cannot fail the turn.
+      if (managedProvider?.continuation === 'live-process')
+        this.managedContinuation.commit(fence!, {
+          provider: this.aiProvider,
+          model: this.model,
+          history: this.agent.getHistory(),
+          tools: this.agent.getOfferedToolSchemas(),
+          settledActions: [...settledActions],
+          frameIds: [...settledFrames],
+        });
       return response;
     } catch (error) {
       if (error instanceof ExecutionSuspendedError) {
@@ -520,6 +573,7 @@ export class Session extends SessionBase {
       );
     const conversation = structuredClone(decoded.record);
     this.agent.clearHistory();
+    this.managedContinuation.end();
     for (const message of conversation.messages) this.agent.injectRawMessage(message);
     this.setPending(conversation.pendingExecution);
     this.syncContextFromHistory();
@@ -724,6 +778,15 @@ export class Session extends SessionBase {
     return this.shutdownPromise;
   }
 
+  /**
+   * End live managed continuation after a change the Session cannot observe itself, such as a code
+   * rewind that restores edit checkpoints without touching history. The next managed turn on an
+   * existing conversation is refused until the conversation starts over.
+   */
+  invalidateManagedContinuation(): void {
+    this.managedContinuation.end();
+  }
+
   swapProvider(
     newProvider: TExecutionProvider,
     model: string,
@@ -741,6 +804,7 @@ export class Session extends SessionBase {
         this.log('server_tool', { tool: name, ...input });
     }
     this.aiProvider = newProvider;
+    this.managedContinuation.end();
     this.setActiveModel(model);
   }
 

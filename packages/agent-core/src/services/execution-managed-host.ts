@@ -26,6 +26,8 @@ export function createManagedToolExecutor(input: {
   deps: IRoundDependencies;
   /** Keep managed usage in host events so a tool frame cannot be counted twice. */
   usageEventsOnly?: boolean;
+  /** Frame identities a live connection committed in earlier turns; history does not keep them. */
+  earlierFrameIds?: readonly string[];
 }): {
   execute(frame: TManagedToolBatch): Promise<readonly IManagedToolReceipt[]>;
   assertHealthy(): void;
@@ -53,6 +55,15 @@ export function createManagedToolExecutor(input: {
         promise: Promise<readonly IManagedToolReceipt[]>;
       }
     | undefined;
+  // Identities committed before this turn began stay unusable for it.
+  const earlierFrameIds = new Set<string>(input.earlierFrameIds);
+  const earlierCallIds = new Set<string>();
+  for (const message of store.getMessages()) {
+    earlierFrameIds.add(message.id);
+    if (message.role === 'assistant') {
+      for (const call of message.toolCalls ?? []) earlierCallIds.add(call.id);
+    } else if (message.role === 'tool') earlierCallIds.add(message.toolCallId);
+  }
   const settled = new Map<
     string,
     { frame: TManagedToolBatch; receipts: readonly IManagedToolReceipt[] }
@@ -155,6 +166,14 @@ export function createManagedToolExecutor(input: {
         ].some((key) => Object.hasOwn(snapshot.metadata ?? {}, key)))
     )
       return rejectAndLatch(required('Managed frame usage must be emitted as a host event'));
+    if (earlierFrameIds.has(snapshot.id))
+      return rejectAndLatch(
+        conflict('Managed continuation frame reused an earlier turn frame identity'),
+      );
+    if (snapshot.toolCalls.some((call) => earlierCallIds.has(call.id)))
+      return rejectAndLatch(
+        conflict('Managed continuation frame reused an earlier turn native call identity'),
+      );
     if (signal.aborted)
       return rejectAndLatch(createAbortError('Managed turn interrupted', signal.reason));
     if (active) {

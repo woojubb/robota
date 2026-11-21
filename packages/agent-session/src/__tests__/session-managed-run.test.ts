@@ -7,6 +7,7 @@ import type {
   TManagedToolBatch,
   TManagedTurnEvent,
   TManagedTurnResult,
+  IManagedTurnInput,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 import { Session } from '../session.js';
@@ -47,6 +48,7 @@ function fixture(
       | 'onTextDelta'
     >
   > = {},
+  continuation?: IManagedRunProvider['continuation'],
 ) {
   const records: TExecutionJournalRecord[] = [];
   const journal = {
@@ -63,6 +65,7 @@ function fixture(
     kind: 'managed-run',
     name: 'managed-fixture',
     version: 'fixture',
+    ...(continuation ? { continuation } : {}),
     validateConfig: () => true,
     run: vi.fn(run),
   };
@@ -112,6 +115,131 @@ function fixture(
 }
 
 describe('managed Session turn', () => {
+  it('requires committed conversation storage before starting a live native connection', async () => {
+    const f = fixture(
+      async () => {
+        throw new Error('Native process must not run');
+      },
+      {},
+      'live-process',
+    );
+    await expect(
+      f.session.runRecoverable('first', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+      message: 'Managed live continuation requires a committed conversation store',
+    });
+    expect(f.provider.run).not.toHaveBeenCalled();
+  });
+
+  it('continues only the exact live provider and committed action frontier', async () => {
+    const seen: IManagedTurnInput[] = [];
+    const f = fixture(
+      async (input, host) => {
+        seen.push(input);
+        if (seen.length === 1) await host.execute(frame('live-frame', [['live-call', 1]]));
+        return {
+          id: `live-final-${seen.length}`,
+          role: 'assistant',
+          content: `answer-${seen.length}`,
+          timestamp: new Date(),
+          state: 'complete',
+        };
+      },
+      { checkpointHistory: () => {} },
+      'live-process',
+    );
+    expect(await f.session.runRecoverable('first', { executionJournal: f.journal })).toEqual({
+      status: 'completed',
+      response: 'answer-1',
+    });
+    expect(await f.session.runRecoverable('second', { executionJournal: f.journal })).toEqual({
+      status: 'completed',
+      response: 'answer-2',
+    });
+    expect(seen).toHaveLength(2);
+    expect(seen[0].binding).toMatchObject({
+      sessionId: 'managed-session',
+      revision: 0,
+      actionFrontier: [],
+    });
+    expect(seen[1].binding).toMatchObject({
+      sessionId: 'managed-session',
+      connectionId: seen[0].binding.connectionId,
+      revision: 1,
+      actionFrontier: [expect.any(String)],
+    });
+    expect(seen[1].messages.map((message) => message.role)).toEqual([
+      'system',
+      'user',
+      'assistant',
+      'tool',
+      'assistant',
+      'user',
+    ]);
+    expect(f.effect).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a reconstructed Session without the live connection', async () => {
+    const f = fixture(
+      async () => ({
+        id: 'live-answer',
+        role: 'assistant',
+        content: 'done',
+        timestamp: new Date(),
+        state: 'complete',
+      }),
+      { checkpointHistory: () => {} },
+      'live-process',
+    );
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    const restored = fixture(
+      async () => {
+        throw new Error('Native process must not run');
+      },
+      { checkpointHistory: () => {} },
+      'live-process',
+    );
+    restored.session.restoreConversation(f.session.getConversationSnapshot());
+    await expect(
+      restored.session.runRecoverable('second', { executionJournal: restored.journal }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+      message: 'Managed live continuation has ended and cannot be rebuilt from history',
+    });
+    expect(restored.provider.run).not.toHaveBeenCalled();
+  });
+
+  it('poisons a live connection after an uncommitted provider failure', async () => {
+    let calls = 0;
+    const f = fixture(
+      async () => {
+        calls += 1;
+        if (calls === 2) throw new Error('native process lost');
+        return {
+          id: 'first-live-answer',
+          role: 'assistant',
+          content: 'done',
+          timestamp: new Date(),
+          state: 'complete',
+        };
+      },
+      { checkpointHistory: () => {} },
+      'live-process',
+    );
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    await expect(
+      f.session.runRecoverable('second', { executionJournal: f.journal }),
+    ).rejects.toThrow('native process lost');
+    await expect(
+      f.session.runRecoverable('third', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+      message: 'A previous managed native connection ended without a committed continuation',
+    });
+    expect(calls).toBe(2);
+  });
+
   it('runs two complete tool frames through durable Session authority and closes retained callbacks', async () => {
     let retained!: IManagedTurnHost['execute'];
     const f = fixture(async (input, host) => {
@@ -167,7 +295,10 @@ describe('managed Session turn', () => {
     expect(f.effect).toHaveBeenCalledTimes(3);
     await expect(
       f.session.runRecoverable('continue', { executionJournal: f.journal }),
-    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+      message: 'Managed provider cannot continue an existing conversation',
+    });
     expect(f.provider.run).toHaveBeenCalledOnce();
   });
 
@@ -524,5 +655,197 @@ describe('managed Session turn', () => {
     ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
     expect(f.effect).not.toHaveBeenCalled();
     expect(f.records.some((record) => record.kind === 'tool-intent')).toBe(true);
+  });
+});
+
+function finalFrame(id: string, content: string): TManagedTurnResult {
+  return { id, role: 'assistant', content, timestamp: new Date(), state: 'complete' };
+}
+
+describe('managed continuation binding', () => {
+  const live = (run: IManagedRunProvider['run']) =>
+    fixture(run, { checkpointHistory: () => {} }, 'live-process');
+  const ended = 'Managed live continuation has ended and cannot be rebuilt from history';
+
+  it('records a committed turn even when the journal cannot be read afterwards', async () => {
+    const seen: IManagedTurnInput[] = [];
+    let committed = false;
+    const f = fixture(
+      async (input, host) => {
+        seen.push(input);
+        if (seen.length === 1) await host.execute(frame('read-frame', [['read-call', 1]]));
+        return finalFrame(`read-final-${seen.length}`, `answer-${seen.length}`);
+      },
+      {
+        checkpointHistory: () => {
+          if (f.session.getHistory().at(-1)?.content === 'answer-1') committed = true;
+        },
+      },
+      'live-process',
+    );
+    const read = f.journal.read.getMockImplementation()!;
+    f.journal.read.mockImplementation(async (executionId) => {
+      if (committed) throw new Error('journal unreadable after commit');
+      return read(executionId);
+    });
+    await expect(
+      f.session.runRecoverable('first', { executionJournal: f.journal }),
+    ).resolves.toEqual({ status: 'completed', response: 'answer-1' });
+    f.journal.read.mockImplementation(read);
+    await f.session.runRecoverable('second', { executionJournal: f.journal });
+    expect(seen[1].binding).toMatchObject({ revision: 1, actionFrontier: [expect.any(String)] });
+  });
+
+  it('does not lock a fresh-only provider out after a failed turn', async () => {
+    let calls = 0;
+    const f = fixture(async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('first turn failed');
+      return finalFrame(`fresh-final-${calls}`, `answer-${calls}`);
+    });
+    await expect(
+      f.session.runRecoverable('first', { executionJournal: f.journal }),
+    ).rejects.toThrow('first turn failed');
+    f.session.clearHistory();
+    await expect(
+      f.session.runRecoverable('second', { executionJournal: f.journal }),
+    ).resolves.toEqual({ status: 'completed', response: 'answer-2' });
+  });
+
+  it('starts a new connection and clears the poison when only system messages remain', async () => {
+    const seen: IManagedTurnInput[] = [];
+    const f = live(async (input) => {
+      seen.push(input);
+      if (seen.length === 2) throw new Error('native process lost');
+      return finalFrame(`fresh-connection-${seen.length}`, `answer-${seen.length}`);
+    });
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    await expect(
+      f.session.runRecoverable('second', { executionJournal: f.journal }),
+    ).rejects.toThrow('native process lost');
+    f.session.clearHistory();
+    f.session.injectMessage('system', 'Fixture');
+    await f.session.runRecoverable('third', { executionJournal: f.journal });
+    expect(seen).toHaveLength(3);
+    expect(seen[2].binding.revision).toBe(0);
+    expect(seen[2].binding.connectionId).not.toBe(seen[0].binding.connectionId);
+  });
+
+  it('refuses compaction under a managed provider without ending the connection', async () => {
+    const seen: IManagedTurnInput[] = [];
+    const f = live(async (input) => {
+      seen.push(input);
+      return finalFrame(`compact-final-${seen.length}`, `answer-${seen.length}`);
+    });
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    await expect(f.session.compact()).rejects.toMatchObject({
+      code: 'MANAGED_RUN_UNAVAILABLE',
+      message: 'Managed execution is not available for provider managed-fixture',
+    });
+    await f.session.runRecoverable('second', { executionJournal: f.journal });
+    expect(seen[1].binding).toMatchObject({
+      connectionId: seen[0].binding.connectionId,
+      revision: 1,
+    });
+  });
+
+  it('refuses a continuation frame that reuses an earlier turn frame identity', async () => {
+    let turn = 0;
+    const f = live(async (_input, host) => {
+      turn += 1;
+      await host.execute(frame('shared-frame', [[`call-${turn}`, turn]]));
+      return finalFrame(`reuse-final-${turn}`, `answer-${turn}`);
+    });
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    await expect(
+      f.session.runRecoverable('second', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+      message: 'Managed continuation frame reused an earlier turn frame identity',
+    });
+    expect(f.effect).toHaveBeenCalledOnce();
+  });
+
+  it('refuses a continuation frame that reuses an earlier turn native call identity', async () => {
+    let turn = 0;
+    const f = live(async (_input, host) => {
+      turn += 1;
+      await host.execute(frame(`frame-${turn}`, [['shared-call', turn]]));
+      return finalFrame(`reuse-final-${turn}`, `answer-${turn}`);
+    });
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    await expect(
+      f.session.runRecoverable('second', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+      message: 'Managed continuation frame reused an earlier turn native call identity',
+    });
+    expect(f.effect).toHaveBeenCalledOnce();
+  });
+
+  it('ends continuation on explicit invalidation', async () => {
+    let turn = 0;
+    const f = live(async () => finalFrame(`invalid-final-${++turn}`, 'done'));
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    f.session.invalidateManagedContinuation();
+    await expect(
+      f.session.runRecoverable('second', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({ message: ended });
+    expect(f.provider.run).toHaveBeenCalledOnce();
+  });
+
+  it('does not record a continuation for a turn invalidated while it ran', async () => {
+    let turn = 0;
+    const f = live(async () => {
+      turn += 1;
+      if (turn === 2) f.session.invalidateManagedContinuation();
+      return finalFrame(`mid-final-${turn}`, `answer-${turn}`);
+    });
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    await f.session.runRecoverable('second', { executionJournal: f.journal });
+    await expect(
+      f.session.runRecoverable('third', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(turn).toBe(2);
+  });
+
+  it('ends continuation on a model swap', async () => {
+    let turn = 0;
+    const f = live(async () => finalFrame(`model-final-${++turn}`, 'done'));
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    await f.session.applyModelOptions({ model: 'other-model' });
+    await expect(
+      f.session.runRecoverable('second', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({ message: ended });
+  });
+
+  it('ends continuation on a provider swap', async () => {
+    let turn = 0;
+    const f = live(async () => finalFrame(`swap-final-${++turn}`, 'done'));
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    const other = fixture(async () => finalFrame('other-final', 'other'), {}, 'live-process');
+    f.session.swapProvider(other.provider, 'fixture-model');
+    await expect(
+      f.session.runRecoverable('second', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({ message: ended });
+    expect(other.provider.run).not.toHaveBeenCalled();
+  });
+
+  it('ends continuation on a history replacement and refuses an unnoticed history edit', async () => {
+    let turn = 0;
+    const f = live(async () => finalFrame(`edit-final-${++turn}`, 'done'));
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    f.session.injectMessage('user', 'smuggled');
+    await expect(
+      f.session.runRecoverable('second', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({
+      message: 'Managed continuation history differs from the committed host prefix',
+    });
+    f.session.clearHistory();
+    f.session.injectMessage('user', 'replacement');
+    await expect(
+      f.session.runRecoverable('third', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({ message: ended });
+    expect(f.provider.run).toHaveBeenCalledOnce();
   });
 });

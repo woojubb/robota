@@ -49,7 +49,13 @@ export function assertManagedRunPreflight(
     throw unavailable('Managed execution requires an active Session turn');
   context.managedTurn.assertActive();
   context.signal.throwIfAborted();
-  if (messages.some((message) => message.role !== 'system'))
+  if (context.managedTurn.binding.sessionId !== context.sessionId)
+    throw unavailable('Managed connection binding belongs to a different Session');
+  if (messages.length > 0) context.managedTurn.assertHistory(messages);
+  if (
+    messages.some((message) => message.role !== 'system') &&
+    context.managedTurn.binding.revision === 0
+  )
     throw unavailable('Managed continuation requires a verified conversation binding');
   const toolChoice = context.toolChoice ?? config.defaultModel.toolChoice;
   if (toolChoice !== undefined && toolChoice !== 'auto')
@@ -177,7 +183,10 @@ export async function executeManagedRun(input: {
     config,
     executionId,
   );
-  if (store.getMessages().some((message) => message.role !== 'system'))
+  if (
+    store.getMessages().some((message) => message.role !== 'system') &&
+    context.managedTurn!.binding.revision === 0
+  )
     throw unavailable('Managed continuation requires a verified conversation binding');
 
   eventEmitter.emitExecution(
@@ -254,6 +263,7 @@ export async function executeManagedRun(input: {
       state: roundState,
       deps: { toolExecutionService, plugins, logger, eventEmitter },
       usageEventsOnly: true,
+      earlierFrameIds: context.managedTurn!.binding.frameIds,
     });
     executor = currentExecutor;
     let hostFailure: unknown;
@@ -318,6 +328,7 @@ export async function executeManagedRun(input: {
       messages: store.getMessages(),
       tools: projectedTools,
       model: selected.model,
+      binding: context.managedTurn!.binding,
       options: { executionId },
     });
     let result: TManagedTurnResult | undefined;
