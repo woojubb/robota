@@ -124,9 +124,8 @@ round trip — a local round trip must be lossless.
 
 ### Session construction and runtime options
 
-- An omitted `sessionId` generates a fresh id; a provided one is reused — this lets the consuming
-  layer control whether a resumed session continues under the same persisted file or starts a
-  new one.
+- An omitted `sessionId` generates a fresh id; a provided one is reused for persistence and core
+  turn ownership, so a resumed session's execution remains tied to the same identity.
 - A provided idle-timeout value is enforced per provider call and its timer refreshes on
   streamed reply and reasoning text, since a model that is only reasoning is still working.
 - Provider-round and permitted-tool-body completions are forwarded to the session's event bus as
