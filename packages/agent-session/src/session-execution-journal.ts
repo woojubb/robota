@@ -13,16 +13,24 @@ interface ISessionJournalOwner {
   canonicalizePath: (path: string) => string;
 }
 
+function isRecoverableJournal(journal: IExecutionJournal): journal is IRecoverableExecutionJournal {
+  return 'read' in journal && typeof journal.read === 'function';
+}
+
 /** Stamp runtime authority separately from display-only message attribution. */
 export function sessionExecutionJournal(
   journal: IExecutionJournal,
   owner: ISessionJournalOwner,
-): IExecutionJournal {
+): IExecutionJournal & Partial<Pick<IRecoverableExecutionJournal, 'read'>> {
   const cwd = owner.canonicalizePath(owner.cwd);
+  const recoverable = isRecoverableJournal(journal) ? journal : undefined;
   return {
+    ...(recoverable ? { read: (executionId: string) => recoverable.read(executionId) } : {}),
     append: async (record) => {
       if (
-        (record.kind === 'model-request' || record.kind === 'model-cache-hit') &&
+        (record.kind === 'model-request' ||
+          record.kind === 'model-cache-hit' ||
+          record.kind === 'managed-frame') &&
         record.checkpoint
       ) {
         const saved = structuredClone(record);
@@ -59,7 +67,12 @@ export function sessionRecoveryJournal(
       const records = structuredClone(source);
       let peerTurn: boolean | undefined;
       for (const record of records) {
-        if (record.kind !== 'model-request' && record.kind !== 'model-cache-hit') continue;
+        if (
+          record.kind !== 'model-request' &&
+          record.kind !== 'model-cache-hit' &&
+          record.kind !== 'managed-frame'
+        )
+          continue;
         const owner = record.checkpoint?.owner;
         const state = owner?.state;
         if (
