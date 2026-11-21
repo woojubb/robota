@@ -226,6 +226,7 @@ export async function attachToolBatchJournal(
       return structuredClone(snapshot.result);
     },
     beforeEffect: async (index, parameters) => {
+      batch.signal?.throwIfAborted();
       if (!isSnapshotableUniversalValue(parameters))
         throw new ExecutionRecoveryError(
           'EXECUTION_RECOVERY_INVALID',
@@ -259,6 +260,7 @@ export async function attachToolBatchJournal(
           'Tool parameters changed while effect admission was being recorded',
           [actions[index].actionId],
         );
+      batch.signal?.throwIfAborted();
       if (admitted) admitted[index] = true;
     },
   };
