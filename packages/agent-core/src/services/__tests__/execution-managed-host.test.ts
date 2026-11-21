@@ -190,6 +190,108 @@ describe('managed host tool boundary', () => {
     });
   });
 
+  it('closes a settled turn and refuses a retained provider callback', async () => {
+    const f = fixture();
+    await f.execute(frame('frame-one', [['call-one', 1]]));
+    const records = f.records.length;
+    await f.close();
+    await f.close();
+    await expect(f.execute(frame('frame-two', [['call-two', 2]]))).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    expect(f.records).toHaveLength(records);
+    expect(f.effects).toHaveBeenCalledOnce();
+    f.assertHealthy();
+  });
+
+  it('retains turn ownership until an in-flight effect settles during closure', async () => {
+    const f = fixture();
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    f.effects.mockImplementation(async (value) => {
+      enter();
+      await gate;
+      return `effect:${value}`;
+    });
+    const running = f.execute(frame('frame-one', [['call-one', 1]]));
+    const rejected = expect(running).rejects.toBeDefined();
+    await entered;
+    const closing = f.close();
+    expect(f.close()).toBe(closing);
+    let closed = false;
+    void closing.then(
+      () => (closed = true),
+      () => (closed = true),
+    );
+    await Promise.resolve();
+    expect(closed).toBe(false);
+    await expect(f.execute(frame('frame-two', [['call-two', 2]]))).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+    });
+    release();
+    await rejected;
+    await expect(closing).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(closed).toBe(true);
+    expect(f.effects).toHaveBeenCalledOnce();
+  });
+
+  it('closes a pending frame before its first effect admission', async () => {
+    const f = fixture();
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const read = f.journal.read.getMockImplementation()!;
+    f.journal.read.mockImplementation(async () => {
+      enter();
+      await gate;
+      return read();
+    });
+    const running = f.execute(frame('frame-one', [['call-one', 1]]));
+    const rejected = expect(running).rejects.toBeDefined();
+    await entered;
+    const closing = f.close();
+    release();
+    await rejected;
+    await expect(closing).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(f.records).toHaveLength(0);
+    expect(f.effects).not.toHaveBeenCalled();
+  });
+
+  it('reserves the active frame before a journal read can close the turn', async () => {
+    const f = fixture();
+    let closing: Promise<void> | undefined;
+    f.journal.read.mockImplementation(() => {
+      closing = f.close();
+      return Promise.resolve([]);
+    });
+    await expect(f.execute(frame('frame-one', [['call-one', 1]]))).rejects.toBeDefined();
+    await expect(closing).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(f.records).toHaveLength(0);
+    expect(f.effects).not.toHaveBeenCalled();
+  });
+
+  it('refuses a frame whose snapshot getter closes the turn', async () => {
+    const f = fixture();
+    const incoming = frame('frame-one', [['call-one', 1]]);
+    let closing: Promise<void> | undefined;
+    Object.defineProperty(incoming, 'id', {
+      enumerable: true,
+      get: () => {
+        closing = f.close();
+        return 'frame-one';
+      },
+    });
+    await expect(f.execute(incoming)).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+    });
+    await closing;
+    expect(f.records).toHaveLength(0);
+    expect(f.effects).not.toHaveBeenCalled();
+  });
+
   it('rejects a second frame while the first has not returned its receipts', async () => {
     const f = fixture();
     let enter!: () => void;
@@ -287,6 +389,7 @@ describe('managed host tool boundary', () => {
     });
     expect(f.effects).toHaveBeenCalledOnce();
     expect(() => f.assertHealthy()).toThrow(/Execution journal failed at tool-result/);
+    await expect(f.close()).rejects.toThrow(/Execution journal failed at tool-result/);
   });
 
   it('retains a host failure when a provider swallows the callback rejection', async () => {
