@@ -1,12 +1,17 @@
 import type {
   IExecutionJournal,
+  IExecutionRoundCheckpoint,
   IModelJournalContext,
   TExecutionJournalRecord,
   TJournalModelOptions,
 } from '../interfaces/execution-journal';
 import type { TUniversalMessage } from '../interfaces/messages';
+import type { TManagedToolBatch } from '../interfaces/managed-provider';
+import type { IToolSchema } from '../interfaces/tool-schema';
 import type { IChatOptions } from '../interfaces/provider';
 import { ExecutionJournalError } from '../utils/execution-journal-error';
+import { ExecutionRecoveryError } from '../utils/execution-recovery-error';
+import { recoverToolBatch } from './execution-recovery-state';
 
 export async function appendExecutionRecord(
   journal: IExecutionJournal,
@@ -17,6 +22,43 @@ export async function appendExecutionRecord(
   } catch (error) {
     throw new ExecutionJournalError(record, error);
   }
+}
+
+/** Commit a complete managed assistant frame before any of its tool actions can be journaled. */
+export async function commitManagedToolFrame(
+  journal: IExecutionJournal,
+  identity: {
+    executionId: string;
+    callId: string;
+    providerId: string;
+    modelId: string;
+    checkpoint: IExecutionRoundCheckpoint;
+    tools: readonly IToolSchema[];
+  },
+  frame: TManagedToolBatch,
+): Promise<TManagedToolBatch> {
+  let record: Extract<TExecutionJournalRecord, { kind: 'managed-frame' }>;
+  try {
+    record = structuredClone({
+      kind: 'managed-frame',
+      recordId: `${identity.callId}:frame`,
+      executionId: identity.executionId,
+      callId: identity.callId,
+      providerId: identity.providerId,
+      modelId: identity.modelId,
+      checkpoint: identity.checkpoint,
+      tools: identity.tools,
+      response: frame,
+    });
+  } catch {
+    throw new ExecutionRecoveryError(
+      'EXECUTION_RECOVERY_INVALID',
+      'Managed assistant frame cannot be recorded',
+    );
+  }
+  recoverToolBatch([record], identity.executionId, identity.callId);
+  await appendExecutionRecord(journal, record);
+  return structuredClone(record.response);
 }
 
 /** Deliberately projects data fields so local callbacks and transport secrets cannot enter the journal. */

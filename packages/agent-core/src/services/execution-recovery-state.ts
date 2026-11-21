@@ -28,6 +28,7 @@ export interface IRecoveredAction {
 export interface IRecoveredToolBatch {
   executionId: string;
   callId: string;
+  managedRoute?: { providerId: string; modelId: string };
   checkpoint: IExecutionRoundCheckpoint;
   response: IAssistantMessage;
   actions: Map<string, IRecoveredAction>;
@@ -100,8 +101,12 @@ function validateBatch(
     seen.set(record.recordId, record);
     records.push(record);
     if ('callId' in record) {
-      if (!nonempty(record.callId)) invalid('Missing model call identity');
-      if (record.kind === 'model-request' || record.kind === 'model-cache-hit')
+      if (!nonempty(record.callId)) invalid('Missing provider call identity');
+      if (
+        record.kind === 'model-request' ||
+        record.kind === 'model-cache-hit' ||
+        record.kind === 'managed-frame'
+      )
         latestCall = record.callId;
       else if (record.callId !== latestCall) invalid('Model settlement crossed a newer invocation');
     } else if ('actionId' in record) {
@@ -142,10 +147,13 @@ function validateBatch(
       }
     } else invalid('Unknown journal record');
   }
-  if (latestCall !== callId) invalid('Only the latest model invocation can be recovered');
+  if (latestCall !== callId) invalid('Only the latest provider invocation can be recovered');
   let request: Extract<TExecutionJournalRecord, { kind: 'model-request' }> | undefined;
   let response: IAssistantMessage | undefined;
   let cachedCheckpoint: IExecutionRoundCheckpoint | undefined;
+  let managedTools:
+    Extract<TExecutionJournalRecord, { kind: 'managed-frame' }>['tools'] | undefined;
+  let managedRoute: IRecoveredToolBatch['managedRoute'];
   const actions = new Map<string, IRecoveredAction>();
   let batchPolicy: IJournalToolBatchPolicy | undefined;
   let legacyBatchPolicy = false;
@@ -165,6 +173,23 @@ function validateBatch(
         if (!request || response || record.response.role !== 'assistant')
           invalid('Invalid model response');
         response = record.response;
+      } else if (record.kind === 'managed-frame') {
+        if (
+          request ||
+          response ||
+          !nonempty(record.providerId) ||
+          !nonempty(record.modelId) ||
+          record.response.role !== 'assistant' ||
+          record.response.state !== 'complete' ||
+          !Array.isArray(record.response.toolCalls) ||
+          record.response.toolCalls.length === 0 ||
+          !Array.isArray(record.tools)
+        )
+          invalid('Invalid managed assistant frame');
+        response = record.response;
+        cachedCheckpoint = record.checkpoint;
+        managedTools = record.tools;
+        managedRoute = { providerId: record.providerId, modelId: record.modelId };
       } else invalid('This model invocation has no recoverable tool response');
       continue;
     }
@@ -334,6 +359,18 @@ function validateBatch(
       invalid('Invalid or duplicate saved tool call');
     ids.add(call.id);
   }
+  if (managedTools) {
+    const offered = new Set<string>();
+    for (const tool of managedTools) {
+      if (!tool || !nonempty(tool.name) || offered.has(tool.name))
+        invalid('Invalid managed tool projection');
+      offered.add(tool.name);
+    }
+    for (const call of response.toolCalls ?? []) {
+      if (!offered.has(call.function.name))
+        invalid('Managed frame requested a tool outside its saved projection');
+    }
+  }
   if (request?.options.toolChoice === 'none' && (response.toolCalls?.length ?? 0) > 0)
     invalid('Saved invocation prohibited tool execution');
   const uncertain = [...actions.values()].filter(
@@ -348,12 +385,15 @@ function validateBatch(
   return {
     executionId,
     callId,
+    ...(managedRoute && { managedRoute }),
     checkpoint,
     response,
     actions,
     ...(batchPolicy && { batchPolicy }),
     ...(legacyBatchPolicy && { legacyBatchPolicy: true }),
     offeredDeferredTools:
-      request?.options.tools?.filter((tool) => tool.deferLoading).map((tool) => tool.name) ?? [],
+      (request?.options.tools ?? managedTools)
+        ?.filter((tool) => tool.deferLoading)
+        .map((tool) => tool.name) ?? [],
   };
 }
