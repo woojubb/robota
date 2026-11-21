@@ -35,7 +35,6 @@ export interface IManagedTurnInput {
 }
 
 export type TManagedTurnEvent =
-  | { kind: 'text-delta'; frameId: string; text: string }
   | { kind: 'thinking-delta'; frameId: string; text: string }
   | { kind: 'usage'; frameId: string; usage: ITokenUsage };
 

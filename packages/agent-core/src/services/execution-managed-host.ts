@@ -24,6 +24,8 @@ export function createManagedToolExecutor(input: {
   tools: readonly IToolSchema[];
   state: IExecutionRoundState;
   deps: IRoundDependencies;
+  /** Keep managed usage in host events so a tool frame cannot be counted twice. */
+  usageEventsOnly?: boolean;
 }): {
   execute(frame: TManagedToolBatch): Promise<readonly IManagedToolReceipt[]>;
   assertHealthy(): void;
@@ -138,6 +140,21 @@ export function createManagedToolExecutor(input: {
     }
     if (failed) return Promise.reject(failure);
     if (closed) return Promise.reject(conflict('Managed turn has ended'));
+    if (
+      input.usageEventsOnly &&
+      ('usage' in snapshot ||
+        [
+          'usage',
+          'inputTokens',
+          'outputTokens',
+          'promptTokens',
+          'completionTokens',
+          'totalTokens',
+          'cacheReadTokens',
+          'usageProvenance',
+        ].some((key) => Object.hasOwn(snapshot.metadata ?? {}, key)))
+    )
+      return rejectAndLatch(required('Managed frame usage must be emitted as a host event'));
     if (signal.aborted)
       return rejectAndLatch(createAbortError('Managed turn interrupted', signal.reason));
     if (active) {

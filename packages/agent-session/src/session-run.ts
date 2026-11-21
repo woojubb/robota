@@ -14,6 +14,7 @@ import {
   runHooks,
   traceEnvFor,
   ExecutionSuspendedError,
+  ExecutionRecoveryError,
 } from '@robota-sdk/agent-core';
 
 import { perTurnRunOptions } from './session-run-options.js';
@@ -42,6 +43,25 @@ export async function executeRun(
   runOptions?: ISessionRunOptions,
   managedTurn?: IManagedTurnAdmission,
 ): Promise<string> {
+  if (isManagedRunProvider(ctx.aiProvider)) {
+    ctx.agent.assertManagedRunSupported({
+      ...perTurnRunOptions(runOptions),
+      signal: abortSignal,
+      sessionId: ctx.sessionId,
+      maxExecutionRounds: ctx.maxTurns ?? 0,
+      ...(managedTurn ? { managedTurn } : {}),
+    });
+    const modelBackedHook = Object.values((ctx.hooks ?? {}) as THooksConfig).some((groups) =>
+      groups?.some((group) =>
+        group.hooks.some((hook) => hook.type === 'prompt' || hook.type === 'agent'),
+      ),
+    );
+    if (ctx.permissionMode === 'auto' || modelBackedHook)
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_REQUIRED',
+        'Managed execution requires an isolated model-helper route',
+      );
+  }
   // Command hooks fired on this prompt's path name its root span; hooks elsewhere get nothing.
   const traceContext = runOptions?.traceContext;
   const hookTraceEnv = traceContext

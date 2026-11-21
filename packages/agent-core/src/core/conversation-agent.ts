@@ -59,6 +59,7 @@ import type { Tools } from '../managers/tool-manager';
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import type { IJsonSchemaOutput } from '../schema/structured-output';
 import type { ExecutionService } from '../services/execution-service';
+import { assertManagedRunPreflight } from '../services/execution-managed-run';
 import type { ZodType, TypeOf } from 'zod';
 
 export type { TAgentStatsMetadata } from './agent-config-manager';
@@ -280,7 +281,7 @@ export class ConversationAgent
     this.assertNotDestroyed();
     return this.runQueue.run(options.signal, async () => {
       this.assertProviderRunnable(options.managedTurn !== undefined);
-      options.managedTurn?.assertActive();
+      this.assertManagedRunSupported(options);
       await this.ensureFullyInitialized();
       try {
         if (options.output) {
@@ -292,6 +293,14 @@ export class ConversationAgent
         this.resetEphemeralHistory();
       }
     });
+  }
+
+  /** Refuse an unsupported managed request before Session executes prompt hooks. */
+  assertManagedRunSupported(options: IRunOptions): void {
+    const provider = this.aiProviders.getCurrentExecutionProviderInstance();
+    if (!provider || !isManagedRunProvider(provider)) return;
+    if (options.output) throw new ManagedRunUnavailableError(provider.name);
+    assertManagedRunPreflight(this.getHistory(), options, this.config);
   }
 
   runStream<S extends ZodType>(

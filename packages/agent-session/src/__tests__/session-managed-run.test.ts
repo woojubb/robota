@@ -5,6 +5,7 @@ import type {
   IManagedTurnHost,
   TExecutionJournalRecord,
   TManagedToolBatch,
+  TManagedTurnEvent,
   TManagedTurnResult,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -35,7 +36,16 @@ function frame(id: string, calls: Array<[string, number]>): TManagedToolBatch {
 function fixture(
   run: IManagedRunProvider['run'],
   options: Partial<
-    Pick<ISessionOptions, 'permissions' | 'permissionHandler' | 'checkpointHistory'>
+    Pick<
+      ISessionOptions,
+      | 'permissions'
+      | 'permissionHandler'
+      | 'checkpointHistory'
+      | 'hooks'
+      | 'hookTypeExecutors'
+      | 'permissionMode'
+      | 'onTextDelta'
+    >
   > = {},
 ) {
   const records: TExecutionJournalRecord[] = [];
@@ -248,7 +258,17 @@ describe('managed Session turn', () => {
 
   it('refuses an unsupported peer capability before invoking the provider', async () => {
     const run = vi.fn<IManagedRunProvider['run']>();
-    const f = fixture(run);
+    const hook = vi.fn(async () => ({
+      outcome: 'allow' as const,
+      source: 'command' as const,
+      stdout: '',
+    }));
+    const f = fixture(run, {
+      hooks: {
+        UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'command', command: 'fixture' }] }],
+      },
+      hookTypeExecutors: [{ type: 'command', execute: hook }],
+    });
     await expect(
       f.session.runRecoverable('perform actions', {
         executionJournal: f.journal,
@@ -256,8 +276,27 @@ describe('managed Session turn', () => {
       }),
     ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
     expect(run).not.toHaveBeenCalled();
+    expect(hook).not.toHaveBeenCalled();
     expect(f.effect).not.toHaveBeenCalled();
     expect(f.records).toHaveLength(0);
+  });
+
+  it('refuses model-backed hooks without an isolated helper route', async () => {
+    const run = vi.fn<IManagedRunProvider['run']>();
+    const helper = vi.fn(async () => ({
+      outcome: 'allow' as const,
+      source: 'prompt' as const,
+      stdout: '',
+    }));
+    const f = fixture(run, {
+      hooks: { UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'Check' }] }] },
+      hookTypeExecutors: [{ type: 'prompt', execute: helper }],
+    });
+    await expect(
+      f.session.runRecoverable('perform actions', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(helper).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('holds the turn claim while an aborted host action settles', async () => {
@@ -366,9 +405,101 @@ describe('managed Session turn', () => {
     });
     await expect(
       f.session.runRecoverable('perform actions', { executionJournal: f.journal }),
-    ).rejects.toBeDefined();
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+      message: 'Managed provider emitted invalid usage',
+    });
     expect(f.effect).toHaveBeenCalledOnce();
     expect(f.session.getHistory().at(-1)?.content).not.toBe('false success');
+  });
+
+  it('refuses transient text output until interrupted frames can be saved', async () => {
+    const onTextDelta = vi.fn();
+    const f = fixture(
+      async (_input, host) => {
+        await host
+          .emit({
+            kind: 'text-delta',
+            frameId: 'final-frame',
+            text: 'partial',
+          } as unknown as TManagedTurnEvent)
+          .catch(() => {});
+        return {
+          id: 'final-frame',
+          role: 'assistant',
+          content: 'false success',
+          state: 'complete',
+          timestamp: new Date(),
+        };
+      },
+      { onTextDelta },
+    );
+    await expect(
+      f.session.runRecoverable('perform actions', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(onTextDelta).not.toHaveBeenCalled();
+  });
+
+  it('rejects usage duplicated on a tool frame and the host event channel', async () => {
+    const f = fixture(async (_input, host) => {
+      const batch = frame('first-frame', [['first-call', 1]]);
+      batch.metadata = { usage: { promptTokens: 2, completionTokens: 1, totalTokens: 3 } };
+      await host.execute(batch).catch(() => {});
+      await host
+        .emit({
+          kind: 'usage',
+          frameId: 'first-frame',
+          usage: { promptTokens: 2, completionTokens: 1, totalTokens: 3 },
+        })
+        .catch(() => {});
+      return {
+        id: 'final-frame',
+        role: 'assistant',
+        content: 'false success',
+        state: 'complete',
+        timestamp: new Date(),
+      };
+    });
+    await expect(
+      f.session.runRecoverable('perform actions', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(f.effect).not.toHaveBeenCalled();
+    expect(f.records).toHaveLength(0);
+  });
+
+  it('does not commit a final answer when cancellation arrives during the final journal read', async () => {
+    let entered!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => (entered = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let providerReturned = false;
+    const f = fixture(async () => {
+      providerReturned = true;
+      return {
+        id: 'final-frame',
+        role: 'assistant',
+        content: 'must not commit',
+        state: 'complete',
+        timestamp: new Date(),
+      };
+    });
+    const read = f.journal.read.getMockImplementation()!;
+    f.journal.read.mockImplementation(async (executionId) => {
+      if (providerReturned) {
+        entered();
+        await gate;
+      }
+      return read(executionId);
+    });
+    const running = f.session.runRecoverable('perform actions', { executionJournal: f.journal });
+    const rejected = expect(running).rejects.toBeDefined();
+    await started;
+    f.session.abort();
+    release();
+    await rejected;
+    expect(f.session.getHistory().some((message) => message.content === 'must not commit')).toBe(
+      false,
+    );
   });
 
   it('does not claim an approval wait can resume an unqualified native runtime', async () => {

@@ -40,9 +40,9 @@ function readableJournal(context: IExecutionContext): IRecoverableExecutionJourn
   return journal as IRecoverableExecutionJournal;
 }
 
-function assertFreshTurn(
+export function assertManagedRunPreflight(
   messages: readonly TUniversalMessage[],
-  context: IExecutionContext,
+  context: Partial<IExecutionContext>,
   config: TAgentExecutionConfig,
 ): void {
   if (!context.managedTurn || !context.sessionId || !context.signal)
@@ -152,7 +152,7 @@ export async function executeManagedRun(input: {
   const conversationId = context.conversationId!;
   const executionId = context.executionId;
   const journal = readableJournal(context);
-  assertFreshTurn(input.messages, context, config);
+  assertManagedRunPreflight(input.messages, context, config);
   if (
     selected.provider !== config.defaultModel.provider ||
     selected.model !== config.defaultModel.model ||
@@ -253,6 +253,7 @@ export async function executeManagedRun(input: {
       tools: projectedTools,
       state: roundState,
       deps: { toolExecutionService, plugins, logger, eventEmitter },
+      usageEventsOnly: true,
     });
     executor = currentExecutor;
     let hostFailure: unknown;
@@ -279,8 +280,8 @@ export async function executeManagedRun(input: {
         const saved = structuredClone(event);
         if (!saved || typeof saved.frameId !== 'string' || saved.frameId.length === 0)
           throw unavailable('Managed provider emitted an invalid frame event');
-        if (saved.kind === 'text-delta' && typeof saved.text === 'string')
-          context.onTextDelta?.(saved.text);
+        if ((saved as { kind: string }).kind === 'text-delta')
+          throw unavailable('Managed text streaming requires interrupted-frame persistence');
         else if (saved.kind === 'thinking-delta' && typeof saved.text === 'string')
           context.onThinkingDelta?.(saved.text);
         else if (saved.kind === 'usage') {
@@ -360,12 +361,21 @@ export async function executeManagedRun(input: {
         closeFailed = true;
       }
     }
-    if (closeFailed) throw closeFailure;
+    if (closeFailed) {
+      const closeWasAbort =
+        typeof closeFailure === 'object' &&
+        closeFailure !== null &&
+        'name' in closeFailure &&
+        closeFailure.name === 'AbortError';
+      if (hostFailed && closeWasAbort) throw hostFailure;
+      throw closeFailure;
+    }
     if (hostFailed) throw hostFailure;
     if (runFailed) throw runFailure;
-    assertFreshTurn([], context, config);
+    assertManagedRunPreflight([], context, config);
     const final = captureFinal(result!);
     const committed = await journal.read(executionId);
+    assertManagedRunPreflight([], context, config);
     if (
       store.getMessages().some((message) => message.id === final.id) ||
       committed.some((record) => record.kind === 'managed-frame' && record.response.id === final.id)

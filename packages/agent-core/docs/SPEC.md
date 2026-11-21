@@ -217,7 +217,7 @@ A run carries W3C trace context only when its host supplies it; this package nev
 
 ## Provider Contract
 
-A model-step provider exposes a normalized request/response surface for generic layers and existing SDK consumers, alongside the internal raw-protocol surface used by the conversation service. A managed-run provider owns its native loop and submits each complete assistant tool batch through a turn-scoped host port; the host retains authority over admission, persistence and cancellation, closes the port before releasing its turn claim, and accepts only a fresh run with a readable host journal until native continuation can be bound. An execution that cannot establish those guarantees is refused before provider or tool effects, and existing model-step providers remain usable through their public interface.
+A model-step provider exposes a normalized request/response surface for generic layers and existing SDK consumers, alongside the internal raw-protocol surface used by the conversation service. A managed-run provider owns its native loop and submits each complete assistant tool batch through a turn-scoped host port; the host retains authority over admission, persistence and cancellation, closes the port before releasing its turn claim, and accepts only a fresh run with a readable host journal until native continuation can be bound. Usage is reported through host events rather than tool-frame metadata, and text deltas remain unavailable until interrupted frames can be preserved. An execution that cannot establish those guarantees is refused before provider or tool effects, and existing model-step providers remain usable through their public interface.
 
 ## Usage-Triple SSOT
 
