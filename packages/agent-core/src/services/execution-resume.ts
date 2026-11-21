@@ -20,6 +20,13 @@ import {
 import { collectCommittedUsageMetadata } from './execution-usage';
 import { addToolResultsToHistory } from './execution-round-tool-results';
 import { executeAndRecordToolCalls } from './execution-round-tools';
+import {
+  assertRawJournalPolicyRecords,
+  assertSavedBatchPolicy,
+  resolveBatchScheduling,
+  snapshotBatchPolicy,
+} from './execution-batch-policy';
+import type { TBatchScheduling } from './execution-batch-policy';
 import { sameReceiptMetadata } from './execution-receipt-frame';
 import type { IRoundDependencies } from './execution-round-types';
 import type { IExecutionRoundState } from './execution-types';
@@ -226,7 +233,17 @@ export async function restoreJournaledRound(
       conflict('History changed during execution recovery');
   };
   unchanged();
-  const records = prepared?.records ?? (await options.journal.read(options.executionId));
+  const source = prepared?.records ?? (await options.journal.read(options.executionId));
+  assertRawJournalPolicyRecords(source);
+  let records: readonly TExecutionJournalRecord[];
+  try {
+    records = structuredClone(source);
+  } catch {
+    throw new ExecutionRecoveryError(
+      'EXECUTION_RECOVERY_INVALID',
+      'Execution journal is not a valid recoverable record prefix',
+    );
+  }
   let batch = prepared?.batch ?? recoverToolBatch(records, options.executionId, options.callId);
   options.signal?.throwIfAborted();
   unchanged();
@@ -237,22 +254,39 @@ export async function restoreJournaledRound(
     conflict('Saved provider metadata conflicts with the recovered assistant frame');
   const existing = structuredClone(store.getMessages());
   validateHistory(existing, batch, options, deps);
+  const calls = batch.response.toolCalls ?? [];
+  const policyLoaded = new Set([
+    ...(batch.checkpoint.continuation?.loadedDeferredTools ?? []),
+    ...batch.offeredDeferredTools,
+  ]);
+  const loaded = new Set(policyLoaded);
+  for (const action of batch.actions.values())
+    for (const name of action.loadedDeferredTools ?? []) loaded.add(name);
+  let preparedPolicy: TBatchScheduling | undefined;
+  if (calls.length > 0) {
+    preparedPolicy = deps.toolExecutionService.withRestoredDeferredTools([...policyLoaded], () => {
+      const policy = resolveBatchScheduling(calls, config);
+      if (!batch.legacyBatchPolicy)
+        assertSavedBatchPolicy(
+          snapshotBatchPolicy(
+            policy,
+            calls.map((call) => call.id),
+          ),
+          batch.batchPolicy,
+        );
+      return policy;
+    });
+    unchanged();
+  }
   const accepted = await acceptToolResponses(records, options);
   if (accepted.length !== records.length)
     batch = recoverToolBatch(accepted, options.executionId, options.callId, false);
   options.signal?.throwIfAborted();
   unchanged();
-  const loaded = new Set([
-    ...(batch.checkpoint.continuation?.loadedDeferredTools ?? []),
-    ...batch.offeredDeferredTools,
-  ]);
-  for (const action of batch.actions.values())
-    for (const name of action.loadedDeferredTools ?? []) loaded.add(name);
   deps.toolExecutionService.restoreLoadedDeferredTools([...loaded]);
   const staged = new ConversationStore();
   for (const message of batch.checkpoint.messages) staged.addMessage(structuredClone(message));
   const isSummary = batch.checkpoint.continuation?.kind === 'summary';
-  const calls = batch.response.toolCalls ?? [];
   const hasResponse =
     isSummary || calls.length > 0 || (batch.response.content?.trim().length ?? 0) > 0;
   if (hasResponse) staged.addMessage(recoveredAssistant(batch, options));
@@ -293,6 +327,7 @@ export async function restoreJournaledRound(
           journal: options.journal,
           parentCallId: options.callId,
           recovery: batch,
+          ...(preparedPolicy && { preparedPolicy }),
           ...(options.includeReceipts && { captureReceipts: true, assistantFrame: batch.response }),
         },
       );

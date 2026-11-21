@@ -165,6 +165,18 @@ export class Tools extends AbstractManager implements IToolManager {
     return [...this.loadedDeferredTools].sort();
   }
 
+  withTemporaryLoadedDeferredTools<T>(names: readonly string[], inspect: () => T): T {
+    const previous = [...this.loadedDeferredTools];
+    try {
+      this.loadedDeferredTools.clear();
+      this.loadDeferredTools(names);
+      return inspect();
+    } finally {
+      this.loadedDeferredTools.clear();
+      for (const name of previous) this.loadedDeferredTools.add(name);
+    }
+  }
+
   listDeferredTools(): IToolSchema[] {
     if (this.resolveToolSearchMode() === 'off') return [];
     return this.getTools().filter(

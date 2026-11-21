@@ -92,6 +92,17 @@ function createMockToolManager(overrides: Partial<IToolManager> = {}): IToolMana
   };
 }
 
+describe('recovery policy inspection', () => {
+  it('does not assume an unknown deferred-tool residency is empty', () => {
+    const service = new ToolExecutionService(createMockToolManager());
+    const inspect = vi.fn();
+    expect(() => service.withRestoredDeferredTools([], inspect)).toThrow(
+      /cannot inspect restored residency/,
+    );
+    expect(inspect).not.toHaveBeenCalled();
+  });
+});
+
 /**
  * Create a mock IEventService.
  */

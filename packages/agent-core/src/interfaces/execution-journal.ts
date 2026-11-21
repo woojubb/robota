@@ -36,6 +36,23 @@ interface IJournalActionIdentity {
   toolName: string;
 }
 
+/** Data-only effective scheduling policy bound to a journaled tool batch. */
+export interface IJournalToolBatchPolicy {
+  version: 1;
+  mode: 'parallel' | 'sequential';
+  maxConcurrency: number;
+  continueOnError: boolean;
+  scheduling?: Array<
+    [
+      string,
+      {
+        dependsOn: string[];
+        resources?: Array<{ key: string; access: 'read' | 'write' }>;
+      },
+    ]
+  >;
+}
+
 export interface IExecutionContinuationState {
   version: 1;
   kind: 'round' | 'summary';
@@ -96,7 +113,11 @@ export type TExecutionJournalRecord = IJournalIdentity &
         checkpoint?: IExecutionRoundCheckpoint;
       })
     | (IJournalModelIdentity & { kind: 'model-failure'; error: { name: string; message: string } })
-    | (IJournalActionIdentity & { kind: 'tool-intent'; parameters: TToolParameters })
+    | (IJournalActionIdentity & {
+        kind: 'tool-intent';
+        parameters: TToolParameters;
+        batchPolicy?: IJournalToolBatchPolicy;
+      })
     | (IJournalActionIdentity & { kind: 'tool-dispatch' })
     | (IJournalActionIdentity & { kind: 'tool-effect-start'; parameters: TToolParameters })
     | (IJournalActionIdentity & {
@@ -108,6 +129,7 @@ export type TExecutionJournalRecord = IJournalIdentity &
         kind: 'tool-result';
         result: IToolExecutionResult;
         loadedDeferredTools?: string[];
+        batchPolicy?: IJournalToolBatchPolicy;
       })
   );
 
@@ -126,8 +148,8 @@ export interface IExecutionJournal {
  * The host must hold exclusive fenced ownership and drain the old runtime before recovery.
  * Appending an identical recordId is idempotent; conflicting content must be rejected.
  * Stored records must round-trip their value types and shared references without collapsing them.
- * Recovery applies the active tool execution policy; the host must keep that policy equivalent
- * to the one used for the saved batch because policy identity is not stored in this journal.
+ * New batches record their effective scheduling policy and refuse a conflicting recovery policy.
+ * For older records without a policy binding, the host must preserve an equivalent active policy.
  */
 export interface IRecoverableExecutionJournal extends IExecutionJournal {
   read(executionId: string): Promise<readonly TExecutionJournalRecord[]>;

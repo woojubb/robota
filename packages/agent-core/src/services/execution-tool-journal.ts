@@ -6,6 +6,8 @@ import {
   isUniversalValueEqual,
 } from '../utils/universal-value-equal';
 import { appendExecutionRecord } from './execution-journal';
+import { assertSavedBatchPolicy, snapshotBatchPolicy } from './execution-batch-policy';
+import type { TBatchScheduling } from './execution-batch-policy';
 import { toolContinuation } from './execution-tool-waits';
 import type { IExecutionJournal } from '../interfaces/execution-journal';
 import type { IManagedToolReceipt } from '../interfaces/managed-provider';
@@ -28,6 +30,8 @@ export interface IToolBatchJournalContext {
   captureReceipts?: boolean;
   /** The caller must durably record this complete frame before dispatching the batch. */
   assistantFrame?: IAssistantMessage;
+  /** A detached policy already checked before recovery changes state. */
+  preparedPolicy?: TBatchScheduling;
 }
 
 export interface IToolBatchJournalSettlement {
@@ -71,6 +75,17 @@ export async function attachToolBatchJournal(
 ): Promise<IToolBatchJournalSettlement | undefined> {
   const { journal, parentCallId, recovery } = context;
   const requests = batch.requests;
+  const batchPolicy = recovery?.legacyBatchPolicy
+    ? undefined
+    : snapshotBatchPolicy(
+        batch,
+        requests.map((request) => request.executionId),
+      );
+  if (batchPolicy) assertSavedBatchPolicy(batchPolicy, recovery?.batchPolicy);
+  let needsPolicy =
+    !recovery ||
+    (recovery.actions.size === 0 && !recovery.legacyBatchPolicy && !recovery.batchPolicy);
+  let pendingPolicyWrite: Promise<void> | undefined;
   const recovered = requests.map((request) => recovery?.actions.get(request.executionId ?? ''));
   const actions = requests.map((request) => ({
     actionId: recovery?.actions.get(request.executionId ?? '')?.actionId ?? randomId(),
@@ -152,7 +167,9 @@ export async function attachToolBatchJournal(
       recordId: `${actions[index].actionId}:intent`,
       ...actions[index],
       parameters: request.parameters,
+      ...(needsPolicy && { batchPolicy }),
     });
+    needsPolicy = false;
   }
   batch.journal = {
     continuation: (index) => continuations[index].continuation,
@@ -195,7 +212,16 @@ export async function attachToolBatchJournal(
       } catch (error) {
         throw new ExecutionJournalError(record, error);
       }
-      await appendExecutionRecord(journal, snapshot);
+      if (needsPolicy) {
+        needsPolicy = false;
+        pendingPolicyWrite = appendExecutionRecord(journal, { ...snapshot, batchPolicy });
+        await pendingPolicyWrite;
+      } else {
+        // If every call has malformed arguments, the first result owns the binding. Concurrent
+        // results must wait for it so an unbound result cannot become the first durable record.
+        if (pendingPolicyWrite) await pendingPolicyWrite;
+        await appendExecutionRecord(journal, snapshot);
+      }
       if (settlements) settlements[index] = snapshot.result;
       return structuredClone(snapshot.result);
     },

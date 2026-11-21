@@ -1,4 +1,4 @@
-import { ExecutionRecoveryError } from '@robota-sdk/agent-core';
+import { assertRawJournalPolicyRecords, ExecutionRecoveryError } from '@robota-sdk/agent-core';
 import type {
   IExecutionJournal,
   IRecoverableExecutionJournal,
@@ -54,7 +54,9 @@ export function sessionRecoveryJournal(
   const scope = canonicalizePath(cwd);
   return {
     read: async (executionId) => {
-      const records = structuredClone(await journal.read(executionId));
+      const source = await journal.read(executionId);
+      assertRawJournalPolicyRecords(source);
+      const records = structuredClone(source);
       let peerTurn: boolean | undefined;
       for (const record of records) {
         if (record.kind !== 'model-request' && record.kind !== 'model-cache-hit') continue;
