@@ -125,6 +125,7 @@ export async function executeRun(
       // Thin pass-through of the per-turn options to agent-core.
       ...perTurnRunOptions(runOptions),
       ...createRunObservers(ctx, traceContext),
+      sessionId: ctx.sessionId,
     });
 
     // If execution was interrupted (abort fired during execution),

@@ -55,6 +55,35 @@ const refused: IExecutionJournal = {
 };
 
 describe('Session execution journal', () => {
+  it('keeps the same core turn owner after conversation reconstruction', async () => {
+    const source = fixture({ sessionId: 'stable-session' });
+    await source.session.run('first');
+    const restored = fixture({ sessionId: 'stable-session' });
+    restored.session.restoreConversation(source.session.getConversationSnapshot());
+    const records: TExecutionJournalRecord[] = [];
+    await restored.session.run('second', undefined, {
+      executionJournal: { append: async (record) => void records.push(structuredClone(record)) },
+    });
+    expect(records.find((record) => record.kind === 'model-request')).toMatchObject({
+      checkpoint: { continuation: { options: { sessionId: 'stable-session' } } },
+    });
+  });
+
+  it('keeps the Session owner in a recoverable core turn checkpoint', async () => {
+    const { session } = fixture({ sessionId: 'recoverable-session' });
+    const records: TExecutionJournalRecord[] = [];
+    await session.runRecoverable('first', {
+      executionJournal: {
+        append: async (record) => void records.push(structuredClone(record)),
+        read: async (executionId) =>
+          structuredClone(records.filter((record) => record.executionId === executionId)),
+      },
+    });
+    expect(records.find((record) => record.kind === 'model-request')).toMatchObject({
+      checkpoint: { continuation: { options: { sessionId: 'recoverable-session' } } },
+    });
+  });
+
   it('preserves a previously admitted higher result limit while journaling', async () => {
     const scripted = createScriptedProvider([
       { toolCalls: [{ name: 'act', args: {} }] },
