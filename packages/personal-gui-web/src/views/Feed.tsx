@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CaseThread } from './CaseThread.js';
 import { CaseList } from './CaseList.js';
 import { ProgressChip } from './LaunchStatus.js';
+import { OfferFeedEntries } from './OfferFeed.js';
 import { QuestionCard } from './QuestionCard.js';
 import { Button, Notice, ViewFrame, errorText, when } from './ui.js';
 
@@ -21,12 +22,14 @@ const STATE_LABEL = {
 /**
  * What the agent did or needs while the person was away. An approval here answers the very request
  * a goal is waiting on: the goal resumes when the person approves, and nothing is sent when they
- * decline. A question is answered on its card, and its case opens as a thread.
+ * decline. A question is answered on its card, and its case opens as a thread. Tasks the agent suggests
+ * are listed after the rest as plain entries that open their card in Browse; they decide nothing.
  */
 export function FeedView({
   api,
   onOpenGoal,
   onOpenTask,
+  onOpenOffer,
   focusLaunch,
   onItems,
 }: {
@@ -34,6 +37,8 @@ export function FeedView({
   readonly onOpenGoal: (goalId: string) => void;
   /** Opens Browse to the card of a task the person started. */
   readonly onOpenTask?: (launchId: string) => void;
+  /** Opens Browse to the card of a task the agent suggests; without it the Feed shows no suggestions. */
+  readonly onOpenOffer?: (offerId: string) => void;
   /** The launch whose report the person is sent to from its card in Browse. */
   readonly focusLaunch?: string;
   /** Told whenever the feed is read, so the page can show how many questions wait without asking again. */
@@ -206,6 +211,7 @@ export function FeedView({
           );
         })}
       </ul>
+      {onOpenOffer !== undefined && <OfferFeedEntries api={api} onOpenOffer={onOpenOffer} />}
     </ViewFrame>
   );
 }

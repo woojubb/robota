@@ -83,7 +83,7 @@ function setup(
   const taskLaunch = vi.fn(options.taskLaunch ?? (async () => launch()));
   const api = {
     taskDefinitions: async () => [pageCheck],
-    taskOffers: async () => ({ offers: [], issues: [] }),
+    taskOffers: async () => ({ offers: [], setAside: [], issues: [] }),
     taskLaunches: async () => options.launches ?? [],
     taskLaunch,
     startTask: vi.fn(async () => ANSWER),

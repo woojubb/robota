@@ -9,6 +9,7 @@ import { findChromium } from './browser-driver.js';
 import { startHarness } from './harness.js';
 import { toolResults } from './scripted-model.js';
 import { virtualHostFetch } from './stand-in-connector.js';
+import { SHIPPING_TEXT, startStandInSite } from './stand-in-site.js';
 import { startStandInWebhook } from './stand-in-webhook.js';
 
 import type { Server } from 'node:http';
@@ -296,8 +297,8 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         expect(await main.getByText('Unavailable', { exact: true }).count()).toBe(3);
         expect(await main.getByText('Ready', { exact: true }).count()).toBe(1);
         await main
-          .getByRole('region', { name: 'Offers for you' })
-          .getByText('No offers yet.')
+          .getByRole('region', { name: 'Suggested for you' })
+          .getByText('Nothing is suggested right now.')
           .waitFor();
         // Only the ready task has a Start; the others have nothing to press.
         expect(await main.getByRole('button').count()).toBe(1);
@@ -394,6 +395,140 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         }
       } finally {
         await new Promise<void>((resolve) => shop.close(() => resolve()));
+      }
+    });
+
+    it('shows the agent’s suggestions in the Feed and in Browse, opens the one pressed, starts one from its card with a double click, and puts another aside and back', async () => {
+      const site = await startStandInSite();
+      const address = `${site.origin}/shipping`;
+      try {
+        harness = await startHarness({ gui: true, browserAllowedHosts: [site.host] });
+        const { capabilities } = harness;
+        // The first goal reads the page the offer suggests; the second reads nothing.
+        harness.model.script(
+          { tool: 'BrowserOpen', args: { url: address } },
+          { text: `Yes. ${SHIPPING_TEXT}.` },
+        );
+        for (const pageTitle of ['Returns policy', 'Shipping policy'])
+          await capabilities.wiki.remember({
+            pageTitle,
+            claim: `${pageTitle} is on file.`,
+            source: { origin: 'owner' },
+          });
+        const suggest = async (item: string, why: string): Promise<string> => {
+          const answer = await capabilities.offers.proposer().propose({
+            definitionId: 'check-fact-on-page',
+            definitionRevision: 1,
+            source: {
+              kind: 'library',
+              sourceItemId: item,
+              observedAt: new Date(Date.now() - 60_000).toISOString().replace(/\.\d+Z$/u, 'Z'),
+            },
+            basis: 'The page is in your library.',
+            why,
+            suggestedInputs: { page: address, question: 'Is shipping free?' },
+          });
+          if (answer.status !== 'accepted') throw new Error(answer.reason);
+          return answer.offerId;
+        };
+        const FIRST = 'You asked whether shipping is free.';
+        const SECOND = 'The shipping page was updated.';
+        const first = await suggest('returns-policy', FIRST);
+        const second = await suggest('shipping-policy', SECOND);
+        const reaction = async (id: string) =>
+          (await capabilities.taskCatalog.getOffer(id))?.reactions;
+
+        const { page, close } = await open(harness);
+        try {
+          const menu = page.getByRole('navigation', { name: 'Menu' });
+          const main = page.getByRole('main');
+          const entries = main.getByRole('list', { name: 'Suggested tasks' }).getByRole('listitem');
+
+          // The Feed lists both as plain entries, with nothing to start, and nothing has started.
+          await menu.getByRole('button', { name: 'Feed' }).click();
+          await entries.first().waitFor();
+          expect(await entries.count()).toBe(2);
+          await entries
+            .filter({ hasText: FIRST })
+            .getByRole('heading', { name: 'Suggested task: Check a fact on a page I give you' })
+            .waitFor();
+          expect(await main.getByRole('button', { name: 'Start' }).count()).toBe(0);
+          expect(await capabilities.goals.list()).toHaveLength(0);
+
+          // The entry for the first one opens that card in Browse, open and prefilled; only it is told it was opened.
+          await entries
+            .filter({ hasText: FIRST })
+            .getByRole('button', { name: 'Open suggestion' })
+            .click();
+          await page.getByRole('heading', { name: 'Browse', level: 1 }).waitFor();
+          const suggested = main.getByRole('region', { name: 'Suggested for you' });
+          const cards = suggested.getByRole('article');
+          const asked = cards.filter({ hasText: FIRST });
+          await asked.getByRole('button', { name: 'Hide details' }).waitFor();
+          expect(await asked.getAttribute('aria-current')).toBe('true');
+          expect(await asked.getByLabel(/Page address/u).inputValue()).toBe(address);
+          expect(await asked.getByLabel(/What to check/u).inputValue()).toBe('Is shipping free?');
+          await expect.poll(async () => (await reaction(first))?.opened).toBeDefined();
+          expect((await reaction(second))?.opened).toBeUndefined();
+          expect(await capabilities.goals.list()).toHaveLength(0);
+
+          // The other one is dismissed: it moves to the closed Set aside list, and Reopen brings it back.
+          const other = cards.filter({ hasText: SECOND });
+          await other.getByRole('button', { name: 'Dismiss' }).click();
+          await other.waitFor({ state: 'detached' });
+          await suggested.getByRole('button', { name: 'Set aside (1)' }).click();
+          const setAside = suggested.getByRole('list', { name: 'Set aside' });
+          await setAside.getByText(SECOND).waitFor();
+          await setAside.getByText('Dismissed').waitFor();
+          expect((await capabilities.taskCatalog.getOffer(second))?.decision).toBe('dismissed');
+          await setAside.getByRole('button', { name: 'Reopen' }).click();
+          await other.waitFor();
+          expect(await suggested.getByRole('button', { name: /Set aside/u }).count()).toBe(0);
+          expect((await capabilities.taskCatalog.getOffer(second))?.decision).toBe('open');
+
+          // Start from the first card with a double click: one goal, checked, with the offer as its origin.
+          await asked.getByRole('button', { name: 'Start' }).dblclick();
+          await asked.getByLabel('Task status').waitFor();
+          await capabilities.runner()!.settled();
+          await asked.getByText('Completed (verified)').waitFor();
+          await asked
+            .getByRole('list', { name: 'Evidence' })
+            .getByText(`Opened ${address}`)
+            .waitFor();
+          expect(await asked.getByRole('button', { name: 'Start' }).count()).toBe(0);
+          expect(await capabilities.goals.list()).toHaveLength(1);
+          const [launched] = await capabilities.launches.list(10);
+          expect(launched!.origin).toEqual({ kind: 'offer', offerId: first });
+          expect(await capabilities.taskCatalog.getOffer(first)).toMatchObject({
+            decision: 'accepted',
+            launchId: launched!.id,
+          });
+          await expect.poll(async () => (await reaction(first))?.verified).toBeDefined();
+
+          // A started offer is no longer a suggestion in the Feed; the open one still is, and its entry opens its card.
+          await menu.getByRole('button', { name: 'Feed' }).click();
+          await expect.poll(() => entries.count()).toBe(1);
+          await entries.getByText(SECOND).waitFor();
+          await entries.getByRole('button', { name: 'Open suggestion' }).click();
+          await other.getByRole('button', { name: 'Hide details' }).waitFor();
+          expect(await other.getAttribute('aria-current')).toBe('true');
+          expect(await capabilities.goals.list()).toHaveLength(1);
+
+          // The second one starts from its card too; the run read nothing, so it is unverified, not completed.
+          await other.getByRole('button', { name: 'Start' }).click();
+          await capabilities.runner()!.settled();
+          await other.getByText('Unverified', { exact: true }).waitFor();
+          expect(await other.getByText('Completed (verified)').count()).toBe(0);
+          expect(await capabilities.goals.list()).toHaveLength(2);
+          await expect
+            .poll(async () => (await reaction(second))?.outcome?.state)
+            .toBe('unverified');
+          expect((await reaction(second))?.verified).toBeUndefined();
+        } finally {
+          await close();
+        }
+      } finally {
+        await site.close();
       }
     });
 

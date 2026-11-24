@@ -53,7 +53,16 @@ importable library.
   as plain text, the card reads the launch again while it is going and stops at its end, and it opens
   the goal and the Feed report. The Feed shows the report of a started task as plain text too, says where
   the task stands so an unchecked run does not look like a checked one, and opens the card back. An
-  offer's reason can come from a source, so it is shown as plain text, never as a link or markup.
+  offer is the agent's suggestion and starts nothing: Browse shows it with its reason, what it rests on,
+  where and when that was read and when it lapses, as plain text, never a link or markup, since a mail
+  or page may have shaped every word, beside the agent's word on whether its task is ready. Only an
+  offer whose task the agent calls ready has a Start, on its opened card, as a form that begins on the
+  values the offer suggests and that the person can change; what is on the form goes with the offer, and
+  the agent judges the offer again at the press and says why not when it refuses. Dismiss, Snooze and
+  Reopen carry the person's word and start nothing, a card tells the agent only that the person opened
+  it, and an offer that was started stays, with where its task stands. The Feed lists a few open offers
+  as plain entries that open the exact card; an entry never starts, decides or interrupts, and when the
+  offers cannot be read the Feed shows nothing for them.
 - **Secrets stay out of the page.** Settings name the environment variable that holds a provider key;
   the key itself is never sent to or shown by the page. The limits on what reaches the person beyond
   the feed, and the address they give to be notified at, are theirs: Settings saves the limits as typed,
