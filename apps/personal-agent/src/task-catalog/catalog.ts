@@ -14,6 +14,7 @@ import type {
   IReadiness,
   ITaskDefinition,
   ITaskDefinitionListing,
+  TOfferDecision,
 } from './types.js';
 
 /**
@@ -42,10 +43,13 @@ export interface ITaskCatalog {
   /** Open offers first, then the rest, each newest first; an offer whose task revision left reads as withdrawn. */
   listOffers(): Promise<IOfferListing>;
   /**
-   * Keep an offer for a definition revision the catalog holds. A key already kept updates that offer.
-   * The offer's text is stored and shown as given, and changes nothing about any definition.
+   * Keep an observed offer for a definition revision the catalog holds. It is stored open whatever
+   * decision it claims; a key already kept updates that offer's evidence only. The offer's text is
+   * stored and shown as given, and changes nothing about any definition.
    */
   submitOffer(input: unknown): Promise<IOffer>;
+  /** Record the person's decision about a kept offer; an observation cannot. */
+  setOfferDecision(id: string, decision: unknown): Promise<IOffer>;
 }
 
 export interface ITaskCatalogOptions {
@@ -113,5 +117,6 @@ export function createTaskCatalog(options: ITaskCatalogOptions): ITaskCatalog {
       );
       return store.putOffer(offer);
     },
+    setOfferDecision: (id, decision) => store.setOfferDecision(id, decision as TOfferDecision),
   };
 }

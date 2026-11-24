@@ -136,13 +136,9 @@ describe('the offers made to the person', () => {
       offer({ id: 'offer-old', dedupeKey: 'old', createdAt: '2026-11-18T09:00:00Z' }),
     );
     await catalog.submitOffer(
-      offer({
-        id: 'offer-gone',
-        dedupeKey: 'gone',
-        decision: 'dismissed',
-        createdAt: '2026-11-21T09:00:00Z',
-      }),
+      offer({ id: 'offer-gone', dedupeKey: 'gone', createdAt: '2026-11-21T09:00:00Z' }),
     );
+    await catalog.setOfferDecision('offer-gone', 'dismissed');
     await catalog.submitOffer(
       offer({
         id: 'offer-lapsed',
@@ -214,6 +210,30 @@ describe('the offers made to the person', () => {
     expect(offers[0]).toEqual(
       expect.objectContaining({ id: 'offer-a1', reason: 'A fourth unread message arrived.' }),
     );
+  });
+
+  it('start open whatever they claim, and no repeat undoes what the person decided', async () => {
+    const { catalog } = start();
+    expect((await catalog.submitOffer(offer({ decision: 'accepted' }))).decision).toBe('open');
+    await catalog.setOfferDecision('offer-a1', 'dismissed');
+    await catalog.submitOffer(offer({ reason: 'Again.', decision: 'open' }));
+    await catalog.submitOffer(offer({ id: 'offer-b2', reason: 'Once more.', decision: 'open' }));
+    expect((await catalog.listOffers()).offers).toEqual([
+      expect.objectContaining({ id: 'offer-a1', decision: 'dismissed', reason: 'Once more.' }),
+    ]);
+  });
+
+  it('take the person’s decision only for an offer that is kept, and only a decision', async () => {
+    const { catalog } = start();
+    await catalog.submitOffer(offer());
+    await expect(catalog.setOfferDecision('offer-zz', 'accepted')).rejects.toThrow(
+      TaskCatalogRefusedError,
+    );
+    await expect(catalog.setOfferDecision('offer-a1', 'started')).rejects.toThrow(
+      /decision must be one of/u,
+    );
+    expect((await catalog.setOfferDecision('offer-a1', 'accepted')).decision).toBe('accepted');
+    expect((await catalog.listOffers()).offers[0]!.decision).toBe('accepted');
   });
 
   it('carry a reason full of commands as plain text only, and change no definition', async () => {

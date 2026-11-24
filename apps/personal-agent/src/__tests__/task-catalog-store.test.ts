@@ -83,17 +83,13 @@ describe.each(adapters)('the %s task-catalog store', (_name, create) => {
     expect(await store.getOffer('offer-a1')).toEqual(offer());
   });
 
-  it('reads an open offer as expired once its time has passed, and leaves every other decision as recorded', async () => {
+  it('reads an open offer as expired once its time has passed, and leaves a recorded decision as it is', async () => {
     const store = create();
     await store.putOffer(offer({ expiresAt: '2026-11-20T11:00:00Z' }));
     await store.putOffer(
-      offer({
-        id: 'offer-b2',
-        dedupeKey: 'other',
-        decision: 'dismissed',
-        expiresAt: '2026-11-20T11:00:00Z',
-      }),
+      offer({ id: 'offer-b2', dedupeKey: 'other', expiresAt: '2026-11-20T11:00:00Z' }),
     );
+    await store.setOfferDecision('offer-b2', 'dismissed');
     const decisions = async () =>
       (await store.listOffers()).map((entry) => [entry.id, entry.decision]);
     expect(await decisions()).toEqual([
@@ -108,58 +104,146 @@ describe.each(adapters)('the %s task-catalog store', (_name, create) => {
     expect((await store.getOffer('offer-a1'))?.decision).toBe('expired');
   });
 
-  it('updates the offer that has a dedupe key instead of adding a copy, and cannot reopen what the person decided', async () => {
+  it.each(['accepted', 'dismissed', 'superseded', 'expired'] as const)(
+    'stores a new offer open although it claims %s',
+    async (claimed) => {
+      const store = create();
+      expect((await store.putOffer(offer({ decision: claimed }))).decision).toBe('open');
+      expect((await store.getOffer('offer-a1'))?.decision).toBe('open');
+      expect((await store.listOffers()).map((entry) => entry.decision)).toEqual(['open']);
+    },
+  );
+
+  it('updates the evidence of the offer that has a dedupe key instead of adding a copy', async () => {
     const store = create();
-    await store.putOffer(offer());
+    await store.putOffer(offer({ prefilled: { focus: 'rent' } }));
     const again = await store.putOffer(
       offer({
         id: 'offer-c3',
+        source: 'owner',
         reason: 'A fourth unread message arrived.',
         contextRefs: [{ kind: 'mail', id: 'msg-2' }],
         createdAt: '2026-11-21T09:00:00Z',
         expiresAt: '2026-11-28T09:00:00Z',
+        prefilled: { focus: 'deposit' },
       }),
     );
+    // Who the offer is, who made it and when stay as they were; what it rests on is the new evidence.
     expect(again).toEqual(
       offer({
         reason: 'A fourth unread message arrived.',
         contextRefs: [{ kind: 'mail', id: 'msg-2' }],
         expiresAt: '2026-11-28T09:00:00Z',
+        prefilled: { focus: 'deposit' },
       }),
     );
+    expect(again.source).toBe('agent');
     expect(await store.listOffers()).toEqual([again]);
     expect(await store.getOffer('offer-c3')).toBeUndefined();
-
-    await store.putOffer({ ...again, decision: 'dismissed' });
-    const repeat = await store.putOffer(
-      offer({ id: 'offer-d4', reason: 'It is still there.', expiresAt: '2026-12-31T09:00:00Z' }),
-    );
-    expect(repeat).toEqual(
-      expect.objectContaining({
-        id: 'offer-a1',
-        decision: 'dismissed',
-        reason: 'It is still there.',
-      }),
-    );
-    expect(await store.listOffers()).toHaveLength(1);
+    const without = await store.putOffer(offer({ id: 'offer-d4' }));
+    expect(without).not.toHaveProperty('prefilled');
   });
 
-  it('lets a repeat observation with a later expiry bring back an offer that had only lapsed', async () => {
+  it.each(['dismissed', 'accepted', 'superseded'] as const)(
+    'keeps a %s offer as it was when its key comes again, under a new id or under its own',
+    async (decided) => {
+      const store = create();
+      await store.putOffer(offer());
+      await store.setOfferDecision('offer-a1', decided);
+      for (const id of ['offer-d4', 'offer-a1']) {
+        const repeat = await store.putOffer(
+          offer({
+            id,
+            reason: `Seen again as ${id}.`,
+            createdAt: '2026-11-22T09:00:00Z',
+            expiresAt: '2026-12-31T09:00:00Z',
+            decision: 'open',
+          }),
+        );
+        expect(repeat).toEqual(
+          expect.objectContaining({
+            id: 'offer-a1',
+            decision: decided,
+            createdAt: '2026-11-20T09:00:00Z',
+            reason: `Seen again as ${id}.`,
+            expiresAt: '2026-12-31T09:00:00Z',
+          }),
+        );
+      }
+      expect((await store.listOffers()).map((entry) => [entry.id, entry.decision])).toEqual([
+        ['offer-a1', decided],
+      ]);
+    },
+  );
+
+  it('brings back a lapsed offer only when its key comes again with a later expiry', async () => {
     const store = create();
     await store.putOffer(offer({ expiresAt: '2026-11-20T11:00:00Z' }));
     clock.now = new Date('2026-11-20T12:00:00Z');
     expect((await store.getOffer('offer-a1'))?.decision).toBe('expired');
-    await store.putOffer(offer({ id: 'offer-e5', expiresAt: '2026-11-30T09:00:00Z' }));
+    // The same expiry, or an earlier one, is no new reason: the offer stays lapsed.
+    await store.putOffer(offer({ id: 'offer-e5', expiresAt: '2026-11-20T11:00:00Z' }));
+    await store.putOffer(offer({ id: 'offer-e6', expiresAt: '2026-11-20T10:30:00Z' }));
+    expect((await store.getOffer('offer-a1'))?.decision).toBe('expired');
+    await store.putOffer(offer({ id: 'offer-e7', expiresAt: '2026-11-30T09:00:00Z' }));
     expect((await store.getOffer('offer-a1'))?.decision).toBe('open');
   });
 
-  it('refuses a second id for a key when its own id is already kept for another offer', async () => {
+  it('returns an offer recorded as expired to open only with a later expiry', async () => {
+    const store = create();
+    await store.putOffer(offer());
+    await store.setOfferDecision('offer-a1', 'expired');
+    await store.putOffer(offer({ id: 'offer-e5', reason: 'Same expiry.' }));
+    expect(await store.getOffer('offer-a1')).toEqual(
+      expect.objectContaining({ decision: 'expired', reason: 'Same expiry.' }),
+    );
+    await store.putOffer(offer({ id: 'offer-e6', expiresAt: '2026-12-31T09:00:00Z' }));
+    expect((await store.getOffer('offer-a1'))?.decision).toBe('open');
+  });
+
+  it('records the person’s decision, and refuses an offer that is not kept and a decision that is not one', async () => {
+    const store = create();
+    await store.putOffer(offer());
+    const accepted = await store.setOfferDecision('offer-a1', 'accepted');
+    expect(accepted).toEqual(offer({ decision: 'accepted' }));
+    expect((await store.getOffer('offer-a1'))?.decision).toBe('accepted');
+    await expect(store.setOfferDecision('offer-zz', 'dismissed')).rejects.toThrow(
+      /No offer offer-zz/u,
+    );
+    for (const decision of ['started', 'OPEN', '', undefined, 3]) {
+      await expect(store.setOfferDecision('offer-a1', decision as never)).rejects.toThrow(
+        /decision must be one of open, dismissed, accepted, expired, superseded/u,
+      );
+    }
+    expect((await store.getOffer('offer-a1'))?.decision).toBe('accepted');
+    expect(await store.listOffers()).toHaveLength(1);
+  });
+
+  it('refuses a repeat that names another task or would expire before the offer began', async () => {
+    const store = create();
+    await store.putOffer(offer());
+    await expect(
+      store.putOffer(offer({ id: 'offer-b2', definitionId: 'prepare-my-week' })),
+    ).rejects.toThrow(/cannot change which task an offer is for/u);
+    await expect(
+      store.putOffer(
+        offer({
+          id: 'offer-b2',
+          createdAt: '2026-11-10T09:00:00Z',
+          expiresAt: '2026-11-15T09:00:00Z',
+        }),
+      ),
+    ).rejects.toThrow(/after the offer was first made/u);
+    expect(await store.listOffers()).toEqual([offer()]);
+  });
+
+  it('refuses a new key under an id another offer already has', async () => {
     const store = create();
     await store.putOffer(offer());
     await store.putOffer(offer({ id: 'offer-b2', dedupeKey: 'other' }));
-    await expect(
-      store.putOffer(offer({ id: 'offer-b2', dedupeKey: offer().dedupeKey })),
-    ).rejects.toThrow(/already has this dedupe key/u);
+    await expect(store.putOffer(offer({ id: 'offer-b2', dedupeKey: 'third' }))).rejects.toThrow(
+      /Another offer already has this id/u,
+    );
     expect(await store.listOffers()).toHaveLength(2);
   });
 
@@ -201,12 +285,15 @@ describe('the one-offer-per-key rule', () => {
     expect(() => putOfferInto(offers, offer({ id: 'offer-over', dedupeKey: 'key-over' }))).toThrow(
       /At most 500 offers/u,
     );
-    // A repeat of a kept key and a change to a kept id still go through when the limit is reached.
+    // A repeat of a kept key still goes through when the limit is reached: it adds nothing.
     expect(putOfferInto(offers, offer({ id: 'offer-x', dedupeKey: 'key-3' })).offers).toHaveLength(
       MAX_OFFERS,
     );
     expect(putOfferInto(offers, offer({ id: 'offer-n7', dedupeKey: 'key-7' })).offers).toHaveLength(
       MAX_OFFERS,
+    );
+    expect(() => putOfferInto(offers, offer({ id: 'offer-n7', dedupeKey: 'key-new' }))).toThrow(
+      /already has this id/u,
     );
   });
 });
@@ -219,7 +306,8 @@ describe('the file task-catalog store', () => {
     const root = stateDirectory();
     const first = open(root);
     await first.putOffer(offer());
-    await first.putOffer(offer({ id: 'offer-b2', dedupeKey: 'other', decision: 'accepted' }));
+    await first.putOffer(offer({ id: 'offer-b2', dedupeKey: 'other' }));
+    await first.setOfferDecision('offer-b2', 'accepted');
     await first.putDefinition(owned);
     const second = open(root);
     expect((await second.listOffers()).map((entry) => [entry.id, entry.decision])).toEqual([

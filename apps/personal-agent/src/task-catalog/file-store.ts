@@ -19,7 +19,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import { putDefinitionInto, putOfferInto, readOffer } from './records.js';
+import { putDefinitionInto, putOfferInto, readOffer, setDecisionIn } from './records.js';
 import { parseDefinition } from './validate-definition.js';
 import { parseOffer } from './validate-offer.js';
 
@@ -114,6 +114,12 @@ export function createFileTaskCatalogStore(options: {
     putOffer: async (offer) => {
       const current = readOffers();
       const put = putOfferInto(current.records, parseOffer(offer));
+      save(offersPath, 'offers', current, put.offers);
+      return readOffer(put.stored, now());
+    },
+    setOfferDecision: async (id, decision) => {
+      const current = readOffers();
+      const put = setDecisionIn(current.records, id, decision);
       save(offersPath, 'offers', current, put.offers);
       return readOffer(put.stored, now());
     },

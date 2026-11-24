@@ -67,6 +67,7 @@ export interface IOffer {
   readonly contextRefs: readonly IOfferContextRef[];
   readonly createdAt: string;
   readonly expiresAt: string;
+  /** The person's decision; an observation never sets it, so a new offer is always stored open. */
   readonly decision: TOfferDecision;
   /** One offer per key: a repeat observation updates the offer that has it. */
   readonly dedupeKey: string;

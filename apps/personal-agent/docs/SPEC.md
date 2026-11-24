@@ -28,6 +28,7 @@ on — in the person's own state directory.
 
 ## Design decisions
 
-- A repeat observation updates the offer that has its key instead of adding a card, and cannot reopen
-  what the person decided, so a source that keeps noticing the same thing neither fills the page nor
-  nags.
+- A repeat observation updates the evidence of the offer that has its key instead of adding a card, and
+  an observation never chooses an offer's decision: a new offer starts open and only the person's own
+  choice changes it, so a source that keeps noticing the same thing neither fills the page nor reopens
+  what was dismissed.
