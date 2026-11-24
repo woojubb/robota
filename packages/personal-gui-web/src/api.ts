@@ -159,6 +159,8 @@ export interface IFeedItemView {
   readonly title: string;
   readonly body: string;
   readonly goalId?: string;
+  /** Present on an item of a goal a started task made: the launch it belongs to. */
+  readonly launchId?: string;
   readonly approval?: {
     readonly tool: string;
     readonly detail: string;
@@ -312,6 +314,38 @@ export interface ITaskLaunchView {
   readonly goalId?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+/**
+ * Where a launch stands: starting, running or waiting for the person while its goal is active, and then
+ * how the agent decided it ended from what it recorded. Only `verified` says the work was checked;
+ * `unverified` says the run ended and nothing recorded confirms it.
+ */
+export type TTaskProgress =
+  'starting' | 'running' | 'waiting' | 'verified' | 'unverified' | 'failed' | 'cancelled';
+
+/** What the agent's own browser returned to the run: where it was asked to go, where it ended up, and a short excerpt. */
+export interface ITaskEvidenceView {
+  readonly kind: 'page-read';
+  readonly tool: 'open' | 'view';
+  readonly requested?: string;
+  readonly address: string;
+  readonly chars: number;
+  readonly digest: string;
+  /** Plain text from the page: shown as the text it is. */
+  readonly excerpt?: string;
+  readonly at: string;
+}
+
+/** A launch with where it stands, as the agent reads it back. Every text in it is plain text. */
+export interface ITaskLaunchStatusView extends ITaskLaunchView {
+  readonly progress: TTaskProgress;
+  /** The agent's own words for why it stands there. */
+  readonly reason: string;
+  /** The run's report: the model's own account, never proof. */
+  readonly report?: string;
+  readonly evidence: readonly ITaskEvidenceView[];
+  readonly decidedAt?: string;
 }
 
 /** What starting a task answers: the launch, and the goal made for it. */
@@ -566,6 +600,10 @@ export interface IPersonalApi {
     definitionId: string,
     request: { readonly idempotencyKey: string; readonly inputs: TTaskStartValues },
   ): Promise<ITaskStartAnswer>;
+  /** The launches the person made, newest first, each with where it stands. */
+  taskLaunches(): Promise<readonly ITaskLaunchStatusView[]>;
+  /** One launch with where it stands now. */
+  taskLaunch(launchId: string): Promise<ITaskLaunchStatusView>;
   browser(): Promise<IBrowserWatchView>;
   browserScreenshot(): Promise<IBrowserScreenshotView | null>;
   stopBrowser(): Promise<unknown>;
@@ -759,6 +797,11 @@ export function createPersonalApi(
     taskOffers: () => call('GET', 'tasks/offers'),
     startTask: (definitionId, request) =>
       call('POST', `tasks/definitions/${id(definitionId)}/start`, request),
+    taskLaunches: async () =>
+      (await call<{ launches: ITaskLaunchStatusView[] }>('GET', 'tasks/launches')).launches,
+    taskLaunch: async (launchId) =>
+      (await call<{ launch: ITaskLaunchStatusView }>('GET', `tasks/launches/${id(launchId)}`))
+        .launch,
     browser: () => call('GET', 'browser'),
     browserScreenshot: async () =>
       (await call<{ screenshot: IBrowserScreenshotView | null }>('GET', 'browser/screenshot'))

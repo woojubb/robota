@@ -199,10 +199,20 @@ function Shell({
   };
   const [openPage, setOpenPage] = useState<string | undefined>(undefined);
   const [openGoal, setOpenGoal] = useState<string | undefined>(undefined);
+  // The launch whose card in Browse and report in the Feed point at each other.
+  const [focusLaunch, setFocusLaunch] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState<{ readonly text: string; readonly at: number }>();
   const showGoal = (goalId: string): void => {
     setOpenGoal(goalId);
     show('goals');
+  };
+  const showReport = (launchId: string): void => {
+    setFocusLaunch(launchId);
+    show('feed');
+  };
+  const showTask = (launchId: string): void => {
+    setFocusLaunch(launchId);
+    show('browse');
   };
   const showPage = (pageId: string): void => {
     setOpenPage(pageId);
@@ -311,9 +321,24 @@ function Shell({
             />
           )}
         </div>
-        {view === 'feed' && <FeedView api={api} onOpenGoal={showGoal} onItems={countWaiting} />}
+        {view === 'feed' && (
+          <FeedView
+            api={api}
+            onOpenGoal={showGoal}
+            onOpenTask={showTask}
+            {...(focusLaunch !== undefined && { focusLaunch })}
+            onItems={countWaiting}
+          />
+        )}
         {view === 'connectors' && <ConnectorsView api={api} />}
-        {view === 'browse' && <BrowseView api={api} onOpenGoal={showGoal} />}
+        {view === 'browse' && (
+          <BrowseView
+            api={api}
+            onOpenGoal={showGoal}
+            onOpenFeed={showReport}
+            {...(focusLaunch !== undefined && { focusLaunch })}
+          />
+        )}
         {view === 'ideas' && <IdeasView api={api} onOpenGoal={showGoal} />}
         {view === 'goals' && <GoalsView api={api} openGoal={openGoal} onOpenGoal={setOpenGoal} />}
         {view === 'library' && (

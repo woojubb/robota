@@ -12,14 +12,27 @@ import { LAUNCH_RECIPES } from '../task-catalog/launch/recipes.js';
 import { createMemoryLaunchStore } from '../task-catalog/launch/store.js';
 import { createMemoryTaskCatalogStore } from '../task-catalog/store.js';
 
-import type { ICreateGoalInput, IGoal, IGoalStore } from '@robota-sdk/agent-product/personal';
+import type {
+  IBrowserPort,
+  IBrowserView,
+  ICreateGoalInput,
+  IGoal,
+  IGoalRun,
+  IGoalStore,
+  TGoalRunOutcome,
+} from '@robota-sdk/agent-product/personal';
 import type { Mock } from 'vitest';
 import type { ITaskCatalog } from '../task-catalog/catalog.js';
 import type { IReadinessContext } from '../task-catalog/readiness.js';
 import type { ILaunchCoordinator } from '../task-catalog/launch/coordinator.js';
+import type { IEvidenceRule } from '../task-catalog/launch/evidence-rules.js';
 import type { ILaunchRecipe } from '../task-catalog/launch/recipes.js';
 import type { ILaunchStore } from '../task-catalog/launch/store.js';
-import type { ILaunchIntent } from '../task-catalog/launch/types.js';
+import type {
+  IEvidenceReceipt,
+  ILaunchIntent,
+  ILaunchOutcome,
+} from '../task-catalog/launch/types.js';
 import type { ITaskDefinition } from '../task-catalog/types.js';
 
 export const PAGE = 'https://example.com/pricing';
@@ -90,6 +103,9 @@ export interface IWorldOptions {
   readonly browser?: { current: TBrowser };
   readonly builtIn?: readonly ITaskDefinition[];
   readonly recipes?: readonly ILaunchRecipe[];
+  readonly rules?: readonly IEvidenceRule[];
+  /** The browser the coordinator wraps for a launched run; none means no run records anything. */
+  readonly browserPort?: IBrowserPort;
   readonly pageHosts?: readonly string[];
   readonly clock?: { now: Date };
   readonly resumeWithinMs?: number;
@@ -154,8 +170,11 @@ export function startWorld(options: IWorldOptions = {}): IWorld {
         options.refuseRemove === true
           ? Promise.reject(new Error('the goal is running'))
           : goals.remove(id),
+      runs: (goalId, limit) => goals.runs(goalId, limit),
     },
     recipes: options.recipes ?? LAUNCH_RECIPES,
+    ...(options.rules !== undefined && { rules: options.rules }),
+    ...(options.browserPort !== undefined && { browser: options.browserPort }),
     ...(options.pageHosts !== undefined && { pageHosts: options.pageHosts }),
     now: () => clock.now,
     onGoalReady,
@@ -175,3 +194,97 @@ export function startWorld(options: IWorldOptions = {}): IWorld {
 }
 
 export type TWorld = IWorld;
+
+/** A run's stand-in for the run the goal runner would have made: only its id matters to the host. */
+export const runOf = (goal: IGoal, id = 'run-1'): IGoalRun => ({
+  id,
+  goalId: goal.id,
+  startedAt: '2026-11-24T10:00:01.000Z',
+  actions: [],
+});
+
+/**
+ * What the host's browser recorded for a page read, as the host makes it; `requested` is left out
+ * unless the test gives one, as it is for a read of the current page.
+ */
+export const receipt = (change: Partial<IEvidenceReceipt> = {}): IEvidenceReceipt => ({
+  kind: 'page-read',
+  tool: 'open',
+  requested: PAGE,
+  address: PAGE,
+  chars: 120,
+  digest: 'c'.repeat(64),
+  excerpt: 'Free shipping on orders over 20 dollars',
+  at: '2026-11-24T10:00:05.000Z',
+  ...change,
+});
+
+/** An outcome as the host decides one, for a store test that keeps it. */
+export const outcomeOf = (change: Partial<ILaunchOutcome> = {}): ILaunchOutcome => ({
+  state: 'verified',
+  reason: 'Your agent’s own browser read the page you named during this run.',
+  evidence: [receipt()],
+  decidedAt: '2026-11-24T10:00:10.000Z',
+  runId: 'run-1',
+  report: 'Yes. Free shipping on orders over 20 dollars.',
+  ...change,
+});
+
+/**
+ * One whole run of a launched goal as a host sees it: the run starts, the host's browser records the
+ * given reads for it, and the run ends as told, so the goal is over and its launch can be decided.
+ */
+export async function runLaunchedGoal(
+  world: IWorld,
+  goalId: string,
+  ending: {
+    readonly outcome: TGoalRunOutcome;
+    readonly report: string;
+    readonly reads?: readonly IEvidenceReceipt[];
+  },
+): Promise<IGoalRun> {
+  const goal = (await world.goals.get(goalId))!;
+  const run = await world.goals.startRun(goalId);
+  for (const read of ending.reads ?? [])
+    await world.store.recordReceipt(goal.launch!.id, goalId, run.id, read);
+  return world.goals.finishRun(run, ending.outcome, ending.report);
+}
+
+/**
+ * A browser that serves the pages the test gives it and counts what it was asked, for a run to read
+ * through; an address it has no page for is refused as the agent's own browser refuses one.
+ */
+export function stubBrowser(pages: Readonly<Record<string, IBrowserView>>) {
+  let current: IBrowserView | undefined;
+  const calls: string[] = [];
+  const port: IBrowserPort = {
+    open: async (url) => {
+      calls.push(`open ${url}`);
+      const found = pages[url];
+      if (found === undefined) throw new Error('refused');
+      current = found;
+      return found;
+    },
+    view: async () => {
+      calls.push('view');
+      if (current === undefined) throw new Error('nothing is open');
+      return current;
+    },
+    click: async (mark) => {
+      calls.push(`click ${mark}`);
+      return { view: current! };
+    },
+    type: async (mark) => {
+      calls.push(`type ${mark}`);
+      return { view: current! };
+    },
+    submitHeld: async (id) => {
+      calls.push(`submit ${id}`);
+      return { view: current! };
+    },
+    close: async () => {
+      calls.push('close');
+    },
+  };
+  return { port, calls };
+}

@@ -72,6 +72,12 @@ export interface IExtraSessionOptions {
    * beyond those is caught by the test that names what each such session is offered.
    */
   readonly onlyTools?: readonly string[];
+  /**
+   * Replace tools of this session by tools of the same name made for this session alone, such as the
+   * browser's reading tools made to record what they return. Each must be one of the agent's tools,
+   * offered through `onlyTools`.
+   */
+  readonly scopedTools?: readonly IToolWithEventService[];
   /** Replace the existing connector action for this session with a case-scoped implementation. */
   readonly caseAction?: IToolWithEventService;
   /** Replace case mutations with implementations scoped to this answer. */
@@ -150,6 +156,23 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
           (tool) => !names.includes(tool.getName() as (typeof names)[number]),
         ),
         ...extra.caseTools,
+      ];
+    }
+    if (extra.scopedTools !== undefined) {
+      const names = extra.scopedTools.map((tool) => tool.getName());
+      if (
+        new Set(names).size !== names.length ||
+        names.some(
+          (name) =>
+            extra.onlyTools?.includes(name) !== true ||
+            extra.deniedTools?.includes(name) === true ||
+            (additionalTools ?? []).filter((tool) => tool.getName() === name).length !== 1,
+        )
+      )
+        throw new Error('A scoped tool must replace exactly one tool the session is offered');
+      additionalTools = [
+        ...(additionalTools ?? []).filter((tool) => !names.includes(tool.getName())),
+        ...extra.scopedTools,
       ];
     }
     return runtime.createSession({

@@ -46,8 +46,12 @@ importable library.
   its reason. Only a task the agent says is ready has a Start, with a form for the values it asks for;
   the agent judges the task again when Start is pressed, and the page shows its answer in the agent's
   own words. One request goes with one key, kept while nothing changed and no answer came back, so a
-  double click or a retry is one request, and a launch that was made opens its goal. An offer's
-  reason can come from a source, so it is shown as plain text, never as a link or markup.
+  double click or a retry is one request. A task that was started shows where it stands as the agent
+  reports it: completed only for a result the agent checked, and unverified, with its report called
+  unchecked and no word of success, for a run that ended without proof. The report and what the agent's
+  browser read are shown as plain text, the card reads the launch again while it is going and stops at
+  its end, and it opens the goal and the Feed report, which opens the card back. An offer's reason can
+  come from a source, so it is shown as plain text, never as a link or markup.
 - **Secrets stay out of the page.** Settings name the environment variable that holds a provider key;
   the key itself is never sent to or shown by the page. The limits on what reaches the person beyond
   the feed, and the address they give to be notified at, are theirs: Settings saves the limits as typed,

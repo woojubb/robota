@@ -1,5 +1,5 @@
 import { MarkdownText } from '@robota-sdk/agent-ui-web/client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { CaseThread } from './CaseThread.js';
 import { CaseList } from './CaseList.js';
@@ -25,10 +25,16 @@ const STATE_LABEL = {
 export function FeedView({
   api,
   onOpenGoal,
+  onOpenTask,
+  focusLaunch,
   onItems,
 }: {
   readonly api: IPersonalApi;
   readonly onOpenGoal: (goalId: string) => void;
+  /** Opens Browse to the card of a task the person started. */
+  readonly onOpenTask?: (launchId: string) => void;
+  /** The launch whose report the person is sent to from its card in Browse. */
+  readonly focusLaunch?: string;
   /** Told whenever the feed is read, so the page can show how many questions wait without asking again. */
   readonly onItems?: (items: readonly IFeedItemView[]) => void;
 }): React.ReactElement {
@@ -36,6 +42,7 @@ export function FeedView({
   const [error, setError] = useState<string | undefined>(undefined);
   const [thread, setThread] = useState<string | undefined>(undefined);
   const [showCases, setShowCases] = useState(false);
+  const focused = useRef<HTMLLIElement>(null);
   const reload = useCallback(async () => {
     try {
       const read = await api.feed();
@@ -51,6 +58,13 @@ export function FeedView({
     const timer = setInterval(() => void reload(), REFRESH_MS);
     return () => clearInterval(timer);
   }, [reload]);
+  const focusedItem =
+    focusLaunch === undefined
+      ? undefined
+      : items?.find((item) => item.launchId === focusLaunch && item.kind === 'report')?.id;
+  useEffect(() => {
+    if (focusedItem !== undefined) focused.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [focusedItem]);
   const act = async (id: string, action: 'approve' | 'deny' | 'dismiss'): Promise<void> => {
     try {
       await api.answerFeed(id, action);
@@ -104,10 +118,15 @@ export function FeedView({
             );
           }
           const pending = item.approval?.state === 'pending';
+          const sent = item.id === focusedItem;
           return (
             <li
               key={item.id}
-              className={`rounded-lg border p-3 ${pending ? 'border-warning' : 'border-border'}`}
+              ref={sent ? focused : undefined}
+              aria-current={sent ? 'true' : undefined}
+              className={`rounded-lg border p-3 ${
+                pending ? 'border-warning' : sent ? 'border-primary' : 'border-border'
+              }`}
             >
               <div className="flex items-baseline gap-2">
                 <span className="text-[12px] font-medium uppercase tracking-wide text-subtle">
@@ -128,6 +147,12 @@ export function FeedView({
               {item.approval !== undefined && (
                 <p className="mt-2 break-all rounded-md bg-muted px-2 py-1.5 font-mono text-[12.5px]">
                   {item.approval.detail}
+                </p>
+              )}
+              {item.launchId !== undefined && onOpenTask !== undefined && (
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
+                  From a task you started in Browse.
+                  <Button onClick={() => onOpenTask(item.launchId!)}>Open task</Button>
                 </p>
               )}
               <div className="mt-2 flex items-center gap-2">

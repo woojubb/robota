@@ -10,7 +10,8 @@ on — in the person's own state directory.
 ## Contract
 
 - **Definitions and offers are separate records.** A task definition is the product's reusable,
-  versioned promise of work: what it needs, the most it may do and how success is checked. An offer is a
+  versioned promise of work: what it needs, the most it may do and how success is checked, by a rule the
+  host implements for that revision, so the definition's own words decide nothing. An offer is a
   reason one definition is relevant to this person now. An offer can lapse, be dismissed or be superseded
   without the definition changing, and a published revision never changes.
 - **Nothing is called ready until the host has verified what it needs, every time it is shown.** The host
@@ -25,6 +26,12 @@ on — in the person's own state directory.
   request that no longer rests on the task, access and values it was made from is ended, never started
   later. The goal can use only the tools its bound capabilities allow, and nothing the person typed or a
   page says adds one.
+- **Completed means the host proved it.** When a started task's goal has ended, the host decides once how
+  it ended: failed, cancelled, verified or unverified. Verified needs the revision's rule satisfied by
+  receipts the host's own browser recorded during that run; a model's report, a page's text and anything
+  typed are never evidence, and a run that ended without that proof is reported unverified, never as
+  completed. The decision is made by whichever comes first of the run's end, a read of the launch and the
+  host's start, and nothing changes it afterwards.
 - **Source text stays data.** An offer's reason, suggestions and references are bounded values the person
   reads. Nothing turns them into a definition's instructions, a capability or a decision.
 - **The catalog is the owner's and local.** Built-in definitions ship with the product; offers and
@@ -42,6 +49,10 @@ on — in the person's own state directory.
   request only once the first has ended.
 - The goal's wording is the host's own, written for one reviewed revision of a task, and what the person
   typed is one JSON object of data inside it, so a value cannot close its own quotation or add a tool.
+- A started run reads pages through a browser made for that run alone, which records each page it returns
+  before the model sees it. A record kept around the shared browser could not tell one run's reads from
+  another's, and the model's own account of its work could not be told from proof at all. The report that
+  was judged is kept with the outcome, so a rerun or a removed goal cannot change what the person was told.
 - A repeat observation updates the evidence of the offer that has its key instead of adding a card, and
   an observation never chooses an offer's decision: a new offer starts open and only the person's own
   choice changes it, so a source that keeps noticing the same thing neither fills the page nor reopens

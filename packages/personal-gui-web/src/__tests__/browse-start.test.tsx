@@ -7,7 +7,12 @@ import { ApiError } from '../api.js';
 import { BrowseView } from '../views/Browse.js';
 import { newStartKey } from '../views/TaskStart.js';
 
-import type { IPersonalApi, ITaskDefinitionView, ITaskStartAnswer } from '../api.js';
+import type {
+  IPersonalApi,
+  ITaskDefinitionView,
+  ITaskLaunchStatusView,
+  ITaskStartAnswer,
+} from '../api.js';
 
 afterEach(cleanup);
 
@@ -56,6 +61,14 @@ const ANSWER: ITaskStartAnswer = {
   goalId: 'goal-1',
 };
 
+/** What the agent says of the launch right after it was started. */
+const STARTING: ITaskLaunchStatusView = {
+  ...ANSWER.launch,
+  progress: 'starting',
+  reason: 'Your agent is getting this task going.',
+  evidence: [],
+};
+
 type TStart = IPersonalApi['startTask'];
 
 function setup(
@@ -70,6 +83,8 @@ function setup(
   const api = {
     taskDefinitions,
     taskOffers: async () => ({ offers: [], issues: [] }),
+    taskLaunches: async () => [],
+    taskLaunch: async () => STARTING,
     startTask,
   } as unknown as IPersonalApi;
   const keys: string[] = [];
@@ -207,7 +222,7 @@ describe('Start on a Browse card', () => {
     });
   });
 
-  it('disables Start while the request is in flight, sends it once for a double click or a double submit, and then says Started', async () => {
+  it('disables Start while the request is in flight, sends it once for a double click or a double submit, and then shows where the launch stands', async () => {
     let finish: (answer: ITaskStartAnswer) => void = () => undefined;
     const { startTask } = setup({
       start: () => new Promise((resolve) => (finish = resolve)),
@@ -222,7 +237,7 @@ describe('Start on a Browse card', () => {
     expect(scope.getByRole('status').textContent).toBe('Starting…');
     expect(startTask).toHaveBeenCalledTimes(1);
     finish(ANSWER);
-    await scope.findByText('Started. Your agent will report in the Feed.');
+    expect((await scope.findByLabelText('Task status')).textContent).toContain('Starting');
     expect(button.disabled).toBe(false);
     expect(startTask).toHaveBeenCalledTimes(1);
   });
@@ -240,14 +255,14 @@ describe('Start on a Browse card', () => {
     expect(question.value).toBe('Is it free?');
     expect(scope.getByRole('status').textContent).toBe('Starting…');
     finish(ANSWER);
-    await scope.findByText('Started. Your agent will report in the Feed.');
+    await scope.findByLabelText('Task status');
     expect(question.disabled).toBe(false);
     expect(question.value).toBe('Is it free?');
     expect(startTask).toHaveBeenCalledTimes(1);
     expect(startTask.mock.calls[0]![1].inputs).toEqual({ page: PAGE, question: 'Is it free?' });
-    // Once it has answered, an edit is another request and takes the Started note away.
+    // Once it has answered, an edit is another request; the launch that was made stays shown as it is.
     fireEvent.change(question, { target: { value: 'Is it open?' } });
-    expect(scope.queryByText(/^Started\./u)).toBeNull();
+    expect(scope.getByLabelText('Task status')).toBeTruthy();
   });
 
   it('opens the goal that was made when the person asks, and shows no link before there is one', async () => {
@@ -275,7 +290,7 @@ describe('Start on a Browse card', () => {
       'Your agent could not be reached. Press Start to try again.',
     );
     fireEvent.click(scope.getByRole('button', { name: 'Start' }));
-    await scope.findByText(/^Started\./u);
+    await scope.findByLabelText('Task status');
     expect(startTask.mock.calls.map(([, request]) => request.idempotencyKey)).toEqual([
       'start-key-1',
       'start-key-1',
@@ -304,7 +319,7 @@ describe('Start on a Browse card', () => {
       fireEvent.click(scope.getByRole('button', { name: 'Start' }));
       expect((await scope.findByRole('alert')).textContent).toBe(message);
       fireEvent.click(scope.getByRole('button', { name: 'Start' }));
-      await scope.findByText(/^Started\./u);
+      await scope.findByLabelText('Task status');
       expect(startTask.mock.calls.map(([, request]) => request.idempotencyKey)).toEqual([
         'start-key-1',
         'start-key-2',
@@ -329,14 +344,13 @@ describe('Start on a Browse card', () => {
     const { startTask } = setup();
     const scope = await fill(undefined, { 'Page address': PAGE, 'What to check': 'Is it free?' });
     fireEvent.click(scope.getByRole('button', { name: 'Start' }));
-    await scope.findByText(/^Started\./u);
+    await scope.findByLabelText('Task status');
     // Pressed again with nothing changed: the person saw it start, so this asks again.
     fireEvent.click(scope.getByRole('button', { name: 'Start' }));
     await waitFor(() => expect(startTask).toHaveBeenCalledTimes(2));
-    await scope.findByText(/^Started\./u);
-    // A changed value is another request, and takes the Started note away.
+    await scope.findByLabelText('Task status');
+    // A changed value is another request, and the next Start is made as one.
     fireEvent.change(scope.getByLabelText(/What to check/u), { target: { value: 'Is it open?' } });
-    expect(scope.queryByText(/^Started\./u)).toBeNull();
     fireEvent.click(scope.getByRole('button', { name: 'Start' }));
     await waitFor(() => expect(startTask).toHaveBeenCalledTimes(3));
     expect(startTask.mock.calls.map(([, request]) => request.idempotencyKey)).toEqual([
@@ -376,6 +390,7 @@ describe('Start on a Browse card', () => {
           {
             taskDefinitions: async () => [pageCheck()],
             taskOffers: async () => ({ offers: [], issues: [] }),
+            taskLaunches: async () => [],
             startTask: async () => {
               throw new ApiError(400, hostile);
             },
