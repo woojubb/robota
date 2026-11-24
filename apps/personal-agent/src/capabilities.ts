@@ -75,8 +75,10 @@ import { createPushSubscriptions } from './push/subscriptions.js';
 import { createVapid } from './push/vapid.js';
 import { createSideChatBook } from './side-chats.js';
 import { createTaskCatalogApi } from './task-catalog/api.js';
+import { VERIFIED_CONNECTOR_BINDINGS } from './task-catalog/binding-providers.js';
 import { createTaskCatalog } from './task-catalog/catalog.js';
 import { createFileTaskCatalogStore } from './task-catalog/file-store.js';
+import { createReadinessContextSource } from './task-catalog/readiness-context.js';
 import { createPersonalApi } from './personal-api.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
@@ -87,6 +89,7 @@ import type { IChannelTurns } from './channel-turns.js';
 import type { IPersonalAgent } from './agent.js';
 import type { IGoalRunner } from './goal-runner.js';
 import type { TPersonalApi } from './personal-api.js';
+import type { IVerifiedConnectorBindingSpec } from './task-catalog/binding-providers.js';
 import type { ITaskCatalog } from './task-catalog/catalog.js';
 
 export interface IPersonalCapabilities {
@@ -153,6 +156,13 @@ export interface IPersonalCapabilityOptions {
   readonly connectorAllowedHosts?: readonly string[];
   /** The `https` address of this agent's client metadata document, for services that take one instead of a registration. */
   readonly connectorClientMetadataUrl?: string;
+  /** Whether the agent's own browser can run on this machine; found by looking for a Chromium when absent. */
+  readonly browserAvailable?: () => boolean;
+  /**
+   * The connector tools the host has verified, which task readiness joins to the person's connectors.
+   * The product's own reviewed table when absent; only host code passes another.
+   */
+  readonly connectorBindingSpecs?: readonly IVerifiedConnectorBindingSpec[];
   /** Where the add form looks for services to suggest: the public registry when absent, none with `null`. */
   readonly connectorRegistryUrl?: string | null;
   /** Owner or test carrier and resolver for the connectors' requests; each is still judged against the egress policy first. */
@@ -217,9 +227,6 @@ export function createPersonalCapabilities(
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
   const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
   const layout = createLayoutBook(join(options.stateDir, 'layout'));
-  const taskCatalog = createTaskCatalog({
-    store: createFileTaskCatalogStore({ directory: join(options.stateDir, 'task-catalog') }),
-  });
   const caseActions = createCaseActionScope(join(options.stateDir, 'case-action-scope'));
   let caseBindings: ICaseConnectorBindings | undefined;
   const connectorStore = createFileConnectorStore(join(options.stateDir, 'connectors'));
@@ -256,6 +263,18 @@ export function createPersonalCapabilities(
         }),
       }),
     ],
+  });
+  const browserAvailable =
+    options.browserAvailable ?? (() => findChromiumExecutable(options.environment) !== undefined);
+  // What each task can run on is worked out again whenever the list is shown, from the agent's browser
+  // and the person's connectors as they are then.
+  const taskCatalog = createTaskCatalog({
+    store: createFileTaskCatalogStore({ directory: join(options.stateDir, 'task-catalog') }),
+    readiness: createReadinessContextSource({
+      browserAvailable,
+      connectorBindingSpecs: options.connectorBindingSpecs ?? VERIFIED_CONNECTOR_BINDINGS,
+      connectorViews: () => connectors.list(),
+    }),
   });
   let runner: IGoalRunner | undefined;
   // A goal cannot be removed while it runs: turning a sync off first ends the run in progress.
@@ -632,7 +651,7 @@ export function createPersonalCapabilities(
         runner: () => runner,
         stateDir: options.stateDir,
         environment: options.environment,
-        browserAvailable: () => findChromiumExecutable(options.environment) !== undefined,
+        browserAvailable,
         connectors: createConnectorsApi({
           registry: connectors,
           book: connectorBook,

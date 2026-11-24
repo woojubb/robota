@@ -3,10 +3,12 @@
  * offer is a reason one definition is relevant to this person now. They stay separate so a source can
  * come and go, and an offer can be dismissed or expire, without the definition changing.
  */
+import type { TConnectorKind } from '@robota-sdk/agent-product/personal';
 
 export const INPUT_KINDS = ['text', 'choice', 'number'] as const;
 export type TInputKind = (typeof INPUT_KINDS)[number];
 
+/** What work may do, from the least to the most: the position in this list is the only ordering of effects. */
 export const EFFECT_CEILINGS = ['read-only', 'draft', 'approval-required-write'] as const;
 export type TEffectCeiling = (typeof EFFECT_CEILINGS)[number];
 
@@ -75,14 +77,35 @@ export interface IOffer {
   readonly prefilled?: Readonly<Record<string, string>>;
 }
 
-/** What the host can run now. Only `unavailable` exists until the host verifies a capability binding. */
-export interface IReadiness {
-  readonly state: 'unavailable';
-  readonly reason: string;
-}
+/** One thing the person does to move a task from needing setup to ready, named exactly. */
+export type TSetupStep =
+  | { readonly type: 'connect'; readonly kind: TConnectorKind }
+  | {
+      readonly type: 'choose-account';
+      readonly accounts: readonly { readonly id: string; readonly title: string }[];
+    }
+  | {
+      readonly type: 'allow-tool';
+      readonly connectorId: string;
+      readonly connectorTitle: string;
+      readonly tool: string;
+      /** What the person's decision for the tool has to be: `read`, or `write` for a tool that changes something. */
+      readonly decision: 'read' | 'write';
+    }
+  | { readonly type: 'reconnect'; readonly connectorId: string; readonly connectorTitle: string };
+
+/**
+ * Whether the host can run a task now, from what it has verified and what the person has set up:
+ * `ready` with the kinds of access it would use, `needs-setup` with the steps that remain, or
+ * `unavailable` with why the host cannot run it at all.
+ */
+export type TReadiness =
+  | { readonly state: 'ready'; readonly accesses: readonly string[] }
+  | { readonly state: 'needs-setup'; readonly steps: readonly TSetupStep[] }
+  | { readonly state: 'unavailable'; readonly reason: string };
 
 export interface ITaskDefinitionListing extends ITaskDefinition {
-  readonly readiness: IReadiness;
+  readonly readiness: TReadiness;
 }
 
 /** An offer as the person sees it: no dedupe key, and the definition's title joined in. */

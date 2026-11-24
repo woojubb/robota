@@ -233,11 +233,34 @@ export interface ITaskInputView {
   readonly choices?: readonly string[];
 }
 
-/** What the host says about whether a task can run now; only `unavailable` is ever said so far. */
-export interface ITaskReadinessView {
-  readonly state: 'unavailable';
-  readonly reason: string;
-}
+/** One thing the person does to get a task ready, as the agent names it. */
+export type TTaskSetupStepView =
+  | {
+      readonly type: 'connect';
+      readonly kind: 'mail' | 'calendar' | 'files' | 'chat' | 'notes' | 'other';
+    }
+  | {
+      readonly type: 'choose-account';
+      readonly accounts: readonly { readonly id: string; readonly title: string }[];
+    }
+  | {
+      readonly type: 'allow-tool';
+      readonly connectorId: string;
+      readonly connectorTitle: string;
+      readonly tool: string;
+      /** `write` for a tool that changes something, which the person decides for themselves. */
+      readonly decision: 'read' | 'write';
+    }
+  | { readonly type: 'reconnect'; readonly connectorId: string; readonly connectorTitle: string };
+
+/**
+ * What the agent says about whether a task can run now: ready, with the kinds of access it would use;
+ * needing setup, with the steps left; or unavailable, with why. The page shows it and decides nothing.
+ */
+export type TTaskReadinessView =
+  | { readonly state: 'ready'; readonly accesses: readonly string[] }
+  | { readonly state: 'needs-setup'; readonly steps: readonly TTaskSetupStepView[] }
+  | { readonly state: 'unavailable'; readonly reason: string };
 
 /** A task the person can browse, as the agent describes it. */
 export interface ITaskDefinitionView {
@@ -254,7 +277,7 @@ export interface ITaskDefinitionView {
     readonly kind: 'source-readback' | 'receipt' | 'owner-confirmation';
     readonly description: string;
   };
-  readonly readiness: ITaskReadinessView;
+  readonly readiness: TTaskReadinessView;
 }
 
 /** A reason a task may be worth doing now. The reason can come from a source: it is plain text. */
