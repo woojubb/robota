@@ -82,7 +82,7 @@ function setup(
   const taskDefinitions = vi.fn(async () => options.definitions ?? [pageCheck()]);
   const api = {
     taskDefinitions,
-    taskOffers: async () => ({ offers: [], issues: [] }),
+    taskOffers: async () => ({ offers: [], setAside: [], issues: [] }),
     taskLaunches: async () => [],
     taskLaunch: async () => STARTING,
     startTask,
@@ -389,7 +389,7 @@ describe('Start on a Browse card', () => {
         api={
           {
             taskDefinitions: async () => [pageCheck()],
-            taskOffers: async () => ({ offers: [], issues: [] }),
+            taskOffers: async () => ({ offers: [], setAside: [], issues: [] }),
             taskLaunches: async () => [],
             startTask: async () => {
               throw new ApiError(400, hostile);

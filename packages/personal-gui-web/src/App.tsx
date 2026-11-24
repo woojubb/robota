@@ -77,6 +77,8 @@ function Shell({
 }): React.ReactElement {
   const [view, setView] = useState<TView>(() => initialTab(window.location.hash));
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // The suggestion the Feed sent the person to; it opens in Browse until they go elsewhere.
+  const [focusOffer, setFocusOffer] = useState<string | undefined>(undefined);
   // On a narrow screen the closed drawer is off screen: it leaves the focus order and the
   // accessibility tree until it opens.
   const drawer = useRef<HTMLDivElement>(null);
@@ -89,6 +91,8 @@ function Shell({
   const show = (next: TView): void => {
     setView(next);
     setDrawerOpen(false);
+    // A suggestion's card stays open only for the visit the Feed sent the person on.
+    setFocusOffer(undefined);
   };
   // The chat connection lives here, so the menu can start a new chat as well as the chat list can.
   const chat = useWsSession(wsUrl);
@@ -214,6 +218,10 @@ function Shell({
     setFocusLaunch(launchId);
     show('browse');
   };
+  const showOffer = (offerId: string): void => {
+    show('browse');
+    setFocusOffer(offerId);
+  };
   const showPage = (pageId: string): void => {
     setOpenPage(pageId);
     show('library');
@@ -326,6 +334,7 @@ function Shell({
             api={api}
             onOpenGoal={showGoal}
             onOpenTask={showTask}
+            onOpenOffer={showOffer}
             {...(focusLaunch !== undefined && { focusLaunch })}
             onItems={countWaiting}
           />
@@ -337,6 +346,7 @@ function Shell({
             onOpenGoal={showGoal}
             onOpenFeed={showReport}
             {...(focusLaunch !== undefined && { focusLaunch })}
+            {...(focusOffer !== undefined && { focusOffer })}
           />
         )}
         {view === 'ideas' && <IdeasView api={api} onOpenGoal={showGoal} />}

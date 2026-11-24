@@ -282,7 +282,26 @@ export interface ITaskDefinitionView {
   readonly readiness: TTaskReadinessView;
 }
 
-/** A reason a task may be worth doing now. The reason can come from a source: it is plain text. */
+/** Where an offer's reason was read: a connected service, or a page of the person's library. */
+export interface ITaskOfferEvidenceView {
+  readonly kind: 'connector' | 'library';
+  /** The service the item was read from; present for, and only for, a connector. */
+  readonly connectorId?: string;
+  /** The title the person gave the service. */
+  readonly connectorTitle?: string;
+  /** The agent's own reference to the item: plain text, which a source may have shaped. */
+  readonly sourceItemId: string;
+  readonly observedAt: string;
+}
+
+/** What an offer's decision reads as; the person can set one aside, snooze it or bring it back. */
+export type TTaskOfferDecision =
+  'open' | 'snoozed' | 'dismissed' | 'accepted' | 'expired' | 'superseded';
+
+/**
+ * A reason a task may be worth doing now. Every text in it came from a source, so it is plain text.
+ * `readiness` is the agent's word on the task now, and is present only on an offer that is open.
+ */
 export interface ITaskOfferView {
   readonly id: string;
   readonly definitionId: string;
@@ -292,17 +311,41 @@ export interface ITaskOfferView {
   readonly withdrawn: boolean;
   readonly source: 'built-in' | 'owner' | 'agent';
   readonly reason: string;
+  /** What the source says, as a short factual statement. */
+  readonly basis?: string;
   readonly contextRefs: readonly { readonly kind: string; readonly id: string }[];
   readonly createdAt: string;
   readonly expiresAt: string;
-  readonly decision: 'open' | 'dismissed' | 'accepted' | 'expired' | 'superseded';
+  readonly decision: TTaskOfferDecision;
+  /** Suggested values for the task's inputs, which the person reads and changes. */
   readonly prefilled?: Readonly<Record<string, string>>;
+  readonly evidence?: ITaskOfferEvidenceView;
+  /** Present on a snoozed offer: when it comes back. */
+  readonly snoozedUntil?: string;
+  /** Present on an offer that was started: the launch it made. */
+  readonly launchId?: string;
+  readonly readiness?: TTaskReadinessView;
 }
 
 export interface ITaskOffersView {
+  /** The offers the person may act on, and the ones already started. */
   readonly offers: readonly ITaskOfferView[];
+  /** The offers the person dismissed or snoozed, which can be brought back. */
+  readonly setAside: readonly ITaskOfferView[];
   /** What the agent could not read from what it saved, in words with no path. */
   readonly issues: readonly string[];
+}
+
+/** What the person decides about an offer; accepting is the task being started, never a decision. */
+export type TTaskOfferDecisionRequest =
+  | { readonly decision: 'dismissed' | 'open' }
+  | { readonly decision: 'snoozed'; readonly snoozedUntil: string };
+
+/** What a decision answers: the offer as it stands. */
+export interface ITaskOfferDecisionView {
+  readonly id: string;
+  readonly decision: TTaskOfferDecision;
+  readonly snoozedUntil?: string;
 }
 
 /** A request to start a task, kept by the agent before any goal exists. */
@@ -590,15 +633,32 @@ export interface IPersonalApi {
   sideChats(): Promise<readonly ISideChatView[]>;
   /** The work the person can browse, each with whether the agent can run it now. */
   taskDefinitions(): Promise<readonly ITaskDefinitionView[]>;
-  /** The offers made to the person, open ones first, and anything the agent could not read. */
-  taskOffers(): Promise<ITaskOffersView>;
   /**
-   * Start a task the agent said is ready. One key is one request: sending the same key again, for
-   * whatever reason, answers the same launch and goal.
+   * The offers made to the person, the ones they set aside, and anything the agent could not read.
+   * Reading the list is how the agent learns the offers were shown; nothing else is recorded.
+   */
+  taskOffers(): Promise<ITaskOffersView>;
+  /** One offer, as the agent judges it now. Asking is how the agent learns the person opened it. */
+  taskOffer(offerId: string): Promise<ITaskOfferView>;
+  /**
+   * Dismiss an offer, snooze it until a time, or bring it back. None of these starts anything, and
+   * the agent refuses any other decision.
+   */
+  decideTaskOffer(
+    offerId: string,
+    request: TTaskOfferDecisionRequest,
+  ): Promise<ITaskOfferDecisionView>;
+  /**
+   * Start a task the agent said is ready, from an offer when `offerId` is given. One key is one
+   * request: sending the same key again, for whatever reason, answers the same launch and goal.
    */
   startTask(
     definitionId: string,
-    request: { readonly idempotencyKey: string; readonly inputs: TTaskStartValues },
+    request: {
+      readonly idempotencyKey: string;
+      readonly inputs: TTaskStartValues;
+      readonly offerId?: string;
+    },
   ): Promise<ITaskStartAnswer>;
   /** The launches the person made, newest first, each with where it stands. */
   taskLaunches(): Promise<readonly ITaskLaunchStatusView[]>;
@@ -795,6 +855,16 @@ export function createPersonalApi(
     taskDefinitions: async () =>
       (await call<{ definitions: ITaskDefinitionView[] }>('GET', 'tasks/definitions')).definitions,
     taskOffers: () => call('GET', 'tasks/offers'),
+    taskOffer: async (offerId) =>
+      (await call<{ offer: ITaskOfferView }>('GET', `tasks/offers/${id(offerId)}`)).offer,
+    decideTaskOffer: async (offerId, request) =>
+      (
+        await call<{ offer: ITaskOfferDecisionView }>(
+          'POST',
+          `tasks/offers/${id(offerId)}/decision`,
+          request,
+        )
+      ).offer,
     startTask: (definitionId, request) =>
       call('POST', `tasks/definitions/${id(definitionId)}/start`, request),
     taskLaunches: async () =>
