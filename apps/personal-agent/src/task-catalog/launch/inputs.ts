@@ -61,3 +61,30 @@ export function resolveInputs(
   }
   return resolved;
 }
+
+/**
+ * Check values that are only suggested, as a person's own would be checked at Start: each is judged by
+ * the rule of its input (a choice is one of its choices, a number a number, a page address the address
+ * rule), but none is needed and none is a default. What comes back is each value as Start would keep it,
+ * so what a form shows beforehand is what a start would use.
+ */
+export function checkSuggestedInputs(
+  definition: ITaskDefinition,
+  suggested: Readonly<Record<string, string>>,
+  pages: readonly string[],
+  allowedHosts: ReadonlySet<string>,
+): Record<string, string> {
+  const pageInputs = new Set(pages);
+  const checked: Record<string, string> = {};
+  for (const [name, text] of Object.entries(suggested)) {
+    const input = definition.inputs.find((entry) => entry.name === name);
+    if (input === undefined)
+      throw new LaunchRefusedError('invalid', `This task does not ask for ${name}`);
+    const given: string | number = input.kind === 'number' ? Number(text) : text;
+    if (typeof given === 'number' && (text.trim() === '' || !Number.isFinite(given)))
+      throw new LaunchRefusedError('invalid', `${input.label}: this must be a number`);
+    const kept = resolveOne(input, given, pageInputs, allowedHosts);
+    if (kept !== undefined) checked[name] = String(kept);
+  }
+  return checked;
+}

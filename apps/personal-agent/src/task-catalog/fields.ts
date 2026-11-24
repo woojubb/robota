@@ -1,5 +1,6 @@
 /** The field checks the definition and offer validators share. Every refusal names the field. */
 import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
+import { carriesSecretValue } from '@robota-sdk/agent-product/personal';
 
 export class TaskCatalogRefusedError extends Error {
   constructor(reason: string) {
@@ -49,6 +50,18 @@ export function singleLine(value: unknown, field: string, max: number): string {
 export function plainLine(value: unknown, field: string, max: number): string {
   const line = singleLine(value, field, max);
   if (containsSensitiveMemoryContent(line))
+    throw new TaskCatalogRefusedError(`${field} looks like it carries a secret and is not kept`);
+  return line;
+}
+
+/**
+ * A line of plain text for what an observation says about a source, such as a mail about a password
+ * reset: judged by the value it carries and not by its vocabulary, so the words "password" or "token"
+ * pass and a key, a token or a card number written out does not.
+ */
+export function valueLine(value: unknown, field: string, max: number): string {
+  const line = singleLine(value, field, max);
+  if (carriesSecretValue(line))
     throw new TaskCatalogRefusedError(`${field} looks like it carries a secret and is not kept`);
   return line;
 }

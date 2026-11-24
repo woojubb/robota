@@ -35,7 +35,7 @@ import { canStart, recipeFor, toolsFor } from './recipes.js';
 import { recordingBrowser } from './receipts.js';
 import { describeStatus, launchView } from './status.js';
 import { LaunchRefusedError } from './types.js';
-import { launchKey, rawInputs } from './validate.js';
+import { launchKey, launchOfferId, rawInputs } from './validate.js';
 
 import type { GoalBook, IBrowserPort, IGoal, IGoalRun } from '@robota-sdk/agent-product/personal';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
@@ -45,16 +45,44 @@ import type { TBindingSource } from '../bindings.js';
 import type { IEvidenceRule } from './evidence-rules.js';
 import type { ILaunchRecipe } from './recipes.js';
 import type { ILaunchStore } from './store.js';
+import type { ITaskDefinition } from '../types.js';
 import type {
   ILaunchBinding,
   ILaunchIntent,
   ILaunchStarted,
   ILaunchStatusView,
   TLaunchInputs,
+  TOutcomeState,
 } from './types.js';
+
+/** Whether a task may be started from an offer now: yes, or a plain reason and how the page should be told. */
+export type TOfferAdmission =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly kind: 'unknown' | 'invalid' | 'conflict';
+      readonly reason: string;
+    };
+
+/**
+ * What a launch asks of the offers it was started from, and tells them. The host's gate stands behind
+ * `admit`, which is asked again at every start, so an offer that went stale is refused and never
+ * launched with old facts. The other three record what happened and are safe to repeat.
+ */
+export interface ILaunchOffers {
+  admit(offerId: string, definition: ITaskDefinition): Promise<TOfferAdmission>;
+  /** The launch made a goal: the offer is accepted and names the launch. */
+  accepted(offerId: string, launchId: string): Promise<void>;
+  /** The launch's goal began its first run. */
+  started(offerId: string): Promise<void>;
+  /** The launch's outcome was decided, apart from the acceptance: accepted but unfinished is not success. */
+  outcome(offerId: string, state: TOutcomeState): Promise<void>;
+}
 
 export interface ILaunchStartRequest {
   readonly definitionId: string;
+  /** The offer the person started it from, when they did: judged again by the host's gate before anything is kept. */
+  readonly offerId?: unknown;
   /** What the client sent: checked for shape here, and against the task when the request is new. */
   readonly inputs?: unknown;
   readonly idempotencyKey: unknown;
@@ -96,6 +124,8 @@ export interface ILaunchCoordinatorOptions {
    * page it returns is recorded; without one, no run can be verified.
    */
   readonly browser?: IBrowserPort;
+  /** The offers a start may come from; without it a start names no offer. */
+  readonly offers?: ILaunchOffers;
   /** Exact `host:port` origins the owner named as reachable although local or private; the browser's own list. */
   readonly pageHosts?: readonly string[];
   readonly now?: () => Date;
@@ -164,8 +194,27 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
   const fail = (intent: ILaunchIntent, kind: 'stale' | 'goal', message: string) =>
     store.advance(intent.id, { status: 'failed', failure: { kind, message } });
 
+  /**
+   * Tell the offer a launch came from what happened to it: that it made a goal and how it ended. Each
+   * record is made once and repeats change nothing, so this is called whenever the launch moves, and
+   * once more at the host's start for a stop between the launch moving and the offer being told. An
+   * offer that cannot be told now is told then; the launch never waits on it.
+   */
+  const reconcile = async (intent: ILaunchIntent): Promise<void> => {
+    if (intent.origin.kind !== 'offer' || options.offers === undefined) return;
+    try {
+      if (intent.status === 'launched')
+        await options.offers.accepted(intent.origin.offerId, intent.id);
+      if (intent.outcome !== undefined)
+        await options.offers.outcome(intent.origin.offerId, intent.outcome.state);
+    } catch {
+      // allow-fallback: the offer is told at the next start of the host; the launch itself is kept already.
+    }
+  };
+
   const launched = async (intent: ILaunchIntent, goal: IGoal): Promise<ILaunchIntent> => {
     const done = await store.advance(intent.id, { status: 'launched', goalId: goal.id });
+    await reconcile(done);
     options.onGoalReady?.();
     return done;
   };
@@ -281,7 +330,10 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
         ? undefined
         : (await goals.runs(goal.id, 1))[0];
     const outcome = decideOutcome({ intent: current, goal, run, rules, now: now() });
-    return outcome === undefined ? current : store.decide(current.id, outcome);
+    if (outcome === undefined) return current;
+    const decided = await store.decide(current.id, outcome);
+    await reconcile(decided);
+    return decided;
   };
 
   const awaiting = (intent: ILaunchIntent): boolean =>
@@ -323,7 +375,12 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
   const startOne = async (request: ILaunchStartRequest): Promise<ILaunchStarted> => {
     const key = launchKey(request.idempotencyKey);
     const given = rawInputs(request.inputs);
-    const requestDigest = digestOf({ definitionId: request.definitionId, inputs: given });
+    const offerId = request.offerId === undefined ? undefined : launchOfferId(request.offerId);
+    const requestDigest = digestOf({
+      definitionId: request.definitionId,
+      inputs: given,
+      ...(offerId !== undefined && { offerId }),
+    });
     const known = await store.findByKey(key);
     if (known !== undefined) {
       if (known.requestDigest !== requestDigest)
@@ -349,6 +406,15 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
           : 'This task is not ready to start.',
         { readiness: assessment.readiness },
       );
+    // The offer is judged again here, after the key (a retry of a request that was admitted is its own
+    // answer) and before anything is kept, so a stale offer launches nothing.
+    if (offerId !== undefined) {
+      const admission =
+        options.offers === undefined
+          ? ({ ok: false, kind: 'unknown', reason: 'There is no such offer.' } as const)
+          : await options.offers.admit(offerId, definition);
+      if (!admission.ok) throw new LaunchRefusedError(admission.kind, admission.reason);
+    }
     const inputs = resolveInputs(definition, given, recipe, pageHosts);
     // The goal refuses a prompt that looks like it carries a secret, so the person hears of it before anything is kept.
     if (containsSensitiveMemoryContent(recipe.instructions(inputs)))
@@ -369,7 +435,7 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
       definitionDigest,
       inputs,
       bindings: assessment.bindings.map(describeBinding),
-      origin: { kind: 'manual' },
+      origin: offerId === undefined ? { kind: 'manual' } : { kind: 'offer', offerId },
       status: 'reserved',
       createdAt: stamp,
       updatedAt: stamp,
@@ -414,6 +480,8 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
             // allow-fallback: an outcome that cannot be decided now is decided when the launch is next read.
           }
         }
+        // An offer a stop left untold about its launch is told now.
+        for (const intent of await store.list()) await reconcile(intent);
       }),
     settle: ({ launch }) =>
       launch === undefined
@@ -439,6 +507,8 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
             'The record of the request that started this run is missing or ended, so you have no tools. Say so in one line and do nothing else.',
           onlyTools: [],
         };
+      if (intent.origin.kind === 'offer')
+        await options.offers?.started(intent.origin.offerId).catch(() => undefined);
       const scopedTools = recordingTools(intent, goal, run, tools);
       return {
         instructions: [

@@ -2,7 +2,7 @@
  * How a sync run is told where to start and when it is worth reporting, with the goal book and the
  * library in memory and a service whose state a test sets.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   CaseBook,
@@ -13,13 +13,18 @@ import {
   createMemoryConnectorStore,
   createMemoryGoalStore,
   createMemoryKnowledgeStore,
+  createOfferTools,
+  syncRunTools,
 } from '@robota-sdk/agent-product/personal';
 
 import { createSyncRuns } from '../connectors/sync-runs.js';
 
 import type { ConnectorRegistry, IGoal } from '@robota-sdk/agent-product/personal';
 
-async function setup(state: 'connected' | 'needs-sign-in' = 'connected') {
+async function setup(
+  state: 'connected' | 'needs-sign-in' = 'connected',
+  offers?: Parameters<typeof createSyncRuns>[0]['offers'],
+) {
   const clock = { now: new Date('2026-11-15T10:00:00.000Z') };
   const goals = new GoalBook({ store: createMemoryGoalStore(), now: () => clock.now });
   const book = new ConnectorBook({ store: createMemoryConnectorStore() });
@@ -55,7 +60,14 @@ async function setup(state: 'connected' | 'needs-sign-in' = 'connected') {
     mail,
     goal,
     advance,
-    runs: createSyncRuns({ book, registry, goals, wiki, cases }),
+    runs: createSyncRuns({
+      book,
+      registry,
+      goals,
+      wiki,
+      cases,
+      ...(offers !== undefined && { offers }),
+    }),
   };
 }
 
@@ -96,6 +108,52 @@ describe('where a sync run starts reading', () => {
     const own = await goals.create({ title: 'Plan the week', instructions: 'Plan it.' });
     expect(await runs.shape(own)).toBeUndefined();
     expect(await runs.quiet(own)).toBe(false);
+  });
+});
+
+describe('what a sync run is given to propose offers', () => {
+  const proposing = () => {
+    const tool = createOfferTools({ propose: async () => ({ status: 'rejected', reason: 'x' }) });
+    return {
+      runTools: vi.fn(() => tool),
+      instructions: vi.fn(async () => 'Task offers: propose only the tasks listed here.'),
+    };
+  };
+
+  it('is told about the offers after the sync’s own words, and given the run’s own tool, the one it was already allowed', async () => {
+    const offers = proposing();
+    const { runs, goal } = await setup('connected', offers);
+    const shape = await runs.shape(goal);
+    expect(shape?.instructions).toContain('first sync');
+    expect(shape?.instructions.endsWith('Task offers: propose only the tasks listed here.')).toBe(
+      true,
+    );
+    expect(shape?.onlyTools).toEqual(syncRunTools());
+    expect(shape?.scopedTools?.map((tool) => tool.getName())).toEqual(['TaskOfferPropose']);
+    expect(shape?.onlyTools).toContain('TaskOfferPropose');
+  });
+
+  it('asks for the run’s own tool anew for each run, so one run’s count is not another’s', async () => {
+    const offers = proposing();
+    const { runs, goal } = await setup('connected', offers);
+    await runs.shape(goal);
+    await runs.shape(goal);
+    expect(offers.runTools).toHaveBeenCalledTimes(2);
+  });
+
+  it('is given nothing more when the host has no offers, and for a connector that is gone', async () => {
+    const without = await setup('connected');
+    const plain = await without.runs.shape(without.goal);
+    expect(plain?.scopedTools).toBeUndefined();
+    expect(plain?.instructions).not.toContain('Task offers');
+
+    const offers = proposing();
+    const gone = await setup('connected', offers);
+    await gone.book.remove(gone.mail.id);
+    const shape = await gone.runs.shape(gone.goal);
+    expect(shape?.scopedTools).toBeUndefined();
+    expect(shape?.instructions).toContain('no longer exists');
+    expect(offers.runTools).not.toHaveBeenCalled();
   });
 });
 

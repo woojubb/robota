@@ -9,6 +9,7 @@ import { parseOffer } from './validate-offer.js';
 
 import type { TBindingSource } from './bindings.js';
 import type { IReadinessContext } from './readiness.js';
+import type { TOfferReaction } from './records.js';
 import type { ITaskCatalogStore } from './store.js';
 import type {
   IOffer,
@@ -43,8 +44,20 @@ export interface ITaskCatalog {
    * stored and shown as given, and changes nothing about any definition.
    */
   submitOffer(input: unknown): Promise<IOffer>;
-  /** Record the person's decision about a kept offer; an observation cannot. */
-  setOfferDecision(id: string, decision: unknown): Promise<IOffer>;
+  /** A kept offer as it reads now, with the host's own key and bookkeeping; absent when none has the id. */
+  getOffer(id: string): Promise<IOffer | undefined>;
+  /** The offer kept for a dedupe key as it reads now. */
+  findOffer(dedupeKey: string): Promise<IOffer | undefined>;
+  /** Record a decision about a kept offer; an observation cannot. A snooze is given the time it ends. */
+  setOfferDecision(
+    id: string,
+    decision: unknown,
+    options?: { readonly snoozedUntil?: string },
+  ): Promise<IOffer>;
+  /** Record that a kept offer was started: it is accepted and names its launch. */
+  acceptOffer(id: string, launchId: string): Promise<IOffer>;
+  /** Record how the person met offers, or how the task one made ended, once each. */
+  recordOfferReaction(ids: readonly string[], reaction: TOfferReaction): Promise<void>;
 }
 
 export interface ITaskCatalogOptions {
@@ -105,16 +118,19 @@ export function createTaskCatalog(options: ITaskCatalogOptions): ITaskCatalog {
       const definitions = await held();
       const rank = (view: IOfferView): number =>
         view.decision === 'open' && !view.withdrawn ? 0 : 1;
-      const offers = (await store.listOffers()).map(({ dedupeKey: _key, ...offer }): IOfferView => {
-        const definition = definitions.find(
-          (entry) => entry.id === offer.definitionId && entry.revision === offer.definitionRevision,
-        );
-        return {
-          ...offer,
-          ...(definition !== undefined && { definitionTitle: definition.title }),
-          withdrawn: definition === undefined,
-        };
-      });
+      const offers = (await store.listOffers()).map(
+        ({ dedupeKey: _key, reactions: _reactions, ...offer }): IOfferView => {
+          const definition = definitions.find(
+            (entry) =>
+              entry.id === offer.definitionId && entry.revision === offer.definitionRevision,
+          );
+          return {
+            ...offer,
+            ...(definition !== undefined && { definitionTitle: definition.title }),
+            withdrawn: definition === undefined,
+          };
+        },
+      );
       offers.sort(
         (a, b) =>
           rank(a) - rank(b) || b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id),
@@ -128,6 +144,12 @@ export function createTaskCatalog(options: ITaskCatalogOptions): ITaskCatalog {
       );
       return store.putOffer(offer);
     },
-    setOfferDecision: (id, decision) => store.setOfferDecision(id, decision as TOfferDecision),
+    setOfferDecision: (id, decision, options) =>
+      store.setOfferDecision(id, decision as TOfferDecision, options),
+    getOffer: (id) => store.getOffer(id),
+    findOffer: async (dedupeKey) =>
+      (await store.listOffers()).find((offer) => offer.dedupeKey === dedupeKey),
+    acceptOffer: (id, launchId) => store.acceptOffer(id, launchId),
+    recordOfferReaction: (ids, reaction) => store.recordReaction(ids, reaction),
   };
 }

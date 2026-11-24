@@ -30,8 +30,12 @@ export interface ILaunchBinding {
   readonly argumentBoundary: string;
 }
 
-/** How the request began. Only the person pressing Start in Browse, for now. */
-export type TLaunchOrigin = { readonly kind: 'manual' };
+/**
+ * How the request began: the person pressing Start on a task's own card, or on an offer, which then
+ * names that offer so its outcome can be recorded beside it.
+ */
+export type TLaunchOrigin =
+  { readonly kind: 'manual' } | { readonly kind: 'offer'; readonly offerId: string };
 
 export interface ILaunchFailure {
   /** `stale`: what the request rested on changed before a goal was made. `goal`: the goal could not be made. */

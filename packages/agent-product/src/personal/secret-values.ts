@@ -1,7 +1,8 @@
 /**
- * The secret check for text a person or the agent writes in plain words: an attention policy, a case.
- * Such text is written in the vocabulary of secrets ("password", "token", "key": a sign-in notice is
- * the usual example), so it is judged by the value it carries, not by those words.
+ * The secret check for text a person or the agent writes in plain words: an attention policy, a case,
+ * the reason and basis of a task offer, which a host that keeps such text may use too. Such text is
+ * written in the vocabulary of secrets ("password", "token", "key": a sign-in notice is the usual
+ * example), so it is judged by the value it carries, not by those words.
  */
 import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
 

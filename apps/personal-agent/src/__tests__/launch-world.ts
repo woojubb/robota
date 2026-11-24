@@ -24,7 +24,7 @@ import type {
 import type { Mock } from 'vitest';
 import type { ITaskCatalog } from '../task-catalog/catalog.js';
 import type { IReadinessContext } from '../task-catalog/readiness.js';
-import type { ILaunchCoordinator } from '../task-catalog/launch/coordinator.js';
+import type { ILaunchCoordinator, ILaunchOffers } from '../task-catalog/launch/coordinator.js';
 import type { IEvidenceRule } from '../task-catalog/launch/evidence-rules.js';
 import type { ILaunchRecipe } from '../task-catalog/launch/recipes.js';
 import type { ILaunchStore } from '../task-catalog/launch/store.js';
@@ -106,6 +106,8 @@ export interface IWorldOptions {
   readonly rules?: readonly IEvidenceRule[];
   /** The browser the coordinator wraps for a launched run; none means no run records anything. */
   readonly browserPort?: IBrowserPort;
+  /** The offers a start may come from; none means a start names no offer. */
+  readonly offers?: ILaunchOffers;
   readonly pageHosts?: readonly string[];
   readonly clock?: { now: Date };
   readonly resumeWithinMs?: number;
@@ -175,6 +177,7 @@ export function startWorld(options: IWorldOptions = {}): IWorld {
     recipes: options.recipes ?? LAUNCH_RECIPES,
     ...(options.rules !== undefined && { rules: options.rules }),
     ...(options.browserPort !== undefined && { browser: options.browserPort }),
+    ...(options.offers !== undefined && { offers: options.offers }),
     ...(options.pageHosts !== undefined && { pageHosts: options.pageHosts }),
     now: () => clock.now,
     onGoalReady,

@@ -205,14 +205,16 @@ describe.each(adapters)('the %s task-catalog store', (_name, create) => {
     const store = create();
     await store.putOffer(offer());
     const accepted = await store.setOfferDecision('offer-a1', 'accepted');
-    expect(accepted).toEqual(offer({ decision: 'accepted' }));
+    expect(accepted).toEqual(
+      offer({ decision: 'accepted', reactions: { accepted: '2026-11-20T10:00:00.000Z' } }),
+    );
     expect((await store.getOffer('offer-a1'))?.decision).toBe('accepted');
     await expect(store.setOfferDecision('offer-zz', 'dismissed')).rejects.toThrow(
       /No offer offer-zz/u,
     );
     for (const decision of ['started', 'OPEN', '', undefined, 3]) {
       await expect(store.setOfferDecision('offer-a1', decision as never)).rejects.toThrow(
-        /decision must be one of open, dismissed, accepted, expired, superseded/u,
+        /decision must be one of open, snoozed, dismissed, accepted, expired, superseded/u,
       );
     }
     expect((await store.getOffer('offer-a1'))?.decision).toBe('accepted');
@@ -258,6 +260,140 @@ describe.each(adapters)('the %s task-catalog store', (_name, create) => {
     expect(await store.listOffers()).toEqual([]);
   });
 
+  it('snoozes an offer until a time, reads it as open again once the time has come, and keeps the time of the snooze', async () => {
+    const store = create();
+    await store.putOffer(offer());
+    const snoozed = await store.setOfferDecision('offer-a1', 'snoozed', {
+      snoozedUntil: '2026-11-21T10:00:00Z',
+    });
+    expect(snoozed).toMatchObject({
+      decision: 'snoozed',
+      snoozedUntil: '2026-11-21T10:00:00Z',
+      reactions: { snoozed: '2026-11-20T10:00:00.000Z' },
+    });
+    clock.now = new Date('2026-11-21T09:59:59Z');
+    expect((await store.getOffer('offer-a1'))?.decision).toBe('snoozed');
+    clock.now = new Date('2026-11-21T10:00:00Z');
+    const awake = await store.getOffer('offer-a1');
+    expect(awake?.decision).toBe('open');
+    expect(awake).not.toHaveProperty('snoozedUntil');
+    // Reading changed nothing that was kept, so an earlier clock reads the snooze again.
+    clock.now = new Date('2026-11-20T11:00:00Z');
+    expect((await store.getOffer('offer-a1'))?.decision).toBe('snoozed');
+  });
+
+  it('reads a snoozed offer as expired once its own expiry has passed, snooze or not', async () => {
+    const store = create();
+    await store.putOffer(offer({ expiresAt: '2026-11-22T09:00:00Z' }));
+    await store.setOfferDecision('offer-a1', 'snoozed', { snoozedUntil: '2026-11-25T09:00:00Z' });
+    clock.now = new Date('2026-11-23T09:00:00Z');
+    expect((await store.getOffer('offer-a1'))?.decision).toBe('expired');
+  });
+
+  it('takes a snooze only with its time, and a time only with a snooze', async () => {
+    const store = create();
+    await store.putOffer(offer());
+    await expect(store.setOfferDecision('offer-a1', 'snoozed')).rejects.toThrow(/needs the time/u);
+    await expect(
+      store.setOfferDecision('offer-a1', 'dismissed', { snoozedUntil: '2026-11-21T10:00:00Z' }),
+    ).rejects.toThrow(/needs the time it ends, and no other decision does/u);
+    await expect(
+      store.setOfferDecision('offer-a1', 'snoozed', { snoozedUntil: 'tomorrow' }),
+    ).rejects.toThrow(/UTC time/u);
+    expect((await store.getOffer('offer-a1'))?.decision).toBe('open');
+  });
+
+  it('keeps a snooze and the reactions through a repeat observation of the same source matter', async () => {
+    const store = create();
+    await store.putOffer(offer());
+    await store.setOfferDecision('offer-a1', 'snoozed', { snoozedUntil: '2026-11-22T10:00:00Z' });
+    await store.recordReaction(['offer-a1'], { kind: 'shown' });
+    const again = await store.putOffer(
+      offer({ id: 'offer-z9', reason: 'Seen again.', basis: 'A newer basis.' }),
+    );
+    expect(again).toMatchObject({
+      id: 'offer-a1',
+      decision: 'snoozed',
+      snoozedUntil: '2026-11-22T10:00:00Z',
+      reason: 'Seen again.',
+      basis: 'A newer basis.',
+      reactions: { shown: '2026-11-20T10:00:00.000Z', snoozed: '2026-11-20T10:00:00.000Z' },
+    });
+  });
+
+  it('accepts an offer with the launch that made it, once, and keeps the first launch', async () => {
+    const store = create();
+    await store.putOffer(offer());
+    const first = `launch-${'1'.repeat(8)}-0000-4000-8000-000000000000`;
+    const accepted = await store.acceptOffer('offer-a1', first);
+    expect(accepted).toMatchObject({
+      decision: 'accepted',
+      launchId: first,
+      reactions: { accepted: '2026-11-20T10:00:00.000Z' },
+    });
+    clock.now = new Date('2026-11-20T11:00:00Z');
+    expect(
+      await store.acceptOffer('offer-a1', `launch-${'2'.repeat(8)}-0000-4000-8000-000000000000`),
+    ).toEqual(accepted);
+    await expect(store.acceptOffer('offer-zz', first)).rejects.toThrow(/No offer offer-zz/u);
+    expect(await store.getOffer('offer-a1')).toEqual(accepted);
+  });
+
+  it('keeps the first time of an acceptance recorded as a decision, and the latest of a dismissal', async () => {
+    const store = create();
+    await store.putOffer(offer());
+    await store.setOfferDecision('offer-a1', 'accepted');
+    await store.setOfferDecision('offer-a1', 'dismissed');
+    clock.now = new Date('2026-11-20T11:00:00Z');
+    await store.setOfferDecision('offer-a1', 'accepted');
+    await store.setOfferDecision('offer-a1', 'dismissed');
+    expect((await store.getOffer('offer-a1'))?.reactions).toEqual({
+      accepted: '2026-11-20T10:00:00.000Z',
+      dismissed: '2026-11-20T11:00:00.000Z',
+    });
+  });
+
+  it('records each reaction once, the first time, and an outcome once, apart from the acceptance', async () => {
+    const store = create();
+    await store.putOffer(offer());
+    await store.putOffer(offer({ id: 'offer-b2', dedupeKey: 'other' }));
+    await store.recordReaction(['offer-a1', 'offer-gone'], { kind: 'shown' });
+    clock.now = new Date('2026-11-20T10:05:00Z');
+    await store.recordReaction(['offer-a1', 'offer-b2'], { kind: 'shown' });
+    await store.recordReaction(['offer-a1'], { kind: 'opened' });
+    await store.recordReaction(['offer-a1'], { kind: 'started' });
+    await store.recordReaction(['offer-a1'], { kind: 'outcome', state: 'unverified' });
+    await store.recordReaction(['offer-a1'], { kind: 'outcome', state: 'verified' });
+    expect((await store.getOffer('offer-a1'))?.reactions).toEqual({
+      shown: '2026-11-20T10:00:00.000Z',
+      opened: '2026-11-20T10:05:00.000Z',
+      started: '2026-11-20T10:05:00.000Z',
+      outcome: { state: 'unverified', at: '2026-11-20T10:05:00.000Z' },
+    });
+    expect((await store.getOffer('offer-b2'))?.reactions).toEqual({
+      shown: '2026-11-20T10:05:00.000Z',
+    });
+    await store.recordReaction(['offer-b2'], { kind: 'outcome', state: 'verified' });
+    expect((await store.getOffer('offer-b2'))?.reactions).toMatchObject({
+      verified: '2026-11-20T10:05:00.000Z',
+      outcome: { state: 'verified' },
+    });
+  });
+
+  it('keeps the time of a dismissal and of the snooze before it, and drops the snooze itself', async () => {
+    const store = create();
+    await store.putOffer(offer());
+    await store.setOfferDecision('offer-a1', 'snoozed', { snoozedUntil: '2026-11-22T10:00:00Z' });
+    clock.now = new Date('2026-11-20T12:00:00Z');
+    const dismissed = await store.setOfferDecision('offer-a1', 'dismissed');
+    expect(dismissed.decision).toBe('dismissed');
+    expect(dismissed).not.toHaveProperty('snoozedUntil');
+    expect(dismissed.reactions).toEqual({
+      snoozed: '2026-11-20T10:00:00.000Z',
+      dismissed: '2026-11-20T12:00:00.000Z',
+    });
+  });
+
   it('keeps installed definitions by revision, and never lets a published revision change', async () => {
     const store = create();
     await store.putDefinition(owned);
@@ -274,6 +410,52 @@ describe.each(adapters)('the %s task-catalog store', (_name, create) => {
       store.putDefinition({ ...owned, execution: 'recurring' } as never),
     ).rejects.toThrow(TaskCatalogRefusedError);
     expect(await store.listDefinitions()).toHaveLength(2);
+  });
+});
+
+describe('making room in a full store', () => {
+  const full = (change: (index: number) => Partial<IOffer>): IOffer[] =>
+    Array.from({ length: MAX_OFFERS }, (_, i) =>
+      offer({
+        id: `offer-n${i}`,
+        dedupeKey: `key-${i}`,
+        createdAt: new Date(Date.parse('2026-01-01T00:00:00Z') + i * 60_000).toISOString(),
+        expiresAt: new Date(Date.parse('2026-01-08T00:00:00Z') + i * 60_000).toISOString(),
+        ...change(i),
+      }),
+    );
+  const later = (): IOffer =>
+    offer({
+      id: 'offer-new',
+      dedupeKey: 'key-new',
+      createdAt: '2026-11-20T09:00:00Z',
+      expiresAt: '2026-11-27T09:00:00Z',
+    });
+
+  it('drops the oldest finished offer that is old enough, and no other', () => {
+    const offers = full((i) =>
+      i === 3 || i === 1 ? { decision: 'dismissed' } : { expiresAt: '2027-01-01T00:00:00Z' },
+    );
+    const next = putOfferInto(offers, later()).offers;
+    expect(next).toHaveLength(MAX_OFFERS);
+    expect(next.map((entry) => entry.id)).not.toContain('offer-n1');
+    expect(next.map((entry) => entry.id)).toContain('offer-n3');
+    expect(next.at(-1)!.id).toBe('offer-new');
+  });
+
+  it('counts an undecided offer whose time is long gone as finished, and an open one as not', () => {
+    const lapsed = full(() => ({}));
+    expect(putOfferInto(lapsed, later()).offers.map((entry) => entry.id)).not.toContain('offer-n0');
+    const open = full(() => ({ expiresAt: '2027-01-01T00:00:00Z' }));
+    expect(() => putOfferInto(open, later())).toThrow(/At most 500 offers/u);
+  });
+
+  it('keeps every offer whose decision is still fresh, however many there are', () => {
+    const recent = full((i) => ({
+      decision: 'dismissed',
+      createdAt: new Date(Date.parse('2026-11-01T00:00:00Z') + i * 60_000).toISOString(),
+    }));
+    expect(() => putOfferInto(recent, later())).toThrow(/At most 500 offers/u);
   });
 });
 

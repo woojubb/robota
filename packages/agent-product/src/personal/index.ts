@@ -54,6 +54,14 @@ export type {
 export { createFileCaseStore, createMemoryCaseStore } from './cases/stores.js';
 export { CASE_INSTRUCTIONS, CASE_TOOL_NAMES, createCaseTools } from './cases/tools.js';
 export { caseTurnInstructions, caseTurnPrompt, caseTurnTools } from './cases/turn.js';
+export { carriesSecretValue } from './secret-values.js';
+export { OFFER_TOOL_NAMES, createOfferTools } from './offers/tools.js';
+export type {
+  IOfferCandidate,
+  IOfferProposer,
+  IOfferSourceRef,
+  TOfferProposal,
+} from './offers/types.js';
 export type {
   ICase,
   ICaseEvent,

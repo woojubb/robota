@@ -27,6 +27,7 @@ import type {
   ILaunchFailure,
   ILaunchIntent,
   TLaunchInputs,
+  TLaunchOrigin,
   TLaunchStatus,
 } from './types.js';
 
@@ -43,6 +44,7 @@ export const LAUNCH_LIMITS = {
 
 const KEY = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/u;
 const LAUNCH_ID = /^launch-[0-9a-f-]{36}$/u;
+const OFFER_ID = /^offer-[a-z0-9]{1,40}$/u;
 const GOAL_ID = /^[a-z0-9][a-z0-9-]{0,79}$/u;
 const HEX_DIGEST = /^[0-9a-f]{64}$/u;
 const MAX_NUMBER = 1e9;
@@ -127,6 +129,24 @@ function parseFailure(raw: unknown): ILaunchFailure {
   };
 }
 
+function parseOrigin(raw: unknown): TLaunchOrigin {
+  const origin = asRecord(raw, 'origin');
+  const kind = oneOf(origin['kind'], 'origin.kind', ['manual', 'offer'] as const);
+  if (kind === 'manual') {
+    rejectUnknownKeys(origin, ['kind'], 'origin');
+    return { kind };
+  }
+  rejectUnknownKeys(origin, ['kind', 'offerId'], 'origin');
+  return { kind, offerId: shaped(origin['offerId'], 'origin.offerId', OFFER_ID, 46) };
+}
+
+/** An offer id as the page sends it for a start: refused as a bad request instead of looked up. */
+export function launchOfferId(value: unknown): string {
+  if (typeof value !== 'string' || !OFFER_ID.test(value) || value.length > 46)
+    throw new LaunchRefusedError('invalid', 'offerId is not the id of an offer');
+  return value;
+}
+
 const INTENT_KEYS = [
   'id',
   'idempotencyKey',
@@ -150,9 +170,7 @@ const INTENT_KEYS = [
 export function parseIntent(raw: unknown): ILaunchIntent {
   const intent = asRecord(raw, 'A launch');
   rejectUnknownKeys(intent, INTENT_KEYS, 'A launch');
-  const origin = asRecord(intent['origin'], 'origin');
-  rejectUnknownKeys(origin, ['kind'], 'origin');
-  if (origin['kind'] !== 'manual') throw new TaskCatalogRefusedError('origin.kind must be manual');
+  const origin = parseOrigin(intent['origin']);
   const status: TLaunchStatus = oneOf(intent['status'], 'status', LAUNCH_STATUSES);
   const launched = status === 'launched';
   if ((intent['goalId'] !== undefined) !== launched)
@@ -178,7 +196,7 @@ export function parseIntent(raw: unknown): ILaunchIntent {
     definitionDigest: shaped(intent['definitionDigest'], 'definitionDigest', HEX_DIGEST, 64),
     inputs: parseInputs(intent['inputs']),
     bindings: listOf(intent['bindings'], 'bindings', 1, LAUNCH_LIMITS.bindings).map(parseBinding),
-    origin: { kind: 'manual' },
+    origin,
     status,
     ...(launched && { goalId: shaped(intent['goalId'], 'goalId', GOAL_ID, 80) }),
     ...(status === 'failed' && { failure: parseFailure(intent['failure']) }),
