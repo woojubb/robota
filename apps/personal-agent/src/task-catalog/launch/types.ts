@@ -10,6 +10,13 @@ import type { TEffectCeiling, TReadiness } from '../types.js';
 export const LAUNCH_STATUSES = ['reserved', 'launched', 'failed', 'cancelled'] as const;
 export type TLaunchStatus = (typeof LAUNCH_STATUSES)[number];
 
+/** How a launched task ended, as the host decided it from what it recorded, never from what the model said. */
+export const OUTCOME_STATES = ['verified', 'unverified', 'failed', 'cancelled'] as const;
+export type TOutcomeState = (typeof OUTCOME_STATES)[number];
+
+/** Where a launch stands for the person: the live states while its goal is active, else how it ended. */
+export type TLaunchProgress = 'starting' | 'running' | 'waiting' | TOutcomeState;
+
 /** The values a task asked for, by input name: plain text or numbers, bounded. */
 export type TLaunchInputs = Readonly<Record<string, string | number>>;
 
@@ -33,6 +40,51 @@ export interface ILaunchFailure {
   readonly message: string;
 }
 
+/**
+ * What the host recorded when its own browser returned a page to a run: the address asked for and the
+ * address the page was at, how much text came back, a digest of it, and when. Only the host's browser
+ * port makes one, so nothing a model writes or a page says can. The page's text is not kept beyond a
+ * short plain excerpt for the person to see.
+ */
+export interface IEvidenceReceipt {
+  readonly kind: 'page-read';
+  /** Which of the browser's two reading tools returned the page. */
+  readonly tool: 'open' | 'view';
+  /** The address the run asked to open; only for `open`. */
+  readonly requested?: string;
+  /** The address the browser reported the page was at, which differs from `requested` after a redirect. */
+  readonly address: string;
+  /** How many characters of text came back, ignoring blank space; none means nothing was readable. */
+  readonly chars: number;
+  /** SHA-256 of the text that came back. */
+  readonly digest: string;
+  /** The start of the text as plain words, left out when it looks like it carries a secret. */
+  readonly excerpt?: string;
+  readonly at: string;
+}
+
+/** A receipt as kept while its launch waits for an outcome: tied to the run that made it. */
+export interface IRunReceipt extends IEvidenceReceipt {
+  readonly runId: string;
+}
+
+/** How a launched task ended. It is decided once, when its goal ended, and never changes. */
+export interface ILaunchOutcome {
+  readonly state: TOutcomeState;
+  /** Plain words for the person; fixed by the host. */
+  readonly reason: string;
+  /** What the run read, the reads that match what the task promised first. */
+  readonly evidence: readonly IEvidenceReceipt[];
+  readonly decidedAt: string;
+  /** The run it was decided from; absent when no run was left to read. */
+  readonly runId?: string;
+  /**
+   * That run's report as plain text, bounded: the model's own account, kept with the outcome so the
+   * person is shown the report that was judged even after the goal is rerun or removed. Never proof.
+   */
+  readonly report?: string;
+}
+
 export interface ILaunchIntent {
   readonly id: string;
   /** The client's key for this request: one key, one launch. */
@@ -52,12 +104,30 @@ export interface ILaunchIntent {
   readonly goalId?: string;
   /** Present when failed, and only then. */
   readonly failure?: ILaunchFailure;
+  /** What the host's browser returned to the goal's runs, kept only until the outcome is decided. */
+  readonly receipts?: readonly IRunReceipt[];
+  /** Present once the goal ended and the host decided, and only on a launched intent. */
+  readonly outcome?: ILaunchOutcome;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
 
-/** An intent as the person's page reads it: without the client's key or the digest of the request. */
-export type ILaunchView = Omit<ILaunchIntent, 'idempotencyKey' | 'requestDigest'>;
+/** An intent as the person's page reads it: without the client's key, the digest of the request, or the host's own bookkeeping. */
+export type ILaunchView = Omit<
+  ILaunchIntent,
+  'idempotencyKey' | 'requestDigest' | 'receipts' | 'outcome'
+>;
+
+/** A launch with where it stands: what the person is shown for it, read-only. */
+export interface ILaunchStatusView extends ILaunchView {
+  readonly progress: TLaunchProgress;
+  /** Plain words from the host on why it stands there. */
+  readonly reason: string;
+  /** The deciding run's report as plain text, bounded: the model's account, never proof. */
+  readonly report?: string;
+  readonly evidence: readonly IEvidenceReceipt[];
+  readonly decidedAt?: string;
+}
 
 export interface ILaunchStarted {
   readonly launch: ILaunchView;

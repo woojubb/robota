@@ -328,7 +328,20 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       }
     }
     if (area === 'feed' && collection === undefined && method === 'GET') {
-      return ok({ items: (await goals.feed()).filter((item) => !item.dismissed) });
+      const items = (await goals.feed()).filter((item) => !item.dismissed);
+      // An item of a goal a started task made carries that launch's id, read from the typed mark on the
+      // goal and never from the item's words, so the page can link the report and its card to each other.
+      const launches = new Map(
+        (await goals.list()).flatMap((goal): [string, string][] =>
+          goal.launch === undefined ? [] : [[goal.id, goal.launch.id]],
+        ),
+      );
+      return ok({
+        items: items.map((item) => {
+          const launchId = item.goalId === undefined ? undefined : launches.get(item.goalId);
+          return launchId === undefined ? item : { ...item, launchId };
+        }),
+      });
     }
     if (area === 'feed' && collection !== undefined && method === 'POST') {
       if (id === 'approve' || id === 'deny') {

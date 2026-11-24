@@ -14,6 +14,7 @@ import {
   browserContext,
   keyOf,
   request,
+  runOf,
   startWorld,
 } from './launch-world.js';
 
@@ -405,7 +406,7 @@ describe('what a launch lets its goal run on', () => {
     const started = await world.launches.start(request());
     const goal = (await world.goals.get(started.goalId))!;
     expect(await world.launches.mayStart(goal)).toBe(true);
-    const shape = await world.launches.shape(goal);
+    const shape = await world.launches.shape(goal, runOf(goal));
     expect(shape?.onlyTools).toEqual(['BrowserOpen', 'BrowserView']);
     expect(shape?.instructions).toContain(
       "- https pages the person names, read in the agent's own browser; nothing is submitted",
@@ -422,7 +423,7 @@ describe('what a launch lets its goal run on', () => {
       readOnly: true,
       launch: { id: 'launch-missing' },
     });
-    expect((await world.launches.shape(orphan))?.onlyTools).toEqual([]);
+    expect((await world.launches.shape(orphan, runOf(orphan)))?.onlyTools).toEqual([]);
     expect(await world.launches.mayStart(orphan)).toBe(true);
     // A launch that ended as failed lends no tools to a goal that names it either.
     const [failed] = await world.store.list();
@@ -433,9 +434,9 @@ describe('what a launch lets its goal run on', () => {
       readOnly: true,
       launch: { id: failed!.id },
     });
-    expect((await world.launches.shape(named))?.onlyTools).toEqual([]);
+    expect((await world.launches.shape(named, runOf(named)))?.onlyTools).toEqual([]);
     const plain = await world.goals.create({ title: 'Plain', instructions: 'Look.' });
-    expect(await world.launches.shape(plain)).toBeUndefined();
+    expect(await world.launches.shape(plain, runOf(plain))).toBeUndefined();
     expect(await world.launches.mayStart(plain)).toBe(true);
   });
 
@@ -446,7 +447,10 @@ describe('what a launch lets its goal run on', () => {
     expect(goal).toBeDefined();
     expect(await world.launches.mayStart(goal!)).toBe(false);
     // Its tools are the same while it waits.
-    expect((await world.launches.shape(goal!))?.onlyTools).toEqual(['BrowserOpen', 'BrowserView']);
+    expect((await world.launches.shape(goal!, runOf(goal!)))?.onlyTools).toEqual([
+      'BrowserOpen',
+      'BrowserView',
+    ]);
   });
 });
 

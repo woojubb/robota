@@ -18,6 +18,8 @@ import {
   parseConnectorArguments,
 } from '@robota-sdk/agent-product/personal';
 
+import { EMPTY_REPORT } from './run-report.js';
+
 import type { GoalBook, IFeedItem, IGoal, IGoalRun } from '@robota-sdk/agent-product/personal';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IExtraSessionOptions, TPersonalSession } from './agent.js';
@@ -33,6 +35,11 @@ export interface IGoalShape {
   readonly instructions: string;
   /** The only tools the run has. */
   readonly onlyTools: readonly string[];
+  /**
+   * Tools that stand in, for this run only, for the agent's own of the same name: the browser's reading
+   * tools made to record what they return, say. Each must be one of the tools offered in `onlyTools`.
+   */
+  readonly scopedTools?: readonly IToolWithEventService[];
   /** A case-only replacement for the connector action; every call still requires approval. */
   readonly caseAction?: ICaseAction;
   /** Case mutations that are valid only for this answer and this case. */
@@ -234,6 +241,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       ...(shape !== undefined && { onlyTools: shape.onlyTools }),
       ...(shape?.caseAction !== undefined && { caseAction: shape.caseAction.tool }),
       ...(shape?.caseTools !== undefined && { caseTools: shape.caseTools }),
+      ...(shape?.scopedTools !== undefined && { scopedTools: shape.scopedTools }),
     });
     sessions.set(session, goal.id);
     if (stopped || control.cancelled) {
@@ -391,8 +399,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       const handle = await session.submit(goal.instructions);
       const result = await handle.completed;
       settledBeforeShutdown = !stopped;
-      report =
-        result.response.trim() === '' ? 'The run ended without a report.' : result.response.trim();
+      report = result.response.trim() === '' ? EMPTY_REPORT : result.response.trim();
     } catch (error) {
       settledBeforeShutdown = !stopped;
       outcome = 'failed';

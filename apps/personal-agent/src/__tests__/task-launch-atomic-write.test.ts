@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createFileLaunchStore } from '../task-catalog/launch/file-store.js';
-import { launchIntent } from './launch-world.js';
+import { launchIntent, outcomeOf, receipt } from './launch-world.js';
 
 const io = vi.hoisted(() => ({ failWrite: false, failRename: false }));
 
@@ -78,5 +78,38 @@ describe.each([
       'launched',
       'reserved',
     ]);
+  });
+});
+
+describe.each([
+  ['a write that stops half way', 'failWrite'],
+  ['a rename that fails', 'failRename'],
+] as const)('a read or an outcome kept through %s', (_name, failure) => {
+  it('leaves the file as it was, keeps nothing half decided, and the same step works when asked again', async () => {
+    const directory = join(root, `outcome-${failure}`, 'task-catalog');
+    const store = createFileLaunchStore({ directory });
+    await store.reserve(launchIntent(1));
+    await store.advance(launchIntent(1).id, { status: 'launched', goalId: 'goal-1' });
+    const before = readFileSync(join(directory, 'launches.json'), 'utf8');
+
+    io[failure] = true;
+    await expect(
+      store.recordReceipt(launchIntent(1).id, 'goal-1', 'run-1', receipt()),
+    ).rejects.toThrow(/ENOSPC|EIO/u);
+    expect(readFileSync(join(directory, 'launches.json'), 'utf8')).toBe(before);
+    expect(await store.recordReceipt(launchIntent(1).id, 'goal-1', 'run-1', receipt())).toBe(true);
+
+    const withRead = readFileSync(join(directory, 'launches.json'), 'utf8');
+    io[failure] = true;
+    await expect(store.decide(launchIntent(1).id, outcomeOf())).rejects.toThrow(/ENOSPC|EIO/u);
+    // The outcome is not half kept: the file is as it was, with the read still waiting and no outcome.
+    expect(readFileSync(join(directory, 'launches.json'), 'utf8')).toBe(withRead);
+    expect(readdirSync(directory)).toEqual(['launches.json']);
+    const kept = (await store.get(launchIntent(1).id))!;
+    expect(kept.outcome).toBeUndefined();
+    expect(kept.receipts).toHaveLength(1);
+
+    expect((await store.decide(launchIntent(1).id, outcomeOf())).outcome?.state).toBe('verified');
+    expect((await store.get(launchIntent(1).id))!.receipts).toBeUndefined();
   });
 });

@@ -308,7 +308,7 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
       }
     });
 
-    it('starts the page-check task from its card with a double click: one goal, a report in the Feed, and a way to open the goal', async () => {
+    it('starts the page-check task from its card with a double click: one goal, a verified result with its evidence, a report in the Feed, and a way to open the goal', async () => {
       const shop: Server = createServer((_req, res) => {
         res
           .writeHead(200, { 'content-type': 'text/html' })
@@ -342,8 +342,16 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           await card.getByLabel(/Page address/u).fill(address);
           await card.getByLabel(/What to check/u).fill('Is shipping free?');
           await start.dblclick();
-          await card.getByText('Started. Your agent will report in the Feed.').waitFor();
+          await card.getByLabel('Task status').waitFor();
           await harness.capabilities.runner()!.settled();
+          // The agent's own browser read the page that was named, so the result is checked and the card
+          // shows what was read.
+          await card.getByText('Completed (verified)').waitFor();
+          await card.getByText('Report', { exact: true }).waitFor();
+          await card
+            .getByRole('list', { name: 'Evidence' })
+            .getByText(`Opened ${address}`)
+            .waitFor();
           const { goals } = harness.capabilities;
           const made = await goals.list();
           expect(made).toHaveLength(1);
@@ -354,7 +362,11 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           });
           const [intent] = await harness.capabilities.launches.list(10);
           expect(made[0]!.launch).toEqual({ id: intent!.id });
-          expect(intent).toMatchObject({ status: 'launched', goalId: made[0]!.id });
+          expect(intent).toMatchObject({
+            status: 'launched',
+            goalId: made[0]!.id,
+            progress: 'verified',
+          });
           expect((await goals.feed()).filter((item) => item.kind === 'report')).toHaveLength(1);
 
           // The card opens the goal it made.
@@ -371,9 +383,12 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           await card.getByLabel(/Page address/u).fill(address);
           await card.getByLabel(/What to check/u).fill('Is shipping free over 20 dollars?');
           await start.click();
-          await card.getByText('Started. Your agent will report in the Feed.').waitFor();
           await harness.capabilities.runner()!.settled();
           expect(await goals.list()).toHaveLength(2);
+          // The scripted model read nothing this time, so the card calls it unverified, and shows only
+          // the newest launch.
+          await card.getByText('Unverified', { exact: true }).waitFor();
+          expect(await card.getByText('Completed (verified)').count()).toBe(0);
         } finally {
           await close();
         }

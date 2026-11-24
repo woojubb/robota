@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import { LaunchStatus } from './LaunchStatus.js';
 import { TaskStart, newStartKey } from './TaskStart.js';
 import { ViewFrame, errorText, when } from './ui.js';
 
@@ -7,6 +8,7 @@ import type {
   IPersonalApi,
   ITaskDefinitionView,
   ITaskInputView,
+  ITaskLaunchStatusView,
   ITaskOfferView,
   ITaskOffersView,
   TTaskReadinessView,
@@ -130,20 +132,35 @@ const chip =
 function DefinitionCard({
   api,
   definition,
+  latest,
+  focusLaunch,
   newKey,
   onOpenGoal,
+  onOpenFeed,
   onNotReady,
 }: {
   readonly api: IPersonalApi;
   readonly definition: ITaskDefinitionView;
+  /** The newest launch of this task the agent has kept, with where it stands. */
+  readonly latest: ITaskLaunchStatusView | undefined;
+  readonly focusLaunch: string | undefined;
   readonly newKey: () => string;
   readonly onOpenGoal: ((goalId: string) => void) | undefined;
+  readonly onOpenFeed: ((launchId: string) => void) | undefined;
   readonly onNotReady: () => void;
 }): React.ReactElement {
   const titleId = `task-${definition.id}`;
+  // A launch started from this card is the one shown; before that, the newest one the agent has kept.
+  const [startedId, setStartedId] = useState<string | undefined>(undefined);
+  const shownId = startedId ?? latest?.id;
+  const highlighted = focusLaunch !== undefined && focusLaunch === shownId;
+  const card = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (highlighted) card.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [highlighted]);
   return (
     <li>
-      <article aria-labelledby={titleId} className="rounded-lg border border-border p-3">
+      <article ref={card} aria-labelledby={titleId} className="rounded-lg border border-border p-3">
         <div className="flex flex-wrap items-baseline gap-2">
           <h4 id={titleId} className="text-[14px] font-semibold">
             {definition.title}
@@ -180,8 +197,19 @@ function DefinitionCard({
             api={api}
             definition={definition}
             newKey={newKey}
-            onOpenGoal={onOpenGoal}
+            onStarted={setStartedId}
             onRefusedAsNotReady={onNotReady}
+          />
+        )}
+        {shownId !== undefined && (
+          <LaunchStatus
+            key={shownId}
+            api={api}
+            launchId={shownId}
+            {...(shownId === latest?.id && { initial: latest })}
+            highlighted={highlighted}
+            {...(onOpenGoal !== undefined && { onOpenGoal })}
+            {...(onOpenFeed !== undefined && { onOpenFeed })}
           />
         )}
       </article>
@@ -225,16 +253,23 @@ function byCategory(
  * Work the agent can take on, and what has been offered to the person. Each task shows the agent's own
  * word on whether it can run: ready with the access it would use, needing the setup steps named, or
  * unavailable with the reason. The page decides none of it. Only a task the agent calls ready has a
- * Start, and the agent judges it again when Start is pressed.
+ * Start, and the agent judges it again when Start is pressed. A task that was started shows where it
+ * stands, as the agent reports it.
  */
 export function BrowseView({
   api,
   onOpenGoal,
+  onOpenFeed,
+  focusLaunch,
   newKey = newStartKey,
 }: {
   readonly api: IPersonalApi;
   /** Opens the goal a started task made, among the person's goals. */
   readonly onOpenGoal?: (goalId: string) => void;
+  /** Opens the Feed to the report of a started task. */
+  readonly onOpenFeed?: (launchId: string) => void;
+  /** The launch whose card the person is sent to from the Feed. */
+  readonly focusLaunch?: string;
   /** Makes the key one request to start a task goes with. */
   readonly newKey?: () => string;
 }): React.ReactElement {
@@ -242,19 +277,22 @@ export function BrowseView({
     undefined,
   );
   const [offers, setOffers] = useState<ITaskOffersView | undefined>(undefined);
+  const [launches, setLaunches] = useState<readonly ITaskLaunchStatusView[]>([]);
   const [errors, setErrors] = useState<readonly string[]>([]);
   // Bumped when the agent says a task it showed as ready is not, so the cards are read again.
   const [reading, setReading] = useState(0);
   useEffect(() => {
     let current = true;
-    void Promise.allSettled([api.taskDefinitions(), api.taskOffers()]).then(
-      ([defined, offered]) => {
+    void Promise.allSettled([api.taskDefinitions(), api.taskOffers(), api.taskLaunches()]).then(
+      ([defined, offered, launched]) => {
         if (!current) return;
         const failed: string[] = [];
         if (defined.status === 'fulfilled') setDefinitions(defined.value);
         else failed.push(errorText(defined.reason));
         if (offered.status === 'fulfilled') setOffers(offered.value);
         else failed.push(errorText(offered.reason));
+        if (launched.status === 'fulfilled') setLaunches(launched.value);
+        else failed.push(errorText(launched.reason));
         setErrors(failed);
       },
     );
@@ -320,8 +358,11 @@ export function BrowseView({
                       key={definition.id}
                       api={api}
                       definition={definition}
+                      latest={launches.find((launch) => launch.definitionId === definition.id)}
+                      focusLaunch={focusLaunch}
                       newKey={newKey}
                       onOpenGoal={onOpenGoal}
+                      onOpenFeed={onOpenFeed}
                       onNotReady={() => setReading((count) => count + 1)}
                     />
                   ))}

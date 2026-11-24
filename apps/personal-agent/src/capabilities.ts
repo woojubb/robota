@@ -282,10 +282,23 @@ export function createPersonalCapabilities(
       connectorViews: () => connectors.list(),
     }),
   });
+  // Watched, so the person can see what the agent's browser does and stop it.
+  const watchedBrowser = watchBrowser(
+    createPlaywrightBrowser({
+      profileDir: join(options.stateDir, 'browser-profile'),
+      environment: options.environment,
+      ...(options.browserAllowedHosts !== undefined && {
+        allowedHosts: options.browserAllowedHosts,
+      }),
+    }),
+  );
+  const browser = watchedBrowser.port;
   let runner: IGoalRunner | undefined;
   // A start is judged again from the same readiness the cards show, kept before its goal exists, and the
-  // goal runs at once instead of at the next tick.
+  // goal runs at once instead of at the next tick. A started run reads pages through this browser with
+  // each page it returns recorded, which is what its outcome is decided from.
   const launches = createLaunchCoordinator({
+    browser,
     store: createFileLaunchStore({ directory: join(options.stateDir, 'task-catalog') }),
     catalog: taskCatalog,
     goals,
@@ -532,17 +545,6 @@ export function createPersonalCapabilities(
     }),
   });
   let deliveryTimer: ReturnType<typeof setInterval> | undefined;
-  // Watched, so the person can see what the agent's browser does and stop it.
-  const watchedBrowser = watchBrowser(
-    createPlaywrightBrowser({
-      profileDir: join(options.stateDir, 'browser-profile'),
-      environment: options.environment,
-      ...(options.browserAllowedHosts !== undefined && {
-        allowedHosts: options.browserAllowedHosts,
-      }),
-    }),
-  );
-  const browser = watchedBrowser.port;
   let shuttingDown = false;
   let attached = false;
   const pendingWork = new Set<Promise<unknown>>();
@@ -726,6 +728,8 @@ export function createPersonalCapabilities(
           }
         },
         onReport: (goal, report, { quiet }) => {
+          // A started task's outcome is decided from what was recorded, now that its run is over.
+          if (goal.launch !== undefined) void track(launches.settle(goal).catch(() => undefined));
           // A quiet run is kept in the goal's history only, so it is not pushed either: pushing it would
           // let the runs the agent starts on its own reach the person outside their limits. A run that is
           // not quiet is the person's own goal output, not a question the agent chose to raise, so it
@@ -801,7 +805,7 @@ export function createPersonalCapabilities(
         // started task has only the tools of the access its request was judged on. Each has only the tools to do that.
         shape: (goal, run) =>
           goal.launch !== undefined
-            ? launches.shape(goal)
+            ? launches.shape(goal, run)
             : goal.caseId !== undefined
               ? caseTurns.shape(goal, run)
               : syncRuns.shape(goal),

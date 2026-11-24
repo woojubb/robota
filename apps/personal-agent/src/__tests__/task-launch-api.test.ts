@@ -99,11 +99,19 @@ describe('starting a task over the API', () => {
       }),
     ]);
 
+    // The launch as the person reads it is the one the start answered, with where it stands: the run
+    // reported, but read nothing, so nothing the host recorded confirms the report.
+    const standing = {
+      progress: 'unverified',
+      reason: 'The run finished, but nothing it read matches the page you named.',
+      report: 'The page says shipping is free.',
+      evidence: [],
+    };
     expect((await api.send('GET', `tasks/launches/${first.body.launch.id}`)).body).toEqual({
-      launch: first.body.launch,
+      launch: { ...first.body.launch, ...standing, decidedAt: expect.any(String) },
     });
     expect((await api.send('GET', 'tasks/launches')).body).toEqual({
-      launches: [first.body.launch],
+      launches: [{ ...first.body.launch, ...standing, decidedAt: expect.any(String) }],
     });
   });
 
@@ -436,5 +444,148 @@ describe('a start a stopped agent left half way', () => {
       (target.model.requests[0]!.tools ?? []).map((tool) => tool.function?.name).sort(),
     ).toEqual(expect.arrayContaining(['BrowserOpen', 'BrowserView']));
     expect((await target.capabilities.goals.get(goal.id))?.status).toBe('done');
+  });
+});
+
+describe('where a launch stands, over the API', () => {
+  const STANDING_KEYS = [
+    'bindings',
+    'createdAt',
+    'decidedAt',
+    'definitionDigest',
+    'definitionId',
+    'definitionRevision',
+    'evidence',
+    'goalId',
+    'id',
+    'inputs',
+    'origin',
+    'progress',
+    'reason',
+    'report',
+    'status',
+    'updatedAt',
+  ];
+
+  it('shows the derived status, the report, the receipts and the goal, and nothing the host keeps for itself', async () => {
+    const { harness: target, api } = await started();
+    target.model.script({ text: 'The page says shipping is free.' });
+    const first = await api.send('POST', START, body());
+    await settled(target);
+    const shown = (await api.send('GET', `tasks/launches/${first.body.launch.id}`)).body.launch;
+    expect(Object.keys(shown).sort()).toEqual(STANDING_KEYS);
+    expect(shown).toMatchObject({
+      progress: 'unverified',
+      goalId: first.body.goalId,
+      report: 'The page says shipping is free.',
+      evidence: [],
+    });
+    // The host's own bookkeeping, and the key and digest of the request, stay with the host.
+    for (const hidden of ['receipts', 'outcome', 'idempotencyKey', 'requestDigest'])
+      expect(shown, hidden).not.toHaveProperty(hidden);
+  });
+
+  it('shows a report as bounded plain text, however long it is and whatever it carries', async () => {
+    const { harness: target, api } = await started();
+    const marks = [String.fromCharCode(7), String.fromCharCode(0x202e)].join('');
+    target.model.script({
+      text: `<img src=x onerror=alert(1)> **Yes** [link](https://evil.example)${marks}\n\n\n\n\n${'y'.repeat(6000)}`,
+    });
+    const first = await api.send('POST', START, body());
+    await settled(target);
+    const { report } = (await api.send('GET', `tasks/launches/${first.body.launch.id}`)).body
+      .launch;
+    expect(report.length).toBeLessThanOrEqual(2000);
+    expect(report.endsWith('…')).toBe(true);
+    expect(report).toContain('<img src=x onerror=alert(1)> **Yes** [link](https://evil.example)');
+    expect(report).not.toMatch(new RegExp(`[${marks}]`, 'u'));
+    expect(report).not.toContain('\n\n\n');
+    // Every launch of the list is as bounded.
+    const listed = (await api.send('GET', 'tasks/launches')).body.launches as any[];
+    expect(listed[0].report).toBe(report);
+    for (const text of [listed[0].reason, ...listed[0].evidence.map((read: any) => read.address)])
+      expect(String(text).length).toBeLessThanOrEqual(2048);
+  });
+
+  it('answers a launch kept before outcomes existed, decides it when its run ends, and then keeps what it decided', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'task-launch-api-'));
+    directories.push(stateDir);
+    const { harness: target, api } = await started({ stateDir });
+    const { intent } = await leftReserved(stateDir);
+    const goal = await target.capabilities.goals.create({
+      title: 'Check a fact on a page',
+      instructions: 'Look at the page.',
+      readOnly: true,
+      launch: { id: intent.id },
+    });
+    await createFileLaunchStore({ directory: join(stateDir, 'task-catalog') }).advance(intent.id, {
+      status: 'launched',
+      goalId: goal.id,
+    });
+    expect((await api.send('GET', `tasks/launches/${intent.id}`)).body.launch).toMatchObject({
+      status: 'launched',
+      progress: 'starting',
+      evidence: [],
+    });
+    await target.capabilities.runner()!.runDue();
+    await settled(target);
+    const decided = (await api.send('GET', `tasks/launches/${intent.id}`)).body.launch;
+    expect(decided).toMatchObject({
+      progress: 'unverified',
+      report: 'The page says shipping is free.',
+    });
+    expect((await api.send('GET', `tasks/launches/${intent.id}`)).body.launch).toEqual(decided);
+  });
+
+  it('decides a launch whose goal the person stopped before it ran as cancelled, when it is read, and says so', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'task-launch-api-'));
+    directories.push(stateDir);
+    const { harness: target, api } = await started({ stateDir });
+    const { intent } = await leftReserved(stateDir);
+    const goal = await target.capabilities.goals.create({
+      title: 'Check a fact on a page',
+      instructions: 'Look at the page.',
+      readOnly: true,
+      launch: { id: intent.id },
+    });
+    await createFileLaunchStore({ directory: join(stateDir, 'task-catalog') }).advance(intent.id, {
+      status: 'launched',
+      goalId: goal.id,
+    });
+    expect((await api.send('POST', `goals/${goal.id}/stop`, {})).status).toBe(200);
+    const url = `tasks/launches/${intent.id}`;
+    const cancelled = (await api.send('GET', url)).body.launch;
+    expect(cancelled).toMatchObject({
+      progress: 'cancelled',
+      reason: 'The goal for this task was removed before it finished.',
+      evidence: [],
+    });
+    expect(cancelled).not.toHaveProperty('report');
+    // The decision is kept: asking again, or after the agent restarts, is the same answer.
+    expect((await api.send('GET', url)).body.launch).toEqual(cancelled);
+    expect(target.model.requests).toEqual([]);
+  });
+
+  it('is read-only: no write reaches a launch, and the status of one that does not exist is a 404', async () => {
+    const { api } = await started();
+    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+      for (const path of [
+        'tasks/launches',
+        'tasks/launches/launch-x',
+        'tasks/launches/launch-x/cancel',
+      ])
+        expect((await api.send(method, path, body())).status, `${method} ${path}`).toBe(404);
+    }
+    expect((await api.send('GET', 'tasks/launches/launch-x')).status).toBe(404);
+    expect((await api.send('GET', 'tasks/launches/launch-x/cancel')).status).toBe(404);
+    expect((await api.send('GET', 'goals')).body.goals).toEqual([]);
+  });
+
+  it('answers only the person’s own browser', async () => {
+    const { harness: target, api } = await started();
+    const first = await api.send('POST', START, body());
+    await settled(target);
+    for (const path of ['tasks/launches', `tasks/launches/${first.body.launch.id}`])
+      expect((await api.send('GET', path, undefined, { cookie: false })).status, path).toBe(403);
   });
 });
