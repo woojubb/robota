@@ -258,6 +258,10 @@ describe('a start with values that are not valid', () => {
     ['a name on the internal network', { page: 'https://printer.internal/', question: QUESTION }],
     ['a space in the address', { page: 'https://example.com/a b', question: QUESTION }],
     [
+      'an address that is long once written out in full',
+      { page: `https://example.com/${'é'.repeat(700)}`, question: QUESTION },
+    ],
+    [
       'an address that is far too long',
       { page: `https://example.com/${'a'.repeat(2100)}`, question: QUESTION },
     ],
@@ -305,6 +309,26 @@ describe('a start with values that are not valid', () => {
     expect(error.message).not.toContain('pw');
     const missing = await refusal(world.launches.start(request({ inputs: { page: PAGE } })));
     expect(missing.message).toBe('What to check: this is needed');
+  });
+
+  it('refuses an address that is only long once it is written out, with a plain message, before anything is kept', async () => {
+    const world = startWorld();
+    const typed = `https://example.com/${'é'.repeat(700)}`;
+    expect(typed.length).toBeLessThan(2048);
+    const error = await refusal(
+      world.launches.start(request({ inputs: { page: typed, question: QUESTION } })),
+    );
+    expect(error).toMatchObject({
+      kind: 'invalid',
+      message: 'The page address is too long once it is written out in full',
+    });
+    expect(await world.store.list()).toEqual([]);
+    expect(await world.goals.list()).toEqual([]);
+    // One that is still short once written out is kept in its written-out form.
+    const short = await world.launches.start(
+      request({ inputs: { page: 'https://example.com/café', question: QUESTION } }),
+    );
+    expect(short.launch.inputs['page']).toBe('https://example.com/caf%C3%A9');
   });
 
   it('takes an owner-named local site over http, and no other local one', async () => {

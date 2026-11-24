@@ -95,6 +95,8 @@ export interface IWorldOptions {
   readonly resumeWithinMs?: number;
   /** A process that dies after goal creation or before it: nothing more is kept once these are on. */
   readonly dying?: { goal?: 'before' | 'after'; recording?: boolean };
+  /** A goal store that will not remove a goal, as one that has just started would not. */
+  readonly refuseRemove?: boolean;
 }
 
 export interface IWorld {
@@ -144,7 +146,15 @@ export function startWorld(options: IWorldOptions = {}): IWorld {
   const launches: ILaunchCoordinator = createLaunchCoordinator({
     store,
     catalog,
-    goals: { create, list: () => goals.list(), get: (id) => goals.get(id) },
+    goals: {
+      create,
+      list: () => goals.list(),
+      get: (id) => goals.get(id),
+      remove: (id) =>
+        options.refuseRemove === true
+          ? Promise.reject(new Error('the goal is running'))
+          : goals.remove(id),
+    },
     recipes: options.recipes ?? LAUNCH_RECIPES,
     ...(options.pageHosts !== undefined && { pageHosts: options.pageHosts }),
     now: () => clock.now,

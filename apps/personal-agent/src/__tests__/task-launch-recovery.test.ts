@@ -94,14 +94,104 @@ describe('a process that stopped between the steps of a start', () => {
     expect(await second.launches.mayStart(made!)).toBe(true);
   });
 
-  it('adopts a goal that was made even when what the request rested on has changed since', async () => {
+  it('adopts the goal that was made while the request still rests on what it was made from, and only that one', async () => {
     const state = disk();
     const first = state.boot({ dying: { recording: true } });
     await crashed(first);
+    const [held] = await first.goals.list();
+    const second = state.boot();
+    await second.launches.recover();
+    expect((await second.goals.list()).map((goal) => goal.id)).toEqual([held!.id]);
+    expect((await second.store.list())[0]).toMatchObject({ status: 'launched', goalId: held!.id });
+    expect(second.create).not.toHaveBeenCalled();
+  });
+
+  it('removes the goal that was made, and ends the intent as failed, when the request has gone stale since', async () => {
+    const state = disk();
+    const first = state.boot({ dying: { recording: true } });
+    await crashed(first);
+    const [held] = await first.goals.list();
+    expect(held).toBeDefined();
     const second = state.boot({ browser: { current: 'unavailable' } });
     await second.launches.recover();
-    expect(await second.goals.list()).toHaveLength(1);
-    expect((await second.store.list())[0]!.status).toBe('launched');
+    // Nothing that could run is left behind, and the intent says why.
+    expect(await second.goals.list()).toEqual([]);
+    expect(await second.goals.get(held!.id)).toBeUndefined();
+    expect((await second.store.list())[0]).toMatchObject({
+      status: 'failed',
+      failure: { kind: 'stale', message: 'This task is no longer ready, so it was not started.' },
+    });
+    expect(second.create).not.toHaveBeenCalled();
+    // The same key gets that answer and makes no goal; a new key, with the task ready again, starts afresh.
+    const again = await second.launches.start(request()).catch((error: unknown) => error);
+    expect(again).toMatchObject({ kind: 'stale', detail: { launch: { status: 'failed' } } });
+    expect(await second.goals.list()).toEqual([]);
+    const back = state.boot();
+    await back.launches.recover();
+    expect(await back.goals.list()).toEqual([]);
+    const started = await back.launches.start(request({ key: keyOf(2) }));
+    expect(started.created).toBe(true);
+    expect(started.goalId).not.toBe(held!.id);
+    expect(await back.goals.list()).toHaveLength(1);
+  });
+
+  it('does the same when a retry meets the held goal before any restart, and when the task changed or the request is too old', async () => {
+    const page = BUILT_IN_DEFINITIONS[3]!;
+    const changedWords = { ...structuredClone(page), expectedResult: 'Something else entirely.' };
+    const cases: [string, IWorldOptions, (clock: { now: Date }) => void][] = [
+      ['not ready', { browser: { current: 'needs-setup' } }, () => undefined],
+      ['changed words', { builtIn: [changedWords] }, () => undefined],
+      [
+        'too old',
+        {},
+        (clock) => {
+          clock.now = new Date('2026-11-26T10:00:00Z');
+        },
+      ],
+    ];
+    for (const [name, options, age] of cases) {
+      const state = disk();
+      await crashed(state.boot({ dying: { recording: true } }));
+      age(state.clock);
+      const second = state.boot(options);
+      const refused = await second.launches.start(request()).catch((error: unknown) => error);
+      expect(refused, name).toMatchObject({
+        kind: 'stale',
+        detail: { launch: { status: 'failed' } },
+      });
+      expect(await second.goals.list(), name).toEqual([]);
+      expect(second.create, name).not.toHaveBeenCalled();
+    }
+  });
+
+  it('keeps a goal that has started, whatever has changed since: it is that launch’s goal', async () => {
+    for (const finish of [false, true]) {
+      const state = disk();
+      const first = state.boot({ dying: { recording: true } });
+      await crashed(first);
+      const [held] = await first.goals.list();
+      const run = await first.goals.startRun(held!.id);
+      if (finish) await first.goals.finishRun(run, 'done', 'Yes.');
+      const second = state.boot({ browser: { current: 'unavailable' } });
+      await second.launches.recover();
+      expect((await second.goals.list()).map((goal) => goal.id)).toEqual([held!.id]);
+      expect((await second.store.list())[0]).toMatchObject({
+        status: 'launched',
+        goalId: held!.id,
+      });
+    }
+  });
+
+  it('adopts a goal that cannot be removed because it has just started, and never makes a second', async () => {
+    const state = disk();
+    const first = state.boot({ dying: { recording: true } });
+    await crashed(first);
+    const [held] = await first.goals.list();
+    const second = state.boot({ browser: { current: 'unavailable' }, refuseRemove: true });
+    await second.launches.recover();
+    expect((await second.goals.list()).map((goal) => goal.id)).toEqual([held!.id]);
+    expect((await second.store.list())[0]).toMatchObject({ status: 'launched', goalId: held!.id });
+    expect(second.create).not.toHaveBeenCalled();
   });
 
   it('ends the intent as failed, with the reason and no goal, when the task is no longer ready', async () => {

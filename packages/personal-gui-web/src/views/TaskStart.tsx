@@ -41,7 +41,8 @@ type TPhase =
  * page decides nothing about whether the task can run: the agent judges it again when Start is pressed
  * and says why not. One key goes with a request for as long as the form is unchanged, and is kept when
  * no answer came back (so pressing Start again is the same request), and dropped when the agent answered
- * with a refusal or the person changed a value (so the next Start is a new one).
+ * with a refusal or the person changed a value (so the next Start is a new one). The fields are held
+ * while a request is in flight, so what it answers is about the values on the form.
  */
 export function TaskStart({
   api,
@@ -68,6 +69,8 @@ export function TaskStart({
   const sending = useRef(false);
 
   const change = (name: string, value: string): void => {
+    // The values are held while they are being sent, so the answer is always for the values on the form.
+    if (sending.current) return;
     setValues((current) => ({ ...current, [name]: value }));
     setProblems((current) => ({ ...current, [name]: '' }));
     // A changed value is another request.
@@ -133,6 +136,7 @@ export function TaskStart({
           id,
           name: input.name,
           required: input.required,
+          disabled: phase.name === 'sending',
           value: values[input.name] ?? '',
           'aria-invalid': message ? true : undefined,
           'aria-describedby': message ? `${id}-problem` : undefined,

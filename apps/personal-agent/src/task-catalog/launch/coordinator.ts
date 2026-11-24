@@ -64,7 +64,7 @@ export interface ILaunchCoordinator {
 export interface ILaunchCoordinatorOptions {
   readonly store: ILaunchStore;
   readonly catalog: ITaskCatalog;
-  readonly goals: Pick<GoalBook, 'create' | 'list' | 'get'>;
+  readonly goals: Pick<GoalBook, 'create' | 'list' | 'get' | 'remove'>;
   /** The wording and tools for each task the host can start; the product's own list unless a test supplies another. */
   readonly recipes: readonly ILaunchRecipe[];
   /** Exact `host:port` origins the owner named as reachable although local or private; the browser's own list. */
@@ -179,15 +179,28 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
   };
 
   /**
-   * Carry a reserved intent on after an interruption: adopt the goal that was made for it, else make
-   * it only while the request is still current, else end it with the reason.
+   * Carry a reserved intent on after an interruption, but only while the request still rests on what it
+   * was made from. Then the goal made for it is adopted, or made once if none exists. Otherwise the
+   * intent ends as failed with the reason, and a goal that was made for it and is still held (never
+   * started) is removed first, so a request that went stale leaves nothing that could run later. A
+   * goal that has started already is its launch's goal whatever has changed since, and is adopted.
    */
   const resume = async (intent: ILaunchIntent): Promise<ILaunchIntent> => {
-    const made = await goalOf(intent.id);
-    if (made !== undefined) return launched(intent, made);
     const stale = await staleReason(intent);
-    if (stale !== undefined) return fail(intent, 'stale', stale);
-    return materialize(intent);
+    const made = await goalOf(intent.id);
+    if (stale === undefined)
+      return made === undefined ? materialize(intent) : launched(intent, made);
+    if (made !== undefined) {
+      if (made.status !== 'active' || made.lastRunAt !== undefined) return launched(intent, made);
+      try {
+        await goals.remove(made.id);
+      } catch {
+        // allow-fallback: a goal that cannot be removed started after all, and then it is the launch's goal.
+        const still = await goals.get(made.id).catch(() => undefined);
+        if (still !== undefined) return launched(intent, still);
+      }
+    }
+    return fail(intent, 'stale', stale);
   };
 
   const settle = async (intent: ILaunchIntent): Promise<ILaunchStarted> =>

@@ -227,6 +227,29 @@ describe('Start on a Browse card', () => {
     expect(startTask).toHaveBeenCalledTimes(1);
   });
 
+  it('holds the fields while a request is in flight, so the answer is about the values that were sent', async () => {
+    let finish: (answer: ITaskStartAnswer) => void = () => undefined;
+    const { startTask } = setup({ start: () => new Promise((resolve) => (finish = resolve)) });
+    const scope = await fill(undefined, { 'Page address': PAGE, 'What to check': 'Is it free?' });
+    fireEvent.click(scope.getByRole('button', { name: 'Start' }));
+    const question = scope.getByLabelText(/What to check/u) as HTMLInputElement;
+    expect(question.disabled).toBe(true);
+    expect((scope.getByLabelText(/Page address/u) as HTMLInputElement).disabled).toBe(true);
+    // An edit that gets through anyway changes nothing, and does not make the answer look like another request's.
+    fireEvent.change(question, { target: { value: 'Is it open?' } });
+    expect(question.value).toBe('Is it free?');
+    expect(scope.getByRole('status').textContent).toBe('Starting…');
+    finish(ANSWER);
+    await scope.findByText('Started. Your agent will report in the Feed.');
+    expect(question.disabled).toBe(false);
+    expect(question.value).toBe('Is it free?');
+    expect(startTask).toHaveBeenCalledTimes(1);
+    expect(startTask.mock.calls[0]![1].inputs).toEqual({ page: PAGE, question: 'Is it free?' });
+    // Once it has answered, an edit is another request and takes the Started note away.
+    fireEvent.change(question, { target: { value: 'Is it open?' } });
+    expect(scope.queryByText(/^Started\./u)).toBeNull();
+  });
+
   it('opens the goal that was made when the person asks, and shows no link before there is one', async () => {
     const onOpenGoal = vi.fn();
     setup({ onOpenGoal });

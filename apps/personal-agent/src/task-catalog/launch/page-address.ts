@@ -30,6 +30,9 @@ export function checkPageAddress(raw: string, allowedHosts: ReadonlySet<string>)
   }
   if (url.username !== '' || url.password !== '')
     return refuse('The page address must not contain a user name or password');
+  // The normal spelling is what is kept, and percent-encoding can make it longer than what was typed.
+  if (url.href.length > URL_LIMIT)
+    return refuse('The page address is too long once it is written out in full');
   if (allowedHosts.has(url.host) && (url.protocol === 'https:' || url.protocol === 'http:'))
     return url.href;
   if (url.protocol !== 'https:') return refuse('The page address must start with https://');
