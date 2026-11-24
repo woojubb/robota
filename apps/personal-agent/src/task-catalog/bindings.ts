@@ -65,11 +65,12 @@ export function isIssuedBinding(value: unknown): value is TBindingSource {
 }
 
 /**
- * Check a binding and issue it. An unknown capability, an adapter that cannot carry it, an unknown
- * effect, a missing or stray tool or account, and a boundary that is empty, long or secret-shaped are
- * refused, so a mistaken table fails when the host starts and not when a card is shown.
+ * Check a binding's shape and give it back as plain data, issuing nothing. An unknown capability, an
+ * adapter that cannot carry it, an unknown effect, a missing or stray tool or account, and a boundary
+ * that is empty, long or secret-shaped are refused, so a mistaken table fails when the host starts and
+ * not when a card is shown. A binding kept in a record is read back through this, never issued again.
  */
-export function issueBinding(spec: ICapabilityBinding): TBindingSource {
+export function checkBindingSpec(spec: ICapabilityBinding): ICapabilityBinding {
   const capability = oneOf(spec.capability, 'capability', Object.keys(BINDABLE_CAPABILITIES));
   const adapter = oneOf(spec.adapter, `${capability} adapter`, BINDABLE_CAPABILITIES[capability]!);
   const effect = oneOf(spec.effect, `${capability} effect`, EFFECT_CEILINGS);
@@ -80,7 +81,7 @@ export function issueBinding(spec: ICapabilityBinding): TBindingSource {
     );
   if (adapter === 'connector' && spec.tool === undefined)
     throw new TaskCatalogRefusedError(`${capability} must name the exact tool of its connector`);
-  const binding = Object.freeze({
+  return {
     capability,
     adapter,
     ...(spec.account !== undefined && {
@@ -91,7 +92,12 @@ export function issueBinding(spec: ICapabilityBinding): TBindingSource {
     }),
     argumentBoundary,
     effect,
-  }) as TBindingSource;
+  };
+}
+
+/** Check a binding and issue it: only host code calls this, and only its result counts as verified. */
+export function issueBinding(spec: ICapabilityBinding): TBindingSource {
+  const binding = Object.freeze(checkBindingSpec(spec)) as TBindingSource;
   issued.add(binding);
   return binding;
 }

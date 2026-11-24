@@ -43,7 +43,10 @@ importable library.
   and a suggestion's words are shown as plain text.
 - **Browse shows the agent's word on each task, and decides none of it.** The Browse tab lists the agent's
   tasks as ready with the access they would use, needing the setup steps it names, or unavailable with
-  its reason; the page never offers a Start for a task the agent has not said is ready. An offer's
+  its reason. Only a task the agent says is ready has a Start, with a form for the values it asks for;
+  the agent judges the task again when Start is pressed, and the page shows its answer in the agent's
+  own words. One request goes with one key, kept while nothing changed and no answer came back, so a
+  double click or a retry is one request, and a launch that was made opens its goal. An offer's
   reason can come from a source, so it is shown as plain text, never as a link or markup.
 - **Secrets stay out of the page.** Settings name the environment variable that holds a provider key;
   the key itself is never sent to or shown by the page. The limits on what reaches the person beyond

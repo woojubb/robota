@@ -31,8 +31,8 @@ export const DEFINITION_LIMITS = {
   capabilities: 8,
 } as const;
 
-const SLUG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
-const INPUT_NAME = /^[a-z][A-Za-z0-9]{0,39}$/u;
+export const SLUG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
+export const INPUT_NAME = /^[a-z][A-Za-z0-9]{0,39}$/u;
 /** `family.operation`: a name for what is done, which is not the name of any one service's tool. */
 const CAPABILITY = /^[a-z][a-z0-9]{0,19}\.[a-z][a-z0-9-]{0,19}$/u;
 

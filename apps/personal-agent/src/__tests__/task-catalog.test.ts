@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { BUILT_IN_DEFINITIONS } from '../task-catalog/built-in.js';
+import { issueBinding } from '../task-catalog/bindings.js';
 import { createTaskCatalog } from '../task-catalog/catalog.js';
 import { TaskCatalogRefusedError } from '../task-catalog/fields.js';
 import { createMemoryTaskCatalogStore } from '../task-catalog/store.js';
+import { browserContext } from './launch-world.js';
 
 import type { IOffer, ITaskDefinition } from '../task-catalog/types.js';
 
@@ -77,6 +79,57 @@ describe('the definitions the person can browse', () => {
     expect(await catalog.getDefinition('my-own-check', 3)).toBeUndefined();
     expect(await catalog.getDefinition('prepare-my-week', 2)).toBeUndefined();
     expect(await catalog.getDefinition('nothing-here')).toBeUndefined();
+  });
+});
+
+describe('the assessment of one task', () => {
+  it('reads its readiness and the bindings it rests on from one reading of what the host can run', async () => {
+    let reads = 0;
+    const catalog = createTaskCatalog({
+      store: createMemoryTaskCatalogStore(),
+      readiness: async () => {
+        reads += 1;
+        return browserContext('ready');
+      },
+    });
+    const assessed = await catalog.assess('check-fact-on-page');
+    expect(reads).toBe(1);
+    expect(assessed?.definition).toEqual(BUILT_IN_DEFINITIONS[3]);
+    expect(assessed?.readiness.state).toBe('ready');
+    expect(
+      assessed?.bindings.map((binding) => [binding.capability, binding.adapter, binding.effect]),
+    ).toEqual([['web.read', 'local-browser', 'read-only']]);
+    // The answer for the whole list is the same judgement.
+    expect((await catalog.listDefinitions())[3]!.readiness).toEqual(assessed?.readiness);
+  });
+
+  it('is absent for a task the catalog does not hold, and names the latest revision of an installed one', async () => {
+    const { store, catalog } = start();
+    await store.putDefinition(owned());
+    await store.putDefinition(owned({ revision: 2 }));
+    expect(await catalog.assess('nothing-here')).toBeUndefined();
+    expect((await catalog.assess('my-own-check'))?.definition.revision).toBe(2);
+    expect((await catalog.assess('prepare-my-week'))?.readiness).toEqual({
+      state: 'unavailable',
+      reason: 'no verified binding for calendar.read yet',
+    });
+    expect((await catalog.assess('prepare-my-week'))?.bindings).toEqual([]);
+  });
+
+  it('lists no binding that does more than the task may, and is not ready on one', async () => {
+    const above = issueBinding({
+      capability: 'web.read',
+      adapter: 'local-browser',
+      argumentBoundary: 'pages, and drafts kept for the person',
+      effect: 'draft',
+    });
+    const catalog = createTaskCatalog({
+      store: createMemoryTaskCatalogStore(),
+      readiness: async () => ({ bindings: [above], blockers: [], accounts: [] }),
+    });
+    const assessed = await catalog.assess('check-fact-on-page');
+    expect(assessed?.bindings).toEqual([]);
+    expect(assessed?.readiness.state).toBe('unavailable');
   });
 });
 

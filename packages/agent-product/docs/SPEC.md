@@ -558,7 +558,10 @@ exactly the request it held. A held navigation leaves the page where it was. A h
 picture of the current page, so a person can watch what the agent's browser does; watching never
 opens a page.
 
-A goal is the person's instruction with a schedule, kept in a store port beside the feed. Each run
+A goal is the person's instruction with a schedule, kept in a store port beside the feed. A goal a host
+makes for its own record of the person's request carries that request's id as a typed mark, never as
+text in the instructions, and one id has one goal, so a host that stopped after making the goal finds
+it again instead of making a second. Each run
 records what the agent did and what it only proposed, and ends with a report in the feed; whatever a
 run would ask a person becomes an approval in the feed, and the run waits for that answer rather than
 guessing it. A read-only goal can only look. The book is the record: after a host restarts, a goal it

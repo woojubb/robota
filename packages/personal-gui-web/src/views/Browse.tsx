@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { TaskStart, newStartKey } from './TaskStart.js';
 import { ViewFrame, errorText, when } from './ui.js';
 
 import type {
@@ -127,9 +128,17 @@ const chip =
   'rounded-full border border-border px-2 py-0.5 text-[12px] font-medium text-muted-foreground';
 
 function DefinitionCard({
+  api,
   definition,
+  newKey,
+  onOpenGoal,
+  onNotReady,
 }: {
+  readonly api: IPersonalApi;
   readonly definition: ITaskDefinitionView;
+  readonly newKey: () => string;
+  readonly onOpenGoal: ((goalId: string) => void) | undefined;
+  readonly onNotReady: () => void;
 }): React.ReactElement {
   const titleId = `task-${definition.id}`;
   return (
@@ -166,6 +175,15 @@ function DefinitionCard({
             </dd>
           </div>
         </dl>
+        {definition.readiness.state === 'ready' && (
+          <TaskStart
+            api={api}
+            definition={definition}
+            newKey={newKey}
+            onOpenGoal={onOpenGoal}
+            onRefusedAsNotReady={onNotReady}
+          />
+        )}
       </article>
     </li>
   );
@@ -206,14 +224,27 @@ function byCategory(
 /**
  * Work the agent can take on, and what has been offered to the person. Each task shows the agent's own
  * word on whether it can run: ready with the access it would use, needing the setup steps named, or
- * unavailable with the reason. The page decides none of it, and nothing here starts anything.
+ * unavailable with the reason. The page decides none of it. Only a task the agent calls ready has a
+ * Start, and the agent judges it again when Start is pressed.
  */
-export function BrowseView({ api }: { readonly api: IPersonalApi }): React.ReactElement {
+export function BrowseView({
+  api,
+  onOpenGoal,
+  newKey = newStartKey,
+}: {
+  readonly api: IPersonalApi;
+  /** Opens the goal a started task made, among the person's goals. */
+  readonly onOpenGoal?: (goalId: string) => void;
+  /** Makes the key one request to start a task goes with. */
+  readonly newKey?: () => string;
+}): React.ReactElement {
   const [definitions, setDefinitions] = useState<readonly ITaskDefinitionView[] | undefined>(
     undefined,
   );
   const [offers, setOffers] = useState<ITaskOffersView | undefined>(undefined);
   const [errors, setErrors] = useState<readonly string[]>([]);
+  // Bumped when the agent says a task it showed as ready is not, so the cards are read again.
+  const [reading, setReading] = useState(0);
   useEffect(() => {
     let current = true;
     void Promise.allSettled([api.taskDefinitions(), api.taskOffers()]).then(
@@ -230,7 +261,7 @@ export function BrowseView({ api }: { readonly api: IPersonalApi }): React.React
     return () => {
       current = false;
     };
-  }, [api]);
+  }, [api, reading]);
   const loading = definitions === undefined && offers === undefined && errors.length === 0;
   return (
     <ViewFrame title="Browse">
@@ -285,7 +316,14 @@ export function BrowseView({ api }: { readonly api: IPersonalApi }): React.React
                 </h3>
                 <ul className="flex flex-col gap-2">
                   {group.map((definition) => (
-                    <DefinitionCard key={definition.id} definition={definition} />
+                    <DefinitionCard
+                      key={definition.id}
+                      api={api}
+                      definition={definition}
+                      newKey={newKey}
+                      onOpenGoal={onOpenGoal}
+                      onNotReady={() => setReading((count) => count + 1)}
+                    />
                   ))}
                 </ul>
               </section>

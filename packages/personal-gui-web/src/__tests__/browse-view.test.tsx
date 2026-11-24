@@ -199,7 +199,7 @@ describe('the Browse view', () => {
     expect(card.getByText('May make changes, each one only after you approve it.')).toBeTruthy();
   });
 
-  it('marks each card Ready, Needs setup or Unavailable as the agent says, and offers no way to start one', async () => {
+  it('marks each card Ready, Needs setup or Unavailable as the agent says, and offers a Start only on the ready one', async () => {
     render(<BrowseView api={fakeApi()} />);
     await screen.findAllByRole('article');
     const chips = async (title: string) => {
@@ -212,8 +212,18 @@ describe('the Browse view', () => {
     expect(await chips('Prepare my week')).toEqual(['Unavailable']);
     expect(await chips('Draft a reply to a message I choose')).toEqual(['Needs setup']);
     expect(await chips('Check a fact on a page I give you')).toEqual(['Ready']);
-    expect(screen.queryByRole('button', { name: /start/i })).toBeNull();
-    expect(screen.queryAllByRole('button')).toEqual([]);
+    expect(screen.getAllByRole('button', { name: 'Start' })).toHaveLength(1);
+    expect(
+      within(await cardOf('Check a fact on a page I give you')).getByRole('button', {
+        name: 'Start',
+      }),
+    ).toBeTruthy();
+    for (const title of [
+      'Catch up on a connected mailbox',
+      'Prepare my week',
+      'Draft a reply to a message I choose',
+    ])
+      expect(within(await cardOf(title)).queryAllByRole('button')).toEqual([]);
     expect(screen.queryAllByRole('link')).toEqual([]);
     expect(screen.queryAllByRole('checkbox')).toEqual([]);
   });
