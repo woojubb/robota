@@ -74,6 +74,9 @@ import { createPushSink } from './push/push-sink.js';
 import { createPushSubscriptions } from './push/subscriptions.js';
 import { createVapid } from './push/vapid.js';
 import { createSideChatBook } from './side-chats.js';
+import { createTaskCatalogApi } from './task-catalog/api.js';
+import { createTaskCatalog } from './task-catalog/catalog.js';
+import { createFileTaskCatalogStore } from './task-catalog/file-store.js';
 import { createPersonalApi } from './personal-api.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
@@ -84,6 +87,7 @@ import type { IChannelTurns } from './channel-turns.js';
 import type { IPersonalAgent } from './agent.js';
 import type { IGoalRunner } from './goal-runner.js';
 import type { TPersonalApi } from './personal-api.js';
+import type { ITaskCatalog } from './task-catalog/catalog.js';
 
 export interface IPersonalCapabilities {
   readonly tools: readonly IToolWithEventService[];
@@ -107,6 +111,8 @@ export interface IPersonalCapabilities {
   readonly notifications: BrowserOutbox;
   readonly ideas: IdeaBook;
   readonly spaces: SpaceBook;
+  /** The work the person can browse and the offers made to them; it lists, and starts nothing. */
+  readonly taskCatalog: ITaskCatalog;
   /** The services the person connected, and the one place that decides what each tool may do. */
   readonly connectors: ConnectorRegistry;
   /** The path the person's browser returns to after consenting at a service; hand it to the GUI server. */
@@ -211,6 +217,9 @@ export function createPersonalCapabilities(
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
   const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
   const layout = createLayoutBook(join(options.stateDir, 'layout'));
+  const taskCatalog = createTaskCatalog({
+    store: createFileTaskCatalogStore({ directory: join(options.stateDir, 'task-catalog') }),
+  });
   const caseActions = createCaseActionScope(join(options.stateDir, 'case-action-scope'));
   let caseBindings: ICaseConnectorBindings | undefined;
   const connectorStore = createFileConnectorStore(join(options.stateDir, 'connectors'));
@@ -570,6 +579,7 @@ export function createPersonalCapabilities(
     notifications,
     ideas,
     spaces,
+    taskCatalog,
     connectors,
     landing: { path: CONSENT_CALLBACK_PATH, handle: (query) => consent.land(query) },
     channels,
@@ -613,6 +623,7 @@ export function createPersonalCapabilities(
         spaces,
         sideChats,
         layout,
+        taskCatalog: createTaskCatalogApi(taskCatalog),
         browser: watchedBrowser,
         interruptWork: () => {
           runner?.interrupt();

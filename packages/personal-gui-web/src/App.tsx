@@ -6,6 +6,7 @@ import {
 import { Globe, MessageCircle, Menu as MenuIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { BrowseView } from './views/Browse.js';
 import { ConnectorsView } from './views/Connectors.js';
 import { FeedView } from './views/Feed.js';
 import { GoalsView } from './views/Goals.js';
@@ -312,6 +313,7 @@ function Shell({
         </div>
         {view === 'feed' && <FeedView api={api} onOpenGoal={showGoal} onItems={countWaiting} />}
         {view === 'connectors' && <ConnectorsView api={api} />}
+        {view === 'browse' && <BrowseView api={api} />}
         {view === 'ideas' && <IdeasView api={api} onOpenGoal={showGoal} />}
         {view === 'goals' && <GoalsView api={api} openGoal={openGoal} onOpenGoal={setOpenGoal} />}
         {view === 'library' && (

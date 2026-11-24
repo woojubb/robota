@@ -224,6 +224,62 @@ export interface ISideChatView {
   readonly createdAt: string;
 }
 
+export interface ITaskInputView {
+  readonly name: string;
+  readonly label: string;
+  readonly kind: 'text' | 'choice' | 'number';
+  readonly required: boolean;
+  readonly default?: string | number;
+  readonly choices?: readonly string[];
+}
+
+/** What the host says about whether a task can run now; only `unavailable` is ever said so far. */
+export interface ITaskReadinessView {
+  readonly state: 'unavailable';
+  readonly reason: string;
+}
+
+/** A task the person can browse, as the agent describes it. */
+export interface ITaskDefinitionView {
+  readonly id: string;
+  readonly revision: number;
+  readonly title: string;
+  readonly category: string;
+  readonly expectedResult: string;
+  readonly inputs: readonly ITaskInputView[];
+  /** Operations such as `mail.search`; the page puts them in plain words. */
+  readonly capabilities: readonly string[];
+  readonly effectCeiling: 'read-only' | 'draft' | 'approval-required-write';
+  readonly completionEvidence: {
+    readonly kind: 'source-readback' | 'receipt' | 'owner-confirmation';
+    readonly description: string;
+  };
+  readonly readiness: ITaskReadinessView;
+}
+
+/** A reason a task may be worth doing now. The reason can come from a source: it is plain text. */
+export interface ITaskOfferView {
+  readonly id: string;
+  readonly definitionId: string;
+  readonly definitionRevision: number;
+  /** Absent when the task this offer names has left the catalog. */
+  readonly definitionTitle?: string;
+  readonly withdrawn: boolean;
+  readonly source: 'built-in' | 'owner' | 'agent';
+  readonly reason: string;
+  readonly contextRefs: readonly { readonly kind: string; readonly id: string }[];
+  readonly createdAt: string;
+  readonly expiresAt: string;
+  readonly decision: 'open' | 'dismissed' | 'accepted' | 'expired' | 'superseded';
+  readonly prefilled?: Readonly<Record<string, string>>;
+}
+
+export interface ITaskOffersView {
+  readonly offers: readonly ITaskOfferView[];
+  /** What the agent could not read from what it saved, in words with no path. */
+  readonly issues: readonly string[];
+}
+
 export interface IBrowserActivityView {
   readonly at: string;
   readonly action: 'open' | 'click' | 'type' | 'submit' | 'stop' | 'failed';
@@ -455,6 +511,10 @@ export interface IPersonalApi {
   }): Promise<{ space: ISpaceView }>;
   removeSpace(id: string): Promise<unknown>;
   sideChats(): Promise<readonly ISideChatView[]>;
+  /** The work the person can browse, each with whether the agent can run it now. */
+  taskDefinitions(): Promise<readonly ITaskDefinitionView[]>;
+  /** The offers made to the person, open ones first, and anything the agent could not read. */
+  taskOffers(): Promise<ITaskOffersView>;
   browser(): Promise<IBrowserWatchView>;
   browserScreenshot(): Promise<IBrowserScreenshotView | null>;
   stopBrowser(): Promise<unknown>;
@@ -643,6 +703,9 @@ export function createPersonalApi(
     sideChats: async () =>
       (await call<{ sideChats: ISideChatView[] }>('GET', 'side-chats')).sideChats,
     recordSideChat: (input) => call('POST', 'side-chats', input),
+    taskDefinitions: async () =>
+      (await call<{ definitions: ITaskDefinitionView[] }>('GET', 'tasks/definitions')).definitions,
+    taskOffers: () => call('GET', 'tasks/offers'),
     browser: () => call('GET', 'browser'),
     browserScreenshot: async () =>
       (await call<{ screenshot: IBrowserScreenshotView | null }>('GET', 'browser/screenshot'))

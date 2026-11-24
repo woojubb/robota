@@ -58,6 +58,7 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           'Goals',
           'Library',
           'Connectors',
+          'Browse',
         ]);
         await menu.getByText('Side chats you start appear here.').waitFor();
         await menu.getByText(/drag the tabs above to reorder them/u).waitFor();
@@ -74,6 +75,7 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           'Goals',
           'Library',
           'Connectors',
+          'Browse',
           'Garden',
         ]);
 
@@ -93,12 +95,22 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           'Library',
           'Goals',
           'Connectors',
+          'Browse',
         ]);
         // Alt+Down twice in a row: the moved tab keeps focus, so the second press moves it again.
         await tabs.getByRole('button', { name: 'Chat', exact: true }).focus();
         await page.keyboard.press('Alt+ArrowDown');
         await page.keyboard.press('Alt+ArrowDown');
-        const moved = ['Garden', 'Feed', 'Ideas', 'Chat', 'Library', 'Goals', 'Connectors'];
+        const moved = [
+          'Garden',
+          'Feed',
+          'Ideas',
+          'Chat',
+          'Library',
+          'Goals',
+          'Connectors',
+          'Browse',
+        ];
         expect(await tabNames(page)).toEqual(moved);
         const savedTabs = () =>
           JSON.parse(readFileSync(join(harness!.stateDir, 'layout', 'layout.json'), 'utf8')).tabs;
@@ -112,6 +124,7 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
             'library',
             'goals',
             'connectors',
+            'browse',
           ]);
 
         // The order follows the person to a fresh page.
@@ -132,11 +145,20 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         await edit.getByRole('button', { name: 'Save space' }).click();
         await expect
           .poll(() => tabNames(page))
-          .toEqual(['Vegetable garden', 'Feed', 'Ideas', 'Chat', 'Library', 'Goals', 'Connectors']);
+          .toEqual([
+            'Vegetable garden',
+            'Feed',
+            'Ideas',
+            'Chat',
+            'Library',
+            'Goals',
+            'Connectors',
+            'Browse',
+          ]);
         await page.getByRole('button', { name: 'Delete' }).click();
         await expect
           .poll(() => tabNames(page))
-          .toEqual(['Feed', 'Ideas', 'Chat', 'Library', 'Goals', 'Connectors']);
+          .toEqual(['Feed', 'Ideas', 'Chat', 'Library', 'Goals', 'Connectors', 'Browse']);
       } finally {
         await close();
       }
@@ -238,6 +260,30 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           null,
           { timeout: 15_000 },
         );
+      } finally {
+        await close();
+      }
+    });
+
+    it('opens Browse from the menu and shows the built-in tasks as unavailable, with nothing to start', async () => {
+      harness = await startHarness({ gui: true });
+      const { page, close } = await open(harness);
+      try {
+        const menu = page.getByRole('navigation', { name: 'Menu' });
+        await menu.getByRole('button', { name: 'Browse' }).click();
+        await page.getByRole('heading', { name: 'Browse', level: 1 }).waitFor();
+        await page.getByRole('heading', { name: 'Tasks', level: 2 }).waitFor();
+        const main = page.getByRole('main');
+        expect(await main.getByRole('article').count()).toBe(4);
+        const card = main.getByRole('article', { name: 'Catch up on a connected mailbox' });
+        await card.getByText('Unavailable').waitFor();
+        await card.getByText('no verified capability binding yet').waitFor();
+        await card.getByText('Search a connected mailbox').waitFor();
+        await main
+          .getByRole('region', { name: 'Offers for you' })
+          .getByText('No offers yet.')
+          .waitFor();
+        expect(await main.getByRole('button').count()).toBe(0);
       } finally {
         await close();
       }
