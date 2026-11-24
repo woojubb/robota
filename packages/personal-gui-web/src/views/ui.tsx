@@ -28,6 +28,7 @@ export function Button({
   type = 'button',
   disabled,
   label,
+  expanded,
 }: {
   readonly children: ReactNode;
   readonly onClick?: () => void;
@@ -36,6 +37,8 @@ export function Button({
   readonly disabled?: boolean;
   /** The accessible name when the visible text alone does not say which item the button acts on. */
   readonly label?: string;
+  /** Whether what the button shows or hides is shown; leave out for a button that does neither. */
+  readonly expanded?: boolean;
 }): React.ReactElement {
   const tones = {
     default: 'border border-border text-foreground hover:bg-hover',
@@ -47,6 +50,7 @@ export function Button({
       type={type}
       disabled={disabled}
       aria-label={label}
+      aria-expanded={expanded}
       onClick={onClick}
       className={`rounded-md px-3 py-1.5 text-[13px] font-medium disabled:opacity-50 ${tones[tone]}`}
     >

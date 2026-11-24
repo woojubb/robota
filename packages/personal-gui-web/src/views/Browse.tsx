@@ -1,18 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { LaunchStatus } from './LaunchStatus.js';
+import { OffersSection } from './Offers.js';
+import { READINESS, Readiness, chip } from './TaskReadiness.js';
 import { TaskStart, newStartKey } from './TaskStart.js';
-import { ViewFrame, errorText, when } from './ui.js';
+import { ViewFrame, errorText } from './ui.js';
 
 import type {
   IPersonalApi,
   ITaskDefinitionView,
   ITaskInputView,
   ITaskLaunchStatusView,
-  ITaskOfferView,
   ITaskOffersView,
-  TTaskReadinessView,
-  TTaskSetupStepView,
 } from '../api.js';
 
 /** What each operation a task needs means to the person; an operation not listed is spelled out as it is named. */
@@ -37,20 +36,6 @@ const CHECKED_BY = {
   'owner-confirmation': 'Your own confirmation.',
 } as const;
 
-const SOURCE = {
-  'built-in': 'Built in',
-  owner: 'Added by you',
-  agent: 'Suggested by your agent',
-} as const;
-
-const DECISION = {
-  open: '',
-  dismissed: 'Dismissed',
-  accepted: 'Accepted',
-  expired: 'Expired',
-  superseded: 'Replaced by a newer offer',
-} as const;
-
 function needs(capability: string): string {
   const known = NEEDS[capability];
   if (known !== undefined) return known;
@@ -58,76 +43,9 @@ function needs(capability: string): string {
   return `${family.charAt(0).toUpperCase()}${family.slice(1)}: ${operation.replaceAll('-', ' ')}`;
 }
 
-const READINESS = {
-  ready: 'Ready',
-  'needs-setup': 'Needs setup',
-  unavailable: 'Unavailable',
-} as const;
-
-const SERVICE = {
-  mail: 'a mail service',
-  calendar: 'a calendar service',
-  files: 'a file service',
-  chat: 'a chat service',
-  notes: 'a notes service',
-  other: 'a service',
-} as const;
-
-/** What the person does for one step, in plain words. The names in it are shown as the text they are. */
-function stepText(step: TTaskSetupStepView): string {
-  switch (step.type) {
-    case 'connect':
-      return `Connect ${SERVICE[step.kind]}`;
-    case 'choose-account':
-      return `Choose which account to use: ${step.accounts.map((account) => account.title).join(', ')}`;
-    case 'allow-tool':
-      return `Allow the tool ${step.tool} for ${step.connectorTitle}${
-        step.decision === 'write' ? ' (each change still waits for your approval)' : ''
-      }`;
-    case 'reconnect':
-      return `Reconnect ${step.connectorTitle}`;
-  }
-}
-
-function Readiness({
-  readiness,
-}: {
-  readonly readiness: TTaskReadinessView;
-}): React.ReactElement | null {
-  switch (readiness.state) {
-    case 'unavailable':
-      return <p className="mt-1 text-[12.5px] text-muted-foreground">{readiness.reason}</p>;
-    case 'needs-setup':
-      return (
-        <div className="mt-1 text-[13px]">
-          <p className="font-medium">To get this ready:</p>
-          <ul aria-label="Setup steps" className="list-disc pl-5">
-            {readiness.steps.map((step) => (
-              <li key={stepText(step)}>{stepText(step)}</li>
-            ))}
-          </ul>
-        </div>
-      );
-    case 'ready':
-      return (
-        <div className="mt-1 text-[13px]">
-          <p className="font-medium">Access</p>
-          <ul aria-label="Access" className="list-disc pl-5">
-            {readiness.accesses.map((access) => (
-              <li key={access}>{access}</li>
-            ))}
-          </ul>
-        </div>
-      );
-  }
-}
-
 function asked(input: ITaskInputView): string {
   return input.required ? input.label : `${input.label} (optional)`;
 }
-
-const chip =
-  'rounded-full border border-border px-2 py-0.5 text-[12px] font-medium text-muted-foreground';
 
 function DefinitionCard({
   api,
@@ -198,7 +116,10 @@ function DefinitionCard({
             definition={definition}
             newKey={newKey}
             onStarted={setStartedId}
-            onRefusedAsNotReady={onNotReady}
+            // A task that was shown as ready and is not is the one refusal that changes what the card says.
+            onRefused={(status) => {
+              if (status === 422) onNotReady();
+            }}
           />
         )}
         {shownId !== undefined && (
@@ -217,27 +138,6 @@ function DefinitionCard({
   );
 }
 
-/** An offer's reason can come from a mail or a page, so it is shown as text and nothing else. */
-function OfferCard({ offer }: { readonly offer: ITaskOfferView }): React.ReactElement {
-  const decision = DECISION[offer.decision];
-  return (
-    <li className="rounded-lg border border-border p-3">
-      <div className="flex flex-wrap items-baseline gap-2">
-        <h3 className="text-[14px] font-semibold">
-          {offer.withdrawn ? 'A task that is no longer in the catalog' : offer.definitionTitle}
-        </h3>
-        {decision !== '' && <span className={chip}>{decision}</span>}
-        {offer.withdrawn && <span className={chip}>Withdrawn</span>}
-      </div>
-      <p className="mt-1 whitespace-pre-wrap text-[14px]">{offer.reason}</p>
-      <p className="mt-1 text-[12.5px] text-muted-foreground">
-        {SOURCE[offer.source]} · {offer.decision === 'expired' ? 'Expired' : 'Expires'}{' '}
-        {when(offer.expiresAt)}
-      </p>
-    </li>
-  );
-}
-
 /** The definitions in the order given, grouped under their category in the order the categories first appear. */
 function byCategory(
   definitions: readonly ITaskDefinitionView[],
@@ -250,17 +150,19 @@ function byCategory(
 }
 
 /**
- * Work the agent can take on, and what has been offered to the person. Each task shows the agent's own
+ * Work the agent can take on, and what it suggests the person do. Each task shows the agent's own
  * word on whether it can run: ready with the access it would use, needing the setup steps named, or
  * unavailable with the reason. The page decides none of it. Only a task the agent calls ready has a
  * Start, and the agent judges it again when Start is pressed. A task that was started shows where it
- * stands, as the agent reports it.
+ * stands, as the agent reports it. A suggestion shows why it was made and where that was read, and the
+ * person decides: start it from its card, put it off, or set it aside.
  */
 export function BrowseView({
   api,
   onOpenGoal,
   onOpenFeed,
   focusLaunch,
+  focusOffer,
   newKey = newStartKey,
 }: {
   readonly api: IPersonalApi;
@@ -270,6 +172,8 @@ export function BrowseView({
   readonly onOpenFeed?: (launchId: string) => void;
   /** The launch whose card the person is sent to from the Feed. */
   readonly focusLaunch?: string;
+  /** The offer whose card the person is sent to from the Feed; it opens there. */
+  readonly focusOffer?: string;
   /** Makes the key one request to start a task goes with. */
   readonly newKey?: () => string;
 }): React.ReactElement {
@@ -279,18 +183,35 @@ export function BrowseView({
   const [offers, setOffers] = useState<ITaskOffersView | undefined>(undefined);
   const [launches, setLaunches] = useState<readonly ITaskLaunchStatusView[]>([]);
   const [errors, setErrors] = useState<readonly string[]>([]);
+  const [offersProblem, setOffersProblem] = useState<string | undefined>(undefined);
   // Bumped when the agent says a task it showed as ready is not, so the cards are read again.
   const [reading, setReading] = useState(0);
+  /** Which read of the offers is the newest, so an answer that arrives late never replaces a newer one. */
+  const offersRead = useRef(0);
+  /** Reads the offers again after the person decided one or started a task from one. It never throws. */
+  const refreshOffers = useCallback(async (): Promise<void> => {
+    const read = (offersRead.current += 1);
+    try {
+      const next = await api.taskOffers();
+      if (read !== offersRead.current) return;
+      setOffers(next);
+      setOffersProblem(undefined);
+    } catch (caught) {
+      if (read === offersRead.current) setOffersProblem(errorText(caught));
+    }
+  }, [api]);
   useEffect(() => {
     let current = true;
+    const read = (offersRead.current += 1);
     void Promise.allSettled([api.taskDefinitions(), api.taskOffers(), api.taskLaunches()]).then(
       ([defined, offered, launched]) => {
         if (!current) return;
         const failed: string[] = [];
         if (defined.status === 'fulfilled') setDefinitions(defined.value);
         else failed.push(errorText(defined.reason));
-        if (offered.status === 'fulfilled') setOffers(offered.value);
-        else failed.push(errorText(offered.reason));
+        if (offered.status === 'fulfilled') {
+          if (read === offersRead.current) setOffers(offered.value);
+        } else failed.push(errorText(offered.reason));
         if (launched.status === 'fulfilled') setLaunches(launched.value);
         else failed.push(errorText(launched.reason));
         setErrors(failed);
@@ -318,26 +239,23 @@ export function BrowseView({
             {message}
           </p>
         ))}
+        {offersProblem !== undefined && (
+          <p role="alert" className="text-[13px] text-destructive">
+            {offersProblem}
+          </p>
+        )}
         {offers !== undefined && (
-          <section aria-labelledby="browse-offers" className="flex flex-col gap-2">
-            <h2 id="browse-offers" className="text-[15px] font-semibold">
-              Offers for you
-            </h2>
-            {offers.issues.map((issue) => (
-              <p key={issue} className="text-[13px] text-destructive">
-                {issue}
-              </p>
-            ))}
-            {offers.offers.length === 0 ? (
-              <p className="text-[13px] text-muted-foreground">No offers yet.</p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {offers.offers.map((offer) => (
-                  <OfferCard key={offer.id} offer={offer} />
-                ))}
-              </ul>
-            )}
-          </section>
+          <OffersSection
+            api={api}
+            listing={offers}
+            definitions={definitions ?? []}
+            launches={launches}
+            focusOffer={focusOffer}
+            newKey={newKey}
+            onOpenGoal={onOpenGoal}
+            onOpenFeed={onOpenFeed}
+            onChanged={refreshOffers}
+          />
         )}
         {definitions !== undefined && (
           <section aria-labelledby="browse-tasks" className="flex flex-col gap-3">

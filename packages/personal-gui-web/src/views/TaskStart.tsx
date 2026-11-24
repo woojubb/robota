@@ -18,7 +18,8 @@ export function newStartKey(): string {
 
 const NOT_REACHED = 'Your agent could not be reached. Press Start to try again.';
 
-function initial(input: ITaskInputView): string {
+function initial(input: ITaskInputView, suggested: string | undefined): string {
+  if (suggested !== undefined) return suggested;
   return input.default === undefined ? '' : String(input.default);
 }
 
@@ -44,25 +45,37 @@ type TPhase =
  * back (so pressing Start again is the same request), and dropped when the agent answered with a
  * refusal or the person changed a value (so the next Start is a new one). The fields are held while a
  * request is in flight, so what it answers is about the values on the form.
+ *
+ * Started from an offer, the form begins on the values the offer suggests, which the person reads and
+ * changes like any other, and the values on the form at the press are what the request carries, with
+ * the offer it was made from.
  */
 export function TaskStart({
   api,
   definition,
   newKey,
+  offerId,
+  suggested,
   onStarted,
-  onRefusedAsNotReady,
+  onRefused,
 }: {
   readonly api: IPersonalApi;
   readonly definition: ITaskDefinitionView;
   readonly newKey: () => string;
+  /** The offer this request is made from, when it is. */
+  readonly offerId?: string;
+  /** The values the offer suggests, by the input's name. */
+  readonly suggested?: Readonly<Record<string, string>>;
   /** The agent started the task, or answered a repeat of the request with the launch it had made. */
   readonly onStarted: (launchId: string) => void;
-  /** The agent said the task is not ready after all: the card should be read again. */
-  readonly onRefusedAsNotReady: () => void;
+  /** The agent answered with a refusal, whose status says which kind; what the card shows may be out of date. */
+  readonly onRefused: (status: number) => void;
 }): React.ReactElement {
   const prefix = useId();
   const [values, setValues] = useState<Readonly<Record<string, string>>>(() =>
-    Object.fromEntries(definition.inputs.map((input) => [input.name, initial(input)])),
+    Object.fromEntries(
+      definition.inputs.map((input) => [input.name, initial(input, suggested?.[input.name])]),
+    ),
   );
   const [problems, setProblems] = useState<Readonly<Record<string, string>>>({});
   const [phase, setPhase] = useState<TPhase>({ name: 'idle' });
@@ -103,14 +116,18 @@ export function TaskStart({
     setPhase({ name: 'sending' });
     key.current ??= newKey();
     try {
-      const answer = await api.startTask(definition.id, { idempotencyKey: key.current, inputs });
+      const answer = await api.startTask(definition.id, {
+        idempotencyKey: key.current,
+        inputs,
+        ...(offerId !== undefined && { offerId }),
+      });
       setPhase({ name: 'started' });
       onStarted(answer.launch.id);
     } catch (caught) {
       if (caught instanceof ApiError) {
         // The agent answered: this request is settled, and the next Start is a new one.
         key.current = undefined;
-        if (caught.status === 422) onRefusedAsNotReady();
+        onRefused(caught.status);
         setPhase({ name: 'refused', message: caught.message });
       } else {
         setPhase({ name: 'refused', message: NOT_REACHED });

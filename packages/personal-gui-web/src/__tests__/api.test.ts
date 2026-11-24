@@ -43,8 +43,8 @@ describe('personal API client', () => {
       body: { definitions: [{ id: 'catch-up-on-mailbox' }] },
     });
     expect(await definitions.api.taskDefinitions()).toEqual([{ id: 'catch-up-on-mailbox' }]);
-    const offers = recorder({ status: 200, body: { offers: [], issues: ['one'] } });
-    expect(await offers.api.taskOffers()).toEqual({ offers: [], issues: ['one'] });
+    const offers = recorder({ status: 200, body: { offers: [], setAside: [], issues: ['one'] } });
+    expect(await offers.api.taskOffers()).toEqual({ offers: [], setAside: [], issues: ['one'] });
     for (const { calls } of [definitions, offers]) {
       expect(calls[0]!.init?.method).toBe('GET');
       expect(calls[0]!.init?.credentials).toBe('same-origin');
@@ -80,6 +80,82 @@ describe('personal API client', () => {
         inputs: {},
       }),
     ).rejects.toMatchObject({ status: 422, message: 'This task is not ready to start.' });
+  });
+
+  it('starts a task from an offer by sending the offer with the key and the values', async () => {
+    const answer = { launch: { id: 'launch-1' }, goalId: 'goal-1' };
+    const started = recorder({ status: 201, body: answer });
+    expect(
+      await started.api.startTask('check-fact-on-page', {
+        idempotencyKey: 'start-0123456789abcdef',
+        inputs: { page: 'https://example.com/' },
+        offerId: 'offer-a/1',
+      }),
+    ).toEqual(answer);
+    // The offer is named in the body, not the address, and is the only addition.
+    expect(started.calls[0]!.url).toBe('api/tasks/definitions/check-fact-on-page/start');
+    expect(JSON.parse(String(started.calls[0]!.init?.body))).toEqual({
+      idempotencyKey: 'start-0123456789abcdef',
+      inputs: { page: 'https://example.com/' },
+      offerId: 'offer-a/1',
+    });
+    const stale = recorder({
+      status: 409,
+      body: { error: 'You dismissed this offer. Bring it back to start it.' },
+    });
+    await expect(
+      stale.api.startTask('check-fact-on-page', {
+        idempotencyKey: 'start-0123456789abcdef',
+        inputs: {},
+        offerId: 'offer-a',
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      message: 'You dismissed this offer. Bring it back to start it.',
+    });
+  });
+
+  it('reads one offer with a plain read, and reads the agent’s answer for one that is gone as its own words', async () => {
+    const offer = { id: 'offer/1', reason: 'You asked.', decision: 'open' };
+    const one = recorder({ status: 200, body: { offer } });
+    expect(await one.api.taskOffer('offer/1')).toEqual(offer);
+    expect(one.calls[0]!.url).toBe('api/tasks/offers/offer%2F1');
+    expect(one.calls[0]!.init?.method).toBe('GET');
+    expect(one.calls[0]!.init?.headers).toEqual({});
+    const gone = recorder({ status: 404, body: { error: 'There is no such offer.' } });
+    await expect(gone.api.taskOffer('offer-x')).rejects.toMatchObject({
+      status: 404,
+      message: 'There is no such offer.',
+    });
+  });
+
+  it('decides about an offer with one write that carries the decision, and a snooze its time', async () => {
+    for (const request of [
+      { decision: 'dismissed' },
+      { decision: 'open' },
+      { decision: 'snoozed', snoozedUntil: '2026-11-26T09:00:00.000Z' },
+    ] as const) {
+      const answer = { offer: { id: 'offer/1', decision: request.decision } };
+      const decided = recorder({ status: 200, body: answer });
+      expect(await decided.api.decideTaskOffer('offer/1', request)).toEqual(answer.offer);
+      expect(decided.calls[0]!.url).toBe('api/tasks/offers/offer%2F1/decision');
+      expect(decided.calls[0]!.init?.method).toBe('POST');
+      expect(decided.calls[0]!.init?.headers).toEqual({
+        'content-type': 'application/json',
+        [API_WRITE_HEADER]: '1',
+      });
+      expect(JSON.parse(String(decided.calls[0]!.init?.body))).toEqual(request);
+    }
+    for (const [status, error] of [
+      [400, 'snoozedUntil must be within 30 days'],
+      [404, 'There is no such offer.'],
+      [409, 'This offer was already started.'],
+    ] as const) {
+      const refused = recorder({ status, body: { error } });
+      await expect(
+        refused.api.decideTaskOffer('offer-a', { decision: 'dismissed' }),
+      ).rejects.toMatchObject({ status, message: error });
+    }
   });
 
   it('reads the launches the person made, and one of them, with plain reads and no write', async () => {
