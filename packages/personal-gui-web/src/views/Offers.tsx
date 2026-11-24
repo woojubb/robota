@@ -112,6 +112,7 @@ function OfferCard({
   const launchId = startedId ?? offer.launchId;
   const started = launchId !== undefined;
   const open = offer.decision === 'open' && !started;
+  const canStart = open && offer.readiness?.state === 'ready' && definition !== undefined;
   const evidence = offer.evidence;
   return (
     <li>
@@ -180,46 +181,55 @@ function OfferCard({
             {problem}
           </p>
         )}
-        {expanded && (
-          <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
-            <dl className="flex flex-col gap-1 text-[13px]">
-              {offer.basis !== undefined && (
-                <div>
-                  <dt className="inline font-medium">What it rests on: </dt>
-                  <dd className="inline whitespace-pre-wrap break-words">{offer.basis}</dd>
-                </div>
-              )}
-              {evidence !== undefined && (
-                <>
+        {(expanded || canStart) && (
+          // The form is only hidden when the card is closed, never taken away: a request that is in
+          // flight, the key it goes with and what the person typed all belong to it.
+          <div hidden={!expanded}>
+            <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
+              {expanded && (
+                <dl className="flex flex-col gap-1 text-[13px]">
+                  {offer.basis !== undefined && (
+                    <div>
+                      <dt className="inline font-medium">What it rests on: </dt>
+                      <dd className="inline whitespace-pre-wrap break-words">{offer.basis}</dd>
+                    </div>
+                  )}
+                  {evidence !== undefined && (
+                    <>
+                      <div>
+                        <dt className="inline font-medium">Item: </dt>
+                        <dd className="inline break-all">{evidence.sourceItemId}</dd>
+                      </div>
+                      <div>
+                        <dt className="inline font-medium">Observed: </dt>
+                        <dd className="inline">{when(evidence.observedAt)}</dd>
+                      </div>
+                    </>
+                  )}
                   <div>
-                    <dt className="inline font-medium">Item: </dt>
-                    <dd className="inline break-all">{evidence.sourceItemId}</dd>
+                    <dt className="inline font-medium">Expires: </dt>
+                    <dd className="inline">{when(offer.expiresAt)}</dd>
                   </div>
-                  <div>
-                    <dt className="inline font-medium">Observed: </dt>
-                    <dd className="inline">{when(evidence.observedAt)}</dd>
-                  </div>
-                </>
+                </dl>
               )}
-              <div>
-                <dt className="inline font-medium">Expires: </dt>
-                <dd className="inline">{when(offer.expiresAt)}</dd>
-              </div>
-            </dl>
-            {open && offer.readiness?.state === 'ready' && definition !== undefined && (
-              <TaskStart
-                api={api}
-                definition={definition}
-                newKey={newKey}
-                offerId={offer.id}
-                {...(offer.prefilled !== undefined && { suggested: offer.prefilled })}
-                onStarted={(id) => {
-                  setStartedId(id);
-                  void onChanged();
-                }}
-                onRefusedAsNotReady={() => void onChanged()}
-              />
-            )}
+              {canStart && (
+                <TaskStart
+                  api={api}
+                  definition={definition}
+                  newKey={newKey}
+                  offerId={offer.id}
+                  {...(offer.prefilled !== undefined && { suggested: offer.prefilled })}
+                  onStarted={(id) => {
+                    setStartedId(id);
+                    void onChanged();
+                  }}
+                  // Whatever the agent refuses, the offer may no longer be what the card shows: it
+                  // was set aside, started or taken away elsewhere, or its task is not ready. The
+                  // reason stays beside the form until the lists read again replace the card.
+                  onRefused={() => void onChanged()}
+                />
+              )}
+            </div>
           </div>
         )}
       </article>

@@ -57,7 +57,7 @@ export function TaskStart({
   offerId,
   suggested,
   onStarted,
-  onRefusedAsNotReady,
+  onRefused,
 }: {
   readonly api: IPersonalApi;
   readonly definition: ITaskDefinitionView;
@@ -68,8 +68,8 @@ export function TaskStart({
   readonly suggested?: Readonly<Record<string, string>>;
   /** The agent started the task, or answered a repeat of the request with the launch it had made. */
   readonly onStarted: (launchId: string) => void;
-  /** The agent said the task is not ready after all: the card should be read again. */
-  readonly onRefusedAsNotReady: () => void;
+  /** The agent answered with a refusal, whose status says which kind; what the card shows may be out of date. */
+  readonly onRefused: (status: number) => void;
 }): React.ReactElement {
   const prefix = useId();
   const [values, setValues] = useState<Readonly<Record<string, string>>>(() =>
@@ -127,7 +127,7 @@ export function TaskStart({
       if (caught instanceof ApiError) {
         // The agent answered: this request is settled, and the next Start is a new one.
         key.current = undefined;
-        if (caught.status === 422) onRefusedAsNotReady();
+        onRefused(caught.status);
         setPhase({ name: 'refused', message: caught.message });
       } else {
         setPhase({ name: 'refused', message: NOT_REACHED });

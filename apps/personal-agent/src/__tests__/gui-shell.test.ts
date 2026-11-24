@@ -484,6 +484,9 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           await setAside.getByRole('button', { name: 'Reopen' }).click();
           await other.waitFor();
           expect(await suggested.getByRole('button', { name: /Set aside/u }).count()).toBe(0);
+          // A closed card keeps its form out of sight rather than taking it away.
+          expect(await other.locator('form').count()).toBe(1);
+          expect(await other.locator('form').isVisible()).toBe(false);
           expect((await capabilities.taskCatalog.getOffer(second))?.decision).toBe('open');
 
           // Start from the first card with a double click: one goal, checked, with the offer as its origin.

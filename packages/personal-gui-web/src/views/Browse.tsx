@@ -116,7 +116,10 @@ function DefinitionCard({
             definition={definition}
             newKey={newKey}
             onStarted={setStartedId}
-            onRefusedAsNotReady={onNotReady}
+            // A task that was shown as ready and is not is the one refusal that changes what the card says.
+            onRefused={(status) => {
+              if (status === 422) onNotReady();
+            }}
           />
         )}
         {shownId !== undefined && (

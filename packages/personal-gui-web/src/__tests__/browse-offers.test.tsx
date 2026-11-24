@@ -469,6 +469,207 @@ describe('starting a task from an offer', () => {
   });
 });
 
+describe('an offer that was changed somewhere else', () => {
+  /**
+   * Start is refused with `status` and `message`, and `change` is what happened to the offer in the
+   * meantime. The next read of the lists is held, so the reason can be seen before the card follows.
+   */
+  async function refused(
+    status: number,
+    message: string,
+    change: (world: IOffersWorld) => void,
+  ): Promise<{ world: IOffersWorld; scope: ReturnType<typeof within>; release: () => void }> {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const world: IOffersWorld = offersWorld({
+      offers: [offer()],
+      start: async () => {
+        change(world);
+        throw new ApiError(status, message);
+      },
+    });
+    const read = world.taskOffers.getMockImplementation()!;
+    show(world);
+    const scope = await opened();
+    world.taskOffers.mockImplementationOnce(async () => {
+      await gate;
+      return read();
+    });
+    fireEvent.click(scope.getByRole('button', { name: 'Start' }));
+    expect((await scope.findByRole('alert')).textContent).toBe(message);
+    expect(world.taskOffers).toHaveBeenCalledTimes(2);
+    return { world, scope, release };
+  }
+
+  it('reads the lists again when Start is refused because the offer was dismissed, and the card moves to Set aside', async () => {
+    const message = 'You dismissed this offer. Bring it back to start it.';
+    const { scope, release } = await refused(409, message, (world) =>
+      world.records.set('offer-1', offer({ decision: 'dismissed' })),
+    );
+    // Until the lists are read again the card still says what was refused, and has not changed.
+    expect(scope.getByRole('button', { name: 'Start' })).toBeTruthy();
+    release();
+    const suggested = await group();
+    await waitFor(() => expect(suggested.queryAllByRole('article')).toEqual([]));
+    fireEvent.click(suggested.getByRole('button', { name: 'Set aside (1)' }));
+    const aside = within(suggested.getByRole('list', { name: 'Set aside' }));
+    expect(aside.getByText('Dismissed')).toBeTruthy();
+    expect(aside.getByRole('button', { name: 'Reopen' })).toBeTruthy();
+  });
+
+  it('follows an offer that was snoozed elsewhere into Set aside, with the time it comes back', async () => {
+    const { release } = await refused(
+      409,
+      'You set this offer aside until later. Bring it back to start it.',
+      (world) =>
+        world.records.set(
+          'offer-1',
+          offer({ decision: 'snoozed', snoozedUntil: '2099-11-26T09:00:00.000Z' }),
+        ),
+    );
+    release();
+    const suggested = await group();
+    await waitFor(() => expect(suggested.queryAllByRole('article')).toEqual([]));
+    fireEvent.click(suggested.getByRole('button', { name: 'Set aside (1)' }));
+    expect(
+      within(suggested.getByRole('list', { name: 'Set aside' })).getByText(/^Snoozed until /u),
+    ).toBeTruthy();
+  });
+
+  it('shows the launch an offer already made elsewhere, and takes the form and the decisions away', async () => {
+    const { scope, release } = await refused(409, 'This offer was already started.', (world) =>
+      world.records.set('offer-1', offer({ decision: 'accepted', launchId: LAUNCH_ID })),
+    );
+    release();
+    expect((await scope.findByLabelText('Task status')).textContent).toContain('Starting');
+    await waitFor(() => expect(scope.queryByRole('form')).toBeNull());
+    expect(scope.getByText('Started')).toBeTruthy();
+    expect(scope.queryByRole('button', { name: 'Dismiss' })).toBeNull();
+    expect(scope.queryByRole('button', { name: 'Snooze 1 day' })).toBeNull();
+  });
+
+  it('drops the card when Start is refused because there is no such offer any more', async () => {
+    const { world, release } = await refused(404, 'There is no such offer.', (changed) =>
+      changed.records.delete('offer-1'),
+    );
+    release();
+    const suggested = await group();
+    await waitFor(() => expect(suggested.queryAllByRole('article')).toEqual([]));
+    expect(suggested.getByText('Nothing is suggested right now.')).toBeTruthy();
+    expect(suggested.queryByRole('button', { name: /Set aside/u })).toBeNull();
+    expect(world.taskOffers).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the card, the reason and what was typed when the refusal is about a value and the offer stands', async () => {
+    const message = 'Page address: the page address must start with https://';
+    const { world, scope, release } = await refused(400, message, () => undefined);
+    release();
+    await waitFor(() => expect(world.taskOffers).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(scope.getByRole('alert').textContent).toBe(message));
+    expect(scope.getByRole('button', { name: 'Start' })).toBeTruthy();
+    expect((scope.getByLabelText(/What to check/u) as HTMLInputElement).value).toBe(QUESTION);
+  });
+});
+
+describe('closing an offer’s card while it is being started', () => {
+  it('keeps one request, its key and the typed values when the card is closed and opened during it', async () => {
+    let finish: (answer: ITaskStartAnswer) => void = () => undefined;
+    const world = offersWorld({
+      offers: [offer()],
+      start: () => new Promise((resolve) => (finish = resolve)),
+    });
+    show(world);
+    const scope = await opened();
+    await fill(scope, { 'What to check': 'Is returning free?' });
+    fireEvent.click(scope.getByRole('button', { name: 'Start' }));
+    expect(world.startTask).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(scope.getByRole('button', { name: 'Hide details' }));
+    // Out of sight, not gone: nothing of the form can be reached while the card is closed.
+    expect(scope.queryByRole('form')).toBeNull();
+    expect(scope.queryByRole('button', { name: 'Start' })).toBeNull();
+    fireEvent.click(scope.getByRole('button', { name: 'Show details' }));
+
+    // It is the same form: the request is still in flight, the fields are held, the typing is there.
+    const start = scope.getByRole('button', { name: 'Start' }) as HTMLButtonElement;
+    expect(start.disabled).toBe(true);
+    const question = scope.getByLabelText(/What to check/u) as HTMLInputElement;
+    expect(question.disabled).toBe(true);
+    expect(question.value).toBe('Is returning free?');
+    expect(scope.getByRole('status').textContent).toBe('Starting…');
+    fireEvent.click(start);
+    fireEvent.submit(scope.getByRole('form'));
+    expect(world.startTask).toHaveBeenCalledTimes(1);
+
+    finish(ANSWER);
+    await scope.findByLabelText('Task status');
+    expect(world.startTask).toHaveBeenCalledTimes(1);
+    expect(world.keys).toEqual(['start-key-1']);
+    expect(world.startTask.mock.calls[0]![1]).toEqual({
+      idempotencyKey: 'start-key-1',
+      inputs: { page: PAGE, question: 'Is returning free?' },
+      offerId: 'offer-1',
+    });
+  });
+
+  it('keeps what was typed when the card is closed and opened again, and sends exactly that', async () => {
+    const world = offersWorld({ offers: [offer()] });
+    show(world);
+    const scope = await opened();
+    await fill(scope, {
+      'Page address': 'https://example.com/other',
+      'What to check': 'Is it free?',
+    });
+    fireEvent.click(scope.getByRole('button', { name: 'Hide details' }));
+    fireEvent.click(scope.getByRole('button', { name: 'Show details' }));
+    expect((scope.getByLabelText(/Page address/u) as HTMLInputElement).value).toBe(
+      'https://example.com/other',
+    );
+    expect((scope.getByLabelText(/What to check/u) as HTMLInputElement).value).toBe('Is it free?');
+    fireEvent.click(scope.getByRole('button', { name: 'Start' }));
+    await scope.findByLabelText('Task status');
+    expect(world.startTask.mock.calls[0]![1].inputs).toEqual({
+      page: 'https://example.com/other',
+      question: 'Is it free?',
+    });
+  });
+
+  it('keeps the key of a request that got no answer when the card is closed and opened before trying again', async () => {
+    let attempts = 0;
+    const world = offersWorld({
+      offers: [offer()],
+      start: async () => {
+        attempts += 1;
+        if (attempts === 1) throw new TypeError('Failed to fetch');
+        return ANSWER;
+      },
+    });
+    show(world);
+    const scope = await opened();
+    fireEvent.click(scope.getByRole('button', { name: 'Start' }));
+    await scope.findByRole('alert');
+    fireEvent.click(scope.getByRole('button', { name: 'Hide details' }));
+    fireEvent.click(scope.getByRole('button', { name: 'Show details' }));
+    fireEvent.click(scope.getByRole('button', { name: 'Start' }));
+    await scope.findByLabelText('Task status');
+    expect(world.startTask.mock.calls.map(([, request]) => request.idempotencyKey)).toEqual([
+      'start-key-1',
+      'start-key-1',
+    ]);
+    expect(world.keys).toEqual(['start-key-1']);
+  });
+
+  it('has no form to reach while the card is closed, and one once it is opened', async () => {
+    show(offersWorld({ offers: [offer()] }));
+    const scope = await card();
+    expect(scope.queryByRole('form')).toBeNull();
+    expect(scope.queryByRole('textbox', { name: /What to check/u })).toBeNull();
+    fireEvent.click(scope.getByRole('button', { name: 'Show details' }));
+    expect(scope.getByRole('form')).toBeTruthy();
+    expect(scope.getByRole('textbox', { name: /What to check/u })).toBeTruthy();
+  });
+});
+
 describe('an offer that was started', () => {
   const verified: ITaskLaunchStatusView = {
     ...STARTING,
