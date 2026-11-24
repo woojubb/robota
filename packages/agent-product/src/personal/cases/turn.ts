@@ -7,13 +7,15 @@
  */
 import { WIKI_TOOL_NAMES } from '../knowledge/tools.js';
 import { CONNECTOR_TOOL_NAMES } from '../connectors/tools.js';
+import { OFFER_TOOL_NAMES } from '../offers/tools.js';
 import { CASE_TOOL_NAMES } from './tools.js';
 
 import type { ICase, ICaseEvent } from './types.js';
 
 /**
  * The tools a case turn has by default: it may look at the connector and the library to check
- * something related, and keep the case. A host may add its own scoped action separately.
+ * something related, keep the case, and propose an offer the host will check. A host may add its own
+ * scoped action separately.
  */
 export function caseTurnTools(): string[] {
   return [
@@ -23,6 +25,7 @@ export function caseTurnTools(): string[] {
     WIKI_TOOL_NAMES.search,
     WIKI_TOOL_NAMES.read,
     ...Object.values(CASE_TOOL_NAMES),
+    OFFER_TOOL_NAMES.propose,
   ];
 }
 

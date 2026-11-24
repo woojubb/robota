@@ -12,8 +12,8 @@ on — in the person's own state directory.
 - **Definitions and offers are separate records.** A task definition is the product's reusable,
   versioned promise of work: what it needs, the most it may do and how success is checked, by a rule the
   host implements for that revision, so the definition's own words decide nothing. An offer is a
-  reason one definition is relevant to this person now. An offer can lapse, be dismissed or be superseded
-  without the definition changing, and a published revision never changes.
+  reason one definition is relevant to this person now. An offer can lapse, be snoozed, be dismissed or be
+  superseded without the definition changing, and a published revision never changes.
 - **Nothing is called ready until the host has verified what it needs, every time it is shown.** The host
   works out each definition as ready, needing one named setup step, or unavailable with its reason, from
   bindings it maintains itself and the person's live connectors and browser. A service's tool names,
@@ -32,8 +32,20 @@ on — in the person's own state directory.
   typed are never evidence, and a run that ended without that proof is reported unverified, never as
   completed. The decision is made by whichever comes first of the run's end, a read of the launch and the
   host's start, and nothing changes it afterwards.
-- **Source text stays data.** An offer's reason, suggestions and references are bounded values the person
-  reads. Nothing turns them into a definition's instructions, a capability or a decision.
+- **Source text stays data.** An offer's reason, basis, suggestions and references are bounded values the
+  person reads, the reason and basis judged by the value they carry and not by their vocabulary. Nothing
+  turns them into a definition's instructions, a capability or a decision.
+- **The agent proposes, the host gates, the person decides.** The agent may propose an offer for an
+  installed task revision from something it read, but it cannot publish a definition, grant a capability
+  or start a task, and only a sync run and a case turn, each with a bound of its own, have the tool: the
+  owner's chats and every other run are denied it. The host's gate judges every proposal when it is made, whenever the offers are shown
+  and again when a task is started from one: the task must be installed at that revision, its source a
+  connected service or library page that is still there and was read recently enough, no case may be open
+  on the same item, the values it suggests must pass the checks a start makes, and a run and a day have
+  bounds. Nothing the agent wrote changes the gate's answer. An offer is accepted only by the task being
+  started from it, which keeps the launch beside the offer; how the run ended is recorded apart from that,
+  so accepted but unfinished work is never counted as success. Offers are shown on the page the person
+  opens and interrupt nobody.
 - **The catalog is the owner's and local.** Built-in definitions ship with the product; offers and
   installed definitions live in the owner-only state directory. No hosted catalog or recommendation
   service is needed to browse.
@@ -58,5 +70,14 @@ on — in the person's own state directory.
   is kept with the outcome, so a rerun or a removed goal cannot change what the person was told.
 - A repeat observation updates the evidence of the offer that has its key instead of adding a card, and
   an observation never chooses an offer's decision: a new offer starts open and only the person's own
-  choice changes it, so a source that keeps noticing the same thing neither fills the page nor reopens
-  what was dismissed.
+  choice changes it, so a source that keeps noticing the same thing neither fills the page, reopens
+  what was dismissed nor wakes what was snoozed, and an offer that lapsed unanswered waits out a
+  cooldown before the same matter makes another. Nothing a repeat says moves backward: one dated before
+  what the offer rests on changes nothing, and the expiry, and with it the cooldown, only grows. The
+  agent's reference to an item is kept in one spelling (compatibility form, lower case, single spaces),
+  for the key and for the comparison with an open case, so a variant spelling cannot dodge a dismissal, a
+  cooldown or a case. Decisions and cooldowns are read from the stored offers, so a restart cannot reset
+  them.
+- The host cannot fetch an item from a connected service by the agent's own reference, so an offer from
+  one rests on the service still being connected and on the age of the observation, not on the item
+  being read again; a library page is looked up by its id.

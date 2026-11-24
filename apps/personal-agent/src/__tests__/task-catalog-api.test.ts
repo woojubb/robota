@@ -99,7 +99,7 @@ describe('the task catalog API', () => {
     );
     expect(await api.send('GET', 'tasks/offers')).toEqual({
       status: 200,
-      body: { offers: [], issues: [] },
+      body: { offers: [], setAside: [], issues: [] },
     });
   });
 
@@ -169,7 +169,11 @@ describe('the task catalog API', () => {
         createdAt: '2026-11-20T09:00:00Z',
         expiresAt: '2099-11-27T09:00:00Z',
         decision: 'open',
+        readiness: { state: 'unavailable', reason: 'no verified binding for mail.search yet' },
       },
+    ]);
+    // What the person dismissed is set aside, where it can be brought back, and is not offered again.
+    expect(body.setAside).toEqual([
       expect.objectContaining({
         id: 'offer-b2',
         decision: 'dismissed',
@@ -184,7 +188,7 @@ describe('the task catalog API', () => {
     ).toEqual(['unavailable', 'unavailable', 'unavailable', 'unavailable']);
   });
 
-  it('keeps offers across a restart, shows a withdrawn one and a damaged record as an issue', async () => {
+  it('keeps offers across a restart, hides a withdrawn one and shows a damaged record as an issue', async () => {
     const stateDir = mkdtempSync(join(tmpdir(), 'task-catalog-api-'));
     directories.push(stateDir);
     harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot(), stateDir });
@@ -210,9 +214,7 @@ describe('the task catalog API', () => {
     const { body } = await api.send('GET', 'tasks/offers');
     expect(body.offers.map((entry: any) => [entry.id, entry.withdrawn])).toEqual([
       ['offer-a1', false],
-      ['offer-old', true],
     ]);
-    expect(body.offers[1].definitionTitle).toBeUndefined();
     expect(body.issues).toEqual(['1 saved offer could not be read and is not shown.']);
   });
 
@@ -239,7 +241,11 @@ describe('the task catalog API', () => {
     ]) {
       expect((await api.send('GET', path)).status, path).toBe(404);
     }
-    expect((await api.send('GET', 'tasks/offers')).body).toEqual({ offers: [], issues: [] });
+    expect((await api.send('GET', 'tasks/offers')).body).toEqual({
+      offers: [],
+      setAside: [],
+      issues: [],
+    });
   });
 
   it('shows no path of this machine, no access code and no key', async () => {

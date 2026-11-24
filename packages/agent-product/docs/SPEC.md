@@ -590,7 +590,10 @@ the address are the person's words alone: no tool the agent can call, no text it
 suggests reaches them; the address may carry a token, so it is kept as a credential, shown only as its host,
 the destination of the person's own notifications and of nothing else, judged by the outbound-request policy
 when saved and again by each send, which is made once and never follows a redirect; limits that cannot be read
-are never replaced by others, so nothing is pushed until they are mended.
+are never replaced by others, so nothing is pushed until they are mended. The agent may also propose a task
+offer for something it read: it names an installed task, where it read the reason and why, and hands that to a
+port the host supplies, so it can neither publish a task, grant a capability nor start one, and the tool, like
+the case tools, reaches nothing outside the agent's own record.
 
 An idea is kept as the person's or as the agent's own suggestion, and a suggestion stays one: nothing
 acts on an idea until the person takes it up, and an idea taken up records what it became. A space
@@ -636,9 +639,9 @@ What deserves a question is the person's own to say: each connector carries atte
 text, a sensible default for its kind until the person writes their own, and the run reads them before it
 looks at the service and keeps a case, with one question, on what fits them. They decide only what is asked
 about, so they add no tool and no permission, and nothing the run reads can change them: only the person does,
-and a secret value written into them is refused, judged by the value and not by the words a policy is written in. Everything the run reads is content written by others, so the
-run is given only the tools to read, look in the library, file and keep a case, never a list of what is
-withheld that a tool added later would escape: it cannot write to the service, reach the web or files, drive
+and a secret value written into them is refused, judged by the value and not by the words a policy is written in; the same value check is exported for a host that keeps plain-word text of its own, such as the reason of a task offer. Everything the run reads is content written by others, so the
+run is given only the tools to read, look in the library, file, keep a case and propose a task offer, never a
+list of what is withheld that a tool added later would escape: it cannot write to the service, reach the web or files, drive
 the browser, or rewrite the library. Turning a sync off, or disconnecting, takes the access away first and
 then ends a run in progress rather than being refused by it. A run that is reachable, had no failed read,
 did something worth the read (it read, or it opened a case) and added nothing to the library stays in the

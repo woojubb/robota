@@ -9,6 +9,7 @@
  */
 import { CASE_TOOL_NAMES } from '../cases/tools.js';
 import { WIKI_TOOL_NAMES } from '../knowledge/tools.js';
+import { OFFER_TOOL_NAMES } from '../offers/tools.js';
 import { effectiveAttention } from './attention.js';
 import { ConnectorRefusedError } from './book.js';
 import { CONNECTOR_TOOL_NAMES } from './tools.js';
@@ -29,10 +30,11 @@ const MAX_CASES_PER_RUN = 5;
 
 /**
  * The only tools a sync run has. Content from the service is written by others, so a run can read it,
- * look in the library, add what it finds and keep a case on what the person should be asked, and nothing
- * else: it cannot change the service, reach the web or the files, drive the browser, rewrite what the
- * person said or set up goals. The case tools touch only the agent's own record and the feed. It is a list of
- * what is allowed, not of what is withheld: a tool added later is then not offered until it is named.
+ * look in the library, add what it finds, keep a case on what the person should be asked and propose a task
+ * offer the host will check, and nothing else: it cannot change the service, reach the web or the files,
+ * drive the browser, rewrite what the person said or set up goals. The case and offer tools touch only the
+ * agent's own record and the feed. It is a list of what is allowed, not of what is withheld: a tool added
+ * later is then not offered until it is named.
  */
 export function syncRunTools(): string[] {
   return [
@@ -43,6 +45,7 @@ export function syncRunTools(): string[] {
     WIKI_TOOL_NAMES.search,
     WIKI_TOOL_NAMES.read,
     ...Object.values(CASE_TOOL_NAMES),
+    OFFER_TOOL_NAMES.propose,
   ];
 }
 

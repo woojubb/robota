@@ -15,7 +15,11 @@ import { createSessionCommandModule } from '@robota-sdk/agent-product/command';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
-import { CASE_TOOL_NAMES, CONNECTOR_TOOL_NAMES } from '@robota-sdk/agent-product/personal';
+import {
+  CASE_TOOL_NAMES,
+  CONNECTOR_TOOL_NAMES,
+  OFFER_TOOL_NAMES,
+} from '@robota-sdk/agent-product/personal';
 
 import { createPersonalGoalSessionStore, createPersonalSessionStore } from './session-stores.js';
 
@@ -33,6 +37,14 @@ export const PERSONAL_WITHHELD_TOOLS = [
   'BackgroundProcess',
   'peer_send_file',
 ] as const;
+
+/**
+ * Tools only a run the host shapes for content from a service may have, which it names in `onlyTools`:
+ * a sync run and a case turn, each with its own copy. Every other session (the owner's chats, a goal that
+ * is neither, a channel turn) is denied them, since they read untrusted mail and pages with no bound of
+ * their own on what they propose.
+ */
+export const PERSONAL_RUN_ONLY_TOOLS = [OFFER_TOOL_NAMES.propose] as const;
 
 export interface IPersonalAgentOptions {
   readonly stateDir: string;
@@ -111,7 +123,7 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
     runtime.sessionRecipe({
       ...base,
       permissionMode: options.permissionMode ?? 'acceptEdits',
-      deniedTools: [...PERSONAL_WITHHELD_TOOLS],
+      deniedTools: [...PERSONAL_WITHHELD_TOOLS, ...PERSONAL_RUN_ONLY_TOOLS],
       ...(options.instructions !== undefined && { appendSystemPrompt: options.instructions }),
     });
   const goalSessionStore = createPersonalGoalSessionStore(options.stateDir);
@@ -185,7 +197,7 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
         ...PERSONAL_WITHHELD_TOOLS,
         ...(extra.deniedTools ?? []),
         ...(extra.onlyTools === undefined
-          ? []
+          ? PERSONAL_RUN_ONLY_TOOLS
           : toolNames.filter((name) => !extra.onlyTools!.includes(name))),
       ],
       appendSystemPrompt: [options.instructions, extra.instructions]

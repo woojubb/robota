@@ -22,6 +22,7 @@ import type {
 import type { IGoalShape } from './goal-runner.js';
 import type { ICaseAction } from './goal-runner.js';
 import type { ICaseActionSnapshot } from './case-action.js';
+import type { IOfferService } from './task-catalog/offers/service.js';
 
 export interface ICaseTurns {
   /** Keep only the authority captured for the answer that was actually accepted. */
@@ -41,6 +42,8 @@ export interface ICaseTurns {
 export function createCaseTurns(options: {
   readonly goals: GoalBook;
   readonly cases: CaseBook;
+  /** The offers a turn may propose: its own tool with the turn's bounds. */
+  readonly offers?: Pick<IOfferService, 'runTools'>;
   readonly ownerId?: string;
   readonly makeAction?: (snapshot: ICaseActionSnapshot) => ICaseAction;
 }): ICaseTurns {
@@ -109,15 +112,23 @@ export function createCaseTurns(options: {
         };
       }
       const caseTools = createCaseTools(options.cases, { caseId: found.id, answerId });
+      const offerTools =
+        options.offers === undefined ? {} : { scopedTools: options.offers.runTools() };
       if (snapshot !== undefined && options.makeAction !== undefined) {
         return {
           instructions: caseTurnInstructions(found, { allowApprovedActions: true }),
           onlyTools: [...caseTurnTools(), CONNECTOR_TOOL_NAMES.act],
           caseAction: options.makeAction(snapshot),
           caseTools,
+          ...offerTools,
         };
       }
-      return { instructions: caseTurnInstructions(found), onlyTools: caseTurnTools(), caseTools };
+      return {
+        instructions: caseTurnInstructions(found),
+        onlyTools: caseTurnTools(),
+        caseTools,
+        ...offerTools,
+      };
     },
 
     /**

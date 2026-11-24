@@ -15,11 +15,31 @@ export type TEffectCeiling = (typeof EFFECT_CEILINGS)[number];
 export const EVIDENCE_KINDS = ['source-readback', 'receipt', 'owner-confirmation'] as const;
 export type TEvidenceKind = (typeof EVIDENCE_KINDS)[number];
 
+/** How a launched task ended, as the host decided it from what it recorded, never from what the model said. */
+export const OUTCOME_STATES = ['verified', 'unverified', 'failed', 'cancelled'] as const;
+export type TOutcomeState = (typeof OUTCOME_STATES)[number];
+
 export const OFFER_SOURCES = ['built-in', 'owner', 'agent'] as const;
 export type TOfferSource = (typeof OFFER_SOURCES)[number];
 
-export const OFFER_DECISIONS = ['open', 'dismissed', 'accepted', 'expired', 'superseded'] as const;
+/**
+ * What the person decided about an offer, or how it ended. `snoozed` hides an offer until its
+ * `snoozedUntil`; `accepted` is reached only by starting the task from the offer, never by a decision
+ * the person sends.
+ */
+export const OFFER_DECISIONS = [
+  'open',
+  'snoozed',
+  'dismissed',
+  'accepted',
+  'expired',
+  'superseded',
+] as const;
 export type TOfferDecision = (typeof OFFER_DECISIONS)[number];
+
+/** Where an agent offer's reason was read, which the host can look at again: a connected service, or a library page. */
+export const OFFER_SOURCE_KINDS = ['connector', 'library'] as const;
+export type TOfferSourceKind = (typeof OFFER_SOURCE_KINDS)[number];
 
 export interface ITaskInput {
   readonly name: string;
@@ -59,6 +79,34 @@ export interface IOfferContextRef {
   readonly id: string;
 }
 
+/** The item an agent offer rests on, as the host checked it when the offer was made and checks it again when it is shown. */
+export interface IOfferEvidence {
+  readonly kind: TOfferSourceKind;
+  /** The service the item was read from; present for, and only for, a connector. */
+  readonly connectorId?: string;
+  /** The agent's own stable reference to the item: for a connector what its case would be called, for the library a page id. */
+  readonly sourceItemId: string;
+  /** When the agent read it, which only a repeat observation moves. */
+  readonly observedAt: string;
+}
+
+/**
+ * What the person did with an offer and how it turned out, kept apart so that accepting is never
+ * counted as success: each is a time the host recorded the first time it happened (the last time for
+ * dismissed and snoozed), and `outcome` is how the launched task ended, whatever it was.
+ */
+export interface IOfferReactions {
+  readonly shown?: string;
+  readonly opened?: string;
+  readonly accepted?: string;
+  readonly started?: string;
+  /** Present only for a task whose result the host checked. */
+  readonly verified?: string;
+  readonly dismissed?: string;
+  readonly snoozed?: string;
+  readonly outcome?: { readonly state: TOutcomeState; readonly at: string };
+}
+
 export interface IOffer {
   readonly id: string;
   readonly definitionId: string;
@@ -75,6 +123,16 @@ export interface IOffer {
   readonly dedupeKey: string;
   /** Suggested values for the definition's inputs; the person reads and changes them. */
   readonly prefilled?: Readonly<Record<string, string>>;
+  /** What the source says, as a short factual statement; plain text for the person to read, and data. */
+  readonly basis?: string;
+  /** Present on an offer the agent made from something it read. */
+  readonly evidence?: IOfferEvidence;
+  /** Present on a snoozed offer, and only then: when it comes back. */
+  readonly snoozedUntil?: string;
+  /** Present on an accepted offer that was started: the launch it made. */
+  readonly launchId?: string;
+  /** Host bookkeeping the person's decision never touches. */
+  readonly reactions?: IOfferReactions;
 }
 
 /** One thing the person does to move a task from needing setup to ready, named exactly. */
@@ -108,11 +166,19 @@ export interface ITaskDefinitionListing extends ITaskDefinition {
   readonly readiness: TReadiness;
 }
 
-/** An offer as the person sees it: no dedupe key, and the definition's title joined in. */
-export interface IOfferView extends Omit<IOffer, 'dedupeKey'> {
+/**
+ * An offer as the person sees it: no dedupe key or host bookkeeping, the definition's title joined in,
+ * and what the host judged about the task when the list was made. Every text in it came from a source,
+ * so it is shown as text and nothing else.
+ */
+export interface IOfferView extends Omit<IOffer, 'dedupeKey' | 'reactions' | 'evidence'> {
   /** Absent when the definition revision the offer names is no longer in the catalog. */
   readonly definitionTitle?: string;
   readonly withdrawn: boolean;
+  /** Where the reason was read and when, with the title the person gave the service. */
+  readonly evidence?: IOfferEvidence & { readonly connectorTitle?: string };
+  /** How the host judges the task now; an offer for a task that is not ready shows it and has no Start. */
+  readonly readiness?: TReadiness;
 }
 
 export interface IOfferListing {
