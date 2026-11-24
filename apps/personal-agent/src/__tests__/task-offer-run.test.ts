@@ -152,7 +152,11 @@ const linkIn = (text: string): string =>
   /https:\/\/[^\s.]+(?:\.[^\s.]+)+\/[^\s]*?(?=\.?\s|$)/u.exec(text)![0];
 
 /** What a model that followed the instructions does: read the mail, find its link and propose a page check. */
-function proposing(id: string, minutesAgo: number): (request: IModelRequest) => TModelReply {
+function proposing(
+  id: string,
+  minutesAgo: number,
+  item = MAIL_ID,
+): (request: IModelRequest) => TModelReply {
   return steps(readCall(id), (result) => ({
     tool: OFFER_TOOL_NAMES.propose,
     args: {
@@ -161,7 +165,7 @@ function proposing(id: string, minutesAgo: number): (request: IModelRequest) => 
       source: {
         kind: 'connector',
         connectorId: id,
-        sourceItemId: MAIL_ID,
+        sourceItemId: item,
         observedAt: new Date(Date.now() - minutesAgo * 60_000)
           .toISOString()
           .replace(/\.\d+Z$/u, 'Z'),
@@ -280,6 +284,138 @@ describe('a sync run proposes an offer from a mail it read', () => {
     expect(toolResults(w.harness.model.requests.at(-1)!).at(-1)).toContain(
       'A case about this item is open',
     );
+  });
+});
+
+describe('an item spelled another way', () => {
+  it.each([
+    ['a case opened with the reference in capitals', 'MAIL:MSG-SHOP-1 ', MAIL_ID],
+    ['a proposal that spells the reference in capitals', MAIL_ID, 'MAIL:Msg-Shop-1'],
+  ])('is still the same item for %s', async (_name, caseSource, proposed) => {
+    const w = await mailWorld({ text: SHOP_MAIL });
+    await w.harness.capabilities.cases.open({
+      title: 'Return policy',
+      noticed: 'A mail from the shop links to its return policy.',
+      source: caseSource,
+      connectorId: w.id,
+    });
+    w.harness.model.script(proposing(w.id, 2, proposed));
+    await w.sync();
+    expect((await offersOf(w)).offers).toEqual([]);
+    expect(toolResults(w.harness.model.requests.at(-1)!).at(-1)).toContain(
+      'A case about this item is open',
+    );
+  });
+
+  it('is the same matter when the spelling changes between syncs, so a dismissal holds', async () => {
+    const w = await mailWorld({ text: SHOP_MAIL });
+    w.harness.model.script(proposing(w.id, 3, 'MAIL:MSG-SHOP-1'));
+    await w.sync();
+    const [offer] = (await offersOf(w)).offers;
+    expect(offer.evidence.sourceItemId).toBe(MAIL_ID);
+    await w.send('POST', `tasks/offers/${offer.id}/decision`, { decision: 'dismissed' });
+
+    w.harness.model.script(proposing(w.id, 1, ' mail:msg-shop-1 '));
+    await w.sync();
+    expect((await offersOf(w)).offers).toEqual([]);
+    expect(toolResults(w.harness.model.requests.at(-1)!).at(-1)).toContain('dismissed');
+    expect(await w.harness.capabilities.taskCatalog.listOffers()).toMatchObject({
+      offers: [expect.objectContaining({ id: offer.id })],
+    });
+  });
+});
+
+describe('where the task-offer tool is offered', () => {
+  const NAME = OFFER_TOOL_NAMES.propose;
+  const systemOf = (request: IModelRequest): string =>
+    String(request.messages.find((message) => message.role === 'system')?.content);
+
+  async function until(check: () => boolean, what: string): Promise<void> {
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      if (check()) return;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    throw new Error(`timed out waiting for ${what}`);
+  }
+
+  it('is not offered to the owner’s chat, which keeps the tools it had', async () => {
+    const w = await mailWorld({ text: SHOP_MAIL });
+    w.harness.model.script({ text: 'Hello.' });
+    const before = w.harness.model.requests.length;
+    expect((await w.harness.submit('Hello there')).status).toBe(200);
+    const chat = w.harness.model.requests
+      .slice(before)
+      .filter((request) => offeredTools(request).length > 0);
+    expect(chat.length).toBeGreaterThan(0);
+    for (const request of chat) {
+      expect(offeredTools(request)).not.toContain(NAME);
+      expect(offeredTools(request)).toEqual(expect.arrayContaining(['CaseOpen', 'ConnectorRead']));
+    }
+  });
+
+  it('is not offered to a goal the host gave no shape, which keeps the other tools it had', async () => {
+    const w = await mailWorld({ text: SHOP_MAIL });
+    await w.harness.capabilities.goals.create({
+      title: 'Plan the week',
+      instructions: 'Plan my week from my goals.',
+    });
+    w.harness.model.script({ text: 'Planned.' });
+    await w.harness.capabilities.runner()!.runDue();
+    await w.harness.capabilities.runner()!.settled();
+    const planning = w.harness.model.requests.filter((request) =>
+      JSON.stringify(request.messages).includes('Plan my week from my goals.'),
+    );
+    expect(planning.filter((request) => offeredTools(request).length > 0).length).toBeGreaterThan(
+      0,
+    );
+    for (const request of planning) {
+      expect(offeredTools(request)).not.toContain(NAME);
+      expect(offeredTools(request)).not.toContain('Bash');
+    }
+    expect(offeredTools(planning[0]!)).toEqual(expect.arrayContaining(['CaseOpen']));
+  });
+
+  it('is offered to a sync run and to a case turn, each with the list of its own and no other tool', async () => {
+    const w = await mailWorld({ text: SHOP_MAIL });
+    w.harness.model.script({ text: 'Done.' });
+    await w.sync();
+    const sync = w.harness.model.requests.filter(
+      (request) =>
+        systemOf(request).includes("You keep the person's library up to date") &&
+        withoutAcknowledgements(request).length > 0,
+    );
+    expect(sync.length).toBeGreaterThan(0);
+    for (const request of sync)
+      expect(withoutAcknowledgements(request)).toEqual([...syncRunTools()].sort());
+
+    const { cases, goals } = w.harness.capabilities;
+    const { case: opened } = await cases.open({
+      title: 'Return policy',
+      noticed: 'A mail from the shop links to its return policy.',
+      source: 'mail:msg-other',
+      connectorId: w.id,
+    });
+    const { item } = await cases.ask(opened.id, { question: 'Look at it?', options: ['Yes'] });
+    const answered = await w.harness.capabilities.api({
+      method: 'POST',
+      path: `/feed/${item.id}/answer`,
+      segments: ['feed', item.id, 'answer'],
+      query: new URLSearchParams(),
+      body: { choice: 'Yes' },
+    });
+    expect(answered.status).toBe(200);
+    const turnRequests = () =>
+      w.harness.model.requests.filter((request) =>
+        systemOf(request).includes('taking one more turn on a case'),
+      );
+    await until(() => turnRequests().length > 0, 'the turn on the case');
+    await w.harness.capabilities.runner()!.settled();
+    expect((await goals.list()).some((goal) => goal.caseId === opened.id)).toBe(true);
+    const turn = turnRequests().filter((request) => withoutAcknowledgements(request).length > 0);
+    expect(turn.length).toBeGreaterThan(0);
+    for (const request of turn)
+      expect(withoutAcknowledgements(request)).toEqual([...caseTurnTools()].sort());
+    expect(caseTurnTools()).toContain(NAME);
   });
 });
 

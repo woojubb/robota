@@ -37,7 +37,8 @@ on — in the person's own state directory.
   turns them into a definition's instructions, a capability or a decision.
 - **The agent proposes, the host gates, the person decides.** The agent may propose an offer for an
   installed task revision from something it read, but it cannot publish a definition, grant a capability
-  or start a task. The host's gate judges every proposal when it is made, whenever the offers are shown
+  or start a task, and only a sync run and a case turn, each with a bound of its own, have the tool: the
+  owner's chats and every other run are denied it. The host's gate judges every proposal when it is made, whenever the offers are shown
   and again when a task is started from one: the task must be installed at that revision, its source a
   connected service or library page that is still there and was read recently enough, no case may be open
   on the same item, the values it suggests must pass the checks a start makes, and a run and a day have
@@ -71,8 +72,12 @@ on — in the person's own state directory.
   an observation never chooses an offer's decision: a new offer starts open and only the person's own
   choice changes it, so a source that keeps noticing the same thing neither fills the page, reopens
   what was dismissed nor wakes what was snoozed, and an offer that lapsed unanswered waits out a
-  cooldown before the same matter makes another. Decisions and cooldowns are read from the stored
-  offers, so a restart cannot reset them.
+  cooldown before the same matter makes another. Nothing a repeat says moves backward: one dated before
+  what the offer rests on changes nothing, and the expiry, and with it the cooldown, only grows. The
+  agent's reference to an item is kept in one spelling (compatibility form, lower case, single spaces),
+  for the key and for the comparison with an open case, so a variant spelling cannot dodge a dismissal, a
+  cooldown or a case. Decisions and cooldowns are read from the stored offers, so a restart cannot reset
+  them.
 - The host cannot fetch an item from a connected service by the agent's own reference, so an offer from
   one rests on the service still being connected and on the age of the observation, not on the item
   being read again; a library page is looked up by its id.

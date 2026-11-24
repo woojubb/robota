@@ -246,6 +246,40 @@ describe('proposing an offer', () => {
   });
 });
 
+describe('a repeat observation that is dated before the one an offer rests on', () => {
+  it('changes nothing about the offer, and leaves its expiry and the cooldown after it where they were', async () => {
+    const w = world();
+    const proposer = w.service.proposer();
+    const at = (hours: number) => iso(new Date(w.clock.now.getTime() - hours * 3_600_000));
+    const observed = (hours: number, change: Record<string, unknown> = {}) =>
+      proposal(w, {
+        source: {
+          kind: 'connector',
+          connectorId: 'connector-mail-1',
+          sourceItemId: 'msg-1',
+          observedAt: at(hours),
+        },
+        ...change,
+      });
+    await proposer.propose(observed(1, { why: 'First.' }) as never);
+    const first = (await w.store.getOffer('offer-n1'))!;
+
+    w.clock.now = new Date(w.clock.now.getTime() + 3 * DAY);
+    // Dated before the first observation: accepted as the same matter, and nothing in it is newer.
+    const older = await proposer.propose(observed(3 * 24 + 5, { why: 'Older.' }) as never);
+    expect(older).toEqual({ status: 'accepted', offerId: 'offer-n1' });
+    expect(await w.store.getOffer('offer-n1')).toEqual(first);
+
+    // The offer lapses when it always would have, and the cooldown runs from then.
+    w.clock.now = new Date(Date.parse(first.expiresAt) + 60_000);
+    expect(await proposer.propose(observed(1) as never)).toMatchObject({
+      status: 'rejected',
+      reason: expect.stringContaining('lapsed'),
+    });
+    expect((await w.service.list()).offers).toEqual([]);
+  });
+});
+
 describe('what the person is shown', () => {
   it('is only what still passes the gate now: the service, the evidence, an open case and the task’s revision', async () => {
     const w = world();

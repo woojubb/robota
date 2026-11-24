@@ -18,11 +18,11 @@ import {
   TaskCatalogRefusedError,
   asRecord,
   isoTime,
+  normalizedReference,
   oneOf,
   positiveInteger,
   rejectUnknownKeys,
   shaped,
-  singleLine,
   valueLine,
 } from '../fields.js';
 import { LaunchRefusedError } from '../launch/types.js';
@@ -109,11 +109,27 @@ export function agentOfferKey(definitionId: string, evidence: IOfferEvidence): s
         definitionId,
         evidence.kind,
         evidence.connectorId ?? '',
-        evidence.sourceItemId,
+        normalizedReference(evidence.sourceItemId),
       ]),
     )
     .digest('hex');
   return `agent:${digest.slice(0, 40)}`;
+}
+
+/**
+ * The agent's reference to an item as the host keeps and compares it: judged by the value it carries,
+ * then in one spelling, so a variant of the same reference cannot be a different matter. Spelling it
+ * out can make it longer, so the bound is checked on what is kept.
+ */
+function itemReference(value: unknown): string {
+  const kept = normalizedReference(
+    valueLine(value, 'source.sourceItemId', OFFER_LIMITS.sourceItemId),
+  );
+  if (kept.length > OFFER_LIMITS.sourceItemId)
+    throw new TaskCatalogRefusedError(
+      `source.sourceItemId must be at most ${OFFER_LIMITS.sourceItemId} characters`,
+    );
+  return kept;
 }
 
 function parseEvidence(raw: unknown): IOfferEvidence {
@@ -135,11 +151,7 @@ function parseEvidence(raw: unknown): IOfferEvidence {
     ...(kind === 'connector' && {
       connectorId: shaped(source['connectorId'], 'source.connectorId', CONNECTOR_ID, 80),
     }),
-    sourceItemId: singleLine(
-      source['sourceItemId'],
-      'source.sourceItemId',
-      OFFER_LIMITS.sourceItemId,
-    ),
+    sourceItemId: itemReference(source['sourceItemId']),
     observedAt: isoTime(source['observedAt'], 'source.observedAt'),
   };
 }

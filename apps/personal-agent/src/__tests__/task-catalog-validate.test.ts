@@ -445,6 +445,31 @@ describe('an offer', () => {
       refused(() => parseOffer(offer({ evidence: { ...evidence, ...change } }), find), message);
   });
 
+  it('keeps the item reference as a value without a secret, in the one spelling the host compares', () => {
+    const evidence = (sourceItemId: string) => ({
+      kind: 'connector',
+      connectorId: 'connector-mail-1',
+      sourceItemId,
+      observedAt: '2026-11-20T08:00:00Z',
+    });
+    refused(
+      () => parseOffer(offer({ evidence: evidence(`mail:${PROVIDER_KEY}`) }), find),
+      /evidence.sourceItemId looks like it carries a secret/u,
+    );
+    for (const variant of ['MAIL:Msg-1', String.fromCodePoint(0xff2d, 0xff33, 0xff27)])
+      refused(
+        () => parseOffer(offer({ evidence: evidence(variant) }), find),
+        /evidence.sourceItemId is not in the expected form/u,
+      );
+    // Spaces are folded as any line's are, so a spaced variant is read back as the one spelling.
+    expect(
+      parseOffer(offer({ evidence: evidence('  mail:   msg-1 ') }), find).evidence?.sourceItemId,
+    ).toBe('mail: msg-1');
+    expect(
+      parseOffer(offer({ evidence: evidence('reset password') }), find).evidence?.sourceItemId,
+    ).toBe('reset password');
+  });
+
   it('keeps a snooze only on a snoozed offer and a launch only on an accepted one', () => {
     const launchId = `launch-${'1'.repeat(8)}-0000-4000-8000-000000000000`;
     expect(

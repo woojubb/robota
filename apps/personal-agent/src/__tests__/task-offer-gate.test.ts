@@ -15,6 +15,7 @@ import {
   OFFER_LIFETIME_MS,
   OFFER_PROPOSALS_PER_DAY,
   OFFER_PROPOSALS_PER_RUN,
+  agentOfferKey,
   judgeProposal,
   whyNotOffered,
 } from '../task-catalog/offers/gate.js';
@@ -496,6 +497,124 @@ describe('the bounds on proposals', () => {
       counts: { attemptsInRun: OFFER_ATTEMPTS_PER_RUN + 1, acceptedInRun: 0, newToday: 0 },
     });
     expect(asked).toEqual([]);
+  });
+});
+
+describe('the agent’s reference to an item', () => {
+  // The same reference spelled another way: case, a compatibility form of the characters, and spaces.
+  const FULLWIDTH = String.fromCodePoint(0xff2d, 0xff33, 0xff27, 0xff0d, 0xff17);
+  const VARIANTS: readonly [string, string][] = [
+    ['upper case', 'MSG-7'],
+    ['mixed case', 'Msg-7'],
+    ['fullwidth characters that fold to the same letters', FULLWIDTH],
+    ['spaces around it', '  msg-7 \n'],
+  ];
+
+  it.each(VARIANTS)('makes one matter of a reference in %s', async (_name, variant) => {
+    const plain = await accepted(candidate());
+    const other = await accepted(candidate({ source: source({ sourceItemId: variant }) }));
+    expect(other.dedupeKey).toBe(plain.dedupeKey);
+    // What is kept is the one spelling, whichever the agent used.
+    expect(other.evidence!.sourceItemId).toBe('msg-7');
+  });
+
+  it('keys on the one spelling even when it is handed a variant, so no caller can make two matters of one', () => {
+    const evidence = (sourceItemId: string) =>
+      ({
+        kind: 'connector',
+        connectorId: 'connector-mail-1',
+        sourceItemId,
+        observedAt: '2026-11-25T09:00:00Z',
+      }) as const;
+    const key = agentOfferKey('check-fact-on-page', evidence('msg-7'));
+    for (const [, variant] of VARIANTS)
+      expect(agentOfferKey('check-fact-on-page', evidence(variant))).toBe(key);
+    expect(agentOfferKey('check-fact-on-page', evidence('msg-8'))).not.toBe(key);
+    expect(agentOfferKey('prepare-my-week', evidence('msg-7'))).not.toBe(key);
+  });
+
+  it('folds spaces inside a reference and makes a different reference a different matter', async () => {
+    const key = async (item: string) =>
+      (await accepted(candidate({ source: source({ sourceItemId: item }) }))).dedupeKey;
+    expect(await key('mail: Msg  7')).toBe(await key('MAIL:\tmsg 7'));
+    expect(await key('mail:msg-7')).not.toBe(await key('mail:msg-8'));
+  });
+
+  it.each(VARIANTS)(
+    'keeps a dismissed offer dismissed when the item is spelled in %s',
+    async (_name, variant) => {
+      const plain = await accepted(candidate());
+      const asked: string[] = [];
+      const reader = readers({
+        offerFor: async (key) => {
+          asked.push(key);
+          return key === plain.dedupeKey ? kept({ decision: 'dismissed' }) : undefined;
+        },
+      });
+      expect(
+        await refusal(candidate({ source: source({ sourceItemId: variant }) }), {
+          readers: reader,
+        }),
+      ).toMatch(/dismissed an offer for this already/u);
+      expect(asked).toEqual([plain.dedupeKey]);
+    },
+  );
+
+  it.each(VARIANTS)(
+    'still refuses for an open case when the item is spelled in %s',
+    async (_name, variant) => {
+      const asked: unknown[][] = [];
+      expect(
+        await refusal(candidate({ source: source({ sourceItemId: variant }) }), {
+          readers: readers({
+            openCase: async (...args) => {
+              asked.push(args);
+              return true;
+            },
+          }),
+        }),
+      ).toMatch(/A case about this item is open/u);
+      // The reader is asked in the one spelling, which is also the one a case is compared in.
+      expect(asked).toEqual([['connector-mail-1', 'msg-7']]);
+    },
+  );
+
+  it('judges the reference by the value it carries, and by its length once it is spelled out', async () => {
+    expect(await refusal(candidate({ source: source({ sourceItemId: `mail:${KEY}` }) }))).toMatch(
+      /source.sourceItemId looks like it carries a secret/u,
+    );
+    expect(
+      await refusal(candidate({ source: source({ sourceItemId: 'password=hunter2' }) })),
+    ).toMatch(/source.sourceItemId looks like it carries a secret/u);
+    // A character that spells out as several letters can make a short reference too long.
+    const spelled = String.fromCodePoint(0x3300).repeat(60);
+    expect(spelled.length).toBeLessThan(200);
+    expect(await refusal(candidate({ source: source({ sourceItemId: spelled }) }))).toMatch(
+      /source.sourceItemId must be at most 200 characters/u,
+    );
+    // The words of an ordinary reference stay.
+    const item = await accepted(
+      candidate({ source: source({ sourceItemId: 'Reset Password 2026-11-24' }) }),
+    );
+    expect(item.evidence!.sourceItemId).toBe('reset password 2026-11-24');
+  });
+
+  it('is asked of the library in the one spelling too', async () => {
+    const asked: string[] = [];
+    await accepted(
+      candidate({
+        source: { kind: 'library', sourceItemId: 'Page-Trip', observedAt: '2026-11-25T09:00:00Z' },
+      }),
+      {
+        readers: readers({
+          libraryPage: async (id) => {
+            asked.push(id);
+            return true;
+          },
+        }),
+      },
+    );
+    expect(asked).toEqual(['page-trip']);
   });
 });
 

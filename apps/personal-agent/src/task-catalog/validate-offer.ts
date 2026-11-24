@@ -8,16 +8,15 @@ import {
   asRecord,
   isoTime,
   listOf,
+  normalizedReference,
   oneOf,
   plainLine,
   positiveInteger,
   rejectUnknownKeys,
   shaped,
-  singleLine,
   valueLine,
 } from './fields.js';
-import { OUTCOME_STATES } from './launch/types.js';
-import { OFFER_DECISIONS, OFFER_SOURCES, OFFER_SOURCE_KINDS } from './types.js';
+import { OFFER_DECISIONS, OFFER_SOURCES, OFFER_SOURCE_KINDS, OUTCOME_STATES } from './types.js';
 
 import type {
   IOffer,
@@ -108,6 +107,14 @@ function parsePrefilled(
   return prefilled;
 }
 
+/** A kept reference is in the one spelling the host compares, so a hand-edited variant is not read back as another matter. */
+function reference(value: unknown): string {
+  const kept = valueLine(value, 'evidence.sourceItemId', OFFER_LIMITS.sourceItemId);
+  if (kept !== normalizedReference(kept))
+    throw new TaskCatalogRefusedError('evidence.sourceItemId is not in the expected form');
+  return kept;
+}
+
 function parseEvidence(raw: unknown): IOfferEvidence {
   const evidence = asRecord(raw, 'evidence');
   rejectUnknownKeys(evidence, ['kind', 'connectorId', 'sourceItemId', 'observedAt'], 'evidence');
@@ -121,11 +128,7 @@ function parseEvidence(raw: unknown): IOfferEvidence {
     ...(kind === 'connector' && {
       connectorId: shaped(evidence['connectorId'], 'evidence.connectorId', CONNECTOR_ID, 80),
     }),
-    sourceItemId: singleLine(
-      evidence['sourceItemId'],
-      'evidence.sourceItemId',
-      OFFER_LIMITS.sourceItemId,
-    ),
+    sourceItemId: reference(evidence['sourceItemId']),
     observedAt: isoTime(evidence['observedAt'], 'evidence.observedAt'),
   };
 }

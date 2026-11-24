@@ -4,7 +4,6 @@
  * come and go, and an offer can be dismissed or expire, without the definition changing.
  */
 import type { TConnectorKind } from '@robota-sdk/agent-product/personal';
-import type { TOutcomeState } from './launch/types.js';
 
 export const INPUT_KINDS = ['text', 'choice', 'number'] as const;
 export type TInputKind = (typeof INPUT_KINDS)[number];
@@ -15,6 +14,10 @@ export type TEffectCeiling = (typeof EFFECT_CEILINGS)[number];
 
 export const EVIDENCE_KINDS = ['source-readback', 'receipt', 'owner-confirmation'] as const;
 export type TEvidenceKind = (typeof EVIDENCE_KINDS)[number];
+
+/** How a launched task ended, as the host decided it from what it recorded, never from what the model said. */
+export const OUTCOME_STATES = ['verified', 'unverified', 'failed', 'cancelled'] as const;
+export type TOutcomeState = (typeof OUTCOME_STATES)[number];
 
 export const OFFER_SOURCES = ['built-in', 'owner', 'agent'] as const;
 export type TOfferSource = (typeof OFFER_SOURCES)[number];

@@ -83,6 +83,7 @@ import { createLaunchCoordinator } from './task-catalog/launch/coordinator.js';
 import { createFileLaunchStore } from './task-catalog/launch/file-store.js';
 import { checkSuggestedInputs } from './task-catalog/launch/inputs.js';
 import { LAUNCH_RECIPES, recipeFor } from './task-catalog/launch/recipes.js';
+import { normalizedReference } from './task-catalog/fields.js';
 import { createOfferService } from './task-catalog/offers/service.js';
 import { createReadinessContextSource } from './task-catalog/readiness-context.js';
 import { createPersonalApi } from './personal-api.js';
@@ -509,7 +510,7 @@ export function createPersonalCapabilities(
           (found) =>
             found.state === 'open' &&
             found.origin.connectorId === connectorId &&
-            found.origin.source === sourceItemId,
+            normalizedReference(found.origin.source) === sourceItemId,
         ),
     },
     checkInputs: (definition, suggested) =>

@@ -45,14 +45,13 @@ import type { TBindingSource } from '../bindings.js';
 import type { IEvidenceRule } from './evidence-rules.js';
 import type { ILaunchRecipe } from './recipes.js';
 import type { ILaunchStore } from './store.js';
-import type { ITaskDefinition } from '../types.js';
+import type { ITaskDefinition, TOutcomeState } from '../types.js';
 import type {
   ILaunchBinding,
   ILaunchIntent,
   ILaunchStarted,
   ILaunchStatusView,
   TLaunchInputs,
-  TOutcomeState,
 } from './types.js';
 
 /** Whether a task may be started from an offer now: yes, or a plain reason and how the page should be told. */

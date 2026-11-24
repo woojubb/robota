@@ -55,6 +55,15 @@ export function plainLine(value: unknown, field: string, max: number): string {
 }
 
 /**
+ * A reference the agent made up for an item, in the one spelling the host compares: Unicode compatibility
+ * form, lower case and single spaces, so a variant spelling of the same reference is the same reference.
+ * Applying it twice changes nothing.
+ */
+export function normalizedReference(text: string): string {
+  return text.normalize('NFKC').toLowerCase().replace(/\s+/gu, ' ').trim();
+}
+
+/**
  * A line of plain text for what an observation says about a source, such as a mail about a password
  * reset: judged by the value it carries and not by its vocabulary, so the words "password" or "token"
  * pass and a key, a token or a card number written out does not.

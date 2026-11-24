@@ -380,6 +380,77 @@ describe.each(adapters)('the %s task-catalog store', (_name, create) => {
     });
   });
 
+  describe('a repeat observation never moves anything backward', () => {
+    const seen = (hours: number, change: Partial<IOffer> = {}): IOffer =>
+      offer({
+        evidence: {
+          kind: 'connector',
+          connectorId: 'connector-mail-1',
+          sourceItemId: 'mail:msg-1',
+          observedAt: `2026-11-20T${String(hours).padStart(2, '0')}:00:00Z`,
+        },
+        ...change,
+      });
+
+    it('leaves an offer as it is for a repeat dated before the observation it rests on, whatever else the repeat says', async () => {
+      const store = create();
+      const first = await store.putOffer(
+        seen(9, { reason: 'First.', basis: 'First basis.', prefilled: { focus: 'rent' } }),
+      );
+      const older = await store.putOffer(
+        seen(8, {
+          id: 'offer-z9',
+          reason: 'Older.',
+          basis: 'Older basis.',
+          prefilled: { focus: 'deposit' },
+          expiresAt: '2026-12-31T09:00:00Z',
+        }),
+      );
+      expect(older).toEqual(first);
+      expect(await store.listOffers()).toEqual([first]);
+    });
+
+    it('takes a repeat dated the same time or later, and never an earlier expiry from it', async () => {
+      const store = create();
+      await store.putOffer(seen(9));
+      const same = await store.putOffer(seen(9, { id: 'offer-y8', reason: 'Same time.' }));
+      expect(same.reason).toBe('Same time.');
+      const later = await store.putOffer(
+        seen(10, { id: 'offer-z9', reason: 'Later.', expiresAt: '2026-11-21T09:00:00Z' }),
+      );
+      expect(later).toMatchObject({
+        reason: 'Later.',
+        expiresAt: '2026-11-27T09:00:00Z',
+        evidence: { observedAt: '2026-11-20T10:00:00Z' },
+      });
+      const longer = await store.putOffer(
+        seen(11, { id: 'offer-x7', expiresAt: '2026-12-03T09:00:00Z' }),
+      );
+      expect(longer.expiresAt).toBe('2026-12-03T09:00:00Z');
+    });
+
+    it('keeps the evidence of an offer when a repeat brings none', async () => {
+      const store = create();
+      await store.putOffer(seen(9));
+      const bare = await store.putOffer(offer({ id: 'offer-z9', reason: 'No evidence.' }));
+      expect(bare.reason).toBe('No evidence.');
+      expect(bare.evidence?.observedAt).toBe('2026-11-20T09:00:00Z');
+    });
+
+    it('lets no repeat make a snoozed offer expire before its snooze ends', async () => {
+      const store = create();
+      await store.putOffer(seen(9));
+      await store.setOfferDecision('offer-a1', 'snoozed', { snoozedUntil: '2026-11-26T09:00:00Z' });
+      await store.putOffer(seen(10, { id: 'offer-z9', expiresAt: '2026-11-21T09:00:00Z' }));
+      await store.putOffer(seen(8, { id: 'offer-y8', expiresAt: '2026-11-20T11:00:00Z' }));
+      clock.now = new Date('2026-11-24T09:00:00Z');
+      const still = await store.getOffer('offer-a1');
+      expect(still).toMatchObject({ decision: 'snoozed', expiresAt: '2026-11-27T09:00:00Z' });
+      clock.now = new Date('2026-11-26T09:00:00Z');
+      expect((await store.getOffer('offer-a1'))?.decision).toBe('open');
+    });
+  });
+
   it('keeps the time of a dismissal and of the snooze before it, and drops the snooze itself', async () => {
     const store = create();
     await store.putOffer(offer());

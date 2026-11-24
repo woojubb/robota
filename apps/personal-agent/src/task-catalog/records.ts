@@ -7,8 +7,7 @@
 import { TaskCatalogRefusedError, isoTime, oneOf } from './fields.js';
 import { OFFER_DECISIONS } from './types.js';
 
-import type { TOutcomeState } from './launch/types.js';
-import type { IOffer, IOfferReactions, ITaskDefinition } from './types.js';
+import type { IOffer, IOfferReactions, ITaskDefinition, TOutcomeState } from './types.js';
 
 export const MAX_OFFERS = 500;
 export const MAX_DEFINITIONS = 200;
@@ -70,10 +69,12 @@ function makeRoom(offers: readonly IOffer[], at: string): readonly IOffer[] {
  * Put an offer among the stored ones. What arrives is an observation, so it never chooses what the
  * person decided: a new offer is stored open whatever it claims, and an offer whose dedupe key is
  * already stored (under any id, the same one included) is not added again. It updates that offer's
- * evidence (revision, reason, basis, what it was read from, context, suggestions and expiry) and leaves
- * its id, source, creation time, decision, snooze, launch and reactions as they were, so a repeat
- * observation cannot reopen a dismissed or accepted offer or wake a snoozed one. A lapsed offer that
- * was recorded as expired returns to open only when the repeat has a later expiry. A full store makes
+ * evidence (revision, reason, basis, what it was read from, context and suggestions) and leaves its id,
+ * source, creation time, decision, snooze, launch and reactions as they were, so a repeat observation
+ * cannot reopen a dismissed or accepted offer or wake a snoozed one. Nothing moves backward: a repeat
+ * dated before the observation the offer rests on changes nothing, and the expiry is the later of the
+ * two. A lapsed offer that was recorded as expired returns to open only when the repeat has a later
+ * expiry. A full store makes
  * room for a new offer only by dropping a finished one that is old enough.
  */
 export function putOfferInto(
@@ -94,18 +95,28 @@ export function putOfferInto(
     );
   if (Date.parse(offer.expiresAt) <= Date.parse(kept.createdAt))
     throw new TaskCatalogRefusedError('expiresAt must be after the offer was first made');
+  // An observation dated before the one the offer already rests on has nothing newer to say: all of
+  // it, the expiry that follows from it included, is left out.
+  if (
+    offer.evidence !== undefined &&
+    kept.evidence !== undefined &&
+    Date.parse(offer.evidence.observedAt) < Date.parse(kept.evidence.observedAt)
+  )
+    return { offers, stored: kept };
   const { prefilled: _earlier, basis: _basis, evidence: _evidence, ...rest } = kept;
   const later = Date.parse(offer.expiresAt) > Date.parse(kept.expiresAt);
+  const evidence = offer.evidence ?? kept.evidence;
   const stored: IOffer = {
     ...rest,
     definitionRevision: offer.definitionRevision,
     reason: offer.reason,
     contextRefs: offer.contextRefs,
-    expiresAt: offer.expiresAt,
+    // Never earlier than it was: a repeat cannot shorten an offer's life or the cooldown after it.
+    expiresAt: later ? offer.expiresAt : kept.expiresAt,
     decision: kept.decision === 'expired' && later ? 'open' : kept.decision,
     ...(offer.prefilled !== undefined && { prefilled: offer.prefilled }),
     ...(offer.basis !== undefined && { basis: offer.basis }),
-    ...(offer.evidence !== undefined && { evidence: offer.evidence }),
+    ...(evidence !== undefined && { evidence }),
   };
   return { offers: offers.map((entry) => (entry === kept ? stored : entry)), stored };
 }

@@ -18,7 +18,7 @@ import {
 } from '../fields.js';
 import { ruleFor } from './evidence-rules.js';
 import { parseReceipt } from './receipts.js';
-import { OUTCOME_STATES } from './types.js';
+import { OUTCOME_STATES } from '../types.js';
 
 import type { IGoal, IGoalRun } from '@robota-sdk/agent-product/personal';
 import type { IEvidenceRule } from './evidence-rules.js';
