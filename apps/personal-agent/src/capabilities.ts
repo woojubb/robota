@@ -29,6 +29,7 @@ import {
   createBrowserTools,
   createChannelHub,
   createCaseTools,
+  createOfferTools,
   createConnectorKeepTool,
   createConnectorTools,
   createFileCaseStore,
@@ -80,7 +81,10 @@ import { createTaskCatalog } from './task-catalog/catalog.js';
 import { createFileTaskCatalogStore } from './task-catalog/file-store.js';
 import { createLaunchCoordinator } from './task-catalog/launch/coordinator.js';
 import { createFileLaunchStore } from './task-catalog/launch/file-store.js';
-import { LAUNCH_RECIPES } from './task-catalog/launch/recipes.js';
+import { checkSuggestedInputs } from './task-catalog/launch/inputs.js';
+import { LAUNCH_RECIPES, recipeFor } from './task-catalog/launch/recipes.js';
+import { normalizedReference } from './task-catalog/fields.js';
+import { createOfferService } from './task-catalog/offers/service.js';
 import { createReadinessContextSource } from './task-catalog/readiness-context.js';
 import { createPersonalApi } from './personal-api.js';
 
@@ -95,6 +99,7 @@ import type { TPersonalApi } from './personal-api.js';
 import type { IVerifiedConnectorBindingSpec } from './task-catalog/binding-providers.js';
 import type { ITaskCatalog } from './task-catalog/catalog.js';
 import type { ILaunchCoordinator } from './task-catalog/launch/coordinator.js';
+import type { IOfferService } from './task-catalog/offers/service.js';
 
 export interface IPersonalCapabilities {
   readonly tools: readonly IToolWithEventService[];
@@ -122,6 +127,8 @@ export interface IPersonalCapabilities {
   readonly taskCatalog: ITaskCatalog;
   /** Starts a task the person chose: one request, one durable launch, at most one goal. */
   readonly launches: ILaunchCoordinator;
+  /** The offers the agent proposes through the host's gate and the person is shown. */
+  readonly offers: IOfferService;
   /** The services the person connected, and the one place that decides what each tool may do. */
   readonly connectors: ConnectorRegistry;
   /** The path the person's browser returns to after consenting at a service; hand it to the GUI server. */
@@ -294,21 +301,6 @@ export function createPersonalCapabilities(
   );
   const browser = watchedBrowser.port;
   let runner: IGoalRunner | undefined;
-  // A start is judged again from the same readiness the cards show, kept before its goal exists, and the
-  // goal runs at once instead of at the next tick. A started run reads pages through this browser with
-  // each page it returns recorded, which is what its outcome is decided from.
-  const launches = createLaunchCoordinator({
-    browser,
-    store: createFileLaunchStore({ directory: join(options.stateDir, 'task-catalog') }),
-    catalog: taskCatalog,
-    goals,
-    recipes: LAUNCH_RECIPES,
-    // The pages the owner named as reachable although local are the ones a task may be given too.
-    ...(options.browserAllowedHosts !== undefined && { pageHosts: options.browserAllowedHosts }),
-    onGoalReady: () => {
-      void runner?.runDue().catch(() => undefined);
-    },
-  });
   // A goal cannot be removed while it runs: turning a sync off first ends the run in progress.
   const connectorSync = new ConnectorSync(goals, async (goalId) => {
     runner?.interrupt(goalId);
@@ -494,12 +486,64 @@ export function createPersonalCapabilities(
     writes: caseWrites,
   });
   const bindings = caseBindings;
+  // The offers the agent proposes and the person is shown. Every proposal goes through the host's gate,
+  // which looks at the installed tasks, the person's connected services, the library and the cases as
+  // they are then, and checks the values it suggests as Start would.
+  const offers = createOfferService({
+    catalog: taskCatalog,
+    readers: {
+      connector: async (id) => {
+        if ((await connectorBook.get(id)) === undefined) return 'missing';
+        try {
+          return (await connectors.status(id)).state === 'connected'
+            ? 'connected'
+            : 'not-connected';
+        } catch {
+          // allow-fallback: a service whose state cannot be read is not one an offer can rest on.
+          return 'not-connected';
+        }
+      },
+      connectorTitle: async (id) => (await connectorBook.get(id))?.title,
+      libraryPage: async (id) => (await wiki.read(id)) !== undefined,
+      openCase: async (connectorId, sourceItemId) =>
+        (await cases.list(Number.POSITIVE_INFINITY)).some(
+          (found) =>
+            found.state === 'open' &&
+            found.origin.connectorId === connectorId &&
+            normalizedReference(found.origin.source) === sourceItemId,
+        ),
+    },
+    checkInputs: (definition, suggested) =>
+      checkSuggestedInputs(
+        definition,
+        suggested,
+        recipeFor(LAUNCH_RECIPES, definition)?.pages ?? [],
+        new Set(options.browserAllowedHosts ?? []),
+      ),
+  });
+  // A start is judged again from the same readiness the cards show, kept before its goal exists, and the
+  // goal runs at once instead of at the next tick. A started run reads pages through this browser with
+  // each page it returns recorded, which is what its outcome is decided from.
+  const launches = createLaunchCoordinator({
+    browser,
+    store: createFileLaunchStore({ directory: join(options.stateDir, 'task-catalog') }),
+    catalog: taskCatalog,
+    goals,
+    recipes: LAUNCH_RECIPES,
+    offers: offers.launch,
+    // The pages the owner named as reachable although local are the ones a task may be given too.
+    ...(options.browserAllowedHosts !== undefined && { pageHosts: options.browserAllowedHosts }),
+    onGoalReady: () => {
+      void runner?.runDue().catch(() => undefined);
+    },
+  });
   const syncRuns = createSyncRuns({
     book: connectorBook,
     registry: connectors,
     goals,
     wiki,
     cases,
+    offers,
   });
   const connectorTools = createConnectorTools(connectors);
   const recordCaseApproval = createCaseApprovalRecorder(join(options.stateDir, 'case-approvals'));
@@ -509,6 +553,7 @@ export function createPersonalCapabilities(
   caseTurns = createCaseTurns({
     goals,
     cases,
+    offers,
     ownerId: presence.id,
     ...(supportsDurableApprovals && {
       makeAction: (snapshot: ICaseActionSnapshot) =>
@@ -602,6 +647,7 @@ export function createPersonalCapabilities(
       ...createBrowserTools(browser),
       ...createGoalTools(goals),
       ...createCaseTools(cases),
+      ...createOfferTools(offers.proposer()),
       ...createIdeaTools(ideas),
       ...connectorTools,
       createConnectorKeepTool({ book: connectorBook, wiki }),
@@ -626,6 +672,7 @@ export function createPersonalCapabilities(
     spaces,
     taskCatalog,
     launches,
+    offers,
     connectors,
     landing: { path: CONSENT_CALLBACK_PATH, handle: (query) => consent.land(query) },
     channels,
@@ -669,7 +716,7 @@ export function createPersonalCapabilities(
         spaces,
         sideChats,
         layout,
-        taskCatalog: createTaskCatalogApi(taskCatalog, launches),
+        taskCatalog: createTaskCatalogApi(taskCatalog, launches, offers),
         browser: watchedBrowser,
         interruptWork: () => {
           runner?.interrupt();

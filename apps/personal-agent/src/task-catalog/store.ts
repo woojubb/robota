@@ -2,14 +2,22 @@
  * Where the person's offers and the definitions they installed live. The built-in definitions ship with
  * the product and are not stored. A host supplies one store per owner; the file adapter is beside this.
  */
-import { putDefinitionInto, putOfferInto, readOffer, setDecisionIn } from './records.js';
+import {
+  acceptIn,
+  putDefinitionInto,
+  putOfferInto,
+  reactIn,
+  readOffer,
+  setDecisionIn,
+} from './records.js';
 import { parseDefinition } from './validate-definition.js';
 import { parseOffer } from './validate-offer.js';
 
+import type { TOfferReaction } from './records.js';
 import type { IOffer, ITaskDefinition, TOfferDecision } from './types.js';
 
 export interface ITaskCatalogStore {
-  /** Every stored offer; an open one past its expiry reads as expired. */
+  /** Every stored offer; an open one past its expiry reads as expired, and a snoozed one whose time has come as open. */
   listOffers(): Promise<readonly IOffer[]>;
   getOffer(id: string): Promise<IOffer | undefined>;
   /**
@@ -18,8 +26,19 @@ export interface ITaskCatalogStore {
    * as; no offer is added twice for a key.
    */
   putOffer(offer: IOffer): Promise<IOffer>;
-  /** Record the person's decision about a stored offer: the only change of a decision after it is kept. */
-  setOfferDecision(id: string, decision: TOfferDecision): Promise<IOffer>;
+  /**
+   * Record a decision about a stored offer: the only change of a decision after it is kept, with a
+   * snooze given the time it ends. Which decisions the person may ask for is the caller's to judge.
+   */
+  setOfferDecision(
+    id: string,
+    decision: TOfferDecision,
+    options?: { readonly snoozedUntil?: string },
+  ): Promise<IOffer>;
+  /** Record that an offer was started, which accepts it and names its launch; the first launch stays. */
+  acceptOffer(id: string, launchId: string): Promise<IOffer>;
+  /** Record how the person met offers, or how the task one made ended, once each; offers that are gone are skipped. */
+  recordReaction(ids: readonly string[], reaction: TOfferReaction): Promise<void>;
   /** Every stored revision of every definition the person installed. */
   listDefinitions(): Promise<readonly ITaskDefinition[]>;
   /** Keep a definition revision; a revision already stored cannot change. */
@@ -46,10 +65,21 @@ export function createMemoryTaskCatalogStore(
       offers = put.offers;
       return readOffer(put.stored, now());
     },
-    setOfferDecision: async (id, decision) => {
-      const put = setDecisionIn(offers, id, decision);
+    setOfferDecision: async (id, decision, options = {}) => {
+      const put = setDecisionIn(offers, id, decision, {
+        at: now().toISOString(),
+        ...(options.snoozedUntil !== undefined && { snoozedUntil: options.snoozedUntil }),
+      });
       offers = put.offers;
       return readOffer(put.stored, now());
+    },
+    acceptOffer: async (id, launchId) => {
+      const put = acceptIn(offers, id, launchId, now().toISOString());
+      offers = put.offers;
+      return readOffer(put.stored, now());
+    },
+    recordReaction: async (ids, reaction) => {
+      offers = reactIn(offers, ids, reaction, now().toISOString()).offers;
     },
     listDefinitions: async () => definitions,
     putDefinition: async (definition) => {

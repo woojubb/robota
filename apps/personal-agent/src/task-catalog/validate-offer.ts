@@ -8,18 +8,29 @@ import {
   asRecord,
   isoTime,
   listOf,
+  normalizedReference,
   oneOf,
   plainLine,
   positiveInteger,
   rejectUnknownKeys,
   shaped,
+  valueLine,
 } from './fields.js';
-import { OFFER_DECISIONS, OFFER_SOURCES } from './types.js';
+import { OFFER_DECISIONS, OFFER_SOURCES, OFFER_SOURCE_KINDS, OUTCOME_STATES } from './types.js';
 
-import type { IOffer, IOfferContextRef, ITaskDefinition } from './types.js';
+import type {
+  IOffer,
+  IOfferContextRef,
+  IOfferEvidence,
+  IOfferReactions,
+  ITaskDefinition,
+} from './types.js';
 
 export const OFFER_LIMITS = {
   reason: 300,
+  basis: 300,
+  /** The same length a case allows for the agent's own reference to an item. */
+  sourceItemId: 200,
   contextRefs: 5,
   prefilledEntries: 8,
   prefilledValue: 200,
@@ -33,6 +44,8 @@ const REF_KIND = /^[a-z][a-z0-9-]{0,29}$/u;
 const OPAQUE_ID = /^[A-Za-z0-9][A-Za-z0-9:._@/+-]{0,99}$/u;
 const DEDUPE_KEY = /^[\x21-\x7e]{1,120}$/u;
 const INPUT_NAME = /^[a-z][A-Za-z0-9]{0,39}$/u;
+const CONNECTOR_ID = /^connector-[a-z0-9-]{1,60}$/u;
+const LAUNCH_ID = /^launch-[0-9a-f-]{36}$/u;
 
 const OFFER_KEYS = [
   'id',
@@ -46,7 +59,21 @@ const OFFER_KEYS = [
   'decision',
   'dedupeKey',
   'prefilled',
+  'basis',
+  'evidence',
+  'snoozedUntil',
+  'launchId',
+  'reactions',
 ];
+const REACTION_TIMES = [
+  'shown',
+  'opened',
+  'accepted',
+  'started',
+  'verified',
+  'dismissed',
+  'snoozed',
+] as const;
 
 /** Finds the definition revision an offer names, among the ones the catalog holds. */
 export type TDefinitionLookup = (id: string, revision: number) => ITaskDefinition | undefined;
@@ -80,6 +107,49 @@ function parsePrefilled(
   return prefilled;
 }
 
+/** A kept reference is in the one spelling the host compares, so a hand-edited variant is not read back as another matter. */
+function reference(value: unknown): string {
+  const kept = valueLine(value, 'evidence.sourceItemId', OFFER_LIMITS.sourceItemId);
+  if (kept !== normalizedReference(kept))
+    throw new TaskCatalogRefusedError('evidence.sourceItemId is not in the expected form');
+  return kept;
+}
+
+function parseEvidence(raw: unknown): IOfferEvidence {
+  const evidence = asRecord(raw, 'evidence');
+  rejectUnknownKeys(evidence, ['kind', 'connectorId', 'sourceItemId', 'observedAt'], 'evidence');
+  const kind = oneOf(evidence['kind'], 'evidence.kind', OFFER_SOURCE_KINDS);
+  if ((evidence['connectorId'] !== undefined) !== (kind === 'connector'))
+    throw new TaskCatalogRefusedError(
+      'evidence.connectorId belongs to a connector source, and only to one',
+    );
+  return {
+    kind,
+    ...(kind === 'connector' && {
+      connectorId: shaped(evidence['connectorId'], 'evidence.connectorId', CONNECTOR_ID, 80),
+    }),
+    sourceItemId: reference(evidence['sourceItemId']),
+    observedAt: isoTime(evidence['observedAt'], 'evidence.observedAt'),
+  };
+}
+
+function parseReactions(raw: unknown): IOfferReactions {
+  const reactions = asRecord(raw, 'reactions');
+  rejectUnknownKeys(reactions, [...REACTION_TIMES, 'outcome'], 'reactions');
+  const parsed: Record<string, unknown> = {};
+  for (const name of REACTION_TIMES)
+    if (reactions[name] !== undefined) parsed[name] = isoTime(reactions[name], `reactions.${name}`);
+  if (reactions['outcome'] !== undefined) {
+    const outcome = asRecord(reactions['outcome'], 'reactions.outcome');
+    rejectUnknownKeys(outcome, ['state', 'at'], 'reactions.outcome');
+    parsed['outcome'] = {
+      state: oneOf(outcome['state'], 'reactions.outcome.state', OUTCOME_STATES),
+      at: isoTime(outcome['at'], 'reactions.outcome.at'),
+    };
+  }
+  return parsed as IOfferReactions;
+}
+
 /**
  * The offer as a fresh value, or the refusal that says which field is wrong. With `find`, an offer
  * whose definition revision is not in the catalog is refused; a store reading its own records passes
@@ -99,21 +169,37 @@ export function parseOffer(raw: unknown, find?: TDefinitionLookup): IOffer {
   const expiresAt = isoTime(offer['expiresAt'], 'expiresAt');
   if (Date.parse(expiresAt) <= Date.parse(createdAt))
     throw new TaskCatalogRefusedError('expiresAt must be after createdAt');
+  const decision = oneOf(offer['decision'], 'decision', OFFER_DECISIONS);
+  if ((offer['snoozedUntil'] !== undefined) !== (decision === 'snoozed'))
+    throw new TaskCatalogRefusedError('snoozedUntil belongs to a snoozed offer, and only to one');
+  if (offer['launchId'] !== undefined && decision !== 'accepted')
+    throw new TaskCatalogRefusedError('launchId belongs to an accepted offer, and only to one');
   return {
     id: shaped(offer['id'], 'id', OFFER_ID, 46),
     definitionId,
     definitionRevision,
     source: oneOf(offer['source'], 'source', OFFER_SOURCES),
-    reason: plainLine(offer['reason'], 'reason', OFFER_LIMITS.reason),
+    reason: valueLine(offer['reason'], 'reason', OFFER_LIMITS.reason),
     contextRefs: listOf(offer['contextRefs'], 'contextRefs', 0, OFFER_LIMITS.contextRefs).map(
       parseRef,
     ),
     createdAt,
     expiresAt,
-    decision: oneOf(offer['decision'], 'decision', OFFER_DECISIONS),
+    decision,
     dedupeKey: shaped(offer['dedupeKey'], 'dedupeKey', DEDUPE_KEY, OFFER_LIMITS.dedupeKey),
     ...(offer['prefilled'] !== undefined && {
       prefilled: parsePrefilled(offer['prefilled'], definition),
     }),
+    ...(offer['basis'] !== undefined && {
+      basis: valueLine(offer['basis'], 'basis', OFFER_LIMITS.basis),
+    }),
+    ...(offer['evidence'] !== undefined && { evidence: parseEvidence(offer['evidence']) }),
+    ...(offer['snoozedUntil'] !== undefined && {
+      snoozedUntil: isoTime(offer['snoozedUntil'], 'snoozedUntil'),
+    }),
+    ...(offer['launchId'] !== undefined && {
+      launchId: shaped(offer['launchId'], 'launchId', LAUNCH_ID, 50),
+    }),
+    ...(offer['reactions'] !== undefined && { reactions: parseReactions(offer['reactions']) }),
   };
 }

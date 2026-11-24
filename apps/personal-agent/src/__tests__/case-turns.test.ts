@@ -21,6 +21,7 @@ import {
   createConnectorTools,
   createMemoryCaseStore,
   createMemoryGoalStore,
+  createOfferTools,
 } from '@robota-sdk/agent-product/personal';
 
 import { createApprovalRegistry } from '../approvals.js';
@@ -1068,6 +1069,27 @@ async function pieces() {
 }
 
 describe('how a case turn is started and run', () => {
+  it('gives a turn its own offer tool when the host has offers, and none when it has not', async () => {
+    const goals = new GoalBook({ store: createMemoryGoalStore() });
+    const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
+    const tools = createOfferTools({ propose: async () => ({ status: 'rejected', reason: 'x' }) });
+    const runTools = vi.fn(() => tools);
+    const turns = createCaseTurns({ goals, cases, offers: { runTools } });
+    const bare = createCaseTurns({ goals, cases });
+    const { case: opened } = await cases.open(SIGN_IN);
+    const asked = await cases.ask(opened.id, QUESTION);
+    const answered = (await cases.answer(asked.item.id, { choice: 'No' })).case;
+    await turns.onAnswered(answered);
+    const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+    const run = await goals.startRun(goal.id);
+    const shape = (await turns.shape(goal, run))!;
+    expect(shape.onlyTools).toEqual(caseTurnTools());
+    expect(shape.onlyTools).toContain('TaskOfferPropose');
+    expect(shape.scopedTools?.map((tool) => tool.getName())).toEqual(['TaskOfferPropose']);
+    expect(runTools).toHaveBeenCalledTimes(1);
+    expect((await bare.shape(goal, run))?.scopedTools).toBeUndefined();
+  });
+
   it('does not claim a newer answer before its owner queues it', async () => {
     const goals = new GoalBook({ store: createMemoryGoalStore() });
     const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });

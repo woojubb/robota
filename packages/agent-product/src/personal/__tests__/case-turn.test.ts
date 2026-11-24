@@ -45,7 +45,7 @@ async function answered(
 }
 
 describe('the tools a case turn has', () => {
-  it('are the ones to look and to keep the case, and no others', () => {
+  it('are the ones to look, to keep the case and to propose an offer, and no others', () => {
     // An exact list: a tool added to the product later is not offered to this turn until it is named here.
     expect([...caseTurnTools()].sort()).toEqual(
       [
@@ -55,6 +55,7 @@ describe('the tools a case turn has', () => {
         'CaseOpen',
         'ConnectorList',
         'ConnectorRead',
+        'TaskOfferPropose',
         'WikiIndex',
         'WikiRead',
         'WikiSearch',

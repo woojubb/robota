@@ -5,14 +5,10 @@
  * bindings the host issued) as plain data, and never a credential.
  */
 import type { TBindingAdapter } from '../bindings.js';
-import type { TEffectCeiling, TReadiness } from '../types.js';
+import type { TEffectCeiling, TOutcomeState, TReadiness } from '../types.js';
 
 export const LAUNCH_STATUSES = ['reserved', 'launched', 'failed', 'cancelled'] as const;
 export type TLaunchStatus = (typeof LAUNCH_STATUSES)[number];
-
-/** How a launched task ended, as the host decided it from what it recorded, never from what the model said. */
-export const OUTCOME_STATES = ['verified', 'unverified', 'failed', 'cancelled'] as const;
-export type TOutcomeState = (typeof OUTCOME_STATES)[number];
 
 /** Where a launch stands for the person: the live states while its goal is active, else how it ended. */
 export type TLaunchProgress = 'starting' | 'running' | 'waiting' | TOutcomeState;
@@ -30,8 +26,12 @@ export interface ILaunchBinding {
   readonly argumentBoundary: string;
 }
 
-/** How the request began. Only the person pressing Start in Browse, for now. */
-export type TLaunchOrigin = { readonly kind: 'manual' };
+/**
+ * How the request began: the person pressing Start on a task's own card, or on an offer, which then
+ * names that offer so its outcome can be recorded beside it.
+ */
+export type TLaunchOrigin =
+  { readonly kind: 'manual' } | { readonly kind: 'offer'; readonly offerId: string };
 
 export interface ILaunchFailure {
   /** `stale`: what the request rested on changed before a goal was made. `goal`: the goal could not be made. */

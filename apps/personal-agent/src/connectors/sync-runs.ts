@@ -14,6 +14,7 @@ import type {
   KnowledgeWiki,
 } from '@robota-sdk/agent-product/personal';
 import type { IGoalShape } from '../goal-runner.js';
+import type { IOfferService } from '../task-catalog/offers/service.js';
 
 /** How many of a goal's latest runs are looked through for the last one that finished well. */
 const RUNS_LOOKED_AT = 100;
@@ -30,6 +31,8 @@ export function createSyncRuns(options: {
   readonly wiki: KnowledgeWiki;
   /** The agent's cases: a run that opens some has told the person through their question cards. */
   readonly cases: CaseBook;
+  /** The offers a run may propose: its own tool with the run's bounds, and what the run is told about it. */
+  readonly offers?: Pick<IOfferService, 'runTools' | 'instructions'>;
 }): ISyncRuns {
   /**
    * What a connector held, which of its cases existed and how its reads stood when its run began, to
@@ -69,12 +72,19 @@ export function createSyncRuns(options: {
         cases: await casesOf(goal.connectorId),
         reads: options.registry.readCounts(goal.connectorId),
       });
+      if (connector === undefined)
+        return {
+          instructions: 'Its connector no longer exists. Say so in one line and do nothing else.',
+          onlyTools: syncRunTools(),
+        };
+      const instructions = syncRunInstructions(connector, await startOfCoverage(goal));
       return {
         instructions:
-          connector === undefined
-            ? 'Its connector no longer exists. Say so in one line and do nothing else.'
-            : syncRunInstructions(connector, await startOfCoverage(goal)),
+          options.offers === undefined
+            ? instructions
+            : [instructions, await options.offers.instructions()].join('\n'),
         onlyTools: syncRunTools(),
+        ...(options.offers !== undefined && { scopedTools: options.offers.runTools() }),
       };
     },
 

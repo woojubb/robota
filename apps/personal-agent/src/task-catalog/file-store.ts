@@ -11,7 +11,14 @@ import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { readRecords, writeAtomically } from './json-records.js';
-import { putDefinitionInto, putOfferInto, readOffer, setDecisionIn } from './records.js';
+import {
+  acceptIn,
+  putDefinitionInto,
+  putOfferInto,
+  reactIn,
+  readOffer,
+  setDecisionIn,
+} from './records.js';
 import { parseDefinition } from './validate-definition.js';
 import { parseOffer } from './validate-offer.js';
 
@@ -58,11 +65,25 @@ export function createFileTaskCatalogStore(options: {
       save(offersPath, 'offers', current, put.offers);
       return readOffer(put.stored, now());
     },
-    setOfferDecision: async (id, decision) => {
+    setOfferDecision: async (id, decision, options = {}) => {
       const current = readOffers();
-      const put = setDecisionIn(current.records, id, decision);
+      const put = setDecisionIn(current.records, id, decision, {
+        at: now().toISOString(),
+        ...(options.snoozedUntil !== undefined && { snoozedUntil: options.snoozedUntil }),
+      });
       save(offersPath, 'offers', current, put.offers);
       return readOffer(put.stored, now());
+    },
+    acceptOffer: async (id, launchId) => {
+      const current = readOffers();
+      const put = acceptIn(current.records, id, launchId, now().toISOString());
+      if (put.offers !== current.records) save(offersPath, 'offers', current, put.offers);
+      return readOffer(put.stored, now());
+    },
+    recordReaction: async (ids, reaction) => {
+      const current = readOffers();
+      const put = reactIn(current.records, ids, reaction, now().toISOString());
+      if (put.changed) save(offersPath, 'offers', current, put.offers);
     },
     listDefinitions: async () => readDefinitions().records,
     putDefinition: async (definition) => {
