@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { initialTab, moveTab, orderTabs } from '../menu.js';
+import { FIXED_TABS, initialTab, moveTab, orderTabs } from '../menu.js';
 
 import type { ISpaceView } from '../api.js';
 
@@ -21,9 +21,54 @@ describe('the tab the page opens on', () => {
   });
 });
 
+describe('the fixed tabs', () => {
+  it('end with Browse, the work the agent can take on', () => {
+    expect(FIXED_TABS.at(-1)).toEqual(
+      expect.objectContaining({
+        id: 'browse',
+        label: 'Browse',
+        hint: 'Work your agent can take on',
+      }),
+    );
+    expect(new Set(FIXED_TABS.map((tab) => tab.id)).size).toBe(FIXED_TABS.length);
+  });
+});
+
 describe('the tab order', () => {
+  it('puts Browse last for a person whose saved order is older than the tab', () => {
+    expect(
+      orderTabs(['library', 'chat', 'feed', 'ideas', 'goals', 'connectors'], [space('space-a')]),
+    ).toEqual([
+      'library',
+      'chat',
+      'feed',
+      'ideas',
+      'goals',
+      'connectors',
+      'browse',
+      'space:space-a',
+    ]);
+    expect(orderTabs(['browse', 'chat'], [])).toEqual([
+      'browse',
+      'chat',
+      'feed',
+      'ideas',
+      'goals',
+      'library',
+      'connectors',
+    ]);
+  });
+
   it('follows the saved order, drops tabs that are gone and adds new ones at the end', () => {
-    expect(orderTabs([], [])).toEqual(['chat', 'feed', 'ideas', 'goals', 'library', 'connectors']);
+    expect(orderTabs([], [])).toEqual([
+      'chat',
+      'feed',
+      'ideas',
+      'goals',
+      'library',
+      'connectors',
+      'browse',
+    ]);
     expect(
       orderTabs(
         ['space:space-b', 'library', 'space:space-gone', 'chat', 'chat'],
@@ -37,6 +82,7 @@ describe('the tab order', () => {
       'ideas',
       'goals',
       'connectors',
+      'browse',
       'space:space-a',
     ]);
   });
@@ -50,8 +96,10 @@ describe('the tab order', () => {
       'ideas',
       'goals',
       'connectors',
+      'browse',
     ]);
+    expect(moveTab(order, 6, 0)[0]).toBe('browse');
     expect(moveTab(order, 0, -1)).toEqual(order);
-    expect(moveTab(order, 4, 6)).toEqual(order);
+    expect(moveTab(order, 4, 7)).toEqual(order);
   });
 });

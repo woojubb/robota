@@ -48,6 +48,7 @@ import type { IProviderProfile } from './config.js';
 import type { ICaseConnectorBindings } from './case-connector-binding.js';
 import type { TConnectorsApi } from './connectors/connectors-api.js';
 import type { TPushApi } from './push/push-api.js';
+import type { TTaskCatalogApi } from './task-catalog/api.js';
 import type { ICaseActionSnapshot } from './case-action.js';
 
 export interface IPersonalApiOptions {
@@ -90,6 +91,8 @@ export interface IPersonalApiOptions {
   readonly browserAvailable: () => boolean;
   /** The connectors' routes: connect, disconnect, what each may do. */
   readonly connectors: TConnectorsApi;
+  /** The task catalog's routes: the definitions the person can browse and the offers made to them. */
+  readonly taskCatalog: TTaskCatalogApi;
 }
 
 export type TPersonalApi = (request: ILoopbackGuiApiRequest) => Promise<ILoopbackGuiApiResponse>;
@@ -483,6 +486,10 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
     }
     if (area === 'connectors') {
       const answered = await options.connectors(request);
+      if (answered !== undefined) return answered;
+    }
+    if (area === 'tasks') {
+      const answered = await options.taskCatalog(request);
       if (answered !== undefined) return answered;
     }
     if (area === 'layout' && collection === undefined) {

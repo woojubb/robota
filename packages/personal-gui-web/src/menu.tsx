@@ -1,4 +1,5 @@
 import {
+  Compass,
   Hash,
   LibraryBig,
   Lightbulb,
@@ -16,7 +17,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { ISideChatView, ISpaceView } from './api.js';
 
 /** The tabs every person has; spaces join them as `space:<id>`. */
-export type TFixedTab = 'chat' | 'feed' | 'ideas' | 'goals' | 'library' | 'connectors';
+export type TFixedTab = 'chat' | 'feed' | 'ideas' | 'goals' | 'library' | 'connectors' | 'browse';
 export type TTab = TFixedTab | `space:${string}`;
 
 export const FIXED_TABS: readonly {
@@ -31,6 +32,7 @@ export const FIXED_TABS: readonly {
   { id: 'goals', label: 'Goals', hint: 'What your agent keeps working on', icon: SquareCheck },
   { id: 'library', label: 'Library', hint: 'What your agent knows about you', icon: LibraryBig },
   { id: 'connectors', label: 'Connectors', hint: 'The services your agent can use', icon: Plug },
+  { id: 'browse', label: 'Browse', hint: 'Work your agent can take on', icon: Compass },
 ];
 
 export const spaceTab = (spaceId: string): TTab => `space:${spaceId}`;
