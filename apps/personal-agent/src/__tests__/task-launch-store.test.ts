@@ -20,8 +20,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createFileLaunchStore } from '../task-catalog/launch/file-store.js';
 import { MAX_LAUNCHES } from '../task-catalog/launch/records.js';
+import { LAUNCH_LIMITS } from '../task-catalog/launch/validate.js';
 import { createMemoryLaunchStore } from '../task-catalog/launch/store.js';
-import { launchIntent as intent } from './launch-world.js';
+import { launchIntent as intent, outcomeOf, receipt } from './launch-world.js';
 
 import type { ILaunchStore } from '../task-catalog/launch/store.js';
 
@@ -141,6 +142,119 @@ describe.each(adapters)('the %s launch store', (_name, create) => {
     expect(cancelled.failure).toBeUndefined();
   });
 
+  it('keeps the reads a run made for a launched intent, once each and a bounded number, and for no other intent', async () => {
+    const store = create();
+    const id = intent(1).id;
+    await store.reserve(intent(1));
+    await store.reserve(intent(2));
+    // Nothing is kept for an intent that has no goal yet.
+    expect(await store.recordReceipt(id, 'goal-1', 'run-1', receipt())).toBe(false);
+    await store.advance(id, { status: 'launched', goalId: 'goal-1' });
+    expect(await store.recordReceipt(id, 'goal-1', 'run-1', receipt())).toBe(true);
+    // The same read again, and a read for another goal or another intent's goal, are not kept.
+    expect(
+      await store.recordReceipt(id, 'goal-1', 'run-1', receipt({ at: '2026-11-24T10:00:09.000Z' })),
+    ).toBe(false);
+    expect(await store.recordReceipt(id, 'goal-2', 'run-1', receipt())).toBe(false);
+    expect(await store.recordReceipt(intent(2).id, 'goal-1', 'run-1', receipt())).toBe(false);
+    expect(await store.recordReceipt('launch-nothing', 'goal-1', 'run-1', receipt())).toBe(false);
+    expect(
+      await store.recordReceipt(
+        id,
+        'goal-1',
+        'run-1',
+        receipt({ address: 'https://example.com/about' }),
+      ),
+    ).toBe(true);
+    expect((await store.get(id))!.receipts).toEqual([
+      { ...receipt(), runId: 'run-1' },
+      { ...receipt({ address: 'https://example.com/about' }), runId: 'run-1' },
+    ]);
+    // A later run's first read replaces what the runs before it read: only the run that ends the goal decides it.
+    expect(await store.recordReceipt(id, 'goal-1', 'run-2', receipt())).toBe(true);
+    expect((await store.get(id))!.receipts).toEqual([{ ...receipt(), runId: 'run-2' }]);
+    // At most as many reads are kept as the bound, and what is not kept is simply not evidence.
+    for (let n = 0; n < LAUNCH_LIMITS.receipts + 5; n += 1)
+      await store.recordReceipt(
+        id,
+        'goal-1',
+        'run-3',
+        receipt({
+          address: `https://example.com/page-${n}`,
+          requested: `https://example.com/page-${n}`,
+        }),
+      );
+    const kept = (await store.get(id))!.receipts!;
+    expect(kept).toHaveLength(LAUNCH_LIMITS.receipts);
+    expect(kept.every((entry) => entry.runId === 'run-3')).toBe(true);
+    // A receipt is refused when it is not what the host's browser makes.
+    await expect(
+      store.recordReceipt(id, 'goal-1', 'run-4', { ...receipt(), chars: -1 }),
+    ).rejects.toThrow();
+    await expect(
+      store.recordReceipt(id, 'goal-1', 'run-4', { ...receipt(), extra: 1 } as never),
+    ).rejects.toThrow(/unknown field/u);
+  });
+
+  it('keeps an intent’s updatedAt when a read is recorded, so the answer to a start does not change', async () => {
+    const store = create();
+    await store.reserve(intent(1));
+    const launched = await store.advance(intent(1).id, { status: 'launched', goalId: 'goal-1' });
+    clock.now = new Date('2026-11-24T12:00:00Z');
+    await store.recordReceipt(intent(1).id, 'goal-1', 'run-1', receipt());
+    expect((await store.get(intent(1).id))!.updatedAt).toBe(launched.updatedAt);
+    clock.now = new Date('2026-11-24T10:00:00Z');
+  });
+
+  it('decides an outcome once: the receipts it came from are dropped, updatedAt stays, and a second decision is the first', async () => {
+    const store = create();
+    const id = intent(1).id;
+    await store.reserve(intent(1));
+    await store.advance(id, { status: 'launched', goalId: 'goal-1' });
+    await store.recordReceipt(id, 'goal-1', 'run-1', receipt());
+    const before = (await store.get(id))!;
+    const decided = await store.decide(id, outcomeOf());
+    expect(decided.outcome).toEqual(outcomeOf());
+    expect(decided.receipts).toBeUndefined();
+    expect(decided.updatedAt).toBe(before.updatedAt);
+    // Asking again, with another outcome, is the intent as it stands.
+    const again = await store.decide(
+      id,
+      outcomeOf({ state: 'unverified', reason: 'Not now.', evidence: [] }),
+    );
+    expect(again).toEqual(decided);
+    expect(await store.get(id)).toEqual(decided);
+    // Nothing more is kept for it, and its ending does not move.
+    expect(await store.recordReceipt(id, 'goal-1', 'run-2', receipt())).toBe(false);
+    await expect(store.advance(id, { status: 'cancelled' })).rejects.toThrow(/already ended/u);
+  });
+
+  it('decides only a launched intent that exists, and only an outcome of a known state', async () => {
+    const store = create();
+    await store.reserve(intent(1));
+    await store.reserve(intent(2));
+    await store.advance(intent(2).id, { status: 'cancelled' });
+    await expect(store.decide(intent(1).id, outcomeOf())).rejects.toThrow(/made a goal/u);
+    await expect(store.decide(intent(2).id, outcomeOf())).rejects.toThrow(/made a goal/u);
+    await expect(store.decide('launch-nothing', outcomeOf())).rejects.toThrow(/No launch/u);
+    await store.reserve(intent(3));
+    await store.advance(intent(3).id, { status: 'launched', goalId: 'goal-3' });
+    await expect(
+      store.decide(intent(3).id, { ...outcomeOf(), state: 'completed' } as never),
+    ).rejects.toThrow();
+    expect((await store.get(intent(3).id))!.outcome).toBeUndefined();
+  });
+
+  it('keeps a decided intent as finished: at the bound it is one of those that make room, and a waiting one is not', async () => {
+    const store = create();
+    for (let n = 1; n <= MAX_LAUNCHES; n += 1) await store.reserve(intent(n));
+    await store.advance(intent(5).id, { status: 'launched', goalId: 'goal-5' });
+    await store.decide(intent(5).id, outcomeOf());
+    await store.reserve(intent(MAX_LAUNCHES + 1));
+    expect(await store.get(intent(5).id)).toBeUndefined();
+    expect(await store.get(intent(1).id)).toBeDefined();
+  }, 60_000);
+
   it('is bounded: the oldest finished intents go first, and an unfinished one is never dropped', async () => {
     const store = create();
     for (let n = 1; n <= MAX_LAUNCHES; n += 1) await store.reserve(intent(n));
@@ -214,6 +328,89 @@ describe('the file launch store', () => {
     expect(JSON.stringify(await store.issues())).not.toContain(directory);
     await store.reserve(intent(3));
     expect(readFileSync(`${file}.damaged`, 'utf8')).toBe('{ not json');
+  });
+
+  it('keeps an outcome and the reads waiting for one across a restart, to the byte', async () => {
+    const directory = taskDirectory();
+    const first = createFileLaunchStore({ directory });
+    await first.reserve(intent(1));
+    await first.reserve(intent(2));
+    await first.advance(intent(1).id, { status: 'launched', goalId: 'goal-1' });
+    await first.advance(intent(2).id, { status: 'launched', goalId: 'goal-2' });
+    await first.recordReceipt(intent(1).id, 'goal-1', 'run-1', receipt());
+    await first.recordReceipt(intent(2).id, 'goal-2', 'run-1', receipt());
+    await first.decide(intent(2).id, outcomeOf());
+    const second = createFileLaunchStore({ directory });
+    expect(await second.list()).toEqual(await first.list());
+    expect((await second.get(intent(1).id))!.receipts).toHaveLength(1);
+    expect((await second.get(intent(2).id))!.outcome).toEqual(outcomeOf());
+    expect(await second.issues()).toEqual([]);
+    if (process.platform !== 'win32')
+      expect(statSync(join(directory, 'launches.json')).mode & 0o777).toBe(0o600);
+    expect(readdirSync(directory)).toEqual(['launches.json']);
+  });
+
+  it('still reads an intent kept before outcomes existed: it has none, and gets one when it is decided', async () => {
+    const directory = taskDirectory();
+    const store = createFileLaunchStore({ directory });
+    await store.reserve(intent(1));
+    await store.advance(intent(1).id, { status: 'launched', goalId: 'goal-1' });
+    const file = join(directory, 'launches.json');
+    const kept = JSON.parse(readFileSync(file, 'utf8')) as { launches: Record<string, unknown>[] };
+    expect(kept.launches[0]).not.toHaveProperty('outcome');
+    expect(kept.launches[0]).not.toHaveProperty('receipts');
+    const reopened = createFileLaunchStore({ directory });
+    expect((await reopened.get(intent(1).id))!.status).toBe('launched');
+    expect(await reopened.issues()).toEqual([]);
+    expect((await reopened.decide(intent(1).id, outcomeOf())).outcome?.state).toBe('verified');
+  });
+
+  it('refuses an outcome or a read that was edited into something the host would not write', async () => {
+    const directory = taskDirectory();
+    const store = createFileLaunchStore({ directory });
+    await store.reserve(intent(1));
+    await store.advance(intent(1).id, { status: 'launched', goalId: 'goal-1' });
+    await store.recordReceipt(intent(1).id, 'goal-1', 'run-1', receipt());
+    const file = join(directory, 'launches.json');
+    const original = readFileSync(file, 'utf8');
+    const edit = (change: (record: Record<string, any>) => void): void => {
+      const content = JSON.parse(original) as { launches: Record<string, any>[] };
+      change(content.launches[0]!);
+      writeFileSync(file, JSON.stringify(content));
+    };
+    const outcomeInstead = (outcome: unknown) => (record: Record<string, any>) => {
+      delete record['receipts'];
+      record['outcome'] = outcome;
+    };
+    for (const change of [
+      // An outcome while reads wait for one, and an outcome on an intent that made no goal.
+      (record: Record<string, any>) => (record['outcome'] = outcomeOf()),
+      (record: Record<string, any>) => {
+        delete record['receipts'];
+        delete record['goalId'];
+        record['status'] = 'reserved';
+        record['outcome'] = outcomeOf();
+      },
+      (record: Record<string, any>) => (record['status'] = 'reserved'),
+      (record: Record<string, any>) => (record['receipts'][0].extra = 1),
+      (record: Record<string, any>) => (record['receipts'][0].kind = 'form-post'),
+      (record: Record<string, any>) => (record['receipts'][0].digest = 'abc'),
+      (record: Record<string, any>) => (record['receipts'][0].runId = 'RUN ONE'),
+      (record: Record<string, any>) => (record['receipts'][0].at = 'yesterday'),
+      (record: Record<string, any>) => (record['receipts'][0].excerpt = 'x'.repeat(161)),
+      (record: Record<string, any>) =>
+        (record['receipts'] = Array(LAUNCH_LIMITS.receipts + 1).fill(record['receipts'][0])),
+      outcomeInstead({ ...outcomeOf(), state: 'completed' }),
+      outcomeInstead({ ...outcomeOf(), report: 'x'.repeat(2001) }),
+      outcomeInstead({ ...outcomeOf(), evidence: Array(9).fill(receipt()) }),
+      outcomeInstead({ ...outcomeOf(), extra: true }),
+      outcomeInstead({ ...outcomeOf(), decidedAt: 'later' }),
+    ]) {
+      writeFileSync(file, original);
+      edit(change);
+      expect(await store.list(), String(change)).toEqual([]);
+      expect(await store.issues()).toEqual(['1 saved launch could not be read and is not shown.']);
+    }
   });
 
   it('refuses a kept intent that was edited into something the host would not write', async () => {

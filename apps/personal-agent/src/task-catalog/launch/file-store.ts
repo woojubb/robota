@@ -11,7 +11,7 @@ import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { readRecords, writeAtomically } from '../json-records.js';
-import { advanceIn, reserveInto } from './records.js';
+import { advanceIn, decideIn, recordIn, reserveInto } from './records.js';
 import { newestFirst } from './store.js';
 import { parseIntent } from './validate.js';
 
@@ -41,6 +41,18 @@ export function createFileLaunchStore(options: {
     advance: async (id, change) => {
       const current = read();
       const next = advanceIn(current.records, id, change, now().toISOString());
+      if (next.intents !== current.records) save(current, next.intents);
+      return next.stored;
+    },
+    recordReceipt: async (id, goalId, runId, receipt) => {
+      const current = read();
+      const next = recordIn(current.records, id, goalId, runId, receipt);
+      if (next.recorded) save(current, next.intents);
+      return next.recorded;
+    },
+    decide: async (id, outcome) => {
+      const current = read();
+      const next = decideIn(current.records, id, outcome);
       if (next.intents !== current.records) save(current, next.intents);
       return next.stored;
     },

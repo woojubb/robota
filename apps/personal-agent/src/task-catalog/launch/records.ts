@@ -4,9 +4,9 @@
  * are kept in which an unfinished intent is never the one that goes.
  */
 import { TaskCatalogRefusedError } from '../fields.js';
-import { parseIntent } from './validate.js';
+import { LAUNCH_LIMITS, parseIntent } from './validate.js';
 
-import type { ILaunchFailure, ILaunchIntent } from './types.js';
+import type { IEvidenceReceipt, ILaunchFailure, ILaunchIntent, ILaunchOutcome } from './types.js';
 
 export const MAX_LAUNCHES = 200;
 
@@ -69,5 +69,61 @@ export function advanceIn(
     ...change,
     updatedAt: at < kept.createdAt ? kept.createdAt : at,
   });
+  return { intents: intents.map((entry) => (entry === kept ? stored : entry)), stored };
+}
+
+/**
+ * Keep one receipt the host's browser made for a run of a launch that is waiting for its outcome. A
+ * launch that ended, already has its outcome, or belongs to another goal takes none, a read already
+ * kept is not kept twice, and at most as many are kept as the file's bound: what is not kept is simply
+ * not evidence. Only the newest run's reads are of use, since a goal's outcome is decided from the run
+ * that ended it, so the first read of a later run replaces the reads of the runs before it.
+ */
+export function recordIn(
+  intents: readonly ILaunchIntent[],
+  id: string,
+  goalId: string,
+  runId: string,
+  receipt: IEvidenceReceipt,
+): { readonly intents: readonly ILaunchIntent[]; readonly recorded: boolean } {
+  const kept = intents.find((entry) => entry.id === id);
+  if (
+    kept === undefined ||
+    kept.status !== 'launched' ||
+    kept.outcome !== undefined ||
+    kept.goalId !== goalId
+  )
+    return { intents, recorded: false };
+  const have = (kept.receipts ?? []).filter((entry) => entry.runId === runId);
+  const again = have.some(
+    (entry) =>
+      entry.tool === receipt.tool &&
+      entry.requested === receipt.requested &&
+      entry.address === receipt.address &&
+      entry.digest === receipt.digest,
+  );
+  if (again || have.length >= LAUNCH_LIMITS.receipts) return { intents, recorded: false };
+  const stored = parseIntent({ ...kept, receipts: [...have, { ...receipt, runId }] });
+  return { intents: intents.map((entry) => (entry === kept ? stored : entry)), recorded: true };
+}
+
+/**
+ * Decide a launched intent's outcome, once. Asked again, with the same outcome or another, it is the
+ * intent as it stands: an outcome never changes. The receipts it was decided from are dropped, since
+ * the outcome keeps the ones worth showing. `updatedAt` marks when the request itself last moved and
+ * stays as it was, so the answer to a start is the same before and after its outcome.
+ */
+export function decideIn(
+  intents: readonly ILaunchIntent[],
+  id: string,
+  outcome: ILaunchOutcome,
+): { readonly intents: readonly ILaunchIntent[]; readonly stored: ILaunchIntent } {
+  const kept = intents.find((entry) => entry.id === id);
+  if (kept === undefined) throw new TaskCatalogRefusedError(`No launch ${id}`);
+  if (kept.status !== 'launched')
+    throw new TaskCatalogRefusedError('Only a launch that made a goal has an outcome');
+  if (kept.outcome !== undefined) return { intents, stored: kept };
+  const { receipts: _receipts, ...rest } = kept;
+  const stored = parseIntent({ ...rest, outcome });
   return { intents: intents.map((entry) => (entry === kept ? stored : entry)), stored };
 }

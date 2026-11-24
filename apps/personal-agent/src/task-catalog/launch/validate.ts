@@ -17,6 +17,8 @@ import {
 } from '../fields.js';
 import { checkBindingSpec } from '../bindings.js';
 import { DEFINITION_LIMITS, INPUT_NAME, SLUG } from '../validate-definition.js';
+import { parseOutcome } from './outcome.js';
+import { parseRunReceipt } from './receipts.js';
 import { LAUNCH_STATUSES, LaunchRefusedError } from './types.js';
 
 import type { ICapabilityBinding } from '../bindings.js';
@@ -33,6 +35,8 @@ export const LAUNCH_LIMITS = {
   value: 2048,
   bindings: 16,
   failure: 300,
+  /** The receipts one launch keeps while it waits for its outcome. */
+  receipts: 50,
   /** The whole request body, as JSON. */
   body: 8192,
 } as const;
@@ -136,6 +140,8 @@ const INTENT_KEYS = [
   'status',
   'goalId',
   'failure',
+  'receipts',
+  'outcome',
   'createdAt',
   'updatedAt',
 ];
@@ -153,6 +159,12 @@ export function parseIntent(raw: unknown): ILaunchIntent {
     throw new TaskCatalogRefusedError('goalId belongs to a launched launch, and only to one');
   if ((intent['failure'] !== undefined) !== (status === 'failed'))
     throw new TaskCatalogRefusedError('failure belongs to a failed launch, and only to one');
+  if (intent['outcome'] !== undefined && !launched)
+    throw new TaskCatalogRefusedError('outcome belongs to a launched launch, and only to one');
+  if (intent['receipts'] !== undefined && (!launched || intent['outcome'] !== undefined))
+    throw new TaskCatalogRefusedError(
+      'receipts are kept only while a launched launch waits for its outcome',
+    );
   const createdAt = isoTime(intent['createdAt'], 'createdAt');
   const updatedAt = isoTime(intent['updatedAt'], 'updatedAt');
   if (Date.parse(updatedAt) < Date.parse(createdAt))
@@ -170,6 +182,12 @@ export function parseIntent(raw: unknown): ILaunchIntent {
     status,
     ...(launched && { goalId: shaped(intent['goalId'], 'goalId', GOAL_ID, 80) }),
     ...(status === 'failed' && { failure: parseFailure(intent['failure']) }),
+    ...(intent['receipts'] !== undefined && {
+      receipts: listOf(intent['receipts'], 'receipts', 0, LAUNCH_LIMITS.receipts).map(
+        (entry, index) => parseRunReceipt(entry, `receipts[${index}]`),
+      ),
+    }),
+    ...(intent['outcome'] !== undefined && { outcome: parseOutcome(intent['outcome']) }),
     createdAt,
     updatedAt,
   };

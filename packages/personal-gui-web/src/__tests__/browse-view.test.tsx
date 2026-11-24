@@ -124,6 +124,7 @@ function fakeApi(
   return {
     taskDefinitions: () => answer(options.definitions ?? DEFINITIONS),
     taskOffers: () => answer(options.offers ?? { offers: [], issues: [] }),
+    taskLaunches: () => answer([]),
   } as unknown as IPersonalApi;
 }
 
@@ -423,6 +424,7 @@ describe('the Browse view', () => {
     const waiting = {
       taskDefinitions: () => pending,
       taskOffers: () => pending,
+      taskLaunches: () => pending,
     } as unknown as IPersonalApi;
     const first = render(<BrowseView api={waiting} />);
     expect(screen.getByRole('status').textContent).toBe('Loading…');

@@ -82,6 +82,26 @@ describe('personal API client', () => {
     ).rejects.toMatchObject({ status: 422, message: 'This task is not ready to start.' });
   });
 
+  it('reads the launches the person made, and one of them, with plain reads and no write', async () => {
+    const launch = { id: 'launch/1', progress: 'verified', evidence: [] };
+    const listed = recorder({ status: 200, body: { launches: [launch] } });
+    expect(await listed.api.taskLaunches()).toEqual([launch]);
+    const one = recorder({ status: 200, body: { launch } });
+    expect(await one.api.taskLaunch('launch/1')).toEqual(launch);
+    for (const { calls } of [listed, one]) {
+      expect(calls[0]!.init?.method).toBe('GET');
+      expect(calls[0]!.init?.credentials).toBe('same-origin');
+      expect(calls[0]!.init?.headers).toEqual({});
+    }
+    expect(listed.calls[0]!.url).toBe('api/tasks/launches');
+    expect(one.calls[0]!.url).toBe('api/tasks/launches/launch%2F1');
+    const missing = recorder({ status: 404, body: { error: 'There is no such launch.' } });
+    await expect(missing.api.taskLaunch('launch-x')).rejects.toMatchObject({
+      status: 404,
+      message: 'There is no such launch.',
+    });
+  });
+
   it('encodes page ids and queries', async () => {
     const { api, calls } = recorder({ status: 200, body: { page: {}, results: [] } });
     await api.getPage('page/../x');

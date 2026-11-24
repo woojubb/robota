@@ -33,28 +33,30 @@ function problem(input: ITaskInputView, value: string): string | undefined {
 type TPhase =
   | { readonly name: 'idle' }
   | { readonly name: 'sending' }
-  | { readonly name: 'started'; readonly goalId: string }
+  | { readonly name: 'started' }
   | { readonly name: 'refused'; readonly message: string };
 
 /**
- * Starting a task the agent said is ready: the values it asks for, a Start, and what became of it. The
- * page decides nothing about whether the task can run: the agent judges it again when Start is pressed
- * and says why not. One key goes with a request for as long as the form is unchanged, and is kept when
- * no answer came back (so pressing Start again is the same request), and dropped when the agent answered
- * with a refusal or the person changed a value (so the next Start is a new one). The fields are held
- * while a request is in flight, so what it answers is about the values on the form.
+ * Starting a task the agent said is ready: the values it asks for, a Start, and what became of the
+ * request. The page decides nothing about whether the task can run: the agent judges it again when
+ * Start is pressed and says why not. Once the agent has started it, the card shows where it stands.
+ * One key goes with a request for as long as the form is unchanged, and is kept when no answer came
+ * back (so pressing Start again is the same request), and dropped when the agent answered with a
+ * refusal or the person changed a value (so the next Start is a new one). The fields are held while a
+ * request is in flight, so what it answers is about the values on the form.
  */
 export function TaskStart({
   api,
   definition,
   newKey,
-  onOpenGoal,
+  onStarted,
   onRefusedAsNotReady,
 }: {
   readonly api: IPersonalApi;
   readonly definition: ITaskDefinitionView;
   readonly newKey: () => string;
-  readonly onOpenGoal: ((goalId: string) => void) | undefined;
+  /** The agent started the task, or answered a repeat of the request with the launch it had made. */
+  readonly onStarted: (launchId: string) => void;
   /** The agent said the task is not ready after all: the card should be read again. */
   readonly onRefusedAsNotReady: () => void;
 }): React.ReactElement {
@@ -102,7 +104,8 @@ export function TaskStart({
     key.current ??= newKey();
     try {
       const answer = await api.startTask(definition.id, { idempotencyKey: key.current, inputs });
-      setPhase({ name: 'started', goalId: answer.goalId });
+      setPhase({ name: 'started' });
+      onStarted(answer.launch.id);
     } catch (caught) {
       if (caught instanceof ApiError) {
         // The agent answered: this request is settled, and the next Start is a new one.
@@ -181,16 +184,6 @@ export function TaskStart({
           <p role="status" className="text-[13px] text-muted-foreground">
             Starting…
           </p>
-        )}
-        {phase.name === 'started' && (
-          <>
-            <p role="status" className="text-[13px]">
-              Started. Your agent will report in the Feed.
-            </p>
-            {onOpenGoal !== undefined && (
-              <Button onClick={() => onOpenGoal(phase.goalId)}>Open goal</Button>
-            )}
-          </>
         )}
       </div>
       {phase.name === 'refused' && (
