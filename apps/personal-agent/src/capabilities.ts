@@ -78,6 +78,9 @@ import { createTaskCatalogApi } from './task-catalog/api.js';
 import { VERIFIED_CONNECTOR_BINDINGS } from './task-catalog/binding-providers.js';
 import { createTaskCatalog } from './task-catalog/catalog.js';
 import { createFileTaskCatalogStore } from './task-catalog/file-store.js';
+import { createLaunchCoordinator } from './task-catalog/launch/coordinator.js';
+import { createFileLaunchStore } from './task-catalog/launch/file-store.js';
+import { LAUNCH_RECIPES } from './task-catalog/launch/recipes.js';
 import { createReadinessContextSource } from './task-catalog/readiness-context.js';
 import { createPersonalApi } from './personal-api.js';
 
@@ -91,6 +94,7 @@ import type { IGoalRunner } from './goal-runner.js';
 import type { TPersonalApi } from './personal-api.js';
 import type { IVerifiedConnectorBindingSpec } from './task-catalog/binding-providers.js';
 import type { ITaskCatalog } from './task-catalog/catalog.js';
+import type { ILaunchCoordinator } from './task-catalog/launch/coordinator.js';
 
 export interface IPersonalCapabilities {
   readonly tools: readonly IToolWithEventService[];
@@ -116,6 +120,8 @@ export interface IPersonalCapabilities {
   readonly spaces: SpaceBook;
   /** The work the person can browse and the offers made to them; it lists, and starts nothing. */
   readonly taskCatalog: ITaskCatalog;
+  /** Starts a task the person chose: one request, one durable launch, at most one goal. */
+  readonly launches: ILaunchCoordinator;
   /** The services the person connected, and the one place that decides what each tool may do. */
   readonly connectors: ConnectorRegistry;
   /** The path the person's browser returns to after consenting at a service; hand it to the GUI server. */
@@ -277,6 +283,19 @@ export function createPersonalCapabilities(
     }),
   });
   let runner: IGoalRunner | undefined;
+  // A start is judged again from the same readiness the cards show, kept before its goal exists, and the
+  // goal runs at once instead of at the next tick.
+  const launches = createLaunchCoordinator({
+    store: createFileLaunchStore({ directory: join(options.stateDir, 'task-catalog') }),
+    catalog: taskCatalog,
+    goals,
+    recipes: LAUNCH_RECIPES,
+    // The pages the owner named as reachable although local are the ones a task may be given too.
+    ...(options.browserAllowedHosts !== undefined && { pageHosts: options.browserAllowedHosts }),
+    onGoalReady: () => {
+      void runner?.runDue().catch(() => undefined);
+    },
+  });
   // A goal cannot be removed while it runs: turning a sync off first ends the run in progress.
   const connectorSync = new ConnectorSync(goals, async (goalId) => {
     runner?.interrupt(goalId);
@@ -544,10 +563,15 @@ export function createPersonalCapabilities(
         request.method === 'POST' &&
         request.segments[0] === 'feed' &&
         request.segments[2] === 'answer';
-      if (isCaseAnswer && !attached)
+      // A start makes a goal for the runner, so it waits for the runner and is finished before shutdown.
+      const isStart =
+        request.method === 'POST' &&
+        request.segments[0] === 'tasks' &&
+        request.segments[3] === 'start';
+      if ((isCaseAnswer || isStart) && !attached)
         return Promise.resolve({ status: 503, body: { error: 'The agent is still starting' } });
       const task = api(request);
-      return isCaseAnswer ? track(task) : task;
+      return isCaseAnswer || isStart ? track(task) : task;
     };
   const cleanStoppedOwners = async (): Promise<void> => {
     await caseWrites.exclusive(async () => {
@@ -599,6 +623,7 @@ export function createPersonalCapabilities(
     ideas,
     spaces,
     taskCatalog,
+    launches,
     connectors,
     landing: { path: CONSENT_CALLBACK_PATH, handle: (query) => consent.land(query) },
     channels,
@@ -642,7 +667,7 @@ export function createPersonalCapabilities(
         spaces,
         sideChats,
         layout,
-        taskCatalog: createTaskCatalogApi(taskCatalog),
+        taskCatalog: createTaskCatalogApi(taskCatalog, launches),
         browser: watchedBrowser,
         interruptWork: () => {
           runner?.interrupt();
@@ -689,6 +714,7 @@ export function createPersonalCapabilities(
         approvals,
         ownerId: presence.id,
         mayStart: (goal) => {
+          if (goal.launch !== undefined) return launches.mayStart(goal);
           if (goal.activeCaseRun !== undefined) return false;
           const answerId = goal.pendingCaseAnswer?.feedItemId ?? goal.lastCaseAnswerId;
           if (goal.caseId === undefined || answerId === undefined || answerOutbox === undefined)
@@ -771,15 +797,21 @@ export function createPersonalCapabilities(
           });
           await cleanStoppedOwners().catch(() => undefined);
         },
-        // A sync run reads one connector and adds to the library; a case turn reads and keeps the case.
-        // Each has only the tools to do that.
+        // A sync run reads one connector and adds to the library; a case turn reads and keeps the case; a
+        // started task has only the tools of the access its request was judged on. Each has only the tools to do that.
         shape: (goal, run) =>
-          goal.caseId !== undefined ? caseTurns.shape(goal, run) : syncRuns.shape(goal),
+          goal.launch !== undefined
+            ? launches.shape(goal)
+            : goal.caseId !== undefined
+              ? caseTurns.shape(goal, run)
+              : syncRuns.shape(goal),
         // A sync that is reachable, read cleanly and added nothing has nothing to tell the person; a case
         // turn that left a note, a question or its closing on the case has told them already.
         quiet: (goal) => (goal.caseId !== undefined ? caseTurns.quiet(goal) : syncRuns.quiet(goal)),
       });
       if (recoveredAnswers) void runner.runDue().catch(() => undefined);
+      // A start a stopped host left half way is settled here, once, and only by an agent no other agent shares the state with.
+      await presence.whenAlone(() => launches.recover());
       // The daily digest goes out from here: once now, for a digest that came due while the agent was
       // off, and then every minute. A failure waits for the next minute; the question is in the feed.
       const deliveryTickMs = options.deliveryTickMs ?? DEFAULT_DELIVERY_TICK_MS;

@@ -66,10 +66,14 @@ const accountOf = (step: TSetupStep): string => ('connectorId' in step ? step.co
 /** Code-unit order, so the answer does not depend on the machine's locale. */
 const before = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
-function judge(capability: string, ceiling: TEffectCeiling, context: IReadinessContext): TVerdict {
-  const bound = context.bindings.filter(
+/** The verified bindings the host issued for a capability, whatever they may do. */
+const issuedFor = (capability: string, context: IReadinessContext): TBindingSource[] =>
+  context.bindings.filter(
     (binding) => isIssuedBinding(binding) && binding.capability === capability,
   );
+
+function judge(capability: string, ceiling: TEffectCeiling, context: IReadinessContext): TVerdict {
+  const bound = issuedFor(capability, context);
   const held = context.blockers.filter((blocker) => blocker.capability === capability);
   if (bound.length === 0 && held.length === 0)
     return { kind: 'unavailable', reason: READINESS_TEXT.noBinding(capability) };
@@ -137,4 +141,20 @@ export function readinessOf(definition: ITaskDefinition, context: IReadinessCont
       ...new Set(verdicts.flatMap((verdict) => (verdict.kind === 'ready' ? [verdict.access] : []))),
     ],
   };
+}
+
+/**
+ * The verified bindings a task would run on: for each capability it needs, the ones the host issued that
+ * stay within the task's effect ceiling. Read from the same context as `readinessOf`, so a launch records
+ * exactly what its readiness was judged on.
+ */
+export function usableBindingsOf(
+  definition: ITaskDefinition,
+  context: IReadinessContext,
+): readonly TBindingSource[] {
+  return definition.capabilities.flatMap((capability) =>
+    issuedFor(capability, context).filter(
+      (binding) => !effectExceeds(binding.effect, definition.effectCeiling),
+    ),
+  );
 }

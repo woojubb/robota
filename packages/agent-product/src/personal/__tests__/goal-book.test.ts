@@ -163,6 +163,41 @@ describe.each([
     expect(await book.create({ title: 'Plain', instructions: 'x' })).not.toHaveProperty('caseId');
   });
 
+  it('keeps the launch a goal was made for, and makes one goal for one launch however often it is asked', async () => {
+    const book = new GoalBook({ store: makeStore(), now: clock().now });
+    const made = await book.create({
+      title: 'Check a page',
+      instructions: 'Look.',
+      readOnly: true,
+      launch: { id: 'launch-1' },
+    });
+    expect((await book.get(made.id))?.launch).toEqual({ id: 'launch-1' });
+    const again = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        book.create({ title: 'Check a page', instructions: 'Look.', launch: { id: 'launch-1' } }),
+      ),
+    );
+    expect(again.map((goal) => goal.id)).toEqual(Array(10).fill(made.id));
+    const other = await book.create({
+      title: 'Check a page',
+      instructions: 'Look.',
+      launch: { id: 'launch-2' },
+    });
+    expect(other.id).not.toBe(made.id);
+    expect(await book.list()).toHaveLength(2);
+    expect(await book.create({ title: 'Plain', instructions: 'x' })).not.toHaveProperty('launch');
+  });
+
+  it('refuses a launch id that is not a short id', async () => {
+    const book = new GoalBook({ store: makeStore(), now: clock().now });
+    for (const id of ['', 'Launch 1', 'x'.repeat(81), '../other', 'launch_1'])
+      await expect(
+        book.create({ title: 'x', instructions: 'y', launch: { id } }),
+        id,
+      ).rejects.toThrow(GoalRefusedError);
+    expect(await book.list()).toEqual([]);
+  });
+
   it('runs a finished one-off goal again, and refuses one that is running, waiting or paused', async () => {
     const time = clock();
     const book = new GoalBook({ store: makeStore(), now: time.now });

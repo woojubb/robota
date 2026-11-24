@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -6,9 +7,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { resolveGuiRoot } from '../gui-server.js';
 import { findChromium } from './browser-driver.js';
 import { startHarness } from './harness.js';
+import { toolResults } from './scripted-model.js';
 import { virtualHostFetch } from './stand-in-connector.js';
 import { startStandInWebhook } from './stand-in-webhook.js';
 
+import type { Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import type { Page } from 'playwright';
 import type { IHarness } from './harness.js';
 
@@ -295,9 +299,86 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           .getByRole('region', { name: 'Offers for you' })
           .getByText('No offers yet.')
           .waitFor();
-        expect(await main.getByRole('button').count()).toBe(0);
+        // Only the ready task has a Start; the others have nothing to press.
+        expect(await main.getByRole('button').count()).toBe(1);
+        await pageCheck.getByRole('button', { name: 'Start' }).waitFor();
+        expect(await main.getByRole('button', { name: 'Start' }).count()).toBe(1);
       } finally {
         await close();
+      }
+    });
+
+    it('starts the page-check task from its card with a double click: one goal, a report in the Feed, and a way to open the goal', async () => {
+      const shop: Server = createServer((_req, res) => {
+        res
+          .writeHead(200, { 'content-type': 'text/html' })
+          .end('<title>Shipping</title><h1>Free shipping on orders over 20 dollars</h1>');
+      });
+      await new Promise<void>((resolve) => shop.listen(0, '127.0.0.1', () => resolve()));
+      const address = `http://127.0.0.1:${(shop.address() as AddressInfo).port}/shipping`;
+      try {
+        // The owner names the local site, as the agent's browser takes it; no other local page is accepted.
+        harness = await startHarness({
+          gui: true,
+          browserAllowedHosts: [new URL(address).host],
+        });
+        harness.model.script({ tool: 'BrowserOpen', args: { url: address } }, (request) => ({
+          text: `Yes. ${
+            toolResults(request)
+              .at(-1)
+              ?.match(/Free shipping[^\n]*/u)?.[0] ?? 'no text'
+          }`,
+        }));
+        const { page, close } = await open(harness);
+        try {
+          const menu = page.getByRole('navigation', { name: 'Menu' });
+          await menu.getByRole('button', { name: 'Browse' }).click();
+          const main = page.getByRole('main');
+          const card = main.getByRole('article', { name: 'Check a fact on a page I give you' });
+          const start = card.getByRole('button', { name: 'Start' });
+          // Nothing is sent for a value that is missing; the page says which.
+          await start.click();
+          await card.getByText('Page address is needed.').waitFor();
+          await card.getByLabel(/Page address/u).fill(address);
+          await card.getByLabel(/What to check/u).fill('Is shipping free?');
+          await start.dblclick();
+          await card.getByText('Started. Your agent will report in the Feed.').waitFor();
+          await harness.capabilities.runner()!.settled();
+          const { goals } = harness.capabilities;
+          const made = await goals.list();
+          expect(made).toHaveLength(1);
+          expect(made[0]).toMatchObject({
+            title: 'Check a fact on a page',
+            status: 'done',
+            readOnly: true,
+          });
+          const [intent] = await harness.capabilities.launches.list(10);
+          expect(made[0]!.launch).toEqual({ id: intent!.id });
+          expect(intent).toMatchObject({ status: 'launched', goalId: made[0]!.id });
+          expect((await goals.feed()).filter((item) => item.kind === 'report')).toHaveLength(1);
+
+          // The card opens the goal it made.
+          await card.getByRole('button', { name: 'Open goal' }).click();
+          await page.getByRole('heading', { name: 'Goals', level: 1 }).waitFor();
+          await page.getByRole('heading', { name: 'Check a fact on a page', level: 2 }).waitFor();
+          await page
+            .getByText(/^Yes\. Free shipping on orders over 20 dollars/u)
+            .first()
+            .waitFor();
+
+          // The same page again, with the first one finished, is a request of its own.
+          await menu.getByRole('button', { name: 'Browse' }).click();
+          await card.getByLabel(/Page address/u).fill(address);
+          await card.getByLabel(/What to check/u).fill('Is shipping free over 20 dollars?');
+          await start.click();
+          await card.getByText('Started. Your agent will report in the Feed.').waitFor();
+          await harness.capabilities.runner()!.settled();
+          expect(await goals.list()).toHaveLength(2);
+        } finally {
+          await close();
+        }
+      } finally {
+        await new Promise<void>((resolve) => shop.close(() => resolve()));
       }
     });
 

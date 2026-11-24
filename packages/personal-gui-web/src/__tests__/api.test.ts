@@ -54,6 +54,34 @@ describe('personal API client', () => {
     expect(offers.calls[0]!.url).toBe('api/tasks/offers');
   });
 
+  it('starts a task with one write that carries the key and the values, and reads the agent’s refusal as its own words', async () => {
+    const answer = { launch: { id: 'launch-1' }, goalId: 'goal-1' };
+    const started = recorder({ status: 201, body: answer });
+    expect(
+      await started.api.startTask('check/fact', {
+        idempotencyKey: 'start-0123456789abcdef',
+        inputs: { page: 'https://example.com/', days: 3 },
+      }),
+    ).toEqual(answer);
+    expect(started.calls[0]!.url).toBe('api/tasks/definitions/check%2Ffact/start');
+    expect(started.calls[0]!.init?.method).toBe('POST');
+    expect(started.calls[0]!.init?.headers).toEqual({
+      'content-type': 'application/json',
+      [API_WRITE_HEADER]: '1',
+    });
+    expect(JSON.parse(String(started.calls[0]!.init?.body))).toEqual({
+      idempotencyKey: 'start-0123456789abcdef',
+      inputs: { page: 'https://example.com/', days: 3 },
+    });
+    const refused = recorder({ status: 422, body: { error: 'This task is not ready to start.' } });
+    await expect(
+      refused.api.startTask('check-fact-on-page', {
+        idempotencyKey: 'start-0123456789abcdef',
+        inputs: {},
+      }),
+    ).rejects.toMatchObject({ status: 422, message: 'This task is not ready to start.' });
+  });
+
   it('encodes page ids and queries', async () => {
     const { api, calls } = recorder({ status: 200, body: { page: {}, results: [] } });
     await api.getPage('page/../x');

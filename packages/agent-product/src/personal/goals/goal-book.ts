@@ -32,7 +32,14 @@ export interface ICreateGoalInput {
   readonly readOnly?: boolean;
   readonly connectorId?: string;
   readonly caseId?: string;
+  /**
+   * The launch this goal is made for. A goal that already carries this id is returned instead of a
+   * second one, under the same lock every goal write takes.
+   */
+  readonly launch?: { readonly id: string };
 }
+
+const LAUNCH_ID = /^[a-z0-9][a-z0-9-]{0,79}$/u;
 
 export class GoalRefusedError extends Error {
   constructor(reason: string) {
@@ -122,6 +129,16 @@ export class GoalBook {
     input: ICreateGoalInput,
     pendingCaseAnswer?: IGoal['pendingCaseAnswer'],
   ): Promise<IGoal> {
+    if (input.launch !== undefined) {
+      if (!LAUNCH_ID.test(input.launch.id))
+        throw new GoalRefusedError(
+          'A goal can only name a launch by a short id of letters, digits and dashes',
+        );
+      const made = (await this.store.listGoals()).find(
+        (goal) => goal.launch?.id === input.launch!.id,
+      );
+      if (made !== undefined) return made;
+    }
     const title = oneLine(input.title);
     const instructions = input.instructions.trim();
     if (title === '' || instructions === '')
@@ -145,6 +162,7 @@ export class GoalBook {
       readOnly: input.readOnly === true,
       ...(input.connectorId !== undefined && { connectorId: input.connectorId }),
       ...(input.caseId !== undefined && { caseId: input.caseId }),
+      ...(input.launch !== undefined && { launch: { id: input.launch.id } }),
       ...(pendingCaseAnswer !== undefined && { pendingCaseAnswer }),
       status: 'active',
       nextRunAt: at,

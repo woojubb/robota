@@ -22,6 +22,12 @@ export interface IGoal {
   readonly connectorId?: string;
   /** The case this goal gives a turn on, when it is one: found by this id, and run again for each answer. */
   readonly caseId?: string;
+  /**
+   * The launch this goal was made for, when it was made by a host that records the person's requests:
+   * a typed mark, never text in the instructions. One launch id has one goal, so a host that stopped
+   * between making the goal and recording it finds this one again.
+   */
+  readonly launch?: { readonly id: string };
   /** An accepted case answer awaiting a turn, owned by the agent holding its authority snapshot. */
   readonly pendingCaseAnswer?: { readonly feedItemId: string; readonly ownerId: string };
   /** The agent and answer associated with a claimed case turn. */
