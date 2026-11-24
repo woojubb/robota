@@ -4,7 +4,7 @@
 
 The personal agent's web UI: the shared session surface (`@robota-sdk/agent-ui-web`) for chat, inside a
 menu shell for what a personal agent keeps — the feed of results, approvals and questions, ideas, its goals, spaces, the library
-of what it knows about the person, the services it is connected to, search and settings. `apps/personal-agent` serves its build behind
+of what it knows about the person, the services it is connected to, the work it can take on, search and settings. `apps/personal-agent` serves its build behind
 the shared access-code server.
 
 It is a **`private` product-shell package**: a product UI assembled from the shared libraries, not an
@@ -41,6 +41,10 @@ importable library.
   whether to keep or forget what the service put in the library. A
   suggested service only fills in the add form, so nothing is added until the person presses Add,
   and a suggestion's words are shown as plain text.
+- **Browse shows what is available and why it is not startable.** The Browse tab lists the agent's
+  tasks with the agent's own word on whether each can run and why not; the page never offers a Start for
+  a task the agent has not said is ready. An offer's reason can come from a source, so it is shown as
+  plain text, never as a link or markup.
 - **Secrets stay out of the page.** Settings name the environment variable that holds a provider key;
   the key itself is never sent to or shown by the page. The limits on what reaches the person beyond
   the feed, and the address they give to be notified at, are theirs: Settings saves the limits as typed,

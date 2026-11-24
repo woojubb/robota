@@ -37,6 +37,23 @@ describe('personal API client', () => {
     expect(calls[0]!.init?.body).toBe(JSON.stringify({ claimId: 'c1' }));
   });
 
+  it('reads the task catalog with plain reads: the definitions, and the offers with what could not be read', async () => {
+    const definitions = recorder({
+      status: 200,
+      body: { definitions: [{ id: 'catch-up-on-mailbox' }] },
+    });
+    expect(await definitions.api.taskDefinitions()).toEqual([{ id: 'catch-up-on-mailbox' }]);
+    const offers = recorder({ status: 200, body: { offers: [], issues: ['one'] } });
+    expect(await offers.api.taskOffers()).toEqual({ offers: [], issues: ['one'] });
+    for (const { calls } of [definitions, offers]) {
+      expect(calls[0]!.init?.method).toBe('GET');
+      expect(calls[0]!.init?.credentials).toBe('same-origin');
+      expect(calls[0]!.init?.headers).toEqual({});
+    }
+    expect(definitions.calls[0]!.url).toBe('api/tasks/definitions');
+    expect(offers.calls[0]!.url).toBe('api/tasks/offers');
+  });
+
   it('encodes page ids and queries', async () => {
     const { api, calls } = recorder({ status: 200, body: { page: {}, results: [] } });
     await api.getPage('page/../x');
