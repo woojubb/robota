@@ -8,6 +8,8 @@ import type {
   ITaskInputView,
   ITaskOfferView,
   ITaskOffersView,
+  TTaskReadinessView,
+  TTaskSetupStepView,
 } from '../api.js';
 
 /** What each operation a task needs means to the person; an operation not listed is spelled out as it is named. */
@@ -53,6 +55,70 @@ function needs(capability: string): string {
   return `${family.charAt(0).toUpperCase()}${family.slice(1)}: ${operation.replaceAll('-', ' ')}`;
 }
 
+const READINESS = {
+  ready: 'Ready',
+  'needs-setup': 'Needs setup',
+  unavailable: 'Unavailable',
+} as const;
+
+const SERVICE = {
+  mail: 'a mail service',
+  calendar: 'a calendar service',
+  files: 'a file service',
+  chat: 'a chat service',
+  notes: 'a notes service',
+  other: 'a service',
+} as const;
+
+/** What the person does for one step, in plain words. The names in it are shown as the text they are. */
+function stepText(step: TTaskSetupStepView): string {
+  switch (step.type) {
+    case 'connect':
+      return `Connect ${SERVICE[step.kind]}`;
+    case 'choose-account':
+      return `Choose which account to use: ${step.accounts.map((account) => account.title).join(', ')}`;
+    case 'allow-tool':
+      return `Allow the tool ${step.tool} for ${step.connectorTitle}${
+        step.decision === 'write' ? ' (each change still waits for your approval)' : ''
+      }`;
+    case 'reconnect':
+      return `Reconnect ${step.connectorTitle}`;
+  }
+}
+
+function Readiness({
+  readiness,
+}: {
+  readonly readiness: TTaskReadinessView;
+}): React.ReactElement | null {
+  switch (readiness.state) {
+    case 'unavailable':
+      return <p className="mt-1 text-[12.5px] text-muted-foreground">{readiness.reason}</p>;
+    case 'needs-setup':
+      return (
+        <div className="mt-1 text-[13px]">
+          <p className="font-medium">To get this ready:</p>
+          <ul aria-label="Setup steps" className="list-disc pl-5">
+            {readiness.steps.map((step) => (
+              <li key={stepText(step)}>{stepText(step)}</li>
+            ))}
+          </ul>
+        </div>
+      );
+    case 'ready':
+      return (
+        <div className="mt-1 text-[13px]">
+          <p className="font-medium">Access</p>
+          <ul aria-label="Access" className="list-disc pl-5">
+            {readiness.accesses.map((access) => (
+              <li key={access}>{access}</li>
+            ))}
+          </ul>
+        </div>
+      );
+  }
+}
+
 function asked(input: ITaskInputView): string {
   return input.required ? input.label : `${input.label} (optional)`;
 }
@@ -73,9 +139,9 @@ function DefinitionCard({
           <h4 id={titleId} className="text-[14px] font-semibold">
             {definition.title}
           </h4>
-          <span className={chip}>Unavailable</span>
+          <span className={chip}>{READINESS[definition.readiness.state]}</span>
         </div>
-        <p className="mt-1 text-[12.5px] text-muted-foreground">{definition.readiness.reason}</p>
+        <Readiness readiness={definition.readiness} />
         <p className="mt-2 whitespace-pre-wrap text-[14px]">{definition.expectedResult}</p>
         <dl className="mt-2 flex flex-col gap-1 text-[13px]">
           <div>
@@ -138,9 +204,9 @@ function byCategory(
 }
 
 /**
- * Work the agent can take on, and what has been offered to the person. Nothing here starts anything:
- * a task is shown as unavailable, with the agent's reason, until the agent can verify what it needs,
- * and only then would it offer a way to start it.
+ * Work the agent can take on, and what has been offered to the person. Each task shows the agent's own
+ * word on whether it can run: ready with the access it would use, needing the setup steps named, or
+ * unavailable with the reason. The page decides none of it, and nothing here starts anything.
  */
 export function BrowseView({ api }: { readonly api: IPersonalApi }): React.ReactElement {
   const [definitions, setDefinitions] = useState<readonly ITaskDefinitionView[] | undefined>(

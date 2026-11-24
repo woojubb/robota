@@ -41,10 +41,10 @@ importable library.
   whether to keep or forget what the service put in the library. A
   suggested service only fills in the add form, so nothing is added until the person presses Add,
   and a suggestion's words are shown as plain text.
-- **Browse shows what is available and why it is not startable.** The Browse tab lists the agent's
-  tasks with the agent's own word on whether each can run and why not; the page never offers a Start for
-  a task the agent has not said is ready. An offer's reason can come from a source, so it is shown as
-  plain text, never as a link or markup.
+- **Browse shows the agent's word on each task, and decides none of it.** The Browse tab lists the agent's
+  tasks as ready with the access they would use, needing the setup steps it names, or unavailable with
+  its reason; the page never offers a Start for a task the agent has not said is ready. An offer's
+  reason can come from a source, so it is shown as plain text, never as a link or markup.
 - **Secrets stay out of the page.** Settings name the environment variable that holds a provider key;
   the key itself is never sent to or shown by the page. The limits on what reaches the person beyond
   the feed, and the address they give to be notified at, are theirs: Settings saves the limits as typed,

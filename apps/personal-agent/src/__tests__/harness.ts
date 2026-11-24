@@ -89,6 +89,10 @@ export async function startHarness(
     guiPort?: number;
     /** The clock delivery reads the local day and time from. */
     deliveryClock?: () => Date;
+    /** Whether the agent's own browser can run, instead of looking for a Chromium on this machine. */
+    browserAvailable?: () => boolean;
+    /** The connector tools the host verified, instead of the product's own (empty) table. */
+    connectorBindingSpecs?: import('../capabilities.js').IPersonalCapabilityOptions['connectorBindingSpecs'];
   } = {},
 ): Promise<IHarness> {
   const stateDir = options.stateDir ?? mkdtempSync(join(tmpdir(), 'personal-agent-'));
@@ -109,6 +113,10 @@ export async function startHarness(
     // So does the digest.
     deliveryTickMs: 0,
     ...(options.deliveryClock !== undefined && { deliveryClock: options.deliveryClock }),
+    ...(options.browserAvailable !== undefined && { browserAvailable: options.browserAvailable }),
+    ...(options.connectorBindingSpecs !== undefined && {
+      connectorBindingSpecs: options.connectorBindingSpecs,
+    }),
     ...(options.browserAllowedHosts !== undefined && {
       browserAllowedHosts: options.browserAllowedHosts,
     }),

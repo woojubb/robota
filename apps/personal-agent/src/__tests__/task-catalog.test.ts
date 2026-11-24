@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { BUILT_IN_DEFINITIONS } from '../task-catalog/built-in.js';
-import { UNAVAILABLE_REASON, createTaskCatalog, readinessOf } from '../task-catalog/catalog.js';
+import { createTaskCatalog } from '../task-catalog/catalog.js';
 import { TaskCatalogRefusedError } from '../task-catalog/fields.js';
 import { createMemoryTaskCatalogStore } from '../task-catalog/store.js';
 
@@ -34,17 +34,17 @@ function start() {
 }
 
 describe('the definitions the person can browse', () => {
-  it('are the built-in ones in the product order, each unavailable for the one exact reason', async () => {
+  it('are the built-in ones in the product order, each unavailable until the host hands in what it verified', async () => {
     const { catalog } = start();
     const listing = await catalog.listDefinitions();
     expect(listing.map((entry) => entry.id)).toEqual(BUILT_IN_DEFINITIONS.map((entry) => entry.id));
     expect(listing).toHaveLength(4);
-    for (const entry of listing) {
-      expect(entry.readiness, entry.id).toEqual({
-        state: 'unavailable',
-        reason: 'no verified capability binding yet',
-      });
-    }
+    expect(listing.map((entry) => entry.readiness)).toEqual([
+      { state: 'unavailable', reason: 'no verified binding for mail.search yet' },
+      { state: 'unavailable', reason: 'no verified binding for calendar.read yet' },
+      { state: 'unavailable', reason: 'no verified binding for mail.read yet' },
+      { state: 'unavailable', reason: 'no verified binding for web.read yet' },
+    ]);
     // Everything the person reads on a card is the definition itself.
     expect(listing.map(({ readiness: _readiness, ...definition }) => definition)).toEqual(
       BUILT_IN_DEFINITIONS,
@@ -63,7 +63,7 @@ describe('the definitions the person can browse', () => {
     ]);
     expect(listing.at(-1)!.readiness).toEqual({
       state: 'unavailable',
-      reason: UNAVAILABLE_REASON,
+      reason: 'no verified binding for web.read yet',
     });
   });
 
@@ -77,50 +77,6 @@ describe('the definitions the person can browse', () => {
     expect(await catalog.getDefinition('my-own-check', 3)).toBeUndefined();
     expect(await catalog.getDefinition('prepare-my-week', 2)).toBeUndefined();
     expect(await catalog.getDefinition('nothing-here')).toBeUndefined();
-  });
-});
-
-describe('whether the host can run a definition', () => {
-  it('is unavailable with the empty binding list the host has today, whatever the definition needs', () => {
-    expect(UNAVAILABLE_REASON).toBe('no verified capability binding yet');
-    for (const definition of BUILT_IN_DEFINITIONS) {
-      expect(readinessOf(definition, []), definition.id).toEqual({
-        state: 'unavailable',
-        reason: 'no verified capability binding yet',
-      });
-    }
-  });
-
-  it('takes the host bindings as an argument and reads nothing else: no state of the catalog changes the answer', async () => {
-    expect(readinessOf.length).toBe(2);
-    const { store, catalog } = start();
-    const before = readinessOf(BUILT_IN_DEFINITIONS[0]!, []);
-    // Installing, offering and listing, in this process, leave the pure answer as it was.
-    await store.putDefinition(owned());
-    await catalog.submitOffer(offer());
-    await catalog.listDefinitions();
-    expect(readinessOf(BUILT_IN_DEFINITIONS[0]!, [])).toEqual(before);
-    // A definition needing nothing the host has is answered from the definition handed in alone.
-    const frozen = Object.freeze({ ...owned(), capabilities: Object.freeze(['web.read']) });
-    expect(readinessOf(frozen as ITaskDefinition, Object.freeze([]))).toEqual(before);
-  });
-
-  it('reads no clock, randomness or network when it answers', () => {
-    const trap = (): never => {
-      throw new Error('the answer read global state');
-    };
-    const spies = [
-      vi.spyOn(Date, 'now').mockImplementation(trap),
-      vi.spyOn(Math, 'random').mockImplementation(trap),
-      vi.spyOn(globalThis, 'fetch').mockImplementation(trap),
-    ];
-    try {
-      for (const definition of BUILT_IN_DEFINITIONS) {
-        expect(readinessOf(definition, []).state, definition.id).toBe('unavailable');
-      }
-    } finally {
-      for (const spy of spies) spy.mockRestore();
-    }
   });
 });
 
