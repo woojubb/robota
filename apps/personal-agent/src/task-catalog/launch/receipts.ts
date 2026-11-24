@@ -53,16 +53,6 @@ export function pageKey(address: string): string | undefined {
   }
 }
 
-/** Whether two addresses are of one site: the same scheme, host and port. */
-export function sameOrigin(a: string, b: string): boolean {
-  try {
-    return new URL(a).origin === new URL(b).origin;
-  } catch {
-    // allow-fallback: an address that cannot be read is of no site.
-    return false;
-  }
-}
-
 const excerptOf = (text: string): string | undefined => {
   const line = text
     .replace(UNSAFE, ' ')

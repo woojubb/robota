@@ -122,7 +122,7 @@ describe('the outcome of a goal that ended', () => {
     });
     expect(await world.launches.get(launchId)).toMatchObject({
       progress: 'verified',
-      reason: 'Your agent’s own browser read the page you named during this run.',
+      reason: 'Your agent’s own browser opened and read the page you named during this run.',
       report: REPORT,
       evidence: [receipt()],
       decidedAt: world.clock.now.toISOString(),
@@ -438,6 +438,34 @@ describe('the reading tools of a launched run', () => {
     ]);
     await world.goals.finishRun(run, 'done', REPORT);
     expect(await world.launches.get(launchId)).toMatchObject({ progress: 'verified' });
+  });
+
+  it('record a run that only looks at the page a previous run left the browser on, and that run is unverified', async () => {
+    const { port } = stubBrowser({ [PAGE]: page });
+    const world = startWorld({ browserPort: port });
+    // An earlier run, or a chat, left the agent's one browser page on the page the person names.
+    await port.open(PAGE);
+    const { launchId, goalId } = await started(world);
+    const goal = (await world.goals.get(goalId))!;
+    const run = await world.goals.startRun(goalId);
+    const shape = (await world.launches.shape(goal, run))!;
+    const view = shape.scopedTools!.find((tool) => tool.getName() === 'BrowserView')!;
+    const result = await view.execute({}, { toolName: 'BrowserView', parameters: {} });
+    expect(JSON.stringify(result)).toContain('Free shipping');
+    expect((await world.store.get(launchId))!.receipts).toEqual([
+      expect.objectContaining({ runId: run.id, tool: 'view', address: PAGE }),
+    ]);
+    await world.goals.finishRun(run, 'done', REPORT);
+    const standing = (await world.launches.get(launchId))!;
+    expect(standing).toMatchObject({
+      progress: 'unverified',
+      reason:
+        'The run finished, but it only looked at a page that was already open and never opened the page you named.',
+    });
+    // What was read is still shown, as a read of the current page.
+    expect(standing.evidence.map((read) => [read.tool, read.requested, read.address])).toEqual([
+      ['view', undefined, PAGE],
+    ]);
   });
 
   it('are not made when the host has no browser to wrap, and no run can then be verified', async () => {

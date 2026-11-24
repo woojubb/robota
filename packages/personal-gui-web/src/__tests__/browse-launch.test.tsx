@@ -62,7 +62,7 @@ const launch = (change: Partial<ITaskLaunchStatusView> = {}): ITaskLaunchStatusV
   createdAt: '2026-11-24T10:00:00.000Z',
   updatedAt: '2026-11-24T10:00:00.000Z',
   progress: 'verified',
-  reason: 'Your agent’s own browser read the page you named during this run.',
+  reason: 'Your agent’s own browser opened and read the page you named during this run.',
   report: 'Yes. The page says: free shipping.',
   evidence: [read],
   decidedAt: '2026-11-24T10:00:09.000Z',
@@ -141,6 +141,8 @@ describe('where a started task stands on its card', () => {
     expect(shown.getByText('Report (not checked)')).toBeTruthy();
     expect(shown.queryByText('Report')).toBeNull();
     expect(shown.getByText('Nothing your agent read was recorded for this run.')).toBeTruthy();
+    // With nothing to show, there is no list to call evidence.
+    expect(shown.queryByRole('list')).toBeNull();
     // No success wording anywhere on an unverified result.
     expect((await region()).textContent).not.toMatch(/completed|success|\bverified\b|\bdone\b/iu);
     cleanup();
@@ -154,6 +156,22 @@ describe('where a started task stands on its card', () => {
     const chip = (name: string) => checked.getByText(name).className;
     expect(chip('Completed (verified)')).toContain('text-success');
     expect(chip('Completed (verified)')).not.toContain('text-warning');
+  });
+
+  it('calls what the browser returned evidence only when the agent checked the result, and what was read otherwise', async () => {
+    for (const progress of ['unverified', 'failed', 'cancelled'] as const) {
+      setup({ launches: [launch({ progress })] });
+      const shown = await status();
+      expect(shown.getByRole('list', { name: 'What was read' }).textContent).toContain(PAGE);
+      expect(shown.getByText('What was read')).toBeTruthy();
+      expect(shown.queryByText('Evidence')).toBeNull();
+      expect(shown.queryByRole('list', { name: 'Evidence' })).toBeNull();
+      cleanup();
+    }
+    setup({ launches: [launch()] });
+    const checked = await status();
+    expect(checked.getByRole('list', { name: 'Evidence' }).textContent).toContain(PAGE);
+    expect(checked.queryByText('What was read')).toBeNull();
   });
 
   it('shows the report, and the evidence as what was opened, where, when and how much text, with the excerpt', async () => {
@@ -369,9 +387,19 @@ describe('the Feed and the card point at each other', () => {
     ...change,
   });
 
-  function feed(items: readonly IFeedItemView[], props: { focusLaunch?: string } = {}) {
+  function feed(
+    items: readonly IFeedItemView[],
+    props: {
+      focusLaunch?: string;
+      launches?: readonly ITaskLaunchStatusView[] | Error;
+    } = {},
+  ) {
     const onOpenTask = vi.fn();
-    const api = { feed: async () => items } as unknown as IPersonalApi;
+    const taskLaunches = vi.fn(async () => {
+      if (props.launches instanceof Error) throw props.launches;
+      return props.launches ?? [];
+    });
+    const api = { feed: async () => items, taskLaunches } as unknown as IPersonalApi;
     render(
       <FeedView
         api={api}
@@ -380,8 +408,11 @@ describe('the Feed and the card point at each other', () => {
         {...(props.focusLaunch !== undefined && { focusLaunch: props.focusLaunch })}
       />,
     );
-    return { onOpenTask };
+    return { onOpenTask, taskLaunches };
   }
+
+  const itemOf = async (title: string) =>
+    within((await screen.findByRole('heading', { name: title })).closest('li')!);
 
   it('names the task a report came from and opens its card', async () => {
     const { onOpenTask } = feed([
@@ -404,5 +435,80 @@ describe('the Feed and the card point at each other', () => {
     expect(marked).toHaveLength(1);
     expect(marked[0]!.textContent).toContain('Check a fact on a page');
     expect(marked[0]!.textContent).toContain('Yes. The page says');
+  });
+
+  it('shows the report of a started task as the plain text it is, and an ordinary report as it always was', async () => {
+    const hostile =
+      '**bold** [link](https://evil.example) <img src=x onerror=alert(1)> `code`\n\n- one\n- two';
+    feed([
+      report({ title: 'Started task', body: hostile }),
+      report({ id: 'feed-2', title: 'Ordinary goal', body: hostile, launchId: undefined }),
+    ]);
+    const started = await itemOf('Started task');
+    expect(started.getByText(/\*\*bold\*\* \[link\]\(https:\/\/evil\.example\)/u)).toBeTruthy();
+    const startedItem = (await screen.findByRole('heading', { name: 'Started task' })).closest(
+      'li',
+    )!;
+    expect(startedItem.querySelector('a, img, strong, code, ul, li li')).toBeNull();
+    expect(startedItem.textContent).toContain('`code`');
+    expect(startedItem.textContent).toContain('- one');
+    // The ordinary report keeps its markdown.
+    const ordinary = (await screen.findByRole('heading', { name: 'Ordinary goal' })).closest('li')!;
+    expect(ordinary.querySelector('strong')).not.toBeNull();
+  });
+
+  it('says where a started task stands on its item, so an unchecked run does not look like a checked one', async () => {
+    feed(
+      [
+        report({ id: 'feed-1', title: 'Checked task', launchId: 'launch-1' }),
+        report({ id: 'feed-2', title: 'Unchecked task', launchId: 'launch-2' }),
+        report({ id: 'feed-3', title: 'Failed task', launchId: 'launch-3' }),
+      ],
+      {
+        launches: [
+          launch({ id: 'launch-1', progress: 'verified' }),
+          launch({ id: 'launch-2', progress: 'unverified' }),
+          launch({ id: 'launch-3', progress: 'failed' }),
+        ],
+      },
+    );
+    const checked = await itemOf('Checked task');
+    await checked.findByText('Completed (verified)');
+    const unchecked = await itemOf('Unchecked task');
+    await unchecked.findByText('Unverified');
+    expect(unchecked.queryByText('Completed (verified)')).toBeNull();
+    expect(checked.queryByText('Unverified')).toBeNull();
+    expect((await itemOf('Failed task')).getByText('Failed')).toBeTruthy();
+    // Where it stands is known, so the item does not ask the person to go and see.
+    for (const view of [checked, unchecked])
+      expect(view.queryByText('Open the task to see whether this was checked.')).toBeNull();
+  });
+
+  it('asks the person to open the task when the agent has not said where it stands, and only on an item of a started task', async () => {
+    const { taskLaunches } = feed([
+      report({ id: 'feed-1', title: 'Started task' }),
+      report({ id: 'feed-2', title: 'Ordinary goal', launchId: undefined, goalId: 'goal-2' }),
+    ]);
+    const started = await itemOf('Started task');
+    await started.findByText('Open the task to see whether this was checked.');
+    expect(taskLaunches).toHaveBeenCalled();
+    const ordinary = await itemOf('Ordinary goal');
+    expect(ordinary.queryByText('Open the task to see whether this was checked.')).toBeNull();
+    expect(ordinary.queryByText(/From a task you started/u)).toBeNull();
+    expect(ordinary.queryByText('Unverified')).toBeNull();
+  });
+
+  it('asks the person to open the task when where it stands cannot be read, and does not ask for it for a feed with no started task', async () => {
+    const { taskLaunches } = feed([report()], {
+      launches: new Error('The agent is not reachable'),
+    });
+    const started = await itemOf('Check a fact on a page');
+    await started.findByText('Open the task to see whether this was checked.');
+    expect(started.queryByRole('alert')).toBeNull();
+    cleanup();
+    const plain = feed([report({ launchId: undefined })]);
+    await screen.findByText('Check a fact on a page');
+    expect(plain.taskLaunches).not.toHaveBeenCalled();
+    expect(taskLaunches).toHaveBeenCalled();
   });
 });

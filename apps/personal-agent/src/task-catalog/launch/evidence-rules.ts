@@ -7,7 +7,7 @@
  * cannot be called verified, however well its run went.
  */
 import { EMPTY_REPORT } from '../../run-report.js';
-import { pageKey, sameOrigin } from './receipts.js';
+import { pageKey } from './receipts.js';
 
 import type { IEvidenceReceipt, TLaunchInputs } from './types.js';
 
@@ -39,15 +39,12 @@ export interface IEvidenceRule {
 const unverified = (reason: string): TRuleVerdict => ({ satisfied: false, reason });
 
 /**
- * A read counts for the page that was named when the page was at that address, or when the run asked
- * for that address and the browser reported a page of the same site (a redirect inside the site). A
- * page on another site does not count, whatever the address asked for.
+ * The page-check task. The agent has one browser page that stays wherever an earlier run or chat left
+ * it, so reading "the current page" proves nothing about this run: the run itself must have opened the
+ * page that was named, and the browser must have landed on exactly that address (a redirect, even
+ * inside the site, may have led to a login or an error page). Reads after that open, of that address,
+ * are further evidence; reads before it never are. The page needs text, and the run needs a report.
  */
-const readsPage = (receipt: IEvidenceReceipt, wanted: string): boolean =>
-  receipt.address === wanted ||
-  (receipt.requested === wanted && sameOrigin(receipt.address, wanted));
-
-/** The page-check task: the page the person named was read, it had text, and the run reported. */
 const PAGE_CHECK: IEvidenceRule = {
   definitionId: 'check-fact-on-page',
   revision: 1,
@@ -60,19 +57,32 @@ const PAGE_CHECK: IEvidenceRule = {
       );
     if (report.trim() === '' || report === EMPTY_REPORT)
       return unverified('The run finished, but it gave no report.');
-    const matching = receipts.filter(
-      (receipt) => receipt.kind === 'page-read' && readsPage(receipt, wanted),
+    const opened = receipts.findIndex(
+      (receipt) =>
+        receipt.kind === 'page-read' &&
+        receipt.tool === 'open' &&
+        receipt.requested === wanted &&
+        receipt.address === wanted,
     );
-    if (matching.length === 0)
-      return unverified('The run finished, but nothing it read matches the page you named.');
-    const readable = matching.filter((receipt) => receipt.chars > 0);
+    if (opened < 0)
+      return unverified(
+        receipts.some((receipt) => receipt.address === wanted)
+          ? 'The run finished, but it only looked at a page that was already open and never opened the page you named.'
+          : 'The run finished, but nothing it read matches the page you named.',
+      );
+    const readable = receipts
+      .slice(opened)
+      .filter(
+        (receipt) =>
+          receipt.kind === 'page-read' && receipt.address === wanted && receipt.chars > 0,
+      );
     if (readable.length === 0)
       return unverified(
         'The page you named opened, but it had no text to check the report against.',
       );
     return {
       satisfied: true,
-      reason: 'Your agent’s own browser read the page you named during this run.',
+      reason: 'Your agent’s own browser opened and read the page you named during this run.',
       evidence: readable,
     };
   },

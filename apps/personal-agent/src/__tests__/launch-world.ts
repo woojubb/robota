@@ -222,7 +222,7 @@ export const receipt = (change: Partial<IEvidenceReceipt> = {}): IEvidenceReceip
 /** An outcome as the host decides one, for a store test that keeps it. */
 export const outcomeOf = (change: Partial<ILaunchOutcome> = {}): ILaunchOutcome => ({
   state: 'verified',
-  reason: 'Your agent’s own browser read the page you named during this run.',
+  reason: 'Your agent’s own browser opened and read the page you named during this run.',
   evidence: [receipt()],
   decidedAt: '2026-11-24T10:00:10.000Z',
   runId: 'run-1',

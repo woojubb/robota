@@ -32,6 +32,15 @@ const TONE: Readonly<Record<TTaskProgress, string>> = {
 
 const chip = 'rounded-full border px-2 py-0.5 text-[12px] font-medium';
 
+/** The word for where a launch stands, styled so a checked result is apart from an unchecked one. */
+export function ProgressChip({
+  progress,
+}: {
+  readonly progress: TTaskProgress;
+}): React.ReactElement {
+  return <span className={`${chip} ${TONE[progress]}`}>{LABEL[progress]}</span>;
+}
+
 /**
  * Where a started task stands, in the agent's own words: a chip, why, the run's report and what the
  * agent's browser recorded. Everything the agent sends is shown as the plain text it is: the report is
@@ -100,6 +109,8 @@ export function LaunchStatus({
 
   const verified = launch.progress === 'verified';
   const ended = !LIVE.has(launch.progress);
+  // What the browser returned proves something only when the agent checked it, so it is called evidence only then.
+  const readTitle = verified ? 'Evidence' : 'What was read';
   return (
     <section
       aria-label="Task status"
@@ -110,7 +121,7 @@ export function LaunchStatus({
       }`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`${chip} ${TONE[launch.progress]}`}>{LABEL[launch.progress]}</span>
+        <ProgressChip progress={launch.progress} />
         <span className="text-[12.5px] text-muted-foreground">
           {launch.decidedAt !== undefined
             ? `Decided ${when(launch.decidedAt)}`
@@ -128,8 +139,8 @@ export function LaunchStatus({
       )}
       {ended && launch.evidence.length > 0 && (
         <div>
-          <h5 className="text-[13px] font-medium">Evidence</h5>
-          <ul aria-label="Evidence" className="mt-0.5 flex list-disc flex-col gap-1 pl-5">
+          <h5 className="text-[13px] font-medium">{readTitle}</h5>
+          <ul aria-label={readTitle} className="mt-0.5 flex list-disc flex-col gap-1 pl-5">
             {launch.evidence.map((read) => (
               <li key={`${read.tool}-${read.at}-${read.digest}`} className="text-[13px]">
                 <span>{read.tool === 'open' ? 'Opened ' : 'Read again '}</span>

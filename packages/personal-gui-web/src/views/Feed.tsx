@@ -3,10 +3,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { CaseThread } from './CaseThread.js';
 import { CaseList } from './CaseList.js';
+import { ProgressChip } from './LaunchStatus.js';
 import { QuestionCard } from './QuestionCard.js';
 import { Button, Notice, ViewFrame, errorText, when } from './ui.js';
 
-import type { IFeedItemView, IPersonalApi, TQuestionAnswer } from '../api.js';
+import type { IFeedItemView, IPersonalApi, TQuestionAnswer, TTaskProgress } from '../api.js';
 
 const REFRESH_MS = 3_000;
 
@@ -42,6 +43,8 @@ export function FeedView({
   const [error, setError] = useState<string | undefined>(undefined);
   const [thread, setThread] = useState<string | undefined>(undefined);
   const [showCases, setShowCases] = useState(false);
+  // Where each started task stands, for the items of goals a task made; empty until the agent says.
+  const [standing, setStanding] = useState<ReadonlyMap<string, TTaskProgress>>(new Map());
   const focused = useRef<HTMLLIElement>(null);
   const reload = useCallback(async () => {
     try {
@@ -49,6 +52,15 @@ export function FeedView({
       setItems(read);
       setError(undefined);
       onItems?.(read);
+      if (read.some((item) => item.launchId !== undefined)) {
+        try {
+          const launches = await api.taskLaunches();
+          setStanding(new Map(launches.map((launch) => [launch.id, launch.progress])));
+        } catch {
+          // allow-fallback: without where a task stands, its item points at the task instead of saying.
+          setStanding(new Map());
+        }
+      }
     } catch (caught) {
       setError(errorText(caught));
     }
@@ -119,6 +131,9 @@ export function FeedView({
           }
           const pending = item.approval?.state === 'pending';
           const sent = item.id === focusedItem;
+          // What a task's goal says as it ends is the model's own account, so it is shown as plain text.
+          const launched = item.launchId !== undefined;
+          const progress = item.launchId === undefined ? undefined : standing.get(item.launchId);
           return (
             <li
               key={item.id}
@@ -139,8 +154,8 @@ export function FeedView({
                 <h2 className="text-[14px] font-semibold">{item.title}</h2>
                 <span className="ml-auto text-[12px] text-muted-foreground">{when(item.at)}</span>
               </div>
-              {item.kind === 'approval' ? (
-                <p className="mt-1 whitespace-pre-wrap text-[14px]">{item.body}</p>
+              {item.kind === 'approval' || launched ? (
+                <p className="mt-1 whitespace-pre-wrap break-words text-[14px]">{item.body}</p>
               ) : (
                 <MarkdownText className="mt-1 text-[14px]">{item.body}</MarkdownText>
               )}
@@ -149,10 +164,16 @@ export function FeedView({
                   {item.approval.detail}
                 </p>
               )}
-              {item.launchId !== undefined && onOpenTask !== undefined && (
+              {launched && (
                 <p className="mt-2 flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
-                  From a task you started in Browse.
-                  <Button onClick={() => onOpenTask(item.launchId!)}>Open task</Button>
+                  {progress !== undefined && <ProgressChip progress={progress} />}
+                  <span>From a task you started in Browse.</span>
+                  {progress === undefined && (
+                    <span>Open the task to see whether this was checked.</span>
+                  )}
+                  {onOpenTask !== undefined && (
+                    <Button onClick={() => onOpenTask(item.launchId!)}>Open task</Button>
+                  )}
                 </p>
               )}
               <div className="mt-2 flex items-center gap-2">

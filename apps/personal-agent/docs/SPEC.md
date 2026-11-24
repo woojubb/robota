@@ -51,8 +51,11 @@ on — in the person's own state directory.
   typed is one JSON object of data inside it, so a value cannot close its own quotation or add a tool.
 - A started run reads pages through a browser made for that run alone, which records each page it returns
   before the model sees it. A record kept around the shared browser could not tell one run's reads from
-  another's, and the model's own account of its work could not be told from proof at all. The report that
-  was judged is kept with the outcome, so a rerun or a removed goal cannot change what the person was told.
+  another's, and the model's own account of its work could not be told from proof at all. The browser
+  keeps one page between runs, so a look at the page it was left on proves nothing: the run must itself
+  have opened the page it was asked about, and the browser must have landed on exactly that address,
+  since even a redirect inside the site can end at a login or an error page. The report that was judged
+  is kept with the outcome, so a rerun or a removed goal cannot change what the person was told.
 - A repeat observation updates the evidence of the offer that has its key instead of adding a card, and
   an observation never chooses an offer's decision: a new offer starts open and only the person's own
   choice changes it, so a source that keeps noticing the same thing neither fills the page nor reopens

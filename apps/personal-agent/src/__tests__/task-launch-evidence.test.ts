@@ -19,6 +19,12 @@ import type { IEvidenceRule } from '../task-catalog/launch/evidence-rules.js';
 import type { IEvidenceReceipt, IRunReceipt } from '../task-catalog/launch/types.js';
 
 const PAGE_CHECK = ruleFor(EVIDENCE_RULES, { id: 'check-fact-on-page', revision: 1 })!;
+
+/** A read of the browser's current page, which says where it is and not where the run asked to go. */
+const viewed = (change: Partial<IEvidenceReceipt> = {}): IEvidenceReceipt => {
+  const { requested: _asked, ...read } = receipt({ tool: 'view', ...change });
+  return read;
+};
 const REPORT = 'Yes. The page says: "Free shipping on orders over 20 dollars."';
 const verdict = (
   change: { receipts?: readonly IEvidenceReceipt[]; report?: string; page?: string } = {},
@@ -38,27 +44,63 @@ describe('the rule for the page-check task', () => {
     expect(ruleFor(EVIDENCE_RULES, { id: 'prepare-my-week', revision: 1 })).toBeUndefined();
   });
 
-  it('is satisfied by a read of the page that was named which had text, with a report', () => {
+  it('is satisfied by the run opening the page that was named, when the browser landed on it and it had text, with a report', () => {
     const read = receipt();
     expect(verdict({ receipts: [read] })).toEqual({
       satisfied: true,
-      reason: 'Your agent’s own browser read the page you named during this run.',
+      reason: 'Your agent’s own browser opened and read the page you named during this run.',
       evidence: [read],
     });
   });
 
-  it('is satisfied by a read of the current page when it is at the address that was named', () => {
-    const { requested: _asked, ...current } = receipt({ tool: 'view' });
-    expect(verdict({ receipts: [current] })).toMatchObject({ satisfied: true });
-  });
-
-  it('is satisfied by a redirect inside the site, and by an address spelled with a fragment or a user name', () => {
-    expect(
-      verdict({ receipts: [receipt({ address: 'https://example.com/pricing/plans' })] }),
-    ).toMatchObject({ satisfied: true });
+  it('is satisfied when the address was spelled with a fragment or a user name', () => {
     expect(
       verdict({ page: `${PAGE}#plans`, receipts: [receipt({ address: PAGE })] }),
     ).toMatchObject({ satisfied: true });
+    expect(
+      verdict({
+        page: `https://${['user', 'pw'].join(':')}@example.com/pricing`,
+        receipts: [receipt()],
+      }),
+    ).toMatchObject({ satisfied: true });
+  });
+
+  it('is not satisfied by a read of the current page alone: the browser keeps one page between runs, so a page it was left on proves nothing about this run', () => {
+    expect(verdict({ receipts: [viewed()] })).toEqual({
+      satisfied: false,
+      reason:
+        'The run finished, but it only looked at a page that was already open and never opened the page you named.',
+    });
+    // However many times it looked.
+    expect(verdict({ receipts: [viewed(), viewed({ digest: 'd'.repeat(64) })] }).satisfied).toBe(
+      false,
+    );
+  });
+
+  it('counts a view after the open as further evidence, and a view before it never', () => {
+    const before = viewed();
+    const opened = receipt();
+    const after = viewed({ digest: 'd'.repeat(64), at: '2026-11-24T10:00:08.000Z' });
+    expect(verdict({ receipts: [before, opened] })).toMatchObject({
+      satisfied: true,
+      evidence: [opened],
+    });
+    expect(verdict({ receipts: [opened, after] })).toMatchObject({
+      satisfied: true,
+      evidence: [opened, after],
+    });
+    // A page that had no text when opened but had when looked at again is read after the open.
+    const blank = receipt({ chars: 0 });
+    const filled = viewed({ chars: 50 });
+    expect(verdict({ receipts: [blank, filled] })).toMatchObject({
+      satisfied: true,
+      evidence: [filled],
+    });
+    // A view from before the open cannot make up for an open that had nothing.
+    expect(verdict({ receipts: [filled, blank] })).toMatchObject({
+      satisfied: false,
+      reason: 'The page you named opened, but it had no text to check the report against.',
+    });
   });
 
   it.each([
@@ -84,9 +126,24 @@ describe('the rule for the page-check task', () => {
       'nothing it read matches the page you named',
     ],
     [
+      'a redirect stayed on the site but landed on another page',
+      [receipt({ address: 'https://example.com/pricing/plans' })],
+      'nothing it read matches the page you named',
+    ],
+    [
+      'a redirect stayed on the site and landed on a login page',
+      [receipt({ address: 'https://example.com/login?next=%2Fpricing' })],
+      'nothing it read matches the page you named',
+    ],
+    [
       'the address differs by a query',
       [receipt({ requested: `${PAGE}?plan=pro`, address: `${PAGE}?plan=pro` })],
       'nothing it read matches the page you named',
+    ],
+    [
+      'the open landed elsewhere and the page was only found already open',
+      [receipt({ address: 'https://example.com/login' }), viewed()],
+      'only looked at a page that was already open',
     ],
     [
       'the page opened with no text',
@@ -301,7 +358,7 @@ describe('the outcome a goal’s ending and the recorded receipts give', () => {
   it('is verified when the run finished and the recorded reads satisfy the rule, with the reads as evidence', () => {
     expect(decide()).toEqual({
       state: 'verified',
-      reason: 'Your agent’s own browser read the page you named during this run.',
+      reason: 'Your agent’s own browser opened and read the page you named during this run.',
       evidence: [receipt()],
       decidedAt: '2026-11-24T10:00:10.000Z',
       runId: 'run-1',

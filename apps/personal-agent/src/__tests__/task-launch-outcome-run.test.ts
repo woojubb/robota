@@ -190,7 +190,7 @@ describe.skipIf(findChromiumExecutable() === undefined)(
         progress: 'verified',
         goalId,
         report: REPORT,
-        reason: 'Your agent’s own browser read the page you named during this run.',
+        reason: 'Your agent’s own browser opened and read the page you named during this run.',
       });
       expect(shown.evidence.map((read: any) => [read.tool, read.address, read.requested])).toEqual([
         ['open', address, address],
@@ -216,15 +216,15 @@ describe.skipIf(findChromiumExecutable() === undefined)(
       });
     });
 
-    it('is verified when the site sends the page on to another address inside the site', async () => {
+    it('is unverified when the site sends the page on to another page of the same site, and shows where it ended up', async () => {
       const shop = await site((req, res) => {
         if (req.url === '/go') {
-          res.writeHead(302, { location: '/shipping' }).end();
+          res.writeHead(302, { location: '/login' }).end();
           return;
         }
         res
           .writeHead(200, { 'content-type': 'text/html' })
-          .end(`<title>Shipping</title><h1>${SHIPPING_TEXT}</h1>`);
+          .end(`<title>Sign in</title><h1>Sign in to see this page</h1>`);
       });
       const { harness: target, api } = await started([shop]);
       target.model.script(
@@ -233,11 +233,49 @@ describe.skipIf(findChromiumExecutable() === undefined)(
       );
       const { launchId } = await run(target, api, `${shop.origin}/go`);
       const shown = (await api.send('GET', `tasks/launches/${launchId}`)).body.launch;
-      expect(shown.progress).toBe('verified');
-      expect(shown.evidence[0]).toMatchObject({
-        requested: `${shop.origin}/go`,
-        address: `${shop.origin}/shipping`,
+      expect(shown).toMatchObject({
+        progress: 'unverified',
+        reason: 'The run finished, but nothing it read matches the page you named.',
       });
+      expect(shown.evidence).toEqual([
+        expect.objectContaining({
+          requested: `${shop.origin}/go`,
+          address: `${shop.origin}/login`,
+        }),
+      ]);
+    });
+
+    it('is unverified when the run only looks at the page an earlier run left the browser on, however well the page matches', async () => {
+      const shop = await site();
+      const { harness: target, api } = await started([shop]);
+      const address = `${shop.origin}/shipping`;
+      target.model.script({ tool: 'BrowserOpen', args: { url: address } }, { text: REPORT });
+      const first = await run(target, api, address);
+      expect((await api.send('GET', `tasks/launches/${first.launchId}`)).body.launch.progress).toBe(
+        'verified',
+      );
+      // The same page check again: the browser's one page is still on the page, and this run only looks.
+      target.model.script({ tool: 'BrowserView', args: {} }, { text: REPORT });
+      const answer = await api.send('POST', START, {
+        idempotencyKey: keyOf(2),
+        inputs: { page: address, question: 'Is shipping free over 20 dollars?' },
+      });
+      expect(answer.status).toBe(201);
+      await target.capabilities.runner()!.settled(answer.body.goalId);
+      const shown = (await api.send('GET', `tasks/launches/${answer.body.launch.id}`)).body.launch;
+      expect(shown).toMatchObject({
+        progress: 'unverified',
+        reason:
+          'The run finished, but it only looked at a page that was already open and never opened the page you named.',
+      });
+      expect(shown.evidence.map((read: any) => [read.tool, read.address])).toEqual([
+        ['view', address],
+      ]);
+      expect(shown.evidence[0].requested).toBeUndefined();
+      // The first launch is as it was decided.
+      expect((await api.send('GET', `tasks/launches/${first.launchId}`)).body.launch.progress).toBe(
+        'verified',
+      );
     });
 
     it('is unverified when the page sends the run to another site, and shows where it ended up', async () => {
