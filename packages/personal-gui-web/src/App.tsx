@@ -313,7 +313,7 @@ function Shell({
         </div>
         {view === 'feed' && <FeedView api={api} onOpenGoal={showGoal} onItems={countWaiting} />}
         {view === 'connectors' && <ConnectorsView api={api} />}
-        {view === 'browse' && <BrowseView api={api} />}
+        {view === 'browse' && <BrowseView api={api} onOpenGoal={showGoal} />}
         {view === 'ideas' && <IdeasView api={api} onOpenGoal={showGoal} />}
         {view === 'goals' && <GoalsView api={api} openGoal={openGoal} onOpenGoal={setOpenGoal} />}
         {view === 'library' && (

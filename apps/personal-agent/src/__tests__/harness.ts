@@ -241,3 +241,39 @@ export function createFixtureWebRoot(): string {
   writeFileSync(join(root, 'assets', 'app.js'), 'export {};');
   return root;
 }
+
+export interface IApiReply {
+  readonly status: number;
+  readonly body: unknown;
+}
+
+/** Log in with the access code the way a browser does; each call can leave out the cookie or the write header. */
+export async function loginClient(started: IHarness) {
+  const gui = started.local.gui!;
+  const login = await fetch(new URL('/__monitor_login', gui.url), {
+    method: 'POST',
+    body: new URLSearchParams({ code: gui.accessCode }),
+    redirect: 'manual',
+  });
+  const base = new URL(`${login.headers.get('location')!}api/`, gui.url);
+  const cookie = login.headers.get('set-cookie')!.split(';')[0]!;
+  return {
+    send: async (
+      method: string,
+      path: string,
+      body?: unknown,
+      { cookie: withCookie = true, write = true } = {},
+    ): Promise<IApiReply> => {
+      const response = await fetch(new URL(path, base), {
+        method,
+        headers: {
+          ...(withCookie && { cookie }),
+          ...(body !== undefined && { 'content-type': 'application/json' }),
+          ...(write && method !== 'GET' && { 'x-robota-api': '1' }),
+        },
+        ...(body !== undefined && { body: JSON.stringify(body) }),
+      });
+      return { status: response.status, body: await response.json().catch(() => null) };
+    },
+  };
+}

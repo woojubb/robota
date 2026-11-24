@@ -303,6 +303,26 @@ export interface ITaskOffersView {
   readonly issues: readonly string[];
 }
 
+/** A request to start a task, kept by the agent before any goal exists. */
+export interface ITaskLaunchView {
+  readonly id: string;
+  readonly definitionId: string;
+  readonly definitionRevision: number;
+  readonly status: 'reserved' | 'launched' | 'failed' | 'cancelled';
+  readonly goalId?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/** What starting a task answers: the launch, and the goal made for it. */
+export interface ITaskStartAnswer {
+  readonly launch: ITaskLaunchView;
+  readonly goalId: string;
+}
+
+/** The values the person gave a task, by the input's name. */
+export type TTaskStartValues = Readonly<Record<string, string | number>>;
+
 export interface IBrowserActivityView {
   readonly at: string;
   readonly action: 'open' | 'click' | 'type' | 'submit' | 'stop' | 'failed';
@@ -538,6 +558,14 @@ export interface IPersonalApi {
   taskDefinitions(): Promise<readonly ITaskDefinitionView[]>;
   /** The offers made to the person, open ones first, and anything the agent could not read. */
   taskOffers(): Promise<ITaskOffersView>;
+  /**
+   * Start a task the agent said is ready. One key is one request: sending the same key again, for
+   * whatever reason, answers the same launch and goal.
+   */
+  startTask(
+    definitionId: string,
+    request: { readonly idempotencyKey: string; readonly inputs: TTaskStartValues },
+  ): Promise<ITaskStartAnswer>;
   browser(): Promise<IBrowserWatchView>;
   browserScreenshot(): Promise<IBrowserScreenshotView | null>;
   stopBrowser(): Promise<unknown>;
@@ -729,6 +757,8 @@ export function createPersonalApi(
     taskDefinitions: async () =>
       (await call<{ definitions: ITaskDefinitionView[] }>('GET', 'tasks/definitions')).definitions,
     taskOffers: () => call('GET', 'tasks/offers'),
+    startTask: (definitionId, request) =>
+      call('POST', `tasks/definitions/${id(definitionId)}/start`, request),
     browser: () => call('GET', 'browser'),
     browserScreenshot: async () =>
       (await call<{ screenshot: IBrowserScreenshotView | null }>('GET', 'browser/screenshot'))

@@ -1,6 +1,7 @@
 /**
  * The task catalog behind the web UI: what the person can browse and what has been offered to them,
- * through the same owner-authenticated API as everything else. Both routes only read.
+ * through the same owner-authenticated API as everything else. Both routes only read; starting a task
+ * is a route of its own, with its own tests.
  */
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

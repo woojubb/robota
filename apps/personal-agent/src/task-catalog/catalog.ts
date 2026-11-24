@@ -4,9 +4,10 @@
  * definitions. It lists and checks; nothing here starts work.
  */
 import { BUILT_IN_DEFINITIONS } from './built-in.js';
-import { EMPTY_READINESS_CONTEXT, readinessOf } from './readiness.js';
+import { EMPTY_READINESS_CONTEXT, readinessOf, usableBindingsOf } from './readiness.js';
 import { parseOffer } from './validate-offer.js';
 
+import type { TBindingSource } from './bindings.js';
 import type { IReadinessContext } from './readiness.js';
 import type { ITaskCatalogStore } from './store.js';
 import type {
@@ -16,13 +17,24 @@ import type {
   ITaskDefinition,
   ITaskDefinitionListing,
   TOfferDecision,
+  TReadiness,
 } from './types.js';
+
+/** What the host judged about one task from one reading of what it can run now. */
+export interface ITaskAssessment {
+  readonly definition: ITaskDefinition;
+  readonly readiness: TReadiness;
+  /** The verified bindings the task would run on, read from the same context as its readiness. */
+  readonly bindings: readonly TBindingSource[];
+}
 
 export interface ITaskCatalog {
   /** Built-in definitions in the product's order, then the person's, each with its readiness. */
   listDefinitions(): Promise<readonly ITaskDefinitionListing[]>;
   /** The latest revision, or the named one; absent when the catalog holds none such. */
   getDefinition(id: string, revision?: number): Promise<ITaskDefinition | undefined>;
+  /** The latest revision of a task with its readiness and bindings as the host judges them now; absent for an unknown task. */
+  assess(id: string): Promise<ITaskAssessment | undefined>;
   /** Open offers first, then the rest, each newest first; an offer whose task revision left reads as withdrawn. */
   listOffers(): Promise<IOfferListing>;
   /**
@@ -78,6 +90,16 @@ export function createTaskCatalog(options: ITaskCatalogOptions): ITaskCatalog {
       return revision === undefined
         ? latest(matching)[0]
         : matching.find((definition) => definition.revision === revision);
+    },
+    assess: async (id) => {
+      const definition = latest((await held()).filter((entry) => entry.id === id))[0];
+      if (definition === undefined) return undefined;
+      const context = await readiness();
+      return {
+        definition,
+        readiness: readinessOf(definition, context),
+        bindings: usableBindingsOf(definition, context),
+      };
     },
     listOffers: async () => {
       const definitions = await held();
