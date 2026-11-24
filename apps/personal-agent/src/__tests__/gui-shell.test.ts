@@ -265,7 +265,7 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
       }
     });
 
-    it('opens Browse from the menu and shows the built-in tasks as unavailable, with nothing to start', async () => {
+    it('opens Browse from the menu and shows the page-check task as ready and the other built-in tasks as unavailable, with nothing to start', async () => {
       harness = await startHarness({ gui: true });
       const { page, close } = await open(harness);
       try {
@@ -277,8 +277,20 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         expect(await main.getByRole('article').count()).toBe(4);
         const card = main.getByRole('article', { name: 'Catch up on a connected mailbox' });
         await card.getByText('Unavailable').waitFor();
-        await card.getByText('no verified capability binding yet').waitFor();
+        await card.getByText('no verified binding for mail.search yet').waitFor();
         await card.getByText('Search a connected mailbox').waitFor();
+        // Only the task that needs nothing but the agent's own browser can be ready, and this page's
+        // browser is the proof that one runs here.
+        const pageCheck = main.getByRole('article', { name: 'Check a fact on a page I give you' });
+        await pageCheck.getByText('Ready', { exact: true }).waitFor();
+        await pageCheck
+          .getByRole('list', { name: 'Access' })
+          .getByText(
+            "https pages the person names, read in the agent's own browser; nothing is submitted",
+          )
+          .waitFor();
+        expect(await main.getByText('Unavailable', { exact: true }).count()).toBe(3);
+        expect(await main.getByText('Ready', { exact: true }).count()).toBe(1);
         await main
           .getByRole('region', { name: 'Offers for you' })
           .getByText('No offers yet.')

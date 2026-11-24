@@ -13,9 +13,12 @@ on — in the person's own state directory.
   versioned promise of work: what it needs, the most it may do and how success is checked. An offer is a
   reason one definition is relevant to this person now. An offer can lapse, be dismissed or be superseded
   without the definition changing, and a published revision never changes.
-- **Nothing is startable, or called ready, until the host has verified what it needs.** A task is shown
-  as available only from the host's own check of its capability bindings; a service's description of its
-  tools creates no binding. Without a verified binding a definition is unavailable and says so.
+- **Nothing is called ready until the host has verified what it needs, every time it is shown.** The host
+  works out each definition as ready, needing one named setup step, or unavailable with its reason, from
+  bindings it maintains itself and the person's live connectors and browser. A service's tool names,
+  descriptions and read-only claims create or widen no binding, and a definition's or offer's words
+  change nothing. Values a task asks for are collected when the person starts it, so they are no part of
+  that answer.
 - **Source text stays data.** An offer's reason, suggestions and references are bounded values the person
   reads. Nothing turns them into a definition's instructions, a capability or a decision.
 - **The catalog is the owner's and local.** Built-in definitions ship with the product; offers and

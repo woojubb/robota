@@ -73,15 +73,27 @@ const offer = (change: Record<string, unknown> = {}): Record<string, unknown> =>
 });
 
 describe('the task catalog API', () => {
-  it('lists the built-in definitions, each unavailable for the one exact reason, and no offers', async () => {
-    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+  it('lists the built-in definitions, each unavailable for its own reason with no browser, and no offers', async () => {
+    harness = await startHarness({
+      gui: true,
+      webRoot: createFixtureWebRoot(),
+      browserAvailable: () => false,
+    });
     const api = await client(harness);
     const definitions = await api.send('GET', 'tasks/definitions');
     expect(definitions.status).toBe(200);
     expect(definitions.body.definitions).toEqual(
-      BUILT_IN_DEFINITIONS.map((definition) => ({
+      BUILT_IN_DEFINITIONS.map((definition, index) => ({
         ...definition,
-        readiness: { state: 'unavailable', reason: 'no verified capability binding yet' },
+        readiness: {
+          state: 'unavailable',
+          reason: [
+            'no verified binding for mail.search yet',
+            'no verified binding for calendar.read yet',
+            'no verified binding for mail.read yet',
+            'the local browser is not available on this machine',
+          ][index],
+        },
       })),
     );
     expect(await api.send('GET', 'tasks/offers')).toEqual({
@@ -90,8 +102,43 @@ describe('the task catalog API', () => {
     });
   });
 
+  it('lists the page-check task as ready, with its access, once a browser can run, and no other task', async () => {
+    let browser = true;
+    harness = await startHarness({
+      gui: true,
+      webRoot: createFixtureWebRoot(),
+      browserAvailable: () => browser,
+    });
+    const api = await client(harness);
+    const states = async () =>
+      (await api.send('GET', 'tasks/definitions')).body.definitions.map((entry: any) => [
+        entry.id,
+        entry.readiness.state,
+      ]);
+    expect(await states()).toEqual([
+      ['catch-up-on-mailbox', 'unavailable'],
+      ['prepare-my-week', 'unavailable'],
+      ['draft-reply-to-message', 'unavailable'],
+      ['check-fact-on-page', 'ready'],
+    ]);
+    const page = (await api.send('GET', 'tasks/definitions')).body.definitions[3];
+    expect(page.readiness).toEqual({
+      state: 'ready',
+      accesses: [
+        "https pages the person names, read in the agent's own browser; nothing is submitted",
+      ],
+    });
+    // Worked out again each time the list is asked for: no restart.
+    browser = false;
+    expect((await states())[3]).toEqual(['check-fact-on-page', 'unavailable']);
+  });
+
   it('shows the offers made to the person with their definition, without the dedupe key', async () => {
-    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    harness = await startHarness({
+      gui: true,
+      webRoot: createFixtureWebRoot(),
+      browserAvailable: () => false,
+    });
     const api = await client(harness);
     const { taskCatalog } = harness.capabilities;
     await taskCatalog.submitOffer(offer());

@@ -5,11 +5,20 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { BrowseView } from '../views/Browse.js';
 
-import type { IPersonalApi, ITaskDefinitionView, ITaskOfferView, ITaskOffersView } from '../api.js';
+import type {
+  IPersonalApi,
+  ITaskDefinitionView,
+  ITaskOfferView,
+  ITaskOffersView,
+  TTaskReadinessView,
+} from '../api.js';
 
 afterEach(cleanup);
 
-const READINESS = { state: 'unavailable', reason: 'no verified capability binding yet' } as const;
+const UNAVAILABLE: TTaskReadinessView = {
+  state: 'unavailable',
+  reason: 'no verified binding for mail.search yet',
+};
 
 const definition = (change: Partial<ITaskDefinitionView> = {}): ITaskDefinitionView => ({
   id: 'catch-up-on-mailbox',
@@ -34,7 +43,7 @@ const definition = (change: Partial<ITaskDefinitionView> = {}): ITaskDefinitionV
     kind: 'source-readback',
     description: 'Each message named in the summary is read back from the mailbox first.',
   },
-  readiness: READINESS,
+  readiness: UNAVAILABLE,
   ...change,
 });
 
@@ -48,6 +57,7 @@ const DEFINITIONS: readonly ITaskDefinitionView[] = [
     inputs: [],
     capabilities: ['calendar.read', 'goals.read'],
     completionEvidence: { kind: 'owner-confirmation', description: 'You confirm the plan.' },
+    readiness: { state: 'unavailable', reason: 'no verified binding for calendar.read yet' },
   }),
   definition({
     id: 'draft-reply-to-message',
@@ -58,6 +68,19 @@ const DEFINITIONS: readonly ITaskDefinitionView[] = [
     capabilities: ['mail.read', 'mail.draft'],
     effectCeiling: 'draft',
     completionEvidence: { kind: 'owner-confirmation', description: 'You read the draft.' },
+    readiness: {
+      state: 'needs-setup',
+      steps: [
+        { type: 'connect', kind: 'mail' },
+        {
+          type: 'allow-tool',
+          connectorId: 'connector-work-mail',
+          connectorTitle: 'Work mail',
+          tool: 'create_draft',
+          decision: 'write',
+        },
+      ],
+    },
   }),
   definition({
     id: 'check-fact-on-page',
@@ -66,6 +89,12 @@ const DEFINITIONS: readonly ITaskDefinitionView[] = [
     expectedResult: 'A yes, no or not-stated answer with the supporting passage.',
     inputs: [],
     capabilities: ['web.read'],
+    readiness: {
+      state: 'ready',
+      accesses: [
+        "https pages the person names, read in the agent's own browser; nothing is submitted",
+      ],
+    },
   }),
 ];
 
@@ -170,17 +199,127 @@ describe('the Browse view', () => {
     expect(card.getByText('May make changes, each one only after you approve it.')).toBeTruthy();
   });
 
-  it('marks every card Unavailable with the agent’s reason, and offers no way to start one', async () => {
+  it('marks each card Ready, Needs setup or Unavailable as the agent says, and offers no way to start one', async () => {
     render(<BrowseView api={fakeApi()} />);
     await screen.findAllByRole('article');
-    for (const card of screen.getAllByRole('article')) {
-      expect(within(card).getByText('Unavailable')).toBeTruthy();
-      expect(within(card).getByText('no verified capability binding yet')).toBeTruthy();
-    }
+    const chips = async (title: string) => {
+      const card = within(await cardOf(title));
+      return ['Ready', 'Needs setup', 'Unavailable'].filter(
+        (word) => card.queryByText(word) !== null,
+      );
+    };
+    expect(await chips('Catch up on a connected mailbox')).toEqual(['Unavailable']);
+    expect(await chips('Prepare my week')).toEqual(['Unavailable']);
+    expect(await chips('Draft a reply to a message I choose')).toEqual(['Needs setup']);
+    expect(await chips('Check a fact on a page I give you')).toEqual(['Ready']);
     expect(screen.queryByRole('button', { name: /start/i })).toBeNull();
     expect(screen.queryAllByRole('button')).toEqual([]);
     expect(screen.queryAllByRole('link')).toEqual([]);
     expect(screen.queryAllByRole('checkbox')).toEqual([]);
+  });
+
+  it('gives the reason an unavailable task is unavailable, and no steps or access', async () => {
+    render(<BrowseView api={fakeApi()} />);
+    const card = within(await cardOf('Catch up on a connected mailbox'));
+    expect(card.getByText('no verified binding for mail.search yet')).toBeTruthy();
+    expect(card.queryByRole('list', { name: 'Setup steps' })).toBeNull();
+    expect(card.queryByRole('list', { name: 'Access' })).toBeNull();
+    const week = within(await cardOf('Prepare my week'));
+    expect(week.getByText('no verified binding for calendar.read yet')).toBeTruthy();
+  });
+
+  it('lists the steps a task needs in plain words, one for each kind of step', async () => {
+    render(<BrowseView api={fakeApi()} />);
+    const reply = within(await cardOf('Draft a reply to a message I choose'));
+    expect(
+      within(reply.getByRole('list', { name: 'Setup steps' }))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      'Connect a mail service',
+      'Allow the tool create_draft for Work mail (each change still waits for your approval)',
+    ]);
+    expect(reply.queryByRole('list', { name: 'Access' })).toBeNull();
+    cleanup();
+    render(
+      <BrowseView
+        api={fakeApi({
+          definitions: [
+            definition({
+              readiness: {
+                state: 'needs-setup',
+                steps: [
+                  { type: 'connect', kind: 'calendar' },
+                  {
+                    type: 'choose-account',
+                    accounts: [
+                      { id: 'connector-a', title: 'Work mail' },
+                      { id: 'connector-b', title: 'Home mail' },
+                    ],
+                  },
+                  {
+                    type: 'allow-tool',
+                    connectorId: 'connector-a',
+                    connectorTitle: 'Work mail',
+                    tool: 'search_mail',
+                    decision: 'read',
+                  },
+                  { type: 'reconnect', connectorId: 'connector-a', connectorTitle: 'Work mail' },
+                ],
+              },
+            }),
+          ],
+        })}
+      />,
+    );
+    const steps = within(
+      within(await cardOf('Catch up on a connected mailbox')).getByRole('list', {
+        name: 'Setup steps',
+      }),
+    ).getAllByRole('listitem');
+    expect(steps.map((item) => item.textContent)).toEqual([
+      'Connect a calendar service',
+      'Choose which account to use: Work mail, Home mail',
+      'Allow the tool search_mail for Work mail',
+      'Reconnect Work mail',
+    ]);
+  });
+
+  it('lists the access a ready task would use, and no steps', async () => {
+    render(<BrowseView api={fakeApi()} />);
+    const page = within(await cardOf('Check a fact on a page I give you'));
+    const access = page.getByRole('list', { name: 'Access' });
+    expect(
+      within(access)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      "https pages the person names, read in the agent's own browser; nothing is submitted",
+    ]);
+    expect(page.getByText('Access')).toBeTruthy();
+    expect(page.queryByRole('list', { name: 'Setup steps' })).toBeNull();
+    expect(page.queryByText(/no verified binding/u)).toBeNull();
+  });
+
+  it('shows a name from a service, such as a tool or a title, as the plain text it is', async () => {
+    const hostile = '<img src=x onerror=alert(1)> **bold** [link](https://evil.example)';
+    const { container } = render(
+      <BrowseView
+        api={fakeApi({
+          definitions: [
+            definition({
+              readiness: {
+                state: 'needs-setup',
+                steps: [{ type: 'reconnect', connectorId: 'connector-a', connectorTitle: hostile }],
+              },
+            }),
+          ],
+        })}
+      />,
+    );
+    const card = within(await cardOf('Catch up on a connected mailbox'));
+    expect(card.getByText(`Reconnect ${hostile}`)).toBeTruthy();
+    expect(container.querySelector('a, img, strong, b, em')).toBeNull();
   });
 
   it('says there are no offers yet, under its own heading', async () => {

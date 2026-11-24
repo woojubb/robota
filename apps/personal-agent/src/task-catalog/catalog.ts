@@ -4,36 +4,19 @@
  * definitions. It lists and checks; nothing here starts work.
  */
 import { BUILT_IN_DEFINITIONS } from './built-in.js';
+import { EMPTY_READINESS_CONTEXT, readinessOf } from './readiness.js';
 import { parseOffer } from './validate-offer.js';
 
+import type { IReadinessContext } from './readiness.js';
 import type { ITaskCatalogStore } from './store.js';
 import type {
   IOffer,
   IOfferListing,
   IOfferView,
-  IReadiness,
   ITaskDefinition,
   ITaskDefinitionListing,
   TOfferDecision,
 } from './types.js';
-
-/**
- * The capability bindings the host has verified. The host verifies none, so the type admits none: a
- * definition could only become available through a binding passed here, and its shape is set by the
- * first one the host verifies.
- */
-export type THostBindings = readonly never[];
-
-export const UNAVAILABLE_REASON = 'no verified capability binding yet';
-
-/**
- * Whether the host can run a definition now. Until it has verified a binding for every operation the
- * definition names, the answer is unavailable, and it is computed from the arguments alone, so a
- * card can never claim more than the host handed in.
- */
-export function readinessOf(_definition: ITaskDefinition, _bindings: THostBindings): IReadiness {
-  return { state: 'unavailable', reason: UNAVAILABLE_REASON };
-}
 
 export interface ITaskCatalog {
   /** Built-in definitions in the product's order, then the person's, each with its readiness. */
@@ -56,13 +39,17 @@ export interface ITaskCatalogOptions {
   readonly store: ITaskCatalogStore;
   /** The shipped definitions; the product's own list unless a test supplies another. */
   readonly builtIn?: readonly ITaskDefinition[];
-  readonly bindings?: THostBindings;
+  /**
+   * What the host knows right now about what it can run, asked each time the list is shown so that a
+   * connector signing in or a tool decision changes the next answer. Without it nothing is verified.
+   */
+  readonly readiness?: () => Promise<IReadinessContext>;
 }
 
 export function createTaskCatalog(options: ITaskCatalogOptions): ITaskCatalog {
   const { store } = options;
   const builtIn = options.builtIn ?? BUILT_IN_DEFINITIONS;
-  const bindings: THostBindings = options.bindings ?? [];
+  const readiness = options.readiness ?? (async () => EMPTY_READINESS_CONTEXT);
   /** The built-in revisions, then the person's; a built-in id is never replaced by an installed one. */
   const held = async (): Promise<readonly ITaskDefinition[]> => {
     const taken = new Set(builtIn.map((definition) => definition.id));
@@ -79,11 +66,13 @@ export function createTaskCatalog(options: ITaskCatalogOptions): ITaskCatalog {
     return [...newest.values()];
   };
   return {
-    listDefinitions: async () =>
-      latest(await held()).map((definition) => ({
+    listDefinitions: async () => {
+      const context = await readiness();
+      return latest(await held()).map((definition) => ({
         ...definition,
-        readiness: readinessOf(definition, bindings),
-      })),
+        readiness: readinessOf(definition, context),
+      }));
+    },
     getDefinition: async (id, revision) => {
       const matching = (await held()).filter((definition) => definition.id === id);
       return revision === undefined
