@@ -1,16 +1,11 @@
 /**
  * The one table of what every product surface may be in secure mode, and the one gate
  * every listener opens through. Plain mode must not notice the gate: it opens exactly what it opened
- * before. Secure mode (still only reachable through the test seam) refuses a refused row before
- * anything binds, and opens the rows the design keeps.
+ * before. Secure mode refuses a refused row before anything binds, and opens the rows the design
+ * keeps.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import {
-  cleanupTestProductRuntimes,
-  createTestProductRuntime,
-} from '../../__tests__/helpers/product-runtime.js';
-import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import {
   LISTENER_SURFACES,
   PROCESS_SURFACES,
@@ -20,8 +15,6 @@ import {
 } from '../secure-surfaces.js';
 
 import type { TListenerSurface } from '../secure-surfaces.js';
-
-afterEach(() => cleanupTestProductRuntimes());
 
 /** The secure dispositions of the decided design (change 6), row by row. */
 const KEPT: Partial<Record<TListenerSurface, string>> = {
@@ -73,21 +66,19 @@ describe('startListener in plain mode', () => {
   it.each(LISTENER_SURFACES)(
     'opens %s once and hands back what opening returned',
     async (surface) => {
-      const runtime = createTestProductRuntime();
       const listener = { port: 4242 };
       const open = vi.fn(() => Promise.resolve(listener));
 
-      await expect(startListener(SECURE_SURFACES[surface], runtime, open)).resolves.toBe(listener);
+      await expect(startListener(SECURE_SURFACES[surface], false, open)).resolves.toBe(listener);
       expect(open).toHaveBeenCalledTimes(1);
     },
   );
 
   it('returns the promise opening returned, so a failure to bind is the same failure', async () => {
-    const runtime = createTestProductRuntime();
     const failure = Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' });
     const opening = Promise.reject(failure);
 
-    const started = startListener(SECURE_SURFACES['serve-http'], runtime, () => opening);
+    const started = startListener(SECURE_SURFACES['serve-http'], false, () => opening);
 
     expect(started).toBe(opening);
     await expect(started).rejects.toBe(failure);
@@ -100,13 +91,11 @@ describe('startListener in secure mode', () => {
   );
 
   it.each(refused)('refuses %s with its reason before anything binds', async (surface) => {
-    const runtime = createTestProductRuntime();
-    overrideProductSecureMode(runtime, true);
     const open = vi.fn(() => Promise.resolve('bound'));
     const rule = SECURE_SURFACES[surface];
 
     // A rejected promise, never a throw: a caller that only attaches `.catch` still sees it.
-    const started = startListener(rule, runtime, open);
+    const started = startListener(rule, true, open);
 
     await expect(started).rejects.toBeInstanceOf(SecureSurfaceRefusedError);
     await expect(started).rejects.toMatchObject({
@@ -119,25 +108,21 @@ describe('startListener in secure mode', () => {
   it.each(Object.keys(KEPT) as TListenerSurface[])(
     'opens %s, which secure mode keeps',
     async (surface) => {
-      const runtime = createTestProductRuntime();
-      overrideProductSecureMode(runtime, true);
       const open = vi.fn(() => Promise.resolve('bound'));
 
-      await expect(startListener(SECURE_SURFACES[surface], runtime, open)).resolves.toBe('bound');
+      await expect(startListener(SECURE_SURFACES[surface], true, open)).resolves.toBe('bound');
       expect(open).toHaveBeenCalledTimes(1);
     },
   );
 
-  it('reads the mode of the runtime it is given, not of another one', async () => {
-    const secure = createTestProductRuntime();
-    overrideProductSecureMode(secure, true);
-    const plain = createTestProductRuntime();
+  it('takes the decision it is given for each call, not one remembered from an earlier call', async () => {
     const open = vi.fn(() => Promise.resolve('bound'));
 
-    await expect(startListener(SECURE_SURFACES['serve-http'], plain, open)).resolves.toBe('bound');
-    await expect(startListener(SECURE_SURFACES['serve-http'], secure, open)).rejects.toBeInstanceOf(
+    await expect(startListener(SECURE_SURFACES['serve-http'], false, open)).resolves.toBe('bound');
+    await expect(startListener(SECURE_SURFACES['serve-http'], true, open)).rejects.toBeInstanceOf(
       SecureSurfaceRefusedError,
     );
-    expect(open).toHaveBeenCalledTimes(1);
+    await expect(startListener(SECURE_SURFACES['serve-http'], false, open)).resolves.toBe('bound');
+    expect(open).toHaveBeenCalledTimes(2);
   });
 });

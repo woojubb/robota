@@ -4,12 +4,13 @@ import { resetChildSessionsForTesting } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const pair = vi.hoisted(() => ({ answer: vi.fn() }));
-vi.mock('@robota-sdk/agent-local-host', async (loadOriginal) => ({
-  ...(await loadOriginal<typeof import('@robota-sdk/agent-local-host')>()),
+vi.mock('../supervised-spawner-pair.js', async (loadOriginal) => ({
+  ...(await loadOriginal<typeof import('../supervised-spawner-pair.js')>()),
   answerHandedOverSpawnerPair: pair.answer,
 }));
 
-import { answerSpawnerPairOrExit, SUPERVISED_SPAWNER_PAIR_FLAG } from '../secure-runtime-startup.js';
+import { answerSpawnerPairOrExit } from '../secure-runtime-startup.js';
+import { SUPERVISED_SPAWNER_PAIR_FLAG } from '../supervised-spawner-pair.js';
 
 afterEach(() => {
   vi.restoreAllMocks();

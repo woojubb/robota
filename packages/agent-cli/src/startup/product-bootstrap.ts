@@ -12,7 +12,7 @@ import { homedir } from 'node:os';
 import { robotaEnvironment } from '../../../../products/robota.mjs';
 
 import { createCliRuntimeContext } from '../product/runtime-context.js';
-import { readProductConversationMode } from '../secure/conversation-mode-state.js';
+import { readProductConversationMode } from '@robota-sdk/agent-local-host';
 
 import type {
   IEmbeddedProductIdentity,

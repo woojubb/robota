@@ -32,6 +32,12 @@ export { SUPERVISED_SPAWNER_PAIR_FLAG, answerHandedOverSpawnerPair } from './sup
 export { SUPERVISED_TRANSPORT_TOKEN_FD, SUPERVISED_TRANSPORT_TOKEN_FLAG, isSupervisedTransportToken, readSupervisedTransportToken } from './supervised-transport-token.js';
 export { RuntimeCustody } from './runtime-custody.js';
 export { armUncertifiedStop } from './uncertified-stop.js';
+export { LISTENER_SURFACES, SECURE_SURFACES, SecureSurfaceRefusedError, startListener } from './secure-surfaces.js';
+export type { TListenerRule, TListenerSurface } from './secure-surfaces.js';
+export { answerSpawnerPairOrExit, startSecureRuntimeOrExit } from './secure-runtime-startup.js';
+export type { ISecureRuntimeStart, ISecureServeRuntime } from './secure-runtime-startup.js';
+export { readProductConversationMode, writeProductConversationMode } from './conversation-mode-state.js';
+export type { TProductConversationMode } from './conversation-mode-state.js';
 export { secureWorkspaceRoot } from './workspace-root-selection.js';
 export { LOOPBACK_GUI_API_HEADER, startLoopbackGuiServer } from './loopback-gui-server.js';
 export type {

@@ -27,7 +27,8 @@ import {
 } from '@robota-sdk/agent-mcp/node';
 
 import { userLocalStorageRoot } from '../product/user-paths.js';
-import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
+import { SECURE_SURFACES, startListener } from '@robota-sdk/agent-local-host';
+import { productSecureMode } from '../product/session-sealing.js';
 import { openInBrowser } from './browser-opener.js';
 
 import type { ICommandMCPOAuthRedirectPrompt } from '@robota-sdk/agent-framework';
@@ -41,11 +42,11 @@ export function productOAuthCallbackListener(
 ): IMCPOAuthCallbackListener {
   return {
     listen: (options) =>
-      startListener(SECURE_SURFACES['oauth-callback'], productRuntime, () =>
+      startListener(SECURE_SURFACES['oauth-callback'], productSecureMode(productRuntime), () =>
         loopbackOAuthCallbackListener.listen(options),
       ),
     freePort: () =>
-      startListener(SECURE_SURFACES['oauth-callback'], productRuntime, () =>
+      startListener(SECURE_SURFACES['oauth-callback'], productSecureMode(productRuntime), () =>
         loopbackOAuthCallbackListener.freePort(),
       ),
   };

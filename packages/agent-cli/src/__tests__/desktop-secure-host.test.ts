@@ -6,12 +6,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
-import { requestWorkspaceRootBroker, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
+import {
+  requestWorkspaceRootBroker,
+  workspaceRootBrokerEndpoint,
+  writeProductConversationMode,
+} from '@robota-sdk/agent-local-host';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from './helpers/product-runtime.js';
 import { desktopConversationMode, openDesktopSecureOwner } from '../desktop-secure-host.js';
-import { writeProductConversationMode } from '../secure/conversation-mode-state.js';
 import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../secure/__tests__/helpers.js';
 import { resolveSupervisedDirectory, stopSupervisedSession } from '../session-inventory/supervised-session-control.js';
 import { startTestBroker } from './helpers/test-workspace-root-broker.js';

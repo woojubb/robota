@@ -33,7 +33,8 @@ import { PACKS_OWN_TOOL_SURFACE } from './product-profile.js';
 import type { ICliRuntimeContext } from './runtime-context.js';
 import { productUserSettingsPath } from './user-settings.js';
 import { withholdEnvironmentVariables } from './command-environment.js';
-import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
+import { SECURE_SURFACES, startListener } from '@robota-sdk/agent-local-host';
+import { productSecureMode } from './session-sealing.js';
 
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
@@ -157,7 +158,7 @@ export function createDefaultTransportRegistry(
       name: 'ws-observer',
       lifecycle: Object.freeze({ kind: 'service' as const }),
       start: () =>
-        startListener(SECURE_SURFACES['websocket-transport'], productRuntime, () => adapter.start()),
+        startListener(SECURE_SURFACES['websocket-transport'], productSecureMode(productRuntime), () => adapter.start()),
       stop: () => adapter.stop(),
     };
     if (observerRegistered) registry.replace(bound);
@@ -174,7 +175,7 @@ export function createDefaultTransportRegistry(
     const bound = {
       ...adapter,
       start: () =>
-        startListener(SECURE_SURFACES['websocket-transport'], productRuntime, () => adapter.start()),
+        startListener(SECURE_SURFACES['websocket-transport'], productSecureMode(productRuntime), () => adapter.start()),
     };
     if (registered) registry.replace(bound);
     else {

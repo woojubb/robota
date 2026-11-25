@@ -45,10 +45,9 @@ import {
   type TProcessOwnerLiveness,
 } from '@robota-sdk/agent-core/node';
 
-import { readWindowsProcessStartTime } from '@robota-sdk/agent-local-host';
+import { readProductConversationMode, readWindowsProcessStartTime } from '@robota-sdk/agent-local-host';
 
 import type { ICliRuntimeContext } from './runtime-context.js';
-import { readProductConversationMode } from '../secure/conversation-mode-state.js';
 
 const PROCESS_PREFIX = 'process-';
 const MIGRATION_PREFIX = 'migration-';

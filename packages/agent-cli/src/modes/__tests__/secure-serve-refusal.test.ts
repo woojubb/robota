@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { SECURE_SURFACES } from '../../secure/secure-surfaces.js';
+import { SECURE_SURFACES } from '@robota-sdk/agent-local-host';
 import { secureServeRefusal } from '../secure-serve-refusal.js';
 
 const none = {
