@@ -4,10 +4,11 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { lockSupervisedSession } from '@robota-sdk/agent-local-host';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { listSupervisedSessions, lockSupervisedSession, resolveSupervisedDirectory, startSupervisedControl, type ISupervisedControl } from '../../session-inventory/supervised-session-control.js';
+import { listSupervisedSessions, resolveSupervisedDirectory, startSupervisedControl, type ISupervisedControl } from '../../session-inventory/supervised-session-control.js';
 import { runSecureCommand } from '../secure-command.js';
 
 const controls: ISupervisedControl[] = [];

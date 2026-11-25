@@ -15,13 +15,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stopSupervisedSession } from '@robota-sdk/agent-local-host';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   listSupervisedExternalEvents,
   listSupervisedSessions,
   revokeSupervisedExternalEventGrant,
-  stopSupervisedSession,
 } from '../supervised-session-control.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 

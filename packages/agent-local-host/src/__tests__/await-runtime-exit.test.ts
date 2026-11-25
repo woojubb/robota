@@ -3,10 +3,10 @@ import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { readRegisteredProcessStartTime } from '@robota-sdk/agent-local-host';
 import { expect, it } from 'vitest';
 
-import { awaitRuntimeExit } from '../supervised-session-control.js';
+import { readRegisteredProcessStartTime } from '../supervised-control-carrier.js';
+import { awaitRuntimeExit } from '../supervised-control-client.js';
 
 /**
  * A runtime that ends itself closes its control before it answers a stop request, and its

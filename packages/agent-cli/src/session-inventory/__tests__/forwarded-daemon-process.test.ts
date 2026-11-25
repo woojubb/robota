@@ -15,6 +15,7 @@ import {
   openRegisteredSpawnerLink,
   requestWorkspaceRootBroker,
   startWorkspaceRootBroker,
+  stopSupervisedSession,
   workspaceRootBrokerEndpoint,
 } from '@robota-sdk/agent-local-host';
 import { completeSpawnerPair } from '@robota-sdk/agent-transport/link';
@@ -22,7 +23,7 @@ import { afterEach, expect, it } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { hostedFixture } from '../../hosted/__tests__/hosted-fixture.js';
-import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
+import { listSupervisedSessions, resolveSupervisedDirectory } from '../supervised-session-control.js';
 
 import type { ChildProcess } from 'node:child_process';
 
