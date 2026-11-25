@@ -144,11 +144,9 @@ own decision: it needs an interactive terminal and asks first, on the controllin
 standard input) or in the session view for the selected row, and holds that yes only for
 the process start it named, so a caller without a terminal, a model included, is told the command to
 suggest instead. Leaving, `/exit` included, only detaches this terminal and never stops the session;
-an attach begun from the view returns to it. It is one more surface
-under the session's ordinary co-drive, prompt and session-switching rules, never an operator
-approver, so a supervised session still refuses every mesh connection that needs one. Detaching or
-crashing ends only that connection: a turn in progress runs on, a prompt no other surface can
-answer is denied, and a reader that stops reading is cut off instead of holding the session. Automatic
+an attach begun from the view returns to it. The attach carrier and its guarantees are
+`agent-local-host`'s; detaching or crashing ends only that connection, a turn in progress runs on,
+and a prompt no other surface can answer is denied. Automatic
 restart is not offered, so no client's command stops or restarts a supervised session: it serves every
 other client, and nothing would start it again.
 A workspace's daemon is such a session, at most one per workspace even when starts race, marked so

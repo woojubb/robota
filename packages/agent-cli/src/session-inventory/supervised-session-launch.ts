@@ -1,4 +1,3 @@
-import { SupervisedControlPathTooLongError } from '@robota-sdk/agent-local-host';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { childProductEnvironment } from '../product/child-environment.js';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -16,7 +15,6 @@ import {
   withInspectorSignalDisabled,
 } from '../subagents/self-fork-worker-entry.js';
 import { RESTRICTED_WORKSPACE_FLAG } from '../startup/workspace-project-composition.js';
-import { SUPERVISED_SPAWNER_PAIR_FLAG } from './supervised-spawner-pair.js';
 import { FORWARDED_ENVIRONMENT_FLAG } from '../startup/forwarded-environment.js';
 import {
   discardSupervisedGrantHandoff,
@@ -26,9 +24,11 @@ import {
 } from './supervised-session-control.js';
 import {
   isSupervisedTransportToken,
+  SUPERVISED_SPAWNER_PAIR_FLAG,
   SUPERVISED_TRANSPORT_TOKEN_FD,
   SUPERVISED_TRANSPORT_TOKEN_FLAG,
-} from './supervised-transport-token.js';
+  SupervisedControlPathTooLongError,
+} from '@robota-sdk/agent-local-host';
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 

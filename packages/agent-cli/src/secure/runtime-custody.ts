@@ -34,10 +34,9 @@ import {
   type TOwnerControlResult,
 } from '@robota-sdk/agent-transport/link';
 
-import { KeyringStoreError } from '@robota-sdk/agent-local-host';
+import { KeyringStoreError, MAX_ATTACHED_SURFACES } from '@robota-sdk/agent-local-host';
 import { LinkSession } from './link-session.js';
 import { isOwnerControlAct } from './owner-input.js';
-import { MAX_ATTACHED_SURFACES } from '../session-inventory/supervised-attach.js';
 
 import type { Duplex } from 'node:stream';
 
@@ -45,10 +44,11 @@ import type {
   IRuntimeAdmission,
   IRuntimeAdmissionContext,
   IRuntimeAdmissionStatus,
+  KeyHolder,
+  SecureWorkspaceRootFence,
   TRuntimeAdmissionFactory,
-} from '../session-inventory/runtime-admission.js';
-import type { TSupervisedAttachTarget } from '../session-inventory/supervised-attach.js';
-import type { KeyHolder, SecureWorkspaceRootFence } from '@robota-sdk/agent-local-host';
+  TSupervisedAttachTarget,
+} from '@robota-sdk/agent-local-host';
 
 export interface IRuntimeCustodyOptions {
   /** This runtime's identity, whose spawner exchange has already run. */
