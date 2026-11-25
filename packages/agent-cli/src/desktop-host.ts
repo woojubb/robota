@@ -10,6 +10,8 @@ import type { IProductCliArtifact } from './product/artifact.js';
 
 export { openDesktopSecureOwner } from './desktop-secure-host.js';
 export type { IDesktopSecureOwnerOptions, TDesktopSecureSecret } from './desktop-secure-host.js';
+export { resolveDesktopSecureLayout } from './desktop-secure-layout.js';
+export type { IDesktopSecureLayout } from './desktop-secure-layout.js';
 
 export interface IDesktopCliResult {
   readonly exitCode: number | null;
