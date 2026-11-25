@@ -1,11 +1,12 @@
-import { childProductEnvironment } from '../product/child-environment.js';
 import {
   startForwardedRuntime,
   startPlainRuntime,
   startSpawnerRuntime,
   type IRuntimeStartRequest,
   type TPreparedForwardedEnvironment,
-} from './runtime-process-launch.js';
+} from '@robota-sdk/agent-local-host';
+
+import { childProductEnvironment } from '../product/child-environment.js';
 import { cliGrantHandoff, cliRuntimeCommand, cliRuntimeLayout } from './runtime-start-layout.js';
 import { isSupervisedSessionName } from './supervised-session-control.js';
 
