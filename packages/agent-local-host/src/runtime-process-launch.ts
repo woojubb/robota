@@ -1,8 +1,8 @@
 /**
  * Starting a runtime process and waiting until it says it is ready: the handshake with the child over
  * its ipc channel, its stderr tail, the pipes a transport token and a spawner pair travel on, a
- * forwarded descriptor, and ending a start that failed. It imports nothing of the CLI package: the command,
- * the argument layout, the token names, the refusal copy and the grant handoff come in through the
+ * forwarded descriptor, and ending a start that failed. It knows no product: the command, the
+ * argument layout, the token names, the refusal copy and the grant handoff come in through the
  * request, so the product's flags, variables, paths and wording stay with the caller.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -15,11 +15,8 @@ import { completeSpawnerPair, type ISpawnerPairResult } from '@robota-sdk/agent-
 import { scrubSecrets } from '@robota-sdk/agent-core';
 import { withChildSession } from '@robota-sdk/agent-core/node';
 
-import {
-  isSupervisedTransportToken,
-  SUPERVISED_TRANSPORT_TOKEN_FD,
-  SupervisedControlPathTooLongError,
-} from '@robota-sdk/agent-local-host';
+import { SupervisedControlPathTooLongError } from './supervised-control-carrier.js';
+import { isSupervisedTransportToken, SUPERVISED_TRANSPORT_TOKEN_FD } from './supervised-transport-token.js';
 
 /** What a runtime process receives on its private channel: the whole admitted environment, no more. */
 export const MAX_FORWARDED_ENVIRONMENT_BYTES = 128 * 1024;
@@ -84,11 +81,10 @@ function hasExited(child: ChildProcess): boolean {
 }
 
 /**
- * The tail of what the child wrote to stderr before it died — the real reason (e.g.
- * "No provider configuration found...", before setup mode existed to avoid it entirely; still the
- * reason for anything else that kills the child early), where a plain "the readiness channel closed"
- * or "the process exited" said nothing a caller — a daemon start with JSON output, the desktop fatal
- * screen — could act on. Bounded so one runaway child cannot grow this without limit.
+ * The tail of what the child wrote to stderr before it died — the real reason it was killed early,
+ * where a plain "the readiness channel closed" or "the process exited" said nothing a caller — one
+ * that prints structured output, or one that shows a fatal-error screen — could act on. Bounded so
+ * one runaway child cannot grow this without limit.
  */
 const STDERR_TAIL_LIMIT = 4_000;
 /** Keeps the reported message readable — the failing line is almost always near the end. */
@@ -155,7 +151,7 @@ function lastLines(text: string, maxLines: number): string {
 }
 
 /**
- * Before a captured stderr tail leaves this process (a daemon start's JSON output, the desktop fatal
+ * Before a captured stderr tail leaves this process (a caller's structured output or its fatal-error
  * screen) it is never shown raw: (a) ANSI/control characters, (b) this process's own env-credential
  * values, and (c) `scrubSecrets`'s known secret patterns (agent-core) are stripped, in that order, then
  * (d) only the last ~20 lines are kept. The child inherits this process's full environment, so (a)+(b)
@@ -323,7 +319,7 @@ export async function startSpawnerRuntime(
   return result;
 }
 
-/** Forward a desktop spawner's inherited pair without reading or certifying it. */
+/** Forward a spawner's pair, inherited from the process that started this one, without reading or certifying it. */
 export async function startForwardedRuntime(
   cwd: string,
   request: IRuntimeStartRequest,

@@ -1,6 +1,9 @@
 import {
   SUPERVISED_SPAWNER_PAIR_FLAG,
   SUPERVISED_TRANSPORT_TOKEN_FLAG,
+  type IRuntimeStartCommand,
+  type IRuntimeStartHandoff,
+  type IRuntimeStartLayout,
 } from '@robota-sdk/agent-local-host';
 
 import { FORWARDED_ENVIRONMENT_FLAG } from '../startup/forwarded-environment.js';
@@ -18,11 +21,6 @@ import {
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
-import type {
-  IRuntimeStartCommand,
-  IRuntimeStartHandoff,
-  IRuntimeStartLayout,
-} from './runtime-process-launch.js';
 
 /** Where a runtime's external-event endpoint listens, and the proxies it trusts. */
 interface ICliEventEndpoint {
