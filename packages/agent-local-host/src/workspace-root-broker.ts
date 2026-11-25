@@ -19,9 +19,9 @@ import {
   createNodeWorkspaceTrustStore,
 } from '@robota-sdk/agent-framework/node';
 import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
-import { WindowsControlPipeServer, type IControlChannel } from '@robota-sdk/agent-local-host';
 
 import { BROKER_LOCK_NAME, removeBrokerNamespaceDirectory } from './workspace-root-broker-directory.js';
+import { WindowsControlPipeServer, type IControlChannel } from './windows-control-pipe.js';
 
 import type { IProcessMarkerHandle } from '@robota-sdk/agent-core';
 import type { IWorkspaceIdentity, IWorkspaceIdentityResolver } from '@robota-sdk/agent-framework';

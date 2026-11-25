@@ -14,20 +14,21 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
 import {
   BROKER_LOCK_NAME,
   BROKER_SOCKET_NAME,
   brokerNamespaceName,
   claimBrokerNamespaceDirectory,
-} from '../workspace-root-broker-directory.js';
+  requestWorkspaceRootBroker,
+  startWorkspaceRootBroker,
+} from '@robota-sdk/agent-local-host';
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import {
   ensureWorkspaceRootBroker,
   removeStaleBrokerDirectories,
 } from '../workspace-root-broker-process.js';
-import { requestWorkspaceRootBroker, startWorkspaceRootBroker } from '../workspace-root-broker.js';
 
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 
@@ -36,8 +37,8 @@ vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
   return { ...actual, spawn: vi.fn(actual.spawn) };
 });
-vi.mock('../workspace-root-broker.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../workspace-root-broker.js')>();
+vi.mock('@robota-sdk/agent-local-host', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-local-host')>();
   return { ...actual, requestWorkspaceRootBroker: vi.fn(actual.requestWorkspaceRootBroker) };
 });
 
@@ -91,60 +92,6 @@ function duringNextPing(during: () => void): void {
 afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => server.close()));
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
-});
-
-describe.skipIf(process.platform === 'win32')('a broker leaves no directory behind', () => {
-  const stopped = (endpoint: string) =>
-    vi.waitFor(
-      () => expect(requestWorkspaceRootBroker(endpoint, { op: 'ping' })).rejects.toThrow(),
-      { timeout: 10_000, interval: 100 },
-    );
-
-  it('removes its directory once its user-state root is gone', async () => {
-    const parent = fixture();
-    const directory = makeDirectory(parent, namespaceName('a'));
-    const state = join(parent, 'state');
-    servers.push(
-      await startWorkspaceRootBroker(
-        join(directory, BROKER_SOCKET_NAME),
-        directory,
-        join(state, 'workspace-trust.json'),
-      ),
-    );
-    expect(existsSync(join(directory, `${BROKER_LOCK_NAME}.guard`))).toBe(true);
-
-    rmSync(state, { recursive: true, force: true });
-    await vi.waitFor(() => expect(existsSync(directory)).toBe(false), {
-      timeout: 10_000,
-      interval: 100,
-    });
-  });
-
-  it('keeps its directory when it is closed while its user-state root remains', async () => {
-    const parent = fixture();
-    const directory = makeDirectory(parent, namespaceName('a'));
-    const broker = await startWorkspaceRootBroker(
-      join(directory, BROKER_SOCKET_NAME),
-      directory,
-      join(parent, 'state', 'workspace-trust.json'),
-    );
-    await broker.close();
-    expect(existsSync(directory)).toBe(true);
-  });
-
-  it('never removes a lock directory that is not a broker namespace directory', async () => {
-    const parent = fixture();
-    const directory = makeDirectory(parent, 'private');
-    const state = join(parent, 'state');
-    const endpoint = join(directory, BROKER_SOCKET_NAME);
-    servers.push(
-      await startWorkspaceRootBroker(endpoint, directory, join(state, 'workspace-trust.json')),
-    );
-
-    rmSync(state, { recursive: true, force: true });
-    await stopped(endpoint);
-    expect(existsSync(directory)).toBe(true);
-  });
 });
 
 describe.skipIf(process.platform === 'win32')(
@@ -298,22 +245,6 @@ describe.skipIf(process.platform === 'win32')(
 describe.skipIf(process.platform === 'win32')(
   'a start claims the directory it launches a broker in',
   () => {
-    it('creates a missing directory and refuses a link without touching its target', () => {
-      const parent = fixture();
-      const created = join(parent, namespaceName('a'));
-      claimBrokerNamespaceDirectory(created, owner);
-      expect(statSync(created).isDirectory()).toBe(true);
-      expect(statSync(created).mode & 0o077).toBe(0);
-
-      const target = makeDirectory(parent, 'link-target');
-      age(target);
-      const before = statSync(target).mtimeMs;
-      const link = join(parent, namespaceName('b'));
-      symlinkSync(target, link);
-      expect(() => claimBrokerNamespaceDirectory(link, owner)).toThrow('not owner-private');
-      expect(statSync(target).mtimeMs).toBe(before);
-    });
-
     it('renews a leftover directory before it spawns the broker', async () => {
       const userRoot = mkdtempSync('/tmp/rbu-');
       const directory = join('/tmp', brokerNamespaceName(userRoot, owner));

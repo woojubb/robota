@@ -1,10 +1,10 @@
+import { startWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { isSubagentWorkerModeArgv } from '@robota-sdk/agent-subagent-runner';
 import { installCliDiagnostics } from './bootstrap-diagnostics.js';
 import { installCliCrashPolicy } from './cli-crash-policy.js';
 import { startCli } from './cli.js';
 import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
 import { optionArgv } from './utils/option-argv.js';
-import { startWorkspaceRootBroker } from './startup/workspace-root-broker.js';
 import { SECURE_SURFACES, startListener } from './secure/secure-surfaces.js';
 import type { IStartCliOptions } from './startup/cli-options-types.js';
 

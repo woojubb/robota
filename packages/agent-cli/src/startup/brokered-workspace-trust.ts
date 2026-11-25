@@ -22,15 +22,15 @@ import {
   type TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import { createNodeWorkspaceIdentityResolver } from '@robota-sdk/agent-framework/node';
-
-import { ensureWorkspaceRootBroker } from './workspace-root-broker-process.js';
 import {
+  SyncWorkspaceRootBrokerClient,
   isRemovalBudget,
   requestWorkspaceRootBroker,
   type TWorkspaceRootBrokerMutation,
   type TWorkspaceRootBrokerResponse,
-} from './workspace-root-broker.js';
-import { SyncWorkspaceRootBrokerClient } from './workspace-root-broker-sync.js';
+} from '@robota-sdk/agent-local-host';
+
+import { ensureWorkspaceRootBroker } from './workspace-root-broker-process.js';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 

@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { afterEach, expect, it } from 'vitest';
 
 import { stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
@@ -12,7 +13,6 @@ import { restartProductEnvironment } from '../../product/restart-environment.js'
 import { createProductUserSettingsSources } from '../../product/user-settings.js';
 import { prepareForwardedEnvironment, validateForwardedEnvironment } from '../early-forwarded-daemon.js';
 import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
-import { requestWorkspaceRootBroker } from '../workspace-root-broker.js';
 
 const roots: string[] = [];
 afterEach(async () => {

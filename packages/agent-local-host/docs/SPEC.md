@@ -2,13 +2,15 @@
 
 ## Purpose
 
-Provides Node hosts with the local authority needed to share secure runtime custody without importing a product entry point: the keyring file store, the key holder that is a process's only place for unlocked keys, the artifact sealers built on it, the passphrase rule, the owner-private session directory and control carrier through which a supervised runtime is registered and reached, the proof that a registered runtime is the daemon serving a workspace, and the loopback server that shows a product's built web GUI only after a one-time access code. Any product composition root that protects local state composes these; none of them chooses a product path, and only the GUI server asks a person for anything: the access code the product printed.
+Provides Node hosts with the local authority needed to share secure runtime custody without importing a product entry point: the keyring file store, the key holder that is a process's only place for unlocked keys, the artifact sealers built on it, the passphrase rule, the owner-private session directory and control carrier through which a supervised runtime is registered and reached, the proof that a registered runtime is the daemon serving a workspace, the workspace-root broker that retains the folders a person approved and performs project file operations against them, the one physical root secure clients and runtimes fence, and the loopback server that shows a product's built web GUI only after a one-time access code. Any product composition root that protects local state composes these; none of them chooses a product path, and only the GUI server asks a person for anything: the access code the product printed.
 
 ## Contract
 
 A keyring store reads a regular file, refuses links and foreign ownership where the host can verify ownership, and bounds input before parsing it. A mutation uses a file lock and checks the expected keyring before replacement. The store verifies the result and reports a failure when it cannot confirm the write; a reported failure may still have changed the file.
 
 Supervised-runtime registrations are untrusted discovery metadata. A registration is read only from an owner-private directory and from a regular file the user owns, never through a link. A runtime is controlled only after its recorded process start time proves it alive and the selected generation still matches, and a daemon is named only after an authenticated status exchange reports that it serves the workspace. A registration that is not known dead and whose control cannot be proven refuses discovery instead of being skipped, and two daemons for one workspace refuse as ambiguous.
+
+The workspace-root broker retains the exact folder object a person approved, and every project file operation compares its opened root with it. A broker lives only as long as the user-state root its approvals belong to and leaves nothing under its shared directory when that ends, so removing that root, like a broker or OS restart, requires one new approval per root. Because it holds the project root it also takes the checkpoint writer's exclusive lease, its atomic directory claims and the removals that let deleting a project session take everything the session left; a lease ends when its trust lease is revoked, when the broker closes or when the process that took it is gone, so a crashed client never leaves a live-looking writer owned by the long-lived broker. Secure clients and runtimes fence the same physical Git root, or the exact folder outside one.
 
 ## Invariants
 
@@ -20,10 +22,12 @@ The store never logs or reports keyring content. It rejects an observed change t
 
 ## Non-goals
 
-The store does not choose product paths, collect a passphrase, unlock a keyring, or decide which process receives owner authority. The composition root owns these decisions. The prover does not authenticate a control link itself: the opener the composition root supplies must authenticate the selected binding before it returns a link.
+The store does not choose product paths, collect a passphrase, unlock a keyring, or decide which process receives owner authority. The composition root owns these decisions. The broker cannot authenticate a person over its same-user IPC, so a direct local client can create a new approval; asking the person is the composition root's. The prover does not authenticate a control link itself: the opener the composition root supplies must authenticate the selected binding before it returns a link.
 
 ## Design decisions
 
 From the first unlock in a process the key holder seals to the sealing key that unlock verified, locked or not, even when the repair of the file cannot be written. Before that first unlock a locked writer can only seal to the key the file holds; that is an accepted weakness, caught at the next unlock and visible meanwhile through the fingerprint. An append-only writer reuses one data key per store for a writer epoch because one public-key operation per line was measured too slow to read back; the epoch ends as soon as the verified key is not the one its data key was sealed to, and at every lock, because a writer's data key reads every line sealed under it and so is key material like any other.
 
 The lock can be taken over after its stale bound even if its former holder is still alive. The final ownership and content checks are separate from the filesystem replacement, so a stalled or non-cooperating writer can change the file between them. The store does not provide an atomic compare-and-swap or an unconditional guarantee against restoring an older keyslot. On filesystems without hard links, creation also relies on a separate absence check and replacement.
+
+A broker started by an older host refuses an operation added since as malformed, having done nothing, and the protocol version stays fixed because a bump would break the check that finds a live broker; telling the person to restart that broker is the composition root's.

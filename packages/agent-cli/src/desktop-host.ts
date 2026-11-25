@@ -1,11 +1,11 @@
 import { join } from 'node:path';
 
+import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { embeddedProductIdentity, productConfigEntries, scopeProductEnvironment } from '@robota-sdk/product-config';
 
 import { createProductCliHost } from './product-host.js';
 import { createCliRuntimeContext } from './product/runtime-context.js';
 import { workspaceRootBrokerEndpoint } from './startup/workspace-root-broker-process.js';
-import { requestWorkspaceRootBroker } from './startup/workspace-root-broker.js';
 
 import type { TConfigEnvironment } from '@robota-sdk/product-config';
 import type { IProductConfig } from '@robota-sdk/product-config';

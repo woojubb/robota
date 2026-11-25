@@ -1,7 +1,7 @@
 import { BrokeredWorkspaceTrustService } from '../../startup/brokered-workspace-trust.js';
-import { requestWorkspaceRootBroker } from '../../startup/workspace-root-broker.js';
 import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 import { spawn } from '@homebridge/node-pty-prebuilt-multiarch';
+import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { rmSync } from 'node:fs';
 import { dirname } from 'node:path';
 

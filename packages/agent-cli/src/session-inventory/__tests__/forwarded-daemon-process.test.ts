@@ -11,6 +11,7 @@ import { Duplex } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
+import { requestWorkspaceRootBroker, startWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { completeSpawnerPair } from '@robota-sdk/agent-transport/link';
 import { afterEach, expect, it } from 'vitest';
 
@@ -19,7 +20,6 @@ import { hostedFixture } from '../../hosted/__tests__/hosted-fixture.js';
 import { openRegisteredSpawnerLink } from '../owner-link-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
 import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
-import { requestWorkspaceRootBroker, startWorkspaceRootBroker } from '../../startup/workspace-root-broker.js';
 
 import type { ChildProcess } from 'node:child_process';
 
