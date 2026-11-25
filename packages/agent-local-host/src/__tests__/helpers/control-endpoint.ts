@@ -1,9 +1,9 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer, type Socket } from 'node:net';
+import { createServer } from 'node:net';
 import { join } from 'node:path';
 
 import { controlSocketPath, readRegisteredProcessStartTime, sessionDirectory } from '../../supervised-control-carrier.js';
-import { WindowsControlPipeServer } from '../../windows-control-pipe.js';
+import { WindowsControlPipeServer, type IControlChannel } from '../../windows-control-pipe.js';
 
 export const FIXTURE_GENERATION = 'AAAAAAAAAAAAAAAAAAAAAA';
 
@@ -35,7 +35,7 @@ export interface IControlEndpoint {
   readonly directory: string;
   /** Every request line received, exactly as it arrived and without its newline. */
   readonly lines: string[];
-  readonly connections: Socket[];
+  readonly connections: IControlChannel[];
   close(): Promise<void>;
 }
 
@@ -68,8 +68,8 @@ export async function startControlEndpoint(options: IControlEndpointOptions): Pr
   if (startedAt === undefined) throw new Error('Cannot establish the fixture process identity.');
   const directory = sessionDirectory(root, id);
   const lines: string[] = [];
-  const connections: Socket[] = [];
-  const onConnection = (socket: Socket): void => {
+  const connections: IControlChannel[] = [];
+  const onConnection = (socket: IControlChannel): void => {
     connections.push(socket);
     socket.on('error', () => socket.destroy());
     let received = '';
