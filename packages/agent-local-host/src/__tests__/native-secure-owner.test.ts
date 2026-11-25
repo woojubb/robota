@@ -63,6 +63,7 @@ vi.mock('@robota-sdk/agent-keyring', async (importOriginal) => {
   };
 });
 
+// The workspace fence, which every opening ends in or passes, exists on macOS and Linux only.
 const SUPPORTED = process.platform === 'darwin' || process.platform === 'linux';
 const ABORTED = 'The desktop window is no longer available.';
 const CHANGED = 'The secure conversation choice or keyring changed during unlock.';
@@ -156,7 +157,7 @@ afterEach(async () => {
   for (const home of homes.splice(0)) rmSync(home, { recursive: true, force: true, maxRetries: 10 });
 });
 
-describe('opening a native owner: what is refused before anything is unlocked', () => {
+describe.skipIf(!SUPPORTED)('opening a native owner: what is refused before anything is unlocked', () => {
   it('refuses a state whose conversations are not secure, before it reads the keyring', async () => {
     const s = await scenario({ mode: 'plain' });
     await expect(openNativeSecureOwner(options(s))).rejects.toThrow('Secure conversations are not active for this product state.');
