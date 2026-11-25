@@ -6,7 +6,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  */
 import { createInterface } from 'node:readline/promises';
 
-import { BrokeredWorkspaceTrustService } from './brokered-workspace-trust.js';
+import { createBrokeredWorkspaceTrust } from './workspace-root-broker-composition.js';
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 
 import { subcommandWord, type IParsedCliArgs } from '../utils/cli-args.js';
@@ -101,7 +101,7 @@ export async function prepareWorkspaceTrustApproval(
   cwd: string,
   runtime: ICliRuntimeContext,
 ): Promise<{ candidate: string; grant(): Promise<TWorkspaceProjectAccess>; release(): Promise<void> }> {
-  const service = await BrokeredWorkspaceTrustService.create(runtime);
+  const service = await createBrokeredWorkspaceTrust(runtime);
   const candidate = await service.prepare(cwd);
   return {
     candidate,
@@ -115,7 +115,7 @@ export async function grantWorkspaceTrust(
   runtime: ICliRuntimeContext,
   candidate: string,
 ): Promise<TWorkspaceProjectAccess> {
-  return (await BrokeredWorkspaceTrustService.create(runtime)).grant(cwd, candidate);
+  return (await createBrokeredWorkspaceTrust(runtime)).grant(cwd, candidate);
 }
 
 /** The access this run starts with: the decision made, or a grant the person just gave. */

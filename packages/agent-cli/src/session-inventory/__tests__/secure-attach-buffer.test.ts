@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({ current: true, receive: undefined as undefined | ((message: unknown) => void) }));
-vi.mock('../../secure/workspace-root-fence.js', () => ({
+vi.mock('@robota-sdk/agent-local-host', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-local-host')>()),
   SecureWorkspaceRootFence: class {
     assertCurrent() { if (!state.current) throw new Error('Workspace root changed.'); }
     proof() { this.assertCurrent(); return { tag: 'root', generation: 1, trustTag: 'untrusted' }; }

@@ -7,7 +7,7 @@ import {
   createStableRootedFileReader,
 } from '@robota-sdk/agent-os/file-authority';
 
-import { SyncWorkspaceRootBrokerClient } from '@robota-sdk/agent-local-host';
+import { SyncWorkspaceRootBrokerClient } from './workspace-root-broker-sync.js';
 
 import type { IStableRootedFileReader } from '@robota-sdk/agent-os/file-authority';
 

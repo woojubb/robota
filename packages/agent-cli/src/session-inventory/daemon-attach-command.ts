@@ -20,7 +20,7 @@ import { findWorkspaceDaemon } from './daemon-command.js';
 import { proveWorkspaceDaemon } from './prove-workspace-daemon.js';
 import { runConfirmedAttach, type TAttachedAppRender } from './session-attach-command.js';
 import { openSecureAttach } from './secure-attach-client.js';
-import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-process.js';
+import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-composition.js';
 import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
 
 import type { openSupervisedAttach } from './supervised-attach-client.js';

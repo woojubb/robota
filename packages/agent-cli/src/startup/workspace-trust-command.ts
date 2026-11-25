@@ -6,7 +6,7 @@ import {
   type TWorkspaceProjectAccess,
   type WorkspaceTrustService,
 } from '@robota-sdk/agent-framework';
-import { BrokeredWorkspaceTrustService } from './brokered-workspace-trust.js';
+import { createBrokeredWorkspaceTrust } from './workspace-root-broker-composition.js';
 
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 import { trustQuestionFor } from './interactive-trust-prompt.js';
@@ -80,7 +80,7 @@ export async function runWorkspaceTrustCommand(
     return 1;
   }
   try {
-    const brokered = service === undefined ? await BrokeredWorkspaceTrustService.create(runtime) : undefined;
+    const brokered = service === undefined ? await createBrokeredWorkspaceTrust(runtime) : undefined;
     const trust = service ?? brokered!;
     if (action === 'release') {
       const index = argv.indexOf('--candidate');

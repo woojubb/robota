@@ -11,14 +11,13 @@ import {
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceTrustStore,
 } from '@robota-sdk/agent-framework/node';
-import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
+import { requestWorkspaceRootBroker, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import { statSync } from 'node:fs';
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createRemoteUrlReader, resolveLaunchInvocation, stripOpenInvocation } from './index.js';
 import { userPaths } from '../product/user-paths.js';
-import { workspaceRootBrokerEndpoint } from '../startup/workspace-root-broker-process.js';
 
 import type { IResolveLaunchInvocationDeps, TLaunchTargetTrust } from './index.js';
 
@@ -62,7 +61,7 @@ function createLaunchInvocationDeps(runtime: ICliRuntimeContext): IResolveLaunch
         return 'unknown';
       }
       try {
-        const endpoint = workspaceRootBrokerEndpoint(runtime);
+        const endpoint = workspaceRootBrokerEndpoint(runtime.layout.userRoot);
         const response = await requestWorkspaceRootBroker(endpoint, {
           op: 'inspect', root: identity.worktreeRoot,
         });

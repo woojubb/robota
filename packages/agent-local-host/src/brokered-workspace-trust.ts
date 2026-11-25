@@ -20,19 +20,17 @@ import {
   type TWorkspaceContributionKind,
   type TWorkspaceDirectoryRemoval,
   type TWorkspaceProjectAccess,
+  type TWorkspaceProjectStateDirectories,
 } from '@robota-sdk/agent-framework';
 import { createNodeWorkspaceIdentityResolver } from '@robota-sdk/agent-framework/node';
+
+import { SyncWorkspaceRootBrokerClient } from './workspace-root-broker-sync.js';
 import {
-  SyncWorkspaceRootBrokerClient,
   isRemovalBudget,
   requestWorkspaceRootBroker,
   type TWorkspaceRootBrokerMutation,
   type TWorkspaceRootBrokerResponse,
-} from '@robota-sdk/agent-local-host';
-
-import { ensureWorkspaceRootBroker } from './workspace-root-broker-process.js';
-
-import type { ICliRuntimeContext } from '../product/runtime-context.js';
+} from './workspace-root-broker.js';
 
 const KINDS = new Set(['file', 'directory', 'link', 'other']);
 
@@ -42,17 +40,23 @@ function refusal(response: TWorkspaceRootBrokerResponse): never {
 }
 
 /**
- * The broker's namespace is keyed by the user root, not by the CLI version, so a broker an older CLI
+ * What the composition root tells the person when a broker older than the host refuses an operation
+ * added since; `operation` completes "cannot ...". The host names its own process and how to end it.
+ */
+export type TStaleBrokerMessage = (operation: string) => string;
+
+/**
+ * The broker's namespace is keyed by the user root, not by the host version, so a broker an older host
  * started can still be serving. It does not know an operation added since and refuses it as
  * malformed, having done nothing; only restarting that broker cures it, so the person is told that.
  */
-function refusalOfNewOperation(response: TWorkspaceRootBrokerResponse, operation: string): never {
+function refusalOfNewOperation(
+  response: TWorkspaceRootBrokerResponse,
+  operation: string,
+  staleBrokerMessage: TStaleBrokerMessage,
+): never {
   if (response.status === 'refused' && response.reason === 'malformed') {
-    throw new WorkspaceAuthorityRequiredError(
-      `The running workspace-root broker is older than this CLI and cannot ${operation}. ` +
-        'Restart the workspace-root broker: end its process (started with --internal-root-broker), ' +
-        'then run the command again so a current broker starts.',
-    );
+    throw new WorkspaceAuthorityRequiredError(staleBrokerMessage(operation));
   }
   return refusal(response);
 }
@@ -60,8 +64,11 @@ function refusalOfNewOperation(response: TWorkspaceRootBrokerResponse, operation
 /** What a brokered directory removal achieved, from the broker's answer. */
 export function brokeredDirectoryRemoval(
   response: TWorkspaceRootBrokerResponse,
+  staleBrokerMessage: TStaleBrokerMessage,
 ): TWorkspaceDirectoryRemoval {
-  if (response.status !== 'mutation') return refusalOfNewOperation(response, 'remove directories');
+  if (response.status !== 'mutation') {
+    return refusalOfNewOperation(response, 'remove directories', staleBrokerMessage);
+  }
   switch (response.value) {
     case 'removed':
       return { status: 'removed' };
@@ -80,13 +87,17 @@ export function brokeredDirectoryRemoval(
 
 /**
  * Whether a brokered append appended, from the broker's answer. A creating append always does when it
- * answers at all (a broker an older CLI started sends no value for it); a non-creating one answers
+ * answers at all (a broker an older host started sends no value for it); a non-creating one answers
  * with a boolean, and anything else is refused rather than read as either.
  */
-export function brokeredAppend(response: TWorkspaceRootBrokerResponse, create: boolean): boolean {
+export function brokeredAppend(
+  response: TWorkspaceRootBrokerResponse,
+  create: boolean,
+  staleBrokerMessage: TStaleBrokerMessage,
+): boolean {
   if (!create) {
     if (response.status !== 'mutation')
-      return refusalOfNewOperation(response, 'append without creating');
+      return refusalOfNewOperation(response, 'append without creating', staleBrokerMessage);
     if (typeof response.value === 'boolean') return response.value;
   } else {
     if (response.status !== 'mutation') return refusal(response);
@@ -141,9 +152,20 @@ function brokeredWriterLease(
   });
 }
 
-/** A CLI-owned service whose only project file port crosses the live root broker. */
+export interface IBrokeredWorkspaceTrustOptions {
+  /** Where each kind of project state lives under a project root, as the composition root lays it out. */
+  readonly projectStateDirectories: TWorkspaceProjectStateDirectories;
+  /**
+   * Resolves the endpoint of the live broker, starting one when none answers. The composition root
+   * owns how the broker is launched; the service asks at creation and again before a revocation.
+   */
+  readonly ensureBroker: () => Promise<string>;
+  readonly staleBrokerMessage: TStaleBrokerMessage;
+}
+
+/** A host-owned service whose only project file port crosses the live root broker. */
 export class BrokeredWorkspaceTrustService {
-  readonly #runtime: ICliRuntimeContext;
+  readonly #ensureBroker: () => Promise<string>;
   readonly #endpoint: string;
   readonly #inner: WorkspaceTrustService;
   readonly #identities = new Map<string, IWorkspaceIdentity>();
@@ -151,8 +173,9 @@ export class BrokeredWorkspaceTrustService {
   readonly #sync: SyncWorkspaceRootBrokerClient;
   #pendingCandidate: string | undefined;
 
-  private constructor(runtime: ICliRuntimeContext, endpoint: string) {
-    this.#runtime = runtime;
+  private constructor(settings: IBrokeredWorkspaceTrustOptions, endpoint: string) {
+    const { staleBrokerMessage } = settings;
+    this.#ensureBroker = settings.ensureBroker;
     this.#endpoint = endpoint;
     this.#sync = new SyncWorkspaceRootBrokerClient(endpoint);
     const native = createNodeWorkspaceIdentityResolver();
@@ -294,6 +317,7 @@ export class BrokeredWorkspaceTrustService {
             return brokeredAppend(
               mutate(root, create ? 'append' : 'appendExisting', path, { content }),
               create,
+              staleBrokerMessage,
             );
           },
           delete: (path: string) => result(mutation(root, 'delete', path)) as boolean,
@@ -313,7 +337,9 @@ export class BrokeredWorkspaceTrustService {
           },
           claimDirectory: (path: string) => result(mutation(root, 'claimDirectory', path)) as boolean,
           removeDirectory: (path: string, options?: IWorkspaceDirectoryRemovalOptions) =>
-            brokeredDirectoryRemoval(mutate(root, 'removeDirectory', path, options)),
+            brokeredDirectoryRemoval(
+              mutate(root, 'removeDirectory', path, options), staleBrokerMessage,
+            ),
           acquireWriter: (path: string): IProcessMarkerHandle | undefined => {
             const response = sync({
               op: 'acquireWriter', lease: leaseFor(root), relativePath: path, owner: process.pid,
@@ -346,12 +372,12 @@ export class BrokeredWorkspaceTrustService {
     };
     this.#inner = new WorkspaceTrustService({
       identityResolver, store, projectFiles,
-      projectStateDirectories: runtime.layout.projectStateDirectories,
+      projectStateDirectories: settings.projectStateDirectories,
     });
   }
 
-  static async create(runtime: ICliRuntimeContext): Promise<BrokeredWorkspaceTrustService> {
-    return new BrokeredWorkspaceTrustService(runtime, await ensureWorkspaceRootBroker(runtime));
+  static async create(options: IBrokeredWorkspaceTrustOptions): Promise<BrokeredWorkspaceTrustService> {
+    return new BrokeredWorkspaceTrustService(options, await options.ensureBroker());
   }
 
   inspect(cwd: string): Promise<TWorkspaceProjectAccess> { return this.#inner.inspect(cwd); }
@@ -381,7 +407,7 @@ export class BrokeredWorkspaceTrustService {
   }
 
   async revoke(cwd: string): Promise<TWorkspaceProjectAccess> {
-    await ensureWorkspaceRootBroker(this.#runtime);
+    await this.#ensureBroker();
     return this.#inner.revoke(cwd);
   }
 

@@ -2,20 +2,19 @@ import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { expect, it } from 'vitest';
 
-import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
-import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
+import { requestWorkspaceRootBroker } from '../workspace-root-broker.js';
+import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
 import { SecureWorkspaceRootFence } from '../workspace-root-fence.js';
+import { startFixtureBroker, testProductState } from './helpers/fixture-broker.js';
 
 it.skipIf(process.platform !== 'darwin' && process.platform !== 'linux')('refuses a replacement at the same workspace path', async () => {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'secure-root-fence-')));
-  const runtime = createTestProductRuntime('test-product', createTestBinaryEnvironment(home));
-  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  const state = testProductState(home);
+  const endpoint = workspaceRootBrokerEndpoint(state.userRoot);
   mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
-  const broker = await startTestBroker(endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust);
+  const broker = await startFixtureBroker(endpoint, dirname(endpoint), state.historyFile);
   const root = join(home, 'workspace');
   mkdirSync(root);
   const fence = new SecureWorkspaceRootFence(root, endpoint, false);
@@ -36,12 +35,12 @@ it.skipIf(process.platform !== 'darwin' && process.platform !== 'linux')('refuse
 
 it.skipIf(process.platform !== 'darwin' && process.platform !== 'linux')('binds a native Restricted choice to the displayed folder through a replacement', async () => {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'restricted-root-fence-')));
-  const runtime = createTestProductRuntime('test-product', createTestBinaryEnvironment(home));
-  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  const state = testProductState(home);
+  const endpoint = workspaceRootBrokerEndpoint(state.userRoot);
   mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
   const root = join(home, 'workspace');
   mkdirSync(root);
-  const broker = await startTestBroker(endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust);
+  const broker = await startFixtureBroker(endpoint, dirname(endpoint), state.historyFile);
   try {
     const prepared = await requestWorkspaceRootBroker(endpoint, { op: 'prepare', root });
     if (prepared.status !== 'prepared') throw new Error('Preparation failed.');

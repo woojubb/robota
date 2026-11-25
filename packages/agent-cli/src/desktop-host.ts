@@ -1,11 +1,10 @@
 import { join } from 'node:path';
 
-import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
+import { requestWorkspaceRootBroker, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import { embeddedProductIdentity, productConfigEntries, scopeProductEnvironment } from '@robota-sdk/product-config';
 
 import { createProductCliHost } from './product-host.js';
 import { createCliRuntimeContext } from './product/runtime-context.js';
-import { workspaceRootBrokerEndpoint } from './startup/workspace-root-broker-process.js';
 
 import type { TConfigEnvironment } from '@robota-sdk/product-config';
 import type { IProductConfig } from '@robota-sdk/product-config';
@@ -54,14 +53,14 @@ export async function approveDesktopTrustCandidate(
 ): Promise<boolean> {
   // The CLI status request started the broker before the UI question. Never launch a child from
   // Electron here: process.execPath is the fused Electron binary, not the bundled CLI sidecar.
-  const endpoint = workspaceRootBrokerEndpoint(createCliRuntimeContext(config, environment));
+  const endpoint = workspaceRootBrokerEndpoint(createCliRuntimeContext(config, environment).layout.userRoot);
   return (await requestWorkspaceRootBroker(endpoint, {
     op: 'approve', candidate, root: question.folder,
   })).status === 'trusted';
 }
 
 const desktopBroker = (config: IProductConfig, environment: TConfigEnvironment) =>
-  workspaceRootBrokerEndpoint(createCliRuntimeContext(config, environment));
+  workspaceRootBrokerEndpoint(createCliRuntimeContext(config, environment).layout.userRoot);
 
 export async function prepareDesktopRestrictedRoot(
   config: IProductConfig, environment: TConfigEnvironment, root: string,

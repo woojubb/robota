@@ -20,13 +20,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
+import { workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
-import { BrokeredWorkspaceTrustService } from '../../startup/brokered-workspace-trust.js';
-import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
+import { createBrokeredWorkspaceTrust } from '../../startup/workspace-root-broker-composition.js';
 import { discoverProjectRoots, probeWithGit } from '../migration-roots.js';
 
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
@@ -46,7 +46,7 @@ beforeEach(() => {
 afterEach(async () => {
   await broker?.close();
   broker = undefined;
-  rmSync(dirname(workspaceRootBrokerEndpoint(runtime)), { recursive: true, force: true });
+  rmSync(dirname(workspaceRootBrokerEndpoint(runtime.layout.userRoot)), { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });
 });
 
@@ -81,13 +81,13 @@ function historyIn(project: string): void {
 
 async function trust(root: string): Promise<void> {
   if (broker === undefined) {
-    const endpoint = workspaceRootBrokerEndpoint(runtime);
+    const endpoint = workspaceRootBrokerEndpoint(runtime.layout.userRoot);
     mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
     broker = await startTestBroker(
       endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust,
     );
   }
-  const service = await BrokeredWorkspaceTrustService.create(runtime);
+  const service = await createBrokeredWorkspaceTrust(runtime);
   try {
     const candidate = await service.prepare(root);
     const access = await service.grant(root, candidate);

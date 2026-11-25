@@ -34,7 +34,7 @@ import {
 } from '@robota-sdk/agent-session/node';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
-import { BrokeredWorkspaceTrustService } from '../startup/brokered-workspace-trust.js';
+import { createBrokeredWorkspaceTrust } from '../startup/workspace-root-broker-composition.js';
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
 import type {
   IWorkspaceProjectAuthority,
@@ -254,7 +254,7 @@ export async function discoverProjectRoots(
   const store = createNodeWorkspaceTrustStore(runtime.layout.userPaths.workspaceTrust, {
     tightenOnRead: false,
   });
-  const service = await BrokeredWorkspaceTrustService.create(runtime);
+  const service = await createBrokeredWorkspaceTrust(runtime);
   const projectDirectory = runtime.layout.projectDirectory;
   const trusted: ITrustedProjectRoot[] = [];
   const listed: IListedProjectRoot[] = [];
