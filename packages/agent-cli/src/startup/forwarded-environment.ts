@@ -1,10 +1,10 @@
 import { Buffer } from 'node:buffer';
 
+import { MAX_FORWARDED_ENVIRONMENT_BYTES } from '../session-inventory/runtime-process-launch.js';
 import { optionArgv } from '../utils/option-argv.js';
 
 /** A forwarding launcher supplies only its admitted child environment on its private IPC channel. */
 export const FORWARDED_ENVIRONMENT_FLAG = '--supervised-forwarded-environment';
-const MAX_ENVIRONMENT_BYTES = 128 * 1024;
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 const HOSTED_DECISION_NAMES = new Set(['PRODUCT_RUNTIME_POSTURE', 'PRODUCT_HOSTED_RUNTIME_CONFIG']);
 const WAIT_MS = 20_000;
@@ -49,7 +49,7 @@ export async function receiveForwardedEnvironment(
           !Array.isArray(available) || available.length > MAX_REPORTED_CREDENTIAL_NAMES ||
           available.some((name: unknown) => typeof name !== 'string' || name.length > MAX_CREDENTIAL_NAME_LENGTH || !ENVIRONMENT_NAME.test(name)) ||
           new Set(available).size !== available.length ||
-          Buffer.byteLength(JSON.stringify({ environment: message.environment, available }), 'utf8') > MAX_ENVIRONMENT_BYTES) {
+          Buffer.byteLength(JSON.stringify({ environment: message.environment, available }), 'utf8') > MAX_FORWARDED_ENVIRONMENT_BYTES) {
         finish(() => reject(new Error('The forwarded runtime admission was malformed.')));
         return;
       }
