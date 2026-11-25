@@ -9,8 +9,8 @@
  * always the same few things: the owner's own request, the last attached client or grant owner
  * closing, a lock command that
  * needs no proof (taking access away is something anyone who could stop the runtime can do), and
- * fifteen minutes in which the owner did nothing. Locking never closes a link, and every change is
- * told to every link.
+ * fifteen minutes in which the owner did nothing. A lock ends every link admitted before it, the
+ * requester's only once its reply has gone out, and every change is told to every link.
  *
  * The socket, the request line and the commands answered from the runtime's own state belong to the
  * control endpoint; they meet here through `IRuntimeAdmission` and nowhere else.
@@ -34,21 +34,22 @@ import {
   type TOwnerControlResult,
 } from '@robota-sdk/agent-transport/link';
 
-import { KeyringStoreError, MAX_ATTACHED_SURFACES } from '@robota-sdk/agent-local-host';
+import { KeyringStoreError } from './keyring-store.js';
 import { LinkSession } from './link-session.js';
 import { isOwnerControlAct } from './owner-input.js';
+import { MAX_ATTACHED_SURFACES } from './supervised-attach.js';
 
 import type { Duplex } from 'node:stream';
 
+import type { KeyHolder } from './key-holder.js';
 import type {
   IRuntimeAdmission,
   IRuntimeAdmissionContext,
   IRuntimeAdmissionStatus,
-  KeyHolder,
-  SecureWorkspaceRootFence,
   TRuntimeAdmissionFactory,
-  TSupervisedAttachTarget,
-} from '@robota-sdk/agent-local-host';
+} from './runtime-admission.js';
+import type { TSupervisedAttachTarget } from './supervised-attach.js';
+import type { SecureWorkspaceRootFence } from './workspace-root-fence.js';
 
 export interface IRuntimeCustodyOptions {
   /** This runtime's identity, whose spawner exchange has already run. */
