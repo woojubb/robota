@@ -1,6 +1,8 @@
 import {
+  RuntimeCustody,
   SecureWorkspaceRootFence,
   SupervisedControlPathTooLongError,
+  armUncertifiedStop,
   secureWorkspaceRoot,
 } from '@robota-sdk/agent-local-host';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
@@ -50,9 +52,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import { startServeHttpHost, type IServeHttpHost } from './serve-http-host.js';
 import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
-import { RuntimeCustody } from '../secure/runtime-custody.js';
 import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-composition.js';
-import { armUncertifiedStop } from '../secure/uncertified-stop.js';
 import { secureServeRefusal } from './secure-serve-refusal.js';
 import type { ISecureServeRuntime } from '../startup/secure-runtime-startup.js';
 import type { IServeHttpOptions } from '../utils/serve-http-args.js';

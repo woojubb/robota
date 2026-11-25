@@ -7,7 +7,7 @@
  * short. Both rules end the moment the runtime is certified. The rules follow events, never a poll:
  * the custody's, and the sessions' own when their activity may have changed.
  */
-import type { IRuntimeAdmissionStatus } from '@robota-sdk/agent-local-host';
+import type { IRuntimeAdmissionStatus } from './runtime-admission.js';
 import type { TCustodyEvent } from './runtime-custody.js';
 
 /** How long a runtime waits for its spawner to link before it gives up. */

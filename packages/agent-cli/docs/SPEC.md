@@ -159,10 +159,11 @@ because the person who trusted it expects that configuration; a daemon that coul
 the lock that keeps racing starts apart is removed only by the start that took it or by the user. The
 plain transport's per-launch authentication token is never exposed through the control endpoint or
 inventory except by a daemon to a caller that named its start; the launcher passes it through a pipe
-because another program of the same user can read the environment. Before certification, a secure
-runtime lets its proven spawner start and drive its own sessions but reserves stored owner records for
-the proven owner; the spawner's authority ends at certification. Locking requires no proof because it
-only removes access.
+because another program of the same user can read the environment. Who is admitted on a secure
+runtime's control socket, whether its keys are open and when a runtime nothing certified ends itself
+are `agent-local-host`'s; the CLI gives that custody this runtime's identity and key holder, the
+sessions a bound link reaches, its workspace fence and its Restricted choice, and ends the runtime
+when a rule says so.
 
 Observability has two independently gated paths. `usage export` is an explicit,
 local-only action over the same authorized stores as local usage reporting: its aggregate usage,
