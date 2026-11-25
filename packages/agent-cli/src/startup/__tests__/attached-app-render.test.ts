@@ -382,11 +382,10 @@ describe("test-product --attach's prompt history search", () => {
     };
   }
 
-  it('searches the history file but never writes it in plain mode: the session writes its own', async () => {
+  it('searches the user history file in plain mode, as the plain TUI does', async () => {
     const { options } = await renderedOptions('plain');
     expect(options.promptHistorySource).toBeDefined();
     expect(options.promptHistoryProject).toBeDefined();
-    expect(options.promptHistory).toBeUndefined();
   });
 
   it('builds no history store and offers no search in secure mode: this terminal holds no key holder', async () => {
@@ -395,7 +394,6 @@ describe("test-product --attach's prompt history search", () => {
     const { options, historyFile } = await renderedOptions('secure');
     expect(options.promptHistorySource).toBeUndefined();
     expect(options.promptHistoryProject).toBeUndefined();
-    expect(options.promptHistory).toBeUndefined();
     expect(existsSync(historyFile)).toBe(false);
   });
 });

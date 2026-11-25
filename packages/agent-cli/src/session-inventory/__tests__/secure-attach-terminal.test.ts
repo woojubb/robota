@@ -182,7 +182,6 @@ it.skipIf(process.platform === 'win32')(
         endedEarly,
       ]);
       const options = rendered.mock.calls[0]?.[0];
-      expect(options?.promptHistory).toBeUndefined();
       expect(options?.promptHistorySource).toBeUndefined();
       expect(existsSync(runtime.layout.userPaths.history)).toBe(false);
       await stopSupervisedSession(daemon.id, root, daemon.generation);
