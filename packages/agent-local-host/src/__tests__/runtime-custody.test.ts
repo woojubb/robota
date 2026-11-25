@@ -1,9 +1,11 @@
 /**
- * A secure runtime's custody on a real control socket: the standing each kind of link has, what an
- * unlock does and what takes the keys away again. Every client is the real carrier's, over the real
- * endpoint, so what is admitted and what is refused is what a program on the socket meets.
+ * A secure runtime's custody on a real socket: the standing each kind of link has, what an unlock
+ * does and what takes the keys away again. Every client is the real link client, over the real
+ * handshake, so what is admitted and what is refused is what a program on the socket meets. The
+ * socket is served by the smallest endpoint the custody needs; a product's own control endpoint is
+ * tested with a real custody where it lives.
  */
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createConnection, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -38,19 +40,17 @@ import {
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import {
-  startSupervisedControl,
-  type ISupervisedControl,
-} from '../../session-inventory/supervised-session-control.js';
-import { KeyHolder, MAX_ATTACHED_SURFACES, type IKeyHolderTimer, type IKeyHolderTimers, type TLockReason } from '@robota-sdk/agent-local-host';
+import { KeyHolder, type IKeyHolderTimer, type IKeyHolderTimers, type TLockReason } from '../key-holder.js';
 import { RuntimeCustody } from '../runtime-custody.js';
+import { MAX_ATTACHED_SURFACES } from '../supervised-attach.js';
 import {
   FIXTURE_PASSPHRASE,
   OTHER_PASSPHRASE,
   createMemoryKeyringStore,
   withSwappedSealingKey,
   type IMemoryKeyringStore,
-} from './helpers.js';
+} from '../testing.js';
+import { startLinkEndpoint, type ILinkEndpoint } from './helpers/link-endpoint.js';
 
 import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface/session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
@@ -131,7 +131,6 @@ function directoryDouble(): { [K in keyof ISessionDirectory]: ReturnType<typeof 
 }
 
 interface IStarted {
-  readonly root: string;
   readonly socketPath: string;
   readonly custody: RuntimeCustody;
   readonly holder: KeyHolder;
@@ -150,7 +149,7 @@ interface IStarted {
 }
 
 const scratch: string[] = [];
-const controls: ISupervisedControl[] = [];
+const endpoints: ILinkEndpoint[] = [];
 const sockets: Socket[] = [];
 const clients: Array<{ close(): void }> = [];
 /** The socket each client was opened on, for a test that must stop one reading. */
@@ -160,7 +159,7 @@ afterEach(async () => {
   for (const client of clients.splice(0)) client.close();
   for (const socket of sockets.splice(0)) socket.destroy();
   socketOf.clear();
-  for (const control of controls.splice(0)) await control.close();
+  for (const endpoint of endpoints.splice(0)) await endpoint.close();
   for (const directory of scratch.splice(0)) rmSync(directory, { recursive: true, force: true });
 });
 
@@ -181,7 +180,6 @@ interface IStartOptions {
 async function start(options: IStartOptions = {}): Promise<IStarted> {
   const directoryPath = mkdtempSync(join(tmpdir(), 'rs-custody-'));
   scratch.push(directoryPath);
-  const root = join(directoryPath, 'supervised');
   const identity: IRuntimeIdentity = createRuntimeIdentity();
   const exchange = startSpawnerExchange();
   const { spawnerKey, instancePublicKey } = exchange.complete(
@@ -222,20 +220,24 @@ async function start(options: IStartOptions = {}): Promise<IStarted> {
       : { closeFlushTimeoutMs: options.closeFlushTimeoutMs }),
   });
   const rename = vi.fn();
-  controls.push(
-    await startSupervisedControl({
-      id: ID,
-      root,
-      onStop: () => undefined,
-      observe: { activity: () => 'idle', name: () => 'Morning review' },
-      rename,
-      admission: custody.admission,
-    }),
-  );
-  const socketPath = join(root, readdirSync(root).find((name) => name.endsWith('.sock'))!);
+  const endpoint = await startLinkEndpoint({
+    directory: directoryPath,
+    runtimeId: ID,
+    admission: custody.admission,
+    // What a runtime answers an admitted owner from its own state; the custody only carries it.
+    control: (command, fields) => {
+      if (command === 'status') return { status: 'running' };
+      if (command === 'rename') {
+        rename(fields['name']);
+        return { status: 'renamed' };
+      }
+      return { status: 'refused' };
+    },
+  });
+  endpoints.push(endpoint);
   return {
-    root, socketPath, custody, holder, spawnerKey, instancePublicKey, session, runtime, timers, locks,
-    rename, directory, released, store, file,
+    socketPath: endpoint.socketPath, custody, holder, spawnerKey, instancePublicKey, session, runtime, timers,
+    locks, rename, directory, released, store, file,
   };
 }
 
@@ -761,33 +763,6 @@ describe.skipIf(process.platform === 'win32')('a certified runtime and its owner
     expect(started.holder.isUnlocked).toBe(false);
   });
 
-  it('runs the owner commands through the plain socket handler, with the whole status', async () => {
-    const started = await certified();
-    const client = await ownerLink(started);
-
-    expect(await client.control({ command: 'status', fields: {} })).toMatchObject({
-      status: 'running',
-      name: 'Morning review',
-      certified: true,
-    });
-    expect(await client.control({ command: 'rename', fields: { name: 'Evening review' } })).toEqual({
-      status: 'renamed',
-    });
-    expect(started.rename).toHaveBeenCalledExactlyOnceWith('Evening review');
-    for (const command of ['stop', 'lock', 'connect', 'link', 'nope']) {
-      expect(await client.control({ command, fields: {} })).toEqual({ status: 'refused' });
-    }
-  });
-
-  it('is made its workspace daemon by its owner, and says so in the open status', async () => {
-    const started = await certified();
-    const client = await ownerLink(started);
-
-    expect(await client.control({ command: 'take-daemon-role', fields: {} })).toEqual({ status: 'daemon' });
-
-    expect(started.custody.status().daemon).toBe(true);
-  });
-
   it('refuses owner decisions when no driving directory is attached', async () => {
     const started = await certified();
     const client = await ownerLink(started);
@@ -1008,23 +983,6 @@ describe.skipIf(process.platform === 'win32')('what locks a runtime', () => {
     await vi.waitFor(() => expect(started.holder.isUnlocked).toBe(false));
     expect(started.locks).toEqual(['last-client-detached']);
     await vi.waitFor(() => expect(proofOnly.custody.unlocked).toBe(false));
-  });
-
-  it('locks on the open lock command, which needs no proof, and tells the links', async () => {
-    const started = await certified();
-    const client = await ownerLink(started);
-    await client.unlock();
-
-    const socket = await connectTo(started.socketPath);
-    socket.setEncoding('utf8');
-    const generation = (
-      JSON.parse(readFileSync(join(started.root, ID, 'state.json'), 'utf8')) as { generation: string }
-    ).generation;
-    socket.write(`${JSON.stringify({ command: 'lock', id: ID, generation })}\n`);
-    await new Promise<void>((resolve) => socket.once('data', () => resolve()));
-
-    expect(started.locks).toEqual(['explicit']);
-    await vi.waitFor(() => expect(client.custody.unlocked).toBe(false));
   });
 
   it('locks after fifteen idle minutes counted from the owner at the keyboard, not from paging or status polls', async () => {

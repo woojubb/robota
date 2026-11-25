@@ -23,7 +23,7 @@ import type { ISessionDirectory, TSessionBindingRole } from '@robota-sdk/agent-i
 import type { TLinkMode } from '@robota-sdk/agent-keyring';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { IAdmittedRuntimeLink, ILinkSessionSink } from '@robota-sdk/agent-transport/link';
-import type { TSupervisedAttachTarget } from '@robota-sdk/agent-local-host';
+import type { TSupervisedAttachTarget } from './supervised-attach.js';
 import type { IServeOwnerDirectory } from '@robota-sdk/agent-framework';
 import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface/session';
 

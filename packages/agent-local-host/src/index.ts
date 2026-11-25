@@ -30,6 +30,8 @@ export { MAX_ATTACHED_SURFACES, createSupervisedAttachCarrier } from './supervis
 export type { TSupervisedAttachTarget } from './supervised-attach.js';
 export { SUPERVISED_SPAWNER_PAIR_FLAG, answerHandedOverSpawnerPair } from './supervised-spawner-pair.js';
 export { SUPERVISED_TRANSPORT_TOKEN_FD, SUPERVISED_TRANSPORT_TOKEN_FLAG, isSupervisedTransportToken, readSupervisedTransportToken } from './supervised-transport-token.js';
+export { RuntimeCustody } from './runtime-custody.js';
+export { armUncertifiedStop } from './uncertified-stop.js';
 export { secureWorkspaceRoot } from './workspace-root-selection.js';
 export { LOOPBACK_GUI_API_HEADER, startLoopbackGuiServer } from './loopback-gui-server.js';
 export type {
