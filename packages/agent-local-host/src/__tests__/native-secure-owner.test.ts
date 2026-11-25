@@ -14,16 +14,27 @@ import { FIXTURE_PASSPHRASE, OTHER_PASSPHRASE, fixtureKeyring } from '../testing
 import { requestWorkspaceRootBroker } from '../workspace-root-broker.js';
 import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
 
+import type { IOwnerRuntimeLinkClient } from '@robota-sdk/agent-transport/link';
 import type { INativeSecureOwnerOptions } from '../native-secure-owner.js';
 import type { IRuntimeStartLayout } from '../runtime-process-launch.js';
 import type { ISupervisedRuntime } from '../supervised-control-client.js';
 import type { ITestBrokerProcess } from '../testing.js';
 
+/** What a fence tells a runtime to compare its own root against. */
+interface IRootProof {
+  readonly tag: string;
+  readonly generation: number;
+  readonly trustTag: string;
+}
+
 const RUNTIME_EXECUTABLE = vi.hoisted(() => 'fixture-runtime');
 const hoisted = vi.hoisted(() => ({
   spawn: vi.fn(),
-  fences: [] as Array<{ close: ReturnType<typeof vi.fn> }>,
+  fences: [] as Array<{ close: ReturnType<typeof vi.fn>; proof(): IRootProof }>,
   handovers: [] as Array<{ dispose: ReturnType<typeof vi.fn> }>,
+  // What a test puts in place of the daemon proof and of the owner link's opening; unset, the real ones run.
+  proveDaemon: undefined as undefined | ((options: unknown) => Promise<unknown>),
+  openOwnerLink: undefined as undefined | ((options: unknown) => Promise<unknown>),
 }));
 
 // Only the runtime's own start is stubbed; the broker the fixtures run in another process is real.
@@ -60,6 +71,26 @@ vi.mock('@robota-sdk/agent-keyring', async (importOriginal) => {
       hoisted.handovers.push(handover as unknown as (typeof hoisted.handovers)[number]);
       return handover;
     },
+  };
+});
+
+// A runtime that serves the workspace, and the link that opens to it, need a secure runtime that only a
+// product can start. The two calls that reach it are replaced per test; nothing else of the opening is.
+vi.mock('../prove-workspace-daemon.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../prove-workspace-daemon.js')>();
+  return {
+    ...actual,
+    proveWorkspaceDaemon: ((...args: Parameters<typeof actual.proveWorkspaceDaemon>) =>
+      hoisted.proveDaemon ? hoisted.proveDaemon(...args) : actual.proveWorkspaceDaemon(...args)) as typeof actual.proveWorkspaceDaemon,
+  };
+});
+
+vi.mock('../owner-link-client.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../owner-link-client.js')>();
+  return {
+    ...actual,
+    openPreparedOwnerLink: ((...args: Parameters<typeof actual.openPreparedOwnerLink>) =>
+      hoisted.openOwnerLink ? hoisted.openOwnerLink(...args) : actual.openPreparedOwnerLink(...args)) as typeof actual.openPreparedOwnerLink,
   };
 });
 
@@ -128,6 +159,61 @@ async function startBroker(s: IScenario): Promise<void> {
   if (approved.status !== 'trusted') throw new Error(`The test folder could not be approved: ${JSON.stringify(approved)}`);
 }
 
+/** The broker's hold on a Restricted choice for the scenario's folder, as a person's choice leaves it. */
+async function restrictedHold(s: IScenario): Promise<string> {
+  const prepared = await requestWorkspaceRootBroker(s.endpoint, { op: 'prepare', root: s.workspace });
+  if (prepared.status !== 'prepared') throw new Error('The test folder could not be prepared.');
+  const retained = await requestWorkspaceRootBroker(s.endpoint, { op: 'retainRestricted', root: s.workspace, candidate: prepared.candidate });
+  if (retained.status !== 'restricted-held') throw new Error('The Restricted hold failed.');
+  return retained.hold;
+}
+
+/** The daemon proof's result for a runtime that serves the scenario's folder, as its authenticated status reports it. */
+function provenDaemon(s: IScenario, restricted: boolean) {
+  return {
+    id: 'proven-runtime', generation: 'proven-generation', liveness: 'alive', control: 'available',
+    activity: 'idle', daemon: true, cwd: s.workspace, ...(restricted ? { restricted: true } : {}),
+  } as const;
+}
+
+/**
+ * The owner link to a runtime that serves the folder. It answers the two commands an opening ends in,
+ * by default with the fence's own root proof and with native desktop activity accepted; a test changes
+ * one answer to see the opening refuse it.
+ */
+function runtimeLink(answers: {
+  readonly proof?: (own: IRootProof) => Record<string, unknown>;
+  readonly activity?: Record<string, unknown>;
+} = {}) {
+  const control = vi.fn(async (request: { readonly command: string }): Promise<Record<string, unknown>> => {
+    if (request.command === 'workspace-root-proof') {
+      const own = hoisted.fences[0]!.proof();
+      return answers.proof ? answers.proof(own) : { status: 'root-proof', ...own };
+    }
+    if (request.command === 'desktop-activity-mode') return answers.activity ?? { status: 'native' };
+    throw new Error(`The opening asked an unexpected command: ${request.command}`);
+  });
+  const close = vi.fn();
+  return { link: { control, close } as unknown as IOwnerRuntimeLinkClient, control, close };
+}
+
+/** Puts a daemon that already serves the folder, and the link that opens to it, in place of the real ones. */
+function servingDaemon(s: IScenario, restricted: boolean, runtime: ReturnType<typeof runtimeLink>, grantNeeded = false) {
+  const prove = vi.fn(async () => provenDaemon(s, restricted));
+  const open = vi.fn(async () => ({ link: runtime.link, grantNeeded }));
+  hoisted.proveDaemon = prove;
+  hoisted.openOwnerLink = open;
+  return { prove, open };
+}
+
+/** An opening that ended in a refusal closed its fence and disposed its handover, each once. */
+function expectFenceAndHandoverReleased(): void {
+  expect(hoisted.fences).toHaveLength(1);
+  expect(hoisted.fences[0]?.close).toHaveBeenCalledTimes(1);
+  expect(hoisted.handovers).toHaveLength(1);
+  expect(hoisted.handovers[0]?.dispose).toHaveBeenCalledTimes(1);
+}
+
 function options(s: IScenario, overrides: Partial<INativeSecureOwnerOptions> = {}): INativeSecureOwnerOptions {
   return {
     userRoot: s.userRoot,
@@ -150,6 +236,8 @@ beforeEach(() => {
   hoisted.spawn.mockReset();
   hoisted.fences.length = 0;
   hoisted.handovers.length = 0;
+  hoisted.proveDaemon = undefined;
+  hoisted.openOwnerLink = undefined;
 });
 
 afterEach(async () => {
@@ -303,11 +391,8 @@ describe.skipIf(!SUPPORTED)('opening a native owner: a start that fails after th
   it('starts a Restricted runtime when the person chose it', async () => {
     const s = await scenario();
     await startBroker(s);
-    const prepared = await requestWorkspaceRootBroker(s.endpoint, { op: 'prepare', root: s.workspace });
-    if (prepared.status !== 'prepared') throw new Error('The test folder could not be prepared.');
-    const retained = await requestWorkspaceRootBroker(s.endpoint, { op: 'retainRestricted', root: s.workspace, candidate: prepared.candidate });
-    if (retained.status !== 'restricted-held') throw new Error('The Restricted hold failed.');
-    await expect(openNativeSecureOwner(options(s, { restricted: true, restrictedHold: retained.hold }))).rejects.toThrow(
+    const hold = await restrictedHold(s);
+    await expect(openNativeSecureOwner(options(s, { restricted: true, restrictedHold: hold }))).rejects.toThrow(
       'Supervised session could not receive its spawner pair.',
     );
     const { args } = spawnCall();
@@ -315,6 +400,113 @@ describe.skipIf(!SUPPORTED)('opening a native owner: a start that fails after th
     expect(args).toEqual(['--exec-flag', 'entry.js', '--run', id, '--pair', '--limited']);
     expect(hoisted.fences[0]?.close).toHaveBeenCalledTimes(1);
     expect(hoisted.handovers[0]?.dispose).toHaveBeenCalledTimes(1);
+  }, 30_000);
+});
+
+describe.skipIf(!SUPPORTED)('opening a native owner: a daemon that already serves the workspace', () => {
+  const OTHER_CHOICE = 'The secure daemon uses a different workspace access choice.';
+
+  it.each([
+    { running: true, chosen: false },
+    { running: false, chosen: true },
+  ])('refuses a daemon whose Restricted choice differs from the one chosen (%j), without opening its owner link', async ({ running, chosen }) => {
+    const s = await scenario();
+    await startBroker(s);
+    const runtime = runtimeLink();
+    const { open } = servingDaemon(s, running, runtime);
+    const hold = chosen ? await restrictedHold(s) : undefined;
+    await expect(openNativeSecureOwner(options(s, {
+      restricted: chosen, ...(hold === undefined ? {} : { restrictedHold: hold }),
+    }))).rejects.toThrow(OTHER_CHOICE);
+    // Neither the daemon's link nor a second runtime is used, and the start lock is left to nobody.
+    expect(open).not.toHaveBeenCalled();
+    expect(runtime.control).not.toHaveBeenCalled();
+    expect(hoisted.spawn).not.toHaveBeenCalled();
+    expect(readdirSync(s.supervisedDirectory).filter((name) => name.endsWith('.lock'))).toEqual([]);
+    expectFenceAndHandoverReleased();
+  }, 30_000);
+
+  it.each([false, true])('opens the owner link to the daemon when both are Restricted=%s, and starts no runtime', async (restricted) => {
+    const s = await scenario();
+    await startBroker(s);
+    const runtime = runtimeLink();
+    const { open } = servingDaemon(s, restricted, runtime, true);
+    const hold = restricted ? await restrictedHold(s) : undefined;
+    const closing = new AbortController();
+    const owner = await openNativeSecureOwner(options(s, {
+      restricted, signal: closing.signal, ...(hold === undefined ? {} : { restrictedHold: hold }),
+    }));
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(open).toHaveBeenCalledWith({
+      root: s.supervisedDirectory, id: 'proven-runtime', generation: 'proven-generation',
+      handover: hoisted.handovers[0], signal: closing.signal,
+    });
+    expect(hoisted.spawn).not.toHaveBeenCalled();
+    expect(owner.link).toBe(runtime.link);
+    expect(owner.grantNeeded).toBe(true);
+    expect(owner.selected).toEqual({ runtimeId: 'proven-runtime', generation: 'proven-generation' });
+    expect(runtime.control.mock.calls.map(([request]) => request.command)).toEqual(['workspace-root-proof', 'desktop-activity-mode']);
+    expect(runtime.close).not.toHaveBeenCalled();
+    // The opened owner keeps its fence and its handover until its caller releases them.
+    expect(() => owner.assertWorkspace()).not.toThrow();
+    expect(hoisted.fences[0]?.close).not.toHaveBeenCalled();
+    expect(hoisted.handovers[0]?.dispose).not.toHaveBeenCalled();
+    owner.release();
+    expectFenceAndHandoverReleased();
+  }, 30_000);
+});
+
+describe.skipIf(!SUPPORTED)('opening a native owner: what is refused once the owner link is open', () => {
+  const OTHER_ROOT = 'The secure runtime workspace root does not match the desktop root.';
+  const NOT_NATIVE = 'The runtime did not accept native desktop activity.';
+
+  /** An opening that finds a daemon of the chosen kind, whose runtime answers as the test made it. */
+  async function expectRefused(runtime: ReturnType<typeof runtimeLink>, message: string): Promise<void> {
+    const s = await scenario();
+    await startBroker(s);
+    servingDaemon(s, false, runtime);
+    await expect(openNativeSecureOwner(options(s))).rejects.toThrow(message);
+  }
+
+  it.each<[string, (own: IRootProof) => Record<string, unknown>]>([
+    ['another tag', (own) => ({ status: 'root-proof', ...own, tag: `${own.tag}-other` })],
+    ['another generation', (own) => ({ status: 'root-proof', ...own, generation: own.generation + 1 })],
+    ['another trust tag', (own) => ({ status: 'root-proof', ...own, trustTag: `${own.trustTag}-other` })],
+    ['a status that is no root proof', (own) => ({ status: 'refused', ...own })],
+  ])('refuses a runtime whose root proof carries %s, and closes the link without asking for activity', async (_name, proof) => {
+    const runtime = runtimeLink({ proof });
+    await expectRefused(runtime, OTHER_ROOT);
+    expect(runtime.close).toHaveBeenCalledTimes(1);
+    expect(runtime.control.mock.calls.map(([request]) => request.command)).toEqual(['workspace-root-proof']);
+    expectFenceAndHandoverReleased();
+  }, 30_000);
+
+  it.each<[string, Record<string, unknown>]>([
+    ['another status', { status: 'refused' }],
+    ['no status', {}],
+  ])('refuses a runtime that does not accept native desktop activity (%s), and closes the link', async (_name, activity) => {
+    const runtime = runtimeLink({ activity });
+    await expectRefused(runtime, NOT_NATIVE);
+    expect(runtime.close).toHaveBeenCalledTimes(1);
+    expect(runtime.control.mock.calls.map(([request]) => request.command)).toEqual(['workspace-root-proof', 'desktop-activity-mode']);
+    expectFenceAndHandoverReleased();
+  }, 30_000);
+
+  it('closes the link and raises the abort error when the window closes right after the link opened', async () => {
+    const s = await scenario();
+    await startBroker(s);
+    const runtime = runtimeLink();
+    const closing = new AbortController();
+    hoisted.proveDaemon = async () => provenDaemon(s, false);
+    // The window goes away while the link is being handed over: the link is already open when the opening sees it.
+    hoisted.openOwnerLink = async () => {
+      closing.abort();
+      return { link: runtime.link, grantNeeded: false };
+    };
+    await expect(openNativeSecureOwner(options(s, { signal: closing.signal }))).rejects.toThrow(ABORTED);
+    expect(runtime.close).toHaveBeenCalledTimes(1);
+    expect(runtime.control).not.toHaveBeenCalled();
+    expectFenceAndHandoverReleased();
   }, 30_000);
 });
 
