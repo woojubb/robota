@@ -88,6 +88,17 @@ describe('control request bytes', () => {
     expect(endpoint.lines).toEqual([`${head('rename')},"z":"1","a":"2"}`]);
   });
 
+  it.each(['command', 'id', 'generation'])('refuses a field named %s before anything is written, so it never replaces the bound value', async (name) => {
+    const endpoint = await endpointAnswering(statusOnly('ok'));
+    await expect(requestSupervisedControl(endpoint.directory, ID, GENERATION, 'rename', undefined, { name: 'Evening review', [name]: 'other' }))
+      .rejects.toThrow(`field "${name}" is reserved`);
+    expect(endpoint.lines).toEqual([]);
+    // The refusal leaves the primitive usable, and the request that follows it is the only line the
+    // endpoint ever received: nothing of the refused one was written after the refusal either.
+    await requestSupervisedControl(endpoint.directory, ID, GENERATION, 'rename', undefined, { name: 'Evening review' });
+    expect(endpoint.lines).toEqual([`${head('rename')},"name":"Evening review"}`]);
+  });
+
   it('sends lock and attach as the same request lines', async () => {
     const endpoint = await endpointAnswering((request, context) => replyOf(context.id, context.generation,
       request['command'] === 'lock' ? { status: 'locked' } : { status: 'attached', driverId: 'attach:1' }));
