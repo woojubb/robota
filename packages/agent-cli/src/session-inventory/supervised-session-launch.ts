@@ -1,272 +1,78 @@
-import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { childProductEnvironment } from '../product/child-environment.js';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
-import { isAbsolute } from 'node:path';
-import { closeSync, fstatSync } from 'node:fs';
-import { Duplex, Writable } from 'node:stream';
-import { completeSpawnerPair, type ISpawnerPairResult } from '@robota-sdk/agent-transport/link';
+import {
+  startForwardedRuntime,
+  startPlainRuntime,
+  startSpawnerRuntime,
+  type IRuntimeStartRequest,
+  type TPreparedForwardedEnvironment,
+} from './runtime-process-launch.js';
+import { cliGrantHandoff, cliRuntimeCommand, cliRuntimeLayout } from './runtime-start-layout.js';
+import { isSupervisedSessionName } from './supervised-session-control.js';
 
-import { scrubSecrets } from '@robota-sdk/agent-core';
-import { withChildSession } from '@robota-sdk/agent-core/node';
-
-import {
-  resolveSelfForkWorkerEntry,
-  withInspectorSignalDisabled,
-} from '../subagents/self-fork-worker-entry.js';
-import { RESTRICTED_WORKSPACE_FLAG } from '../startup/workspace-project-composition.js';
-import { FORWARDED_ENVIRONMENT_FLAG } from '../startup/forwarded-environment.js';
-import {
-  discardSupervisedGrantHandoff,
-  isSupervisedSessionName,
-  resolveSupervisedDirectory,
-  writeSupervisedGrantHandoff,
-} from './supervised-session-control.js';
-import {
-  isSupervisedTransportToken,
-  SUPERVISED_SPAWNER_PAIR_FLAG,
-  SUPERVISED_TRANSPORT_TOKEN_FD,
-  SUPERVISED_TRANSPORT_TOKEN_FLAG,
-  SupervisedControlPathTooLongError,
-} from '@robota-sdk/agent-local-host';
+import type { ChildProcess } from 'node:child_process';
+import type { ISpawnerPairResult } from '@robota-sdk/agent-transport/link';
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 
-interface IHandshakeMessage {
-  readonly kind: 'ready' | 'acknowledged' | 'error';
-  readonly id: string;
-  readonly code?: string;
-  /** On `ready`: the labels of the grants the child opened. On a `grant-refused` error: the one refused. */
-  readonly grants?: unknown;
-  readonly grant?: unknown;
-  /** On a `control-path-too-long` error: the supervised directory the socket did not fit under. */
-  readonly directory?: unknown;
-}
-
-const GRANT_ID = /^[a-zA-Z0-9_-]{1,64}$/u;
-const MAX_DIRECTORY_BYTES = 4_096;
-const DIRECTORY_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
-
-/** A directory the child reports is printed to the owner, so it must be a plain absolute path. */
-function isReportedDirectory(value: unknown): value is string {
-  return typeof value === 'string' && isAbsolute(value) && !DIRECTORY_CONTROLS.test(value) &&
-    Buffer.byteLength(value, 'utf8') <= MAX_DIRECTORY_BYTES;
-}
-
-/** The child opened exactly the grants it was handed: none lost, none added. */
-function sameGrants(reported: unknown, sent: readonly string[]): boolean {
-  if (reported === undefined) return sent.length === 0;
-  if (!Array.isArray(reported) || reported.length !== sent.length) return false;
-  const expected = [...sent].sort();
-  return [...reported].sort().every((grantId, index) => grantId === expected[index]);
-}
-
-function isHandshakeMessage(value: unknown, id: string): value is IHandshakeMessage {
-  return typeof value === 'object' && value !== null &&
-    'kind' in value && 'id' in value && value.id === id &&
-    (value.kind === 'ready' || value.kind === 'acknowledged' || value.kind === 'error');
-}
-
-function hasExited(child: ChildProcess): boolean {
-  return child.exitCode !== null || child.signalCode !== null;
-}
-
-/**
- * The tail of what the child wrote to stderr before it died — the real reason (e.g.
- * "No provider configuration found...", before setup mode existed to avoid it entirely; still the
- * reason for anything else that kills the child early), where a plain "the readiness channel closed"
- * or "the process exited" said nothing a caller — `the CLI daemon start --json`, the desktop fatal
- * screen — could act on. Bounded so one runaway child cannot grow this without limit.
- */
-const STDERR_TAIL_LIMIT = 4_000;
-/** Keeps the reported message readable — the failing line is almost always near the end. */
-const STDERR_TAIL_MAX_LINES = 20;
-
-function trackStderrTail(child: ChildProcess): { read: () => string; stop: () => void } {
-  let tail = '';
-  const onData = (chunk: Buffer | string): void => {
-    tail = (tail + String(chunk)).slice(-STDERR_TAIL_LIMIT);
-  };
-  child.stderr?.on('data', onData);
-  return {
-    read: () => tail,
-    stop: () => { child.stderr?.off('data', onData); },
-  };
-}
-
-/** A complete ANSI CSI sequence (color/cursor codes) or OSC sequence (titles/hyperlinks). */
-// eslint-disable-next-line no-control-regex -- matching control bytes IS the point: stripping them.
-const ANSI_SEQUENCE = /\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/gu;
-/** Any remaining control character except tab and newline — including a lone, unmatched ESC. */
-// eslint-disable-next-line no-control-regex -- matching control bytes IS the point: stripping them.
-const STRAY_CONTROL_CHARS = /[\x00-\x08\x0B-\x1F\x7F]/gu;
-
-/** (a) Strip ANSI escapes and control characters, keeping newline and tab — see `sanitizeStderrTail`. */
-function stripAnsiAndControlChars(text: string): string {
-  return text.replace(ANSI_SEQUENCE, '').replace(STRAY_CONTROL_CHARS, '');
-}
-
-/**
- * (b) Exact-value redaction: this process handed the child its own env, so anything shaped like a
- * credential in there (name matches, value long enough to not be a false positive on something like
- * a short flag) is replaced everywhere it appears verbatim, as is every secret handed over outside
- * the env (the transport token's pipe). `split`/`join`, not a constructed RegExp: a credential value
- * routinely contains characters (`+`, `/`, `=`, …) that would need escaping first.
- */
-const CREDENTIAL_ENV_NAME = /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|AUTH/iu;
-const MIN_CREDENTIAL_VALUE_LENGTH = 8;
-
-function redactEnvCredentialValues(
-  text: string,
-  env: NodeJS.ProcessEnv,
-  handedOverSecrets: readonly string[],
-): string {
-  let result = text;
-  const secrets = [
-    ...Object.entries(env)
-      .filter(([name]) => CREDENTIAL_ENV_NAME.test(name))
-      .map(([, value]) => value)
-      .filter((value): value is string => value !== undefined && value.length >= MIN_CREDENTIAL_VALUE_LENGTH),
-    ...handedOverSecrets,
-  ].map(stripAnsiAndControlChars).filter((value) => value.length > 0).sort((a, b) => b.length - a.length);
-  for (const value of secrets) {
-    if (!result.includes(value)) continue;
-    result = result.split(value).join('[REDACTED]');
-  }
-  return result;
-}
-
-/** (d) The failure is almost always in the last few lines; a long stack trace should not crowd it out. */
-function lastLines(text: string, maxLines: number): string {
-  const lines = text.split('\n');
-  return lines.length <= maxLines ? text : lines.slice(-maxLines).join('\n');
-}
-
-/**
- * Before a captured stderr tail leaves this process (`the CLI daemon start --json`, the desktop fatal
- * screen) it is never shown raw: (a) ANSI/control characters, (b) this process's own env-credential
- * values, and (c) `scrubSecrets`'s known secret patterns (agent-core) are stripped, in that order, then
- * (d) only the last ~20 lines are kept. The child inherits this process's full environment, so (a)+(b)
- * alone cover a value it never should have echoed; (c) catches a secret the child saw over the wire
- * (an API response, a `Bearer` header) that was never this process's own to redact by value. A secret
- * handed over outside the env (`handedOverSecrets`) is no longer in it, so (b) takes it explicitly.
- */
-function sanitizeStderrTail(
-  raw: string,
-  env: NodeJS.ProcessEnv,
-  handedOverSecrets: readonly string[] = [],
-): string {
-  const withoutAnsi = stripAnsiAndControlChars(raw);
-  const withoutEnvSecrets = redactEnvCredentialValues(withoutAnsi, env, handedOverSecrets);
-  const withoutKnownPatterns = scrubSecrets(withoutEnvSecrets);
-  return lastLines(withoutKnownPatterns.trim(), STDERR_TAIL_MAX_LINES).trim();
-}
-
-/**
- * `exit`/`disconnect` can fire before a piped stream's last `data` event is delivered — Node's own
- * documented reason `close` exists. A brief, bounded wait for the stream to actually end (never the
- * full 20s readiness budget) makes "the child wrote a reason right before dying" land reliably
- * without switching the failure signal itself to `close` (which can arrive later still, and this
- * function's callers need to fail promptly either way).
- */
-function stderrFlushed(child: ChildProcess): Promise<void> {
-  const stderr = child.stderr;
-  if (!stderr || stderr.readableEnded || stderr.destroyed) return Promise.resolve();
-  return new Promise((resolve) => {
-    let settled = false;
-    const done = (): void => {
-      if (settled) return;
-      settled = true;
-      resolve();
-    };
-    stderr.once('end', done);
-    stderr.once('close', done);
-    setTimeout(done, 200);
-  });
-}
-
-async function waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {
-  if (hasExited(child)) return true;
-  return new Promise<boolean>((resolve) => {
-    const timer = setTimeout(() => finish(false), timeoutMs);
-    const onExit = (): void => finish(true);
-    const finish = (exited: boolean): void => {
-      clearTimeout(timer);
-      child.off('exit', onExit);
-      resolve(exited);
-    };
-    child.once('exit', onExit);
-  });
-}
-
-/** A refused start never leaves a detached runtime running without an owner. */
-async function terminateFailedStart(child: ChildProcess): Promise<boolean> {
-  if (child.pid === undefined) {
-    if (child.connected) {
-      try { child.disconnect(); } catch { /* no process was created */ }
-    }
-    child.unref();
-    return true;
-  }
-  if (!hasExited(child)) {
-    try { child.kill('SIGTERM'); } catch { /* spawn may have failed before a PID existed */ }
-    if (!(await waitForExit(child, 2_000))) {
-      try { child.kill('SIGKILL'); } catch { /* exit or spawn failure raced the signal */ }
-      await waitForExit(child, 2_000);
-    }
-  }
-  if (child.connected) {
-    try { child.disconnect(); } catch { /* already disconnected */ }
-  }
-  child.unref();
-  return hasExited(child);
-}
-
-/** The environment minus the transport token's names, matched case-insensitively as Windows does. */
-function withoutTransportTokenNames(env: NodeJS.ProcessEnv, envPrefix: string): NodeJS.ProcessEnv {
-  const names = new Set(['PRODUCT_WS_TOKEN', `${envPrefix}WS_TOKEN`].map((name) => name.toUpperCase()));
-  return Object.fromEntries(Object.entries(env).filter(([name]) => !names.has(name.toUpperCase())));
-}
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 /** Options common to plain and secure supervised launches. */
 export interface ISupervisedLaunchOptions {
-    readonly productRuntime: ICliRuntimeContext;
-    readonly entrypoint?: string;
-    readonly execArgs?: readonly string[];
-    /** Explicit sidecar command for a host whose own executable is not the CLI (such as Electron). */
-    readonly launchCommand?: { readonly executable: string; readonly args: readonly string[] };
-    readonly env?: NodeJS.ProcessEnv;
-    readonly name?: string;
-    readonly onSpawn?: (child: ChildProcess) => void;
-    /** Validated external-event grants the child must open before it reports ready. */
-    readonly grants?: readonly IExternalEventGrant[];
-    /** Where the child's external-event endpoint listens; required with grants. */
-    readonly eventEndpoint?: { readonly port: number; readonly trustedProxies?: readonly string[] };
-    readonly root?: string;
-    /**
-     * Start this workspace's daemon: its control hands the owner the WebSocket URL. The caller
-     * hands the transport token over in `transportToken`, never on the command line.
-     */
-    readonly daemon?: boolean;
-    /**
-     * The WebSocket transport token the child serves under, 64 lowercase hex characters. It reaches
-     * the child only over an extra inherited pipe, never its environment (any program of the same
-     * user can read a process's initial environment for as long as it runs), command line or
-     * stderr: the child's environment is stripped of both names a token could arrive under.
-     */
-    readonly transportToken?: string;
-    /** Start it Restricted: a person chose to run this untrusted folder without its own configuration. */
-    readonly restricted?: boolean;
-  }
+  readonly productRuntime: ICliRuntimeContext;
+  readonly entrypoint?: string;
+  readonly execArgs?: readonly string[];
+  /** Explicit sidecar command for a host whose own executable is not the CLI (such as Electron). */
+  readonly launchCommand?: { readonly executable: string; readonly args: readonly string[] };
+  readonly env?: NodeJS.ProcessEnv;
+  readonly name?: string;
+  readonly onSpawn?: (child: ChildProcess) => void;
+  /** Validated external-event grants the child must open before it reports ready. */
+  readonly grants?: readonly IExternalEventGrant[];
+  /** Where the child's external-event endpoint listens; required with grants. */
+  readonly eventEndpoint?: { readonly port: number; readonly trustedProxies?: readonly string[] };
+  readonly root?: string;
+  /**
+   * Start this workspace's daemon: its control hands the owner the WebSocket URL. The caller
+   * hands the transport token over in `transportToken`, never on the command line.
+   */
+  readonly daemon?: boolean;
+  /**
+   * The WebSocket transport token the child serves under, 64 lowercase hex characters. It reaches
+   * the child only over an extra inherited pipe, never its environment (any program of the same
+   * user can read a process's initial environment for as long as it runs), command line or
+   * stderr: the child's environment is stripped of both names a token could arrive under.
+   */
+  readonly transportToken?: string;
+  /** Start it Restricted: a person chose to run this untrusted folder without its own configuration. */
+  readonly restricted?: boolean;
+}
 
-type TPreparedForwardedEnvironment = { readonly environment: NodeJS.ProcessEnv; readonly availableCredentialNames: readonly string[] };
-type TLaunchMode = { readonly kind: 'plain' } | { readonly kind: 'spawner'; readonly pairTimeoutMs?: number } | { readonly kind: 'forwarded'; readonly spawnerFd: number; readonly closeParent: () => void; readonly prepareEnvironment?: () => Promise<TPreparedForwardedEnvironment> };
-type TLaunchResult = { readonly kind: 'plain' | 'forwarded'; readonly id: string } | ({ readonly kind: 'spawner'; readonly id: string } & ISpawnerPairResult);
+/** The generic launcher's request for the CLI's own runtime: its command, layout, environment and rules. */
+function startRequest(options: ISupervisedLaunchOptions): IRuntimeStartRequest {
+  return {
+    command: cliRuntimeCommand(options),
+    layout: cliRuntimeLayout(options),
+    environment: options.env ?? childProductEnvironment(options.productRuntime),
+    name: options.name,
+    daemon: options.daemon,
+    restricted: options.restricted,
+    transportToken: options.transportToken,
+    handoff: cliGrantHandoff(options),
+    onSpawn: options.onSpawn,
+    validate: () => {
+      if (options.name !== undefined && !isSupervisedSessionName(options.name)) {
+        throw new Error('Supervised session name is invalid or too long.');
+      }
+    },
+  };
+}
 
 /** Start one opt-in supervised runtime without sending credentials through the control channel. */
-export async function launchSupervisedSession(cwd: string, options: ISupervisedLaunchOptions): Promise<string> {
-  const result = await launchRuntime(cwd, options, { kind: 'plain' });
-  return result.id;
+export async function launchSupervisedSession(
+  cwd: string,
+  options: ISupervisedLaunchOptions,
+): Promise<string> {
+  return startPlainRuntime(cwd, startRequest(options));
 }
 
 /** Start a secure runtime and receive its spawner key over the inherited pair before readiness. */
@@ -274,269 +80,19 @@ export async function launchRuntimeProcess(
   cwd: string,
   options: ISupervisedLaunchOptions & { readonly mode: 'spawner'; readonly pairTimeoutMs?: number },
 ): Promise<{ readonly id: string } & ISpawnerPairResult> {
-  const result = await launchRuntime(cwd, options, {
-    kind: 'spawner',
-    ...(options.pairTimeoutMs === undefined ? {} : { pairTimeoutMs: options.pairTimeoutMs }),
-  });
-  if (result.kind !== 'spawner') throw new Error('The secure runtime did not complete its spawner exchange.');
-  return result;
+  return startSpawnerRuntime(cwd, startRequest(options), { pairTimeoutMs: options.pairTimeoutMs });
 }
 
 /** Forward a desktop spawner's inherited pair without reading or certifying it. */
 export async function launchForwardedRuntime(
   cwd: string,
-  options: ISupervisedLaunchOptions & { readonly spawnerFd: number; readonly prepareEnvironment?: () => Promise<TPreparedForwardedEnvironment> },
+  options: ISupervisedLaunchOptions & {
+    readonly spawnerFd: number;
+    readonly prepareEnvironment?: () => Promise<TPreparedForwardedEnvironment>;
+  },
 ): Promise<string> {
-  const fd = options.spawnerFd;
-  if (!Number.isSafeInteger(fd) || fd < 3) throw new Error('The spawner descriptor is invalid.');
-  if (process.platform !== 'win32') {
-    let isSocket = false;
-    try { isSocket = fstatSync(fd, { bigint: true }).isSocket(); } catch { /* Not a live descriptor. */ }
-    if (!isSocket) throw new Error('The spawner descriptor is not a handed-over pair.');
-  }
-  let owned = true;
-  const closeParent = (): void => {
-    if (!owned) return;
-    owned = false;
-    try { closeSync(fd); } catch { /* The descriptor is already closed. */ }
-  };
-  try {
-    const result = await launchRuntime(cwd, options, { kind: 'forwarded', spawnerFd: fd, closeParent, ...(options.prepareEnvironment === undefined ? {} : { prepareEnvironment: options.prepareEnvironment }) });
-    return result.id;
-  } finally {
-    closeParent();
-  }
-}
-
-async function launchRuntime(
-  cwd: string,
-  options: ISupervisedLaunchOptions,
-  mode: TLaunchMode,
-): Promise<TLaunchResult> {
-  if (options.name !== undefined && !isSupervisedSessionName(options.name)) {
-    throw new Error('Supervised session name is invalid or too long.');
-  }
-  const transportToken = options.transportToken;
-  if (mode.kind !== 'plain' && (transportToken !== undefined || options.daemon === true || (options.grants?.length ?? 0) > 0)) {
-    throw new Error('A secure runtime cannot start with a plain token, daemon flag or external grants.');
-  }
-  if (transportToken !== undefined && !isSupervisedTransportToken(transportToken)) {
-    throw new Error('Supervised session transport token is invalid.');
-  }
-  const grants = options.grants ?? [];
-  if (grants.length > 0 && options.eventEndpoint === undefined) {
-    throw new Error('External event grants need the port their endpoint listens on.');
-  }
-  const sentGrantIds = grants.map((grant) => grant.grantId);
-  const root = grants.length > 0 ? (options.root ?? resolveSupervisedDirectory(options.productRuntime)) : undefined;
-  const self = resolveSelfForkWorkerEntry();
-  const entryArgs = options.launchCommand?.args ?? (options.entrypoint ? [options.entrypoint] : self.args);
-  // Explicitly supplied flags keep the inspector signal closed too.
-  const execArgs = options.launchCommand ? [] : withInspectorSignalDisabled(options.execArgs ?? self.execArgv ?? []);
-  const executable = options.launchCommand?.executable ?? self.execPath;
-  const id = randomUUID();
-  const discardHandoff = (): void => {
-    if (root !== undefined) discardSupervisedGrantHandoff(root, id);
-  };
-  if (root !== undefined) writeSupervisedGrantHandoff(root, id, grants);
-  // The same env handed to the child — reused to redact its own credential values out of
-  // whatever the child echoes back on stderr, in `sanitizeStderrTail`.
-  const inheritedEnv = options.env ?? childProductEnvironment(options.productRuntime);
-  const childEnv = transportToken === undefined && mode.kind === 'plain'
-    ? inheritedEnv
-    : withoutTransportTokenNames(inheritedEnv, options.productRuntime.config.identity.envPrefix);
-  let child: ChildProcess;
-  try {
-    child = spawn(executable, [
-      ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
-      ...(options.name === undefined ? [] : [`--name=${options.name}`]),
-      ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),
-      ...(transportToken === undefined ? [] : [SUPERVISED_TRANSPORT_TOKEN_FLAG]),
-      ...(mode.kind !== 'plain' ? [SUPERVISED_SPAWNER_PAIR_FLAG] : []),
-      ...(mode.kind === 'forwarded' && mode.prepareEnvironment !== undefined ? [FORWARDED_ENVIRONMENT_FLAG] : []),
-      ...(options.daemon === true ? ['--daemon'] : []),
-      ...(options.restricted === true ? [RESTRICTED_WORKSPACE_FLAG] : []),
-      ...(grants.length > 0 && options.eventEndpoint !== undefined
-        ? [
-            `--external-event-port=${options.eventEndpoint.port}`,
-            ...(options.eventEndpoint.trustedProxies ?? []).map(
-              (proxy) => `--external-event-trusted-proxy=${proxy}`,
-            ),
-          ]
-        : []),
-    // The runtime outlives this launcher by design, in its own session in both modes, so it is not
-    // registered to end with this process.
-    ], withChildSession({
-      cwd,
-      detached: true,
-      // Stderr is piped (was 'ignore') so a death before readiness can report why —
-      // otherwise discarded exactly as before, and released on every exit path below.
-      // The transport token's pipe, when there is one, is the child's descriptor 4.
-      stdio: ['ignore', 'ignore', 'pipe', 'ipc', ...(mode.kind === 'forwarded' ? [mode.spawnerFd] : transportToken === undefined && mode.kind === 'plain' ? [] : ['pipe' as const])],
-      env: childEnv,
-    }));
-  } catch (error) {
-    discardHandoff();
-    throw error;
-  } finally {
-    if (mode.kind === 'forwarded') mode.closeParent();
-  }
-  const stderrTail = trackStderrTail(child);
-  try {
-    options.onSpawn?.(child);
-  } catch {
-    await terminateFailedStart(child);
-    discardHandoff();
-    throw new Error('Supervised session launch observer failed.');
-  }
-
-  const tokenPipe = transportToken === undefined ? undefined : child.stdio[SUPERVISED_TRANSPORT_TOKEN_FD];
-  const handedOverSecrets = [
-    ...(transportToken === undefined ? [] : [transportToken]),
-    ...(mode.kind === 'spawner' ? Object.values(childEnv).filter((value): value is string => value !== undefined) : []),
-  ];
-  const pairPipe = mode.kind === 'spawner' ? child.stdio[SUPERVISED_TRANSPORT_TOKEN_FD] : undefined;
-
-  return new Promise<TLaunchResult>((resolve, reject) => {
-    let done = false;
-    let ready = false;
-    let acknowledged = false;
-    let pair: ISpawnerPairResult | undefined;
-    let admissionRequested = false;
-    let admissionSent = false;
-    const timer = setTimeout(
-      () => failFromChild('Supervised session did not become ready in time.'),
-      20_000,
-    );
-    const finish = (result: { ok: true } | { ok: false; message: string }): void => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      if (result.ok) {
-        stderrTail.stop();
-        // Keep the pipe readable while this launcher lives, but do not keep a detached launcher's
-        // event loop open. Closing its read end here makes a later host error an EPIPE.
-        child.stderr?.resume();
-        if (child.stderr !== null && child.stderr !== undefined &&
-          'unref' in child.stderr && typeof child.stderr.unref === 'function') {
-          child.stderr.unref();
-        }
-        try {
-          child.disconnect();
-          child.unref();
-          if (mode.kind !== 'spawner') resolve({ kind: mode.kind, id });
-          else if (pair !== undefined) resolve({ kind: 'spawner', id, ...pair });
-          else reject(new Error('The secure runtime did not complete its spawner exchange.'));
-        } catch {
-          pair?.spawnerKey.wipe();
-          void terminateFailedStart(child).then(() => reject(new Error('Supervised session could not detach.')));
-        }
-      } else {
-        child.stderr?.destroy();
-        if (tokenPipe instanceof Writable) tokenPipe.destroy();
-        if (pairPipe instanceof Duplex) pairPipe.destroy();
-        pair?.spawnerKey.wipe();
-        // A child that never read its grants must not leave them behind.
-        discardHandoff();
-        void terminateFailedStart(child).then((exited) => {
-          reject(new Error(exited ? result.message : `${result.message} Process exit could not be confirmed.`));
-        });
-      }
-    };
-    const fail = (message: string): void => finish({ ok: false, message });
-    const finishWhenReady = (): void => {
-      if (acknowledged && (mode.kind !== 'spawner' || pair !== undefined)) finish({ ok: true });
-    };
-    if (mode.kind === 'spawner') {
-      if (!(pairPipe instanceof Duplex)) fail('Supervised session could not receive its spawner pair.');
-      else {
-        void completeSpawnerPair(pairPipe, mode.pairTimeoutMs === undefined ? {} : { timeoutMs: mode.pairTimeoutMs }).then(
-          (completed) => {
-            if (done) { completed.spawnerKey.wipe(); return; }
-            pair = completed;
-            finishWhenReady();
-          },
-          () => fail('Supervised session could not complete its spawner exchange.'),
-        );
-      }
-    }
-    // These three are generic — "something killed the child before it said why". The
-    // child's own stderr tail, when it wrote one, IS why; a fallback text stands in only when it
-    // wrote nothing. The handshake's own structured errors below already know their own precise
-    // reason and are never replaced by incidental stderr output.
-    const failFromChild = (fallback: string): void => {
-      void stderrFlushed(child).then(() => {
-        const said = sanitizeStderrTail(stderrTail.read(), childEnv, handedOverSecrets);
-        fail(said.length > 0 ? said : fallback);
-      });
-    };
-    child.once('error', () => failFromChild('Supervised session process could not start.'));
-    child.once('exit', () => failFromChild('Supervised session process exited before it was ready.'));
-    child.once('disconnect', () =>
-      failFromChild('Supervised session readiness channel closed before acknowledgement.'),
-    );
-    if (transportToken !== undefined) {
-      // Written and closed at once: the child reads it first thing, before it can report ready. A pipe
-      // that cannot take it (the child already gone, no pipe at all) fails the start like any other
-      // early death, with the child's own stderr as the reason when it wrote one.
-      const refused = (): void => failFromChild('Supervised session could not receive its transport token.');
-      if (tokenPipe instanceof Writable) {
-        tokenPipe.on('error', refused);
-        tokenPipe.end(transportToken);
-      } else {
-        refused();
-      }
-    }
-    child.on('message', (message: unknown) => {
-      if (mode.kind === 'forwarded' && mode.prepareEnvironment !== undefined &&
-          typeof message === 'object' && message !== null && 'kind' in message &&
-          message.kind === 'forwarded-environment-needed' && 'id' in message && message.id === id) {
-        if (admissionRequested || ready) return fail('Supervised session requested admission out of order.');
-        admissionRequested = true;
-        void mode.prepareEnvironment().then(({ environment, availableCredentialNames }) => {
-          if (done) return;
-          const entries = Object.entries(environment).filter((entry): entry is [string, string] => typeof entry[1] === 'string');
-          const accepted = Object.fromEntries(entries);
-          if (Buffer.byteLength(JSON.stringify({ environment: accepted, availableCredentialNames }), 'utf8') > 128 * 1024) return fail('Supervised session admission environment is too large.');
-          handedOverSecrets.push(...entries.map(([, value]) => value));
-          admissionSent = true;
-          child.send({ kind: 'forwarded-environment', id, environment: accepted, availableCredentialNames }, (error) => {
-            if (error) fail('Supervised session admission channel failed.');
-          });
-        }).catch(() => fail('Secure runtime workspace admission failed. Check workspace trust and settings.'));
-        return;
-      }
-      if (!isHandshakeMessage(message, id)) return fail('Supervised session sent an invalid readiness message.');
-      if (message.kind === 'error') {
-        return fail(message.code === 'grant-refused' && typeof message.grant === 'string' &&
-          GRANT_ID.test(message.grant) && sentGrantIds.includes(message.grant)
-          ? `grant ${message.grant}: refused by the session.`
-          : message.code === 'events-endpoint-failed'
-            ? 'External event endpoint could not be served on its port.'
-            : message.code === 'daemon-no-endpoint'
-              ? 'The daemon has no WebSocket endpoint; enable the ws transport.'
-              : message.code === 'control-path-too-long' && isReportedDirectory(message.directory)
-                ? new SupervisedControlPathTooLongError(message.directory).message
-                : 'Supervised session refused to start.');
-      }
-      if (message.kind === 'ready' && !ready) {
-        if (mode.kind === 'forwarded' && mode.prepareEnvironment !== undefined && !admissionSent) {
-          return fail('Supervised session did not request workspace admission.');
-        }
-        if (!sameGrants(message.grants, sentGrantIds)) {
-          return fail('Supervised session did not open exactly the external event grants it was given.');
-        }
-        ready = true;
-        child.send({ kind: 'ack', id }, (error) => {
-          if (error) fail('Supervised session acknowledgement failed.');
-        });
-        return;
-      }
-      if (message.kind === 'acknowledged' && ready && !acknowledged) {
-        acknowledged = true;
-        finishWhenReady();
-      }
-      else fail('Supervised session sent an out-of-order readiness message.');
-    });
+  return startForwardedRuntime(cwd, startRequest(options), {
+    spawnerFd: options.spawnerFd,
+    prepareEnvironment: options.prepareEnvironment,
   });
 }
