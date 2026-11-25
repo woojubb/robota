@@ -7,11 +7,14 @@ import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 import type { IOwnerRuntimeLinkClient, IRuntimeCustodyState, TOwnerControlResult } from '@robota-sdk/agent-transport/link';
 
 vi.mock('../owner-link-client.js', () => ({ openPreparedOwnerLink: vi.fn() }));
-vi.mock('../../secure/workspace-root-fence.js', () => ({ SecureWorkspaceRootFence: class {
-  proof() { return { tag: 'fixture', generation: 1, trustTag: 'untrusted' }; }
-  assertCurrent() {}
-  close() {}
-} }));
+vi.mock('@robota-sdk/agent-local-host', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-local-host')>()),
+  SecureWorkspaceRootFence: class {
+    proof() { return { tag: 'fixture', generation: 1, trustTag: 'untrusted' }; }
+    assertCurrent() {}
+    close() {}
+  },
+}));
 
 it('binds owner decisions to the driver returned by this exact link and signals closure', async () => {
   let finishClose!: () => void;

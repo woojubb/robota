@@ -11,7 +11,11 @@ import { Duplex } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
-import { requestWorkspaceRootBroker, startWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
+import {
+  requestWorkspaceRootBroker,
+  startWorkspaceRootBroker,
+  workspaceRootBrokerEndpoint,
+} from '@robota-sdk/agent-local-host';
 import { completeSpawnerPair } from '@robota-sdk/agent-transport/link';
 import { afterEach, expect, it } from 'vitest';
 
@@ -19,7 +23,6 @@ import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__t
 import { hostedFixture } from '../../hosted/__tests__/hosted-fixture.js';
 import { openRegisteredSpawnerLink } from '../owner-link-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
-import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 
 import type { ChildProcess } from 'node:child_process';
 
@@ -32,7 +35,7 @@ const children: ChildProcess[] = [];
 const servers: Server[] = [];
 const brokers: Array<{ close(): Promise<void> }> = [];
 async function trustWorkspace(runtime: ReturnType<typeof createTestProductRuntime>, root: string): Promise<void> {
-  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  const endpoint = workspaceRootBrokerEndpoint(runtime.layout.userRoot);
   const directory = process.platform === 'win32' ? join(runtime.layout.userRoot, 'root-broker') : dirname(endpoint);
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   brokers.push(await startWorkspaceRootBroker(endpoint, directory, runtime.layout.userPaths.workspaceTrust));

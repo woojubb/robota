@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
+import { requestWorkspaceRootBroker, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import { afterEach, expect, it } from 'vitest';
 
 import { stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
@@ -12,7 +12,6 @@ import { productProviderDefinitions } from '../../product/provider-definitions.j
 import { restartProductEnvironment } from '../../product/restart-environment.js';
 import { createProductUserSettingsSources } from '../../product/user-settings.js';
 import { prepareForwardedEnvironment, validateForwardedEnvironment } from '../early-forwarded-daemon.js';
-import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -47,7 +46,7 @@ it('forwards only admitted provider references and withholds unrelated secrets',
   await expect(validateForwardedEnvironment(runtime, project, true, { PRODUCT_CONFIG_FILE: '/tmp/attacker-config' })).rejects.toThrow(/not admitted/i);
   writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'user', providers: { user: { type: 'openai', model: 'fixture', apiKey: '$ENV:USER_PROVIDER_REF' } } }), { mode: 0o600 });
 
-  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  const endpoint = workspaceRootBrokerEndpoint(runtime.layout.userRoot);
   const prepared = await requestWorkspaceRootBroker(endpoint, { op: 'prepare', root: project });
   expect(prepared.status).toBe('prepared');
   if (prepared.status !== 'prepared') return;

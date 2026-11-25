@@ -1,4 +1,8 @@
-import { SupervisedControlPathTooLongError, secureWorkspaceRoot } from '@robota-sdk/agent-local-host';
+import {
+  SecureWorkspaceRootFence,
+  SupervisedControlPathTooLongError,
+  secureWorkspaceRoot,
+} from '@robota-sdk/agent-local-host';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * The headless `the product --serve` runtime host entry.
@@ -47,8 +51,7 @@ import {
 import { startServeHttpHost, type IServeHttpHost } from './serve-http-host.js';
 import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 import { RuntimeCustody } from '../secure/runtime-custody.js';
-import { SecureWorkspaceRootFence } from '../secure/workspace-root-fence.js';
-import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-process.js';
+import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-composition.js';
 import { armUncertifiedStop } from '../secure/uncertified-stop.js';
 import { secureServeRefusal } from './secure-serve-refusal.js';
 import type { ISecureServeRuntime } from '../startup/secure-runtime-startup.js';

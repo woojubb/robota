@@ -8,7 +8,7 @@ import { inspectPromptHistoryFile } from '@robota-sdk/agent-session/node';
 
 import { createProductArchivePromptHistoryFile } from '../product/session-stores.js';
 import { createCliRuntimeContext } from '../product/runtime-context.js';
-import { BrokeredWorkspaceTrustService } from '../startup/brokered-workspace-trust.js';
+import { createBrokeredWorkspaceTrust } from '../startup/workspace-root-broker-composition.js';
 import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
 import { discoverProjectRoots } from './migration-roots.js';
 
@@ -236,7 +236,7 @@ export async function importSealedProjectArchives(
   const secureRuntime = createCliRuntimeContext(
     runtime.config, runtime.environment, runtime.artifact, 'secure',
   );
-  const service = await BrokeredWorkspaceTrustService.create(secureRuntime);
+  const service = await createBrokeredWorkspaceTrust(secureRuntime);
   for (const project of roots.trusted) {
     recheck();
     const access = await service.inspect(project.root);

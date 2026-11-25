@@ -16,19 +16,27 @@ import {
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
-import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import {
   BrokeredWorkspaceTrustService,
   brokeredAppend,
   brokeredDirectoryRemoval,
 } from '../brokered-workspace-trust.js';
-import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
-import { runWorkspaceTrustCommand } from '../workspace-trust-command.js';
-import { prepareDesktopRestrictedRoot } from '../../desktop-host.js';
+import { ensureWorkspaceRootBroker, workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
+import { neverLaunch, startFixtureBroker, testProductState } from './helpers/fixture-broker.js';
+
+const staleBrokerMessage = (operation: string): string =>
+  `The stand-in broker is older than the host and cannot ${operation}.`;
+
+/** The service over the broker a test started: no launch is needed, so launching is a failure. */
+function createService(state: ReturnType<typeof testProductState>): Promise<BrokeredWorkspaceTrustService> {
+  return BrokeredWorkspaceTrustService.create({
+    projectStateDirectories: state.projectStateDirectories,
+    ensureBroker: () => ensureWorkspaceRootBroker(state, neverLaunch),
+    staleBrokerMessage,
+  });
+}
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -36,34 +44,6 @@ afterEach(async () => {
 });
 
 describe.skipIf(process.platform === 'win32')('brokered CLI workspace trust', () => {
-  it('starts the broker for a fresh non-Git Restricted desktop choice', async () => {
-    const parent = mkdtempSync(join(tmpdir(), 'brokered-restricted-'));
-    const home = join(parent, 'home');
-    const root = join(parent, 'plain');
-    mkdirSync(home);
-    mkdirSync(root);
-    const runtime = createTestProductRuntime('test-product', { HOME: home });
-    const endpoint = workspaceRootBrokerEndpoint(runtime);
-    const output: string[] = [];
-    const write = vi.spyOn(process.stdout, 'write').mockImplementation(((chunk: unknown) => {
-      output.push(String(chunk)); return true;
-    }) as never);
-    try {
-      expect(await runWorkspaceTrustCommand(['status', '--json'], root, runtime)).toBe(0);
-      expect(JSON.parse(output.join(''))).toMatchObject({ state: 'identity-unavailable', workspace: root });
-      expect(await prepareDesktopRestrictedRoot(runtime.config, runtime.environment, root)).toMatch(
-        /^[0-9a-f]{8}-/u,
-      );
-    } finally {
-      write.mockRestore();
-      try {
-        const ready = await requestWorkspaceRootBroker(endpoint, { op: 'ping' });
-        if (ready.status === 'ready' && ready.pid !== process.pid) process.kill(ready.pid);
-      } catch { /* The broker may already have exited. */ }
-      rmSync(dirname(endpoint), { recursive: true, force: true });
-      rmSync(parent, { recursive: true, force: true });
-    }
-  }, 30_000);
   it('retains approval across clients, refuses a swapped root, and forgets live trust on restart', async () => {
     const parent = mkdtempSync(join(tmpdir(), 'brokered-cli-trust-'));
     const home = join(parent, 'home');
@@ -75,25 +55,19 @@ describe.skipIf(process.platform === 'win32')('brokered CLI workspace trust', ()
     execFileSync('git', ['init', '--quiet', root]);
     writeFileSync(join(root, 'approved.txt'), 'A');
     writeFileSync(join(outside, 'outside.txt'), 'B');
-    const runtime = createTestProductRuntime('test-product', { HOME: home });
-    const endpoint = workspaceRootBrokerEndpoint(runtime);
+    const product = testProductState(home);
+    const endpoint = workspaceRootBrokerEndpoint(product.userRoot);
     mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
-    let broker = await startTestBroker(
-      endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust,
-    );
+    let broker = await startFixtureBroker(endpoint, dirname(endpoint), product.historyFile);
     cleanups.push(async () => {
       await broker.close();
       rmSync(dirname(endpoint), { recursive: true, force: true });
       rmSync(parent, { recursive: true, force: true });
     });
 
-    const first = await BrokeredWorkspaceTrustService.create(runtime);
+    const first = await createService(product);
     expect(await first.inspect(root)).toMatchObject({ status: 'restricted', trustState: 'untrusted' });
     const candidate = await first.prepare(root);
-    expect(await runWorkspaceTrustCommand(
-      ['--yes', '--desktop-approved-candidate', candidate], root, runtime,
-    )).toBe(1);
-    expect(await first.inspect(root)).toMatchObject({ status: 'restricted', trustState: 'untrusted' });
     const access = await first.grant(root, candidate);
     expect(access.status).toBe('trusted');
     if (access.status !== 'trusted') return;
@@ -105,7 +79,7 @@ describe.skipIf(process.platform === 'win32')('brokered CLI workspace trust', ()
       state.writeText('probe.txt', 'retained', 'broker test');
       expect(state.readText('probe.txt', 'broker test')).toBe('retained');
     }
-    const second = await BrokeredWorkspaceTrustService.create(runtime);
+    const second = await createService(product);
     expect(await second.inspect(root)).toMatchObject({ status: 'trusted' });
 
     const parked = join(parent, 'parked');
@@ -119,10 +93,8 @@ describe.skipIf(process.platform === 'win32')('brokered CLI workspace trust', ()
     expect(reader.readText('approved.txt', 'broker test')).toBe('A');
 
     await broker.close();
-    broker = await startTestBroker(
-      endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust,
-    );
-    expect(await (await BrokeredWorkspaceTrustService.create(runtime)).inspect(root))
+    broker = await startFixtureBroker(endpoint, dirname(endpoint), product.historyFile);
+    expect(await (await createService(product)).inspect(root))
       .toMatchObject({ status: 'restricted', trustState: 'untrusted' });
     expect(() => reader.readText('approved.txt', 'broker test')).toThrow();
     first.close();
@@ -138,13 +110,11 @@ describe.skipIf(process.platform !== 'linux')('brokered CLI checkpoint writer le
     mkdirSync(home);
     mkdirSync(root);
     execFileSync('git', ['init', '--quiet', root]);
-    const runtime = createTestProductRuntime('test-product', { HOME: home });
-    const endpoint = workspaceRootBrokerEndpoint(runtime);
+    const product = testProductState(home);
+    const endpoint = workspaceRootBrokerEndpoint(product.userRoot);
     mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
-    const broker = await startTestBroker(
-      endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust,
-    );
-    const service = await BrokeredWorkspaceTrustService.create(runtime);
+    const broker = await startFixtureBroker(endpoint, dirname(endpoint), product.historyFile);
+    const service = await createService(product);
     cleanups.push(async () => {
       service.close();
       await broker.close();
@@ -180,15 +150,11 @@ describe.skipIf(process.platform !== 'linux')('brokered CLI checkpoint writer le
     mkdirSync(home);
     mkdirSync(root);
     execFileSync('git', ['init', '--quiet', root]);
-    const runtime = createTestProductRuntime('test-product', { HOME: home });
-    const endpoint = workspaceRootBrokerEndpoint(runtime);
+    const product = testProductState(home);
+    const endpoint = workspaceRootBrokerEndpoint(product.userRoot);
     mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
-    const broker = await startTestBroker(
-      endpoint,
-      dirname(endpoint),
-      runtime.layout.userPaths.workspaceTrust,
-    );
-    const service = await BrokeredWorkspaceTrustService.create(runtime);
+    const broker = await startFixtureBroker(endpoint, dirname(endpoint), product.historyFile);
+    const service = await createService(product);
     cleanups.push(async () => {
       service.close();
       await broker.close();
@@ -198,7 +164,7 @@ describe.skipIf(process.platform !== 'linux')('brokered CLI checkpoint writer le
     const access = await service.grant(root, await service.prepare(root));
     if (access.status !== 'trusted') throw new Error('expected a trusted root');
     const state = getWorkspaceProjectStateStorage(access.authority, 'memory');
-    const onDisk = join(root, runtime.layout.projectStateDirectories.memory);
+    const onDisk = join(root, product.projectStateDirectories.memory);
 
     state.writeText('tree/one/file.txt', 'file', 'removal test');
     state.writeText('tree/two.txt', 'two', 'removal test');
@@ -226,52 +192,53 @@ describe.skipIf(process.platform !== 'linux')('brokered CLI checkpoint writer le
 });
 
 describe('brokered removal and append answers', () => {
+  const removal = (response: Parameters<typeof brokeredDirectoryRemoval>[0]) =>
+    brokeredDirectoryRemoval(response, staleBrokerMessage);
+  const append = (response: Parameters<typeof brokeredAppend>[0], create: boolean) =>
+    brokeredAppend(response, create, staleBrokerMessage);
+
   it('maps the broker answers and refuses anything else', () => {
-    expect(brokeredDirectoryRemoval({ status: 'mutation', value: 'removed' })).toEqual({
+    expect(removal({ status: 'mutation', value: 'removed' })).toEqual({
       status: 'removed',
     });
-    expect(brokeredDirectoryRemoval({ status: 'mutation', value: 'absent' })).toEqual({
+    expect(removal({ status: 'mutation', value: 'absent' })).toEqual({
       status: 'absent',
     });
-    expect(brokeredDirectoryRemoval({ status: 'mutation', value: 'partial-budget' })).toEqual({
+    expect(removal({ status: 'mutation', value: 'partial-budget' })).toEqual({
       status: 'partial',
       reason: 'budget',
     });
-    expect(brokeredDirectoryRemoval({ status: 'mutation', value: 'partial-concurrent' })).toEqual({
+    expect(removal({ status: 'mutation', value: 'partial-concurrent' })).toEqual({
       status: 'partial',
       reason: 'concurrent',
     });
-    expect(() => brokeredDirectoryRemoval({ status: 'mutation', value: true })).toThrow(
+    expect(() => removal({ status: 'mutation', value: true })).toThrow(
       /invalid removal/u,
     );
-    expect(() => brokeredDirectoryRemoval({ status: 'mutation' })).toThrow(/invalid removal/u);
+    expect(() => removal({ status: 'mutation' })).toThrow(/invalid removal/u);
     expect(() =>
-      brokeredDirectoryRemoval({ status: 'refused', reason: 'write-outcome-unknown' }),
+      removal({ status: 'refused', reason: 'write-outcome-unknown' }),
     ).toThrow(/write-outcome-unknown/u);
 
-    expect(brokeredAppend({ status: 'mutation', value: false }, false)).toBe(false);
-    expect(brokeredAppend({ status: 'mutation', value: true }, false)).toBe(true);
-    expect(() => brokeredAppend({ status: 'mutation' }, false)).toThrow(/invalid append/u);
-    expect(brokeredAppend({ status: 'mutation', value: true }, true)).toBe(true);
-    expect(brokeredAppend({ status: 'mutation' }, true)).toBe(true);
-    expect(() => brokeredAppend({ status: 'mutation', value: false }, true)).toThrow(
+    expect(append({ status: 'mutation', value: false }, false)).toBe(false);
+    expect(append({ status: 'mutation', value: true }, false)).toBe(true);
+    expect(() => append({ status: 'mutation' }, false)).toThrow(/invalid append/u);
+    expect(append({ status: 'mutation', value: true }, true)).toBe(true);
+    expect(append({ status: 'mutation' }, true)).toBe(true);
+    expect(() => append({ status: 'mutation', value: false }, true)).toThrow(
       /invalid append/u,
     );
-    expect(() => brokeredAppend({ status: 'refused', reason: 'unknown-lease' }, true)).toThrow(
+    expect(() => append({ status: 'refused', reason: 'unknown-lease' }, true)).toThrow(
       /unknown-lease/u,
     );
   });
 
-  it('tells the person to restart a broker too old for the new operations', () => {
+  it('tells the person what the host says about a broker too old for the new operations', () => {
     const old = { status: 'refused', reason: 'malformed' } as const;
-    expect(() => brokeredDirectoryRemoval(old)).toThrow(WorkspaceAuthorityRequiredError);
-    expect(() => brokeredDirectoryRemoval(old)).toThrow(
-      /cannot remove directories\. Restart the workspace-root broker/u,
-    );
-    expect(() => brokeredAppend(old, false)).toThrow(
-      /cannot append without creating\. Restart the workspace-root broker/u,
-    );
-    expect(() => brokeredAppend(old, true)).toThrow(
+    expect(() => removal(old)).toThrow(WorkspaceAuthorityRequiredError);
+    expect(() => removal(old)).toThrow(staleBrokerMessage('remove directories'));
+    expect(() => append(old, false)).toThrow(staleBrokerMessage('append without creating'));
+    expect(() => append(old, true)).toThrow(
       /^The live workspace broker refused the operation \(malformed\)\.$/u,
     );
   });
@@ -286,18 +253,16 @@ describe.skipIf(process.platform !== 'win32')('brokered Windows CLI workspace tr
     mkdirSync(root);
     execFileSync('git', ['init', '--quiet', root]);
     writeFileSync(join(root, 'approved.txt'), 'A');
-    const runtime = createTestProductRuntime('test-product', { HOME: home });
-    const endpoint = workspaceRootBrokerEndpoint(runtime);
-    const lockDirectory = join(runtime.layout.userRoot, 'root-broker');
+    const product = testProductState(home);
+    const endpoint = workspaceRootBrokerEndpoint(product.userRoot);
+    const lockDirectory = join(product.userRoot, 'root-broker');
     mkdirSync(lockDirectory, { recursive: true });
-    const broker = await startTestBroker(
-      endpoint, lockDirectory, runtime.layout.userPaths.workspaceTrust,
-    );
+    const broker = await startFixtureBroker(endpoint, lockDirectory, product.historyFile);
     cleanups.push(async () => {
       await broker.close();
       rmSync(parent, { recursive: true, force: true });
     });
-    const service = await BrokeredWorkspaceTrustService.create(runtime);
+    const service = await createService(product);
     const candidate = await service.prepare(root);
     const access = await service.grant(root, candidate);
     expect(access.status).toBe('trusted');

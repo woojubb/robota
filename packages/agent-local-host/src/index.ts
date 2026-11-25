@@ -15,10 +15,14 @@ export type { IKeyHolderOptions, IKeyHolderPolicy, IKeyHolderTimer, IKeyHolderTi
 export { KeyHolderArtifactSealer, ProcessLocalArtifactSealer, ProcessLocalSealerDisposedError, SealingKeyUnavailableError, WRITER_EPOCH_LIMITS, WriteOnlyArtifactSealer, WriterEpochs, formatWriteGrant, parseWriteGrant } from './artifact-sealer.js';
 export type { IWriterEpochKeys, IWriterEpochLimits } from './artifact-sealer.js';
 export { MIN_PASSPHRASE_CHARACTERS, PASSPHRASE_RULE_EXPLANATION, passphraseProblem } from './passphrase-policy.js';
-export { BROKER_LOCK_NAME, BROKER_SOCKET_NAME, brokerNamespaceName, claimBrokerNamespaceDirectory, isBrokerNamespaceName, isOwnerPrivateDirectory, removeBrokerNamespaceDirectory, userRootNamespace } from './workspace-root-broker-directory.js';
 export { SyncWorkspaceRootBrokerClient } from './workspace-root-broker-sync.js';
-export { isRemovalBudget, requestWorkspaceRootBroker, startWorkspaceRootBroker } from './workspace-root-broker.js';
+export { requestWorkspaceRootBroker, startWorkspaceRootBroker } from './workspace-root-broker.js';
 export type { TWorkspaceRootBrokerMutation, TWorkspaceRootBrokerRequest, TWorkspaceRootBrokerResponse } from './workspace-root-broker.js';
+export { ensureWorkspaceRootBroker, workspaceRootBrokerEndpoint } from './workspace-root-broker-process.js';
+export type { IWorkspaceRootBrokerLaunch, IWorkspaceRootBrokerServe, IWorkspaceRootBrokerStart, TWorkspaceRootBrokerLauncher } from './workspace-root-broker-process.js';
+export { BrokeredWorkspaceTrustService } from './brokered-workspace-trust.js';
+export type { IBrokeredWorkspaceTrustOptions, TStaleBrokerMessage } from './brokered-workspace-trust.js';
+export { SecureWorkspaceRootFence } from './workspace-root-fence.js';
 export { secureWorkspaceRoot } from './workspace-root-selection.js';
 export { LOOPBACK_GUI_API_HEADER, startLoopbackGuiServer } from './loopback-gui-server.js';
 export type {

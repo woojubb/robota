@@ -24,7 +24,7 @@ import {
   type TAttachedAppRender,
 } from './session-attach-command.js';
 import { openSecureAttach } from './secure-attach-client.js';
-import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-process.js';
+import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-composition.js';
 import { secureOwnerControl } from './secure-owner-control.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';

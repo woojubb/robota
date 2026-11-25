@@ -13,12 +13,11 @@ import { createCliRuntimeContext } from '../../../packages/agent-cli/src/product
 import { openDesktopSecureOwner } from '../../../packages/agent-cli/src/desktop-secure-host.ts';
 import { writeProductConversationMode } from '../../../packages/agent-cli/src/secure/conversation-mode-state.ts';
 import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../../packages/agent-local-host/src/testing.ts';
-import { workspaceRootBrokerEndpoint } from '../../../packages/agent-cli/src/startup/workspace-root-broker-process.ts';
 import { startTestBroker } from '../../../packages/agent-cli/src/__tests__/helpers/test-workspace-root-broker.ts';
 import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../../../packages/agent-cli/src/session-inventory/supervised-session-control.ts';
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
-import { KeyHolder, KeyHolderArtifactSealer, WriteOnlyArtifactSealer, requestWorkspaceRootBroker } from '../../../packages/agent-local-host/src/index.ts';
+import { KeyHolder, KeyHolderArtifactSealer, WriteOnlyArtifactSealer, requestWorkspaceRootBroker, workspaceRootBrokerEndpoint } from '../../../packages/agent-local-host/src/index.ts';
 import { createMemoryKeyringStore } from '../../../packages/agent-local-host/src/testing.ts';
 import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';
 import { desktopDaemonEnvironment, desktopHostEnvironment } from '../electron/product-config.ts';
@@ -33,7 +32,7 @@ const fixture = buildProductTestEnvironment(join(root, 'product'), readDesktopTe
 const config = resolveProductConfig({ environment: fixture.environment });
 const runtime = createCliRuntimeContext(config, fixture.environment);
 const secureRuntime = createCliRuntimeContext(config, fixture.environment, undefined, 'secure');
-const brokerEndpoint = workspaceRootBrokerEndpoint(runtime);
+const brokerEndpoint = workspaceRootBrokerEndpoint(runtime.layout.userRoot);
 const brokerDirectory = process.platform === 'win32' ? join(runtime.layout.userRoot, 'root-broker') : dirname(brokerEndpoint);
 const inherited = Object.fromEntries(['PATH', 'DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'SystemRoot', 'APPDATA', 'TMPDIR', 'TEMP', 'LANG']
   .filter((name) => typeof process.env[name] === 'string').map((name) => [name, process.env[name]]));

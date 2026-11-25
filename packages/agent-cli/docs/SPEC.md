@@ -591,8 +591,9 @@ here because the reasoning differs between them:
 
 ### Workspace trust and project access
 
-The CLI resolves one host-owned `TWorkspaceProjectAccess` decision through a live broker (its
-guarantees are `agent-local-host`'s) before composition; a saved grant is history, never a renewed
+The CLI resolves one host-owned `TWorkspaceProjectAccess` decision through a live broker (the
+broker's, the trust service's and the fence's guarantees are `agent-local-host`'s; the CLI launches its
+own binary as the broker) before composition; a saved grant is history, never a renewed
 approval. In normal CLI and desktop flows the person approves through the user prompt, and CLI and
 desktop restarts reattach to the broker without another approval. Absence is deterministically **Restricted**: only user contribution/settings sources and
 the user session store are available, no project memory, and `cwd` alone cannot mint any project

@@ -46,13 +46,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
-import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
 import { compactProductPromptHistory } from '../../product/session-stores.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
 import { KeyHolder } from '@robota-sdk/agent-local-host';
-import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
+import { createKeyringFileStore, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import {
   SECURE_MODE_OFF,
   SECURE_USAGE,
@@ -117,7 +116,7 @@ afterEach(async () => {
   await broker?.close();
   broker = undefined;
   if (process.platform !== 'win32')
-    rmSync(dirname(workspaceRootBrokerEndpoint(runtime)), { recursive: true, force: true });
+    rmSync(dirname(workspaceRootBrokerEndpoint(runtime.layout.userRoot)), { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });
 });
 
@@ -278,7 +277,7 @@ async function trustedProject(): Promise<string> {
     runtime.layout.userPaths.workspaceTrust,
     runtime.layout.projectStateDirectories,
   ).grant(root);
-  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  const endpoint = workspaceRootBrokerEndpoint(runtime.layout.userRoot);
   const brokerDirectory = process.platform === 'win32'
     ? join(runtime.layout.userRoot, 'root-broker') : dirname(endpoint);
   mkdirSync(brokerDirectory, { recursive: true, mode: 0o700 });
