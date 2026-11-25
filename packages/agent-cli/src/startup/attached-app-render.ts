@@ -3,13 +3,14 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * The attached terminal's renderer, for `the product --attach`, `the product session attach` and an attach
  * from `the product session view`: the full TUI on a session another process runs, in drive or observe
  * mode, with the presentation the plain TUI resolves — settings, screen reader, theme, keybindings,
- * terminal, focus reporting, prompt history search, the CLI adapter and the process guards. Nothing
+ * terminal, focus reporting, prompt history search (plain mode only), the CLI adapter and the process guards. Nothing
  * that shapes a session is resolved: the process running it owns it. The terminal's own commands
  * run here too, as the plain TUI runs them.
  */
 import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { createTerminalClientCommands } from '@robota-sdk/agent-product/command/node';
 import { SECURE_EDITOR_UNAVAILABLE } from '../product/product-profile.js';
+import { productSecureMode } from '../product/session-sealing.js';
 import { applyAppearanceSettings } from '@robota-sdk/agent-framework';
 import { createNodeHostSettingsStore } from '@robota-sdk/agent-framework/node';
 
@@ -17,11 +18,12 @@ import { reloadPluginCommandSource } from '../plugins/default-plugin-command-sou
 import { resolveProductShellExecutable } from '../product/shell.js';
 import { productUserSettingsPath } from '../product/user-settings.js';
 import { resolveShellPresetOrExit } from './preset-selection.js';
+import { resolvePromptHistoryRenderFields } from './prompt-history-enablement.js';
 import { resolveScreenReaderRenderFields } from './screen-reader-enablement.js';
 import {
   createProductTuiCliAdapter,
   createTuiPresentationSources,
-  resolveTuiRenderFields,
+  resolveTuiPresentationFields,
 } from './tui-presentation.js';
 import { readUserSettingsOrExit } from './user-settings.js';
 import { runtimeVersion } from './version.js';
@@ -77,15 +79,26 @@ export function createAttachedAppRender(
       safeMode: context.safeMode === true,
       writeError: (message) => process.stderr.write(`${message}\n`),
     }).options;
-    // The session-side prompt-history writer belongs to the session, which has its own.
-    const { promptHistory: _sessionWriter, ...fields } = resolveTuiRenderFields({
-      productRuntime: context.productRuntime,
-      screenReader: resolveScreenReaderRenderFields(settings, screenReaderFlag, env),
-      settings,
-      env,
-      access: projectAccess,
-      cwd,
-    });
+    // The session writes its own prompt history, so this terminal only searches the file. Secure
+    // mode seals it for the keys of a process that registered a key holder; this terminal holds the
+    // owner's handover, which the link turns into the runtime's read grant, and registers no holder
+    // from it, so it builds no history store and offers no search rather than open one it cannot read.
+    const fields = {
+      ...resolveTuiPresentationFields({
+        screenReader: resolveScreenReaderRenderFields(settings, screenReaderFlag, env),
+        env,
+      }),
+      ...(productSecureMode(context.productRuntime)
+        ? {}
+        : resolvePromptHistoryRenderFields({
+            productRuntime: context.productRuntime,
+            settings,
+            env,
+            access: projectAccess,
+            cwd,
+            persist: false,
+          })),
+    };
     // The plain TUI's survival guards: an error it survives must not end this terminal.
     // No session runs in this process to show the error in, so it is written to the terminal.
     presentation.installTuiProcessGuards(context.productRuntime.config.identity.cliName);

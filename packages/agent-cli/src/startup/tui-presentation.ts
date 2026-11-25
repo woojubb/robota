@@ -91,14 +91,30 @@ export function createTuiPresentationSources(
   return { keybindingsSource, theme };
 }
 
-export type TTuiRenderFields = IScreenReaderRenderFields &
-  IPromptHistorySurface & {
-    readonly screenReaderPacing: IScreenReaderPacingOverrides;
-    readonly terminalCapabilities: ITerminalCapabilityOverrides;
-    readonly focusReporting: boolean | undefined;
-  };
+/** What the renderer takes from the settings and the environment, beside the theme, keybindings and prompt history. */
+export type TTuiPresentationFields = IScreenReaderRenderFields & {
+  readonly screenReaderPacing: IScreenReaderPacingOverrides;
+  readonly terminalCapabilities: ITerminalCapabilityOverrides;
+  readonly focusReporting: boolean | undefined;
+};
 
-/** What the renderer takes from the settings and the environment, beside the theme and keybindings. */
+export type TTuiRenderFields = TTuiPresentationFields & IPromptHistorySurface;
+
+export function resolveTuiPresentationFields(inputs: {
+  readonly screenReader: IScreenReaderRenderFields;
+  readonly env: TEnv;
+}): TTuiPresentationFields {
+  return {
+    // Off ⇒ today's byte stream is unchanged.
+    ...inputs.screenReader,
+    screenReaderPacing: resolveProductScreenReaderPacing(inputs.env),
+    terminalCapabilities: resolveProductTerminalCapabilities(inputs.env),
+    // The focus-reporting kill switch is the shell's; the TUI's TTY gate decides otherwise.
+    focusReporting: resolveFocusReportingOverride(inputs.env),
+  };
+}
+
+/** The presentation plus the prompt history, for the TUI that runs its own session. */
 export function resolveTuiRenderFields(inputs: {
   readonly productRuntime: ICliRuntimeContext;
   readonly screenReader: IScreenReaderRenderFields;
@@ -110,12 +126,7 @@ export function resolveTuiRenderFields(inputs: {
   readonly persistPromptHistory?: boolean;
 }): TTuiRenderFields {
   return {
-    // Off ⇒ today's byte stream is unchanged.
-    ...inputs.screenReader,
-    screenReaderPacing: resolveProductScreenReaderPacing(inputs.env),
-    terminalCapabilities: resolveProductTerminalCapabilities(inputs.env),
-    // The focus-reporting kill switch is the shell's; the TUI's TTY gate decides otherwise.
-    focusReporting: resolveFocusReportingOverride(inputs.env),
+    ...resolveTuiPresentationFields(inputs),
     // Prompt history is a TUI-only surface (print and serve receive no writer).
     ...resolvePromptHistoryRenderFields({
       productRuntime: inputs.productRuntime,

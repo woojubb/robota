@@ -64,7 +64,7 @@ try {
   await within(application.evaluate(() => globalThis.desktopAdmissionFixture.dispose()), 'Session disposal');
   await within(parent.waitForFunction(() => window.fixtureStatus === 'disconnected'), 'Session disconnection');
   const state = await within(application.evaluate(() => globalThis.desktopAdmissionFixture.state()), 'Fixture state');
-  assert.deepEqual(state, { sent: [{ type: 'get-messages' }, { type: 'get-messages' }], released: 1, locked: 1, closed: 1,
+  assert.deepEqual(state, { sent: [{ type: 'get-messages' }, { type: 'get-messages' }], released: 1, locked: 0, detached: 1, closed: 1,
     prompts: 1, unconfirmed: 0, sourceWasMainFrame: true, requestPorts: { array: false, type: 'undefined', value: undefined } });
   console.log('Sandboxed Electron IPC: actual main-frame request, foreign window and child frame, and synthetic native action passed.');
 } finally {
