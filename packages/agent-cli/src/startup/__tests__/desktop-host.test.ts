@@ -1,7 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
+import { requestWorkspaceRootBroker, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import { embeddedProductIdentity, resolveProductConfig } from '@robota-sdk/product-config';
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -11,6 +13,7 @@ import {
   parseDesktopDaemonStart,
 } from '../../desktop-host.js';
 import { createTestProductEnvironment } from '../../__tests__/helpers/product-runtime.js';
+import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 
 const home = mkdtempSync(join(tmpdir(), 'desktop-consumer-'));
 afterAll(() => rmSync(home, { recursive: true, force: true }));
@@ -138,4 +141,43 @@ describe('public desktop CLI attachment', () => {
     expect(await controller.start()).toEqual({ ok: false, detail: 'Workspace trust could not be confirmed after grant.' });
     expect(calls.every((args) => args[0] === 'trust')).toBe(true);
   });
+});
+
+describe.skipIf(process.platform === 'win32')('the default approval of a trust answer', () => {
+  it('approves the prepared candidate at the broker of the product state root', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'desktop-approval-'));
+    const folder = join(parent, 'folder');
+    mkdirSync(folder);
+    execFileSync('git', ['init', '--quiet', folder]);
+    let endpoint = '';
+    let candidate = '';
+    const controller = createDesktopCliController({
+      artifact,
+      environment: { HOME: home },
+      chooseTrust: async () => 'trust',
+      execute: async (args) => {
+        if (args[0] !== 'trust') {
+          return { exitCode: 0, stdout: '{"id":"daemon","url":"ws://127.0.0.1:4106/?token=secret"}', stderr: '' };
+        }
+        const held = await requestWorkspaceRootBroker(endpoint, { op: 'inspect', root: folder });
+        return { exitCode: 0, stderr: '', stdout: held.status === 'trusted'
+          ? '{"state":"trusted","askable":false,"providerEnvRefs":[]}'
+          : JSON.stringify({ askable: true, workspace: folder, loads: [], candidate }) };
+      },
+    });
+    endpoint = workspaceRootBrokerEndpoint(controller.config.storage.userRoot);
+    mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
+    const broker = await startTestBroker(endpoint, dirname(endpoint), join(controller.config.storage.userRoot, 'workspace-trust.json'));
+    try {
+      const prepared = await requestWorkspaceRootBroker(endpoint, { op: 'prepare', root: folder });
+      if (prepared.status !== 'prepared') throw new Error('The test folder could not be prepared.');
+      candidate = prepared.candidate;
+      expect((await controller.start()).ok).toBe(true);
+      expect(await requestWorkspaceRootBroker(endpoint, { op: 'inspect', root: folder })).toMatchObject({ status: 'trusted' });
+    } finally {
+      await broker.close();
+      rmSync(dirname(endpoint), { recursive: true, force: true });
+      rmSync(parent, { recursive: true, force: true });
+    }
+  }, 30_000);
 });
