@@ -3,7 +3,10 @@ import { realpathSync } from 'node:fs';
 import { openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
 import {
   SecureWorkspaceRootFence,
+  acquireSupervisedDaemonStartLock,
   createKeyringFileStore,
+  openPreparedOwnerLink,
+  proveWorkspaceDaemon,
   readProductConversationMode,
   secureWorkspaceRoot,
 } from '@robota-sdk/agent-local-host';
@@ -11,10 +14,7 @@ import {
 import { createCliRuntimeContext } from './product/runtime-context.js';
 import { ensureWorkspaceRootBroker } from './startup/workspace-root-broker-composition.js';
 import { launchCertifiedRuntime } from './session-inventory/certified-runtime-launch.js';
-import { openPreparedOwnerLink } from './session-inventory/owner-link-client.js';
-import { proveWorkspaceDaemon } from './session-inventory/prove-workspace-daemon.js';
 import {
-  acquireSupervisedDaemonStartLock,
   listSupervisedSessions,
   resolveSupervisedDirectory,
 } from './session-inventory/supervised-session-control.js';
@@ -76,7 +76,7 @@ export async function openDesktopSecureOwner(options: IDesktopSecureOwnerOptions
     }
     const root = resolveSupervisedDirectory(runtime);
     const releaseStart = await acquireSupervisedDaemonStartLock(workspace, root, {
-      cliName: runtime.vocabulary.cliName,
+      removalHint: `${runtime.vocabulary.cliName} daemon clear-start-lock`,
     });
     let selected: { readonly id: string; readonly generation: string };
     try {

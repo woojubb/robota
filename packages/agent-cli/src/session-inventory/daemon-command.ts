@@ -5,19 +5,16 @@ import { realpathSync } from 'node:fs';
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 
 import { productSecureMode } from '../product/session-sealing.js';
-import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
+import { acquireSupervisedDaemonStartLock, createKeyringFileStore, proveWorkspaceDaemon, removeSupervisedDaemonStartLock } from '@robota-sdk/agent-local-host';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { fingerprintOf } from '../secure/sealing-key-warning.js';
 import { launchCertifiedRuntime } from './certified-runtime-launch.js';
-import { proveWorkspaceDaemon } from './prove-workspace-daemon.js';
 
 import {
-  acquireSupervisedDaemonStartLock,
   resolveSupervisedDirectory,
   connectSupervisedDaemon,
   listSupervisedSessions,
-  removeSupervisedDaemonStartLock,
   stopSupervisedSession,
   type ISupervisedSessionRow,
 } from './supervised-session-control.js';
@@ -130,7 +127,7 @@ async function startSecureDaemon(
     return 1;
   }
   try {
-    const release = await (options.lock ?? acquireSupervisedDaemonStartLock)(workspace, root, { cliName: runtime.vocabulary.cliName });
+    const release = await (options.lock ?? acquireSupervisedDaemonStartLock)(workspace, root, { removalHint: `${runtime.vocabulary.cliName} daemon clear-start-lock` });
     try {
       const rows = await (options.list ?? listSupervisedSessions)(root, undefined, {
         includeGeneration: true,
@@ -295,7 +292,7 @@ export async function runDaemonCommand(
       url = await connectRunning(options, running);
     } else {
       // Starts in one workspace take turns; the one that waited finds the winner's daemon and reuses it.
-      const release = await (options.lock ?? acquireSupervisedDaemonStartLock)(workspace, (options.root ?? resolveSupervisedDirectory(options.productRuntime)), { cliName });
+      const release = await (options.lock ?? acquireSupervisedDaemonStartLock)(workspace, (options.root ?? resolveSupervisedDirectory(options.productRuntime)), { removalHint: `${cliName} daemon clear-start-lock` });
       try {
         const winner = await findDaemon(options, workspace);
         if (winner !== undefined) {

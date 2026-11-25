@@ -12,6 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import {
+  openRegisteredSpawnerLink,
   requestWorkspaceRootBroker,
   startWorkspaceRootBroker,
   workspaceRootBrokerEndpoint,
@@ -21,7 +22,6 @@ import { afterEach, expect, it } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { hostedFixture } from '../../hosted/__tests__/hosted-fixture.js';
-import { openRegisteredSpawnerLink } from '../owner-link-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
 
 import type { ChildProcess } from 'node:child_process';

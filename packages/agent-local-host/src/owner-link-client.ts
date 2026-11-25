@@ -1,6 +1,6 @@
 import { openSelectedOwnerLink, openSelectedSpawnerLink } from '@robota-sdk/agent-transport/link';
 
-import { openRegisteredControlStream } from '@robota-sdk/agent-local-host';
+import { openRegisteredControlStream } from './supervised-control-carrier.js';
 
 import type { IOwnerHandover, SpawnerKey } from '@robota-sdk/agent-keyring';
 import type { IOwnerRuntimeLinkClient, IRuntimeLinkClient } from '@robota-sdk/agent-transport/link';

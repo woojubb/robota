@@ -1,8 +1,7 @@
 import { realpathSync } from 'node:fs';
 
-import { SecureWorkspaceRootFence, secureWorkspaceRoot } from '@robota-sdk/agent-local-host';
+import { SecureWorkspaceRootFence, openPreparedOwnerLink, secureWorkspaceRoot } from '@robota-sdk/agent-local-host';
 
-import { openPreparedOwnerLink } from './owner-link-client.js';
 import { MAX_EARLY_FRAMES, type ISupervisedAttachConnection } from './supervised-attach-client.js';
 
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
