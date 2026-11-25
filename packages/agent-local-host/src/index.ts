@@ -23,6 +23,7 @@ export type { IWorkspaceRootBrokerLaunch, IWorkspaceRootBrokerServe, IWorkspaceR
 export { BrokeredWorkspaceTrustService } from './brokered-workspace-trust.js';
 export type { IBrokeredWorkspaceTrustOptions, TStaleBrokerMessage } from './brokered-workspace-trust.js';
 export { SecureWorkspaceRootFence } from './workspace-root-fence.js';
+export { approvePreparedCandidate, assertRestrictedRoot, prepareRestrictedRoot, releaseRestrictedRoot, retainRestrictedRoot } from './native-owner-trust.js';
 export { CONTROL_ACCESS, isControlCommandName } from './control-access.js';
 export type { TControlCommandName } from './control-access.js';
 export type { IRuntimeAdmission, IRuntimeAdmissionContext, IRuntimeAdmissionStatus, TRuntimeAdmissionFactory } from './runtime-admission.js';

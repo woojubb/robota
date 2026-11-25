@@ -1,16 +1,14 @@
 import { join } from 'node:path';
 
-import { requestWorkspaceRootBroker, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
+import { approvePreparedCandidate } from '@robota-sdk/agent-local-host';
 import { embeddedProductIdentity, productConfigEntries, scopeProductEnvironment } from '@robota-sdk/product-config';
 
 import { createProductCliHost } from './product-host.js';
-import { createCliRuntimeContext } from './product/runtime-context.js';
 
 import type { TConfigEnvironment } from '@robota-sdk/product-config';
-import type { IProductConfig } from '@robota-sdk/product-config';
 import type { IProductCliArtifact } from './product/artifact.js';
 
-export { desktopConversationMode, openDesktopSecureOwner } from './desktop-secure-host.js';
+export { openDesktopSecureOwner } from './desktop-secure-host.js';
 export type { IDesktopSecureOwnerOptions, TDesktopSecureSecret } from './desktop-secure-host.js';
 
 export interface IDesktopCliResult {
@@ -42,58 +40,6 @@ export interface IDesktopCliControllerOptions {
   readonly chooseTrust: (question: IDesktopTrustQuestion) => Promise<TDesktopTrustChoice>;
   /** A host-owned approval action; by default the Electron main process calls the live broker. */
   readonly approveTrust?: (folder: string, candidate: string) => Promise<boolean>;
-}
-
-/** Only the desktop main process calls this after its native trust question was answered. */
-export async function approveDesktopTrustCandidate(
-  config: IProductConfig,
-  environment: TConfigEnvironment,
-  question: IDesktopTrustQuestion,
-  candidate: string,
-): Promise<boolean> {
-  // The CLI status request started the broker before the UI question. Never launch a child from
-  // Electron here: process.execPath is the fused Electron binary, not the bundled CLI sidecar.
-  const endpoint = workspaceRootBrokerEndpoint(createCliRuntimeContext(config, environment).layout.userRoot);
-  return (await requestWorkspaceRootBroker(endpoint, {
-    op: 'approve', candidate, root: question.folder,
-  })).status === 'trusted';
-}
-
-const desktopBroker = (config: IProductConfig, environment: TConfigEnvironment) =>
-  workspaceRootBrokerEndpoint(createCliRuntimeContext(config, environment).layout.userRoot);
-
-export async function prepareDesktopRestrictedRoot(
-  config: IProductConfig, environment: TConfigEnvironment, root: string,
-): Promise<string | undefined> {
-  const response = await requestWorkspaceRootBroker(desktopBroker(config, environment), { op: 'prepare', root });
-  return response.status === 'prepared' ? response.candidate : undefined;
-}
-
-/** Promote the root shown to the person into a live Restricted choice without granting project reads. */
-export async function retainDesktopRestrictedRoot(
-  config: IProductConfig, environment: TConfigEnvironment, root: string, candidate: string,
-): Promise<string | undefined> {
-  const response = await requestWorkspaceRootBroker(desktopBroker(config, environment), {
-    op: 'retainRestricted', root, candidate,
-  });
-  return response.status === 'restricted-held' ? response.hold : undefined;
-}
-
-export async function assertDesktopRestrictedRoot(
-  config: IProductConfig, environment: TConfigEnvironment, root: string, hold: string,
-): Promise<string> {
-  const response = await requestWorkspaceRootBroker(desktopBroker(config, environment), {
-    op: 'assertRestricted', root, hold,
-  });
-  if (response.status !== 'restricted-root') throw new Error('The Restricted folder changed after approval.');
-  return response.tag;
-}
-
-export async function releaseDesktopRestrictedRoot(
-  config: IProductConfig, environment: TConfigEnvironment, hold: string,
-): Promise<void> {
-  const response = await requestWorkspaceRootBroker(desktopBroker(config, environment), { op: 'releaseRestricted', hold });
-  if (response.status !== 'released') throw new Error('The Restricted folder hold could not be released.');
 }
 
 const OS_VARIABLES = [
@@ -193,7 +139,7 @@ export function createDesktopCliController(options: IDesktopCliControllerOptions
       if (choice === 'trust') {
         if (trust.candidate === undefined) return { ok: false, detail: 'The prepared workspace approval is unavailable.' };
         const approved = options.approveTrust === undefined
-          ? await approveDesktopTrustCandidate(config, environment, trust.question, trust.candidate)
+          ? await approvePreparedCandidate(config.storage.userRoot, trust.question.folder, trust.candidate)
           : await options.approveTrust(trust.question.folder, trust.candidate);
         if (!approved) return { ok: false, detail: 'Workspace trust grant failed.' };
         const renewed = await options.execute(['trust', 'status', '--json'], childEnvironment());

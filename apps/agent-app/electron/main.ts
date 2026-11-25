@@ -126,8 +126,8 @@ async function disposeDesktopAdmission(reason?: 'explicit' | 'screen-lock' | 'su
 
 async function readConversationMode(): Promise<typeof conversationMode> {
   if (remoteMode) return 'plain';
-  const { desktopConversationMode } = await import('@robota-sdk/agent-cli/desktop-host');
-  return desktopConversationMode(productConfig);
+  const { readProductConversationMode } = await import('@robota-sdk/agent-local-host');
+  return readProductConversationMode(productConfig.storage.userRoot);
 }
 let admittedProviderEnvironmentReferences: readonly string[] = [];
 const allowScriptedE2eVariables =
@@ -232,8 +232,8 @@ async function releaseRestrictedHold(): Promise<void> {
   restrictedHold = undefined;
   restrictedHoldRoot = undefined;
   if (!hold) return;
-  const { releaseDesktopRestrictedRoot } = await import('@robota-sdk/agent-cli/desktop-host');
-  await releaseDesktopRestrictedRoot(productConfig, cliEnv(), hold);
+  const { releaseRestrictedRoot } = await import('@robota-sdk/agent-local-host');
+  await releaseRestrictedRoot(productConfig.storage.userRoot, hold);
 }
 
 /** Run the daemon start command and read its answer. */
@@ -295,8 +295,8 @@ async function readTrustQuestion(): Promise<ITrustQuestion | undefined> {
           !selectedFolderWithinTrustRoot(workspaceFolder, restrictedHoldRoot)) {
         throw new Error('The selected Restricted folder changed.');
       }
-      const { assertDesktopRestrictedRoot } = await import('@robota-sdk/agent-cli/desktop-host');
-      await assertDesktopRestrictedRoot(productConfig, cliEnv(), restrictedHoldRoot, restrictedHold);
+      const { assertRestrictedRoot } = await import('@robota-sdk/agent-local-host');
+      await assertRestrictedRoot(productConfig.storage.userRoot, restrictedHoldRoot, restrictedHold);
       restricted = true;
       secureTrustReady = true;
       admittedProviderEnvironmentReferences = [];
@@ -318,8 +318,8 @@ async function readTrustQuestion(): Promise<ITrustQuestion | undefined> {
       run.exitCode !== 0 || !workspaceFolder) return question;
   const restrictedRoot = parseTrustWorkspaceRoot(run.stdout);
   if (!restrictedRoot || !selectedFolderWithinTrustRoot(workspaceFolder, restrictedRoot)) return undefined;
-  const { prepareDesktopRestrictedRoot } = await import('@robota-sdk/agent-cli/desktop-host');
-  const candidate = await prepareDesktopRestrictedRoot(productConfig, cliEnv(), restrictedRoot);
+  const { prepareRestrictedRoot } = await import('@robota-sdk/agent-local-host');
+  const candidate = await prepareRestrictedRoot(productConfig.storage.userRoot, restrictedRoot);
   if (!candidate) return undefined;
   pendingTrustCandidate = candidate;
   pendingTrustRestrictedOnly = true;
@@ -358,13 +358,13 @@ async function resolveSecureWorkspaceTrust(win: BrowserWindow): Promise<boolean>
     return false;
   }
   if (answer.response === (restrictedOnly ? 0 : 1)) {
-    const { retainDesktopRestrictedRoot } = await import('@robota-sdk/agent-cli/desktop-host');
-    const hold = await retainDesktopRestrictedRoot(productConfig, cliEnv(), asked.folder, candidate);
+    const { retainRestrictedRoot } = await import('@robota-sdk/agent-local-host');
+    const hold = await retainRestrictedRoot(productConfig.storage.userRoot, asked.folder, candidate);
     if (!hold) { await releasePendingTrustCandidate(); return false; }
     pendingTrustCandidate = undefined;
     if (!decisionCurrent()) {
-      const { releaseDesktopRestrictedRoot } = await import('@robota-sdk/agent-cli/desktop-host');
-      await releaseDesktopRestrictedRoot(productConfig, cliEnv(), hold);
+      const { releaseRestrictedRoot } = await import('@robota-sdk/agent-local-host');
+      await releaseRestrictedRoot(productConfig.storage.userRoot, hold);
       return false;
     }
     restrictedHold = hold;
@@ -373,8 +373,8 @@ async function resolveSecureWorkspaceTrust(win: BrowserWindow): Promise<boolean>
     admittedProviderEnvironmentReferences = [];
     secureTrustReady = true;
   } else if (!restrictedOnly && answer.response === 0) {
-    const { approveDesktopTrustCandidate } = await import('@robota-sdk/agent-cli/desktop-host');
-    if (!(await approveDesktopTrustCandidate(productConfig, cliEnv(), asked, candidate))) return false;
+    const { approvePreparedCandidate } = await import('@robota-sdk/agent-local-host');
+    if (!(await approvePreparedCandidate(productConfig.storage.userRoot, asked.folder, candidate))) return false;
     pendingTrustCandidate = undefined;
     if (!decisionCurrent()) return false;
     await readTrustQuestion();
@@ -1058,9 +1058,8 @@ ipcMain.handle(
           return { error: 'The prepared workspace approval is unavailable.' };
         }
         try {
-          const { approveDesktopTrustCandidate } =
-            await import('@robota-sdk/agent-cli/desktop-host');
-          if (!(await approveDesktopTrustCandidate(productConfig, cliEnv(), asked, candidate))) {
+          const { approvePreparedCandidate } = await import('@robota-sdk/agent-local-host');
+          if (!(await approvePreparedCandidate(productConfig.storage.userRoot, asked.folder, candidate))) {
             return { error: 'Workspace trust could not be confirmed.' };
           }
         } catch (error) {
