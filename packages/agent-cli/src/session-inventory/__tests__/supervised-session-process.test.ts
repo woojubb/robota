@@ -6,10 +6,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stopSupervisedSession } from '@robota-sdk/agent-local-host';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  connectSupervisedDaemon, linkSupervisedPr, listSupervisedSessions, renameSupervisedSession, stopSupervisedSession, unlinkSupervisedPr,
+  connectSupervisedDaemon, linkSupervisedPr, listSupervisedSessions, renameSupervisedSession, unlinkSupervisedPr,
 } from '../supervised-session-control.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 

@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import { stopSupervisedSession } from '@robota-sdk/agent-local-host';
 import { expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
@@ -17,7 +18,7 @@ import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
 import { startSecureBackground } from '../secure-background-start.js';
 import { secureOwnerControl } from '../secure-owner-control.js';
 import { runSessionViewCommand } from '../session-view-command.js';
-import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
+import { listSupervisedSessions, resolveSupervisedDirectory } from '../supervised-session-control.js';
 
 it('requires an owner before taking a start lock and certifies a new background runtime', async () => {
   const home = realpathSync(mkdtempSync(join(process.platform === 'win32' ? tmpdir() : realpathSync('/tmp'), 'sb-')));

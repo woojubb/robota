@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
-import { proveWorkspaceDaemon } from '@robota-sdk/agent-local-host';
+import { proveWorkspaceDaemon, stopSupervisedSession } from '@robota-sdk/agent-local-host';
 import { expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
@@ -16,7 +16,7 @@ import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpe
 import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
 import { runDaemonAttachCommand } from '../daemon-attach-command.js';
 import { runDaemonCommand } from '../daemon-command.js';
-import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
+import { listSupervisedSessions, resolveSupervisedDirectory } from '../supervised-session-control.js';
 
 it.skipIf(process.platform === 'win32')('refuses forged daemon status relayed to either real runtime', async () => {
   const home = realpathSync(mkdtempSync(join(realpathSync('/tmp'), 'sd-')));

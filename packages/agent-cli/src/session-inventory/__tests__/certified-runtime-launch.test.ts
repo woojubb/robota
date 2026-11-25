@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createKeyring, openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
-import { createWorkspaceDaemonProver, listRegisteredCandidates, openRegisteredOwnerLink } from '@robota-sdk/agent-local-host';
+import { createWorkspaceDaemonProver, listRegisteredCandidates, openRegisteredOwnerLink, stopSupervisedSession } from '@robota-sdk/agent-local-host';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
@@ -14,7 +14,7 @@ import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpe
 import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
 import { runDaemonCommand } from '../daemon-command.js';
 import { runDaemonAttachCommand } from '../daemon-attach-command.js';
-import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
+import { listSupervisedSessions, resolveSupervisedDirectory } from '../supervised-session-control.js';
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true, maxRetries: 10 }); });

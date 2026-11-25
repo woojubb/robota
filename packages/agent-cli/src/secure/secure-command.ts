@@ -30,8 +30,8 @@ import { writeProductMigrationMarker } from '../product/process-presence.js';
 import { productSecureMode } from '../product/session-sealing.js';
 import { userPaths } from '../product/user-paths.js';
 import { createInterface } from 'node:readline/promises';
-import { listSupervisedSessions, lockSupervisedSession, resolveSupervisedDirectory } from '../session-inventory/supervised-session-control.js';
-import { KeyHolder, SealingKeyMismatchError, writeProductConversationMode } from '@robota-sdk/agent-local-host';
+import { listSupervisedSessions, resolveSupervisedDirectory } from '../session-inventory/supervised-session-control.js';
+import { KeyHolder, SealingKeyMismatchError, lockSupervisedSession, writeProductConversationMode } from '@robota-sdk/agent-local-host';
 import { KeyringStoreError, createKeyringFileStore, type IKeyringStore } from '@robota-sdk/agent-local-host';
 import {
   EXIT_FAILED,

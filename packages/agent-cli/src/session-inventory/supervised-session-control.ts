@@ -1,11 +1,11 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { randomBytes } from 'node:crypto';
 import {
-  lstatSync, mkdirSync, readFileSync,
+  lstatSync, mkdirSync,
   renameSync, rmSync, writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:net';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { isLinkRequest } from '@robota-sdk/agent-transport/link';
 
@@ -21,22 +21,13 @@ import {
 } from '../external-events/external-event-grant-file.js';
 
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
-import { CONTROL_ACCESS, MAX_CONTROL_FRAME_BYTES, SUPERVISED_ID_PATTERN, WindowsControlPipeServer, connectControlSocket, controlSocketPath, createSupervisedAttachCarrier, createWindowsPrivateDirectory, ensurePrivateDirectory, isControlCommandName, listRegisteredCandidates, probeRegisteredPid as probePid, readRegisteredProcessStartTime as readProcessStartTime, readOwnedFile, sessionDirectory, verifyExistingDirectory, verifyLiveOwner, type IControlChannel, type IRegistration, type IRuntimeAdmission, type TControlCommandName, type TRuntimeAdmissionFactory, type TSupervisedAttachTarget } from '@robota-sdk/agent-local-host';
+import { CONTROL_ACCESS, CONTROL_REQUEST_TIMEOUT_MS, MAX_CONTROL_FRAME_BYTES, SUPERVISED_ID_PATTERN, WindowsControlPipeServer, controlSocketPath, createSupervisedAttachCarrier, createWindowsPrivateDirectory, ensurePrivateDirectory, isControlCommandName, isControlCwd, isCurrentActivity, listSupervisedRuntimes, readRegisteredProcessStartTime as readProcessStartTime, readOwnedFile, requestSupervisedControl, sessionDirectory, verifyExistingDirectory, verifyLiveOwner, type IControlChannel, type IRegistration, type IRuntimeAdmission, type TControlCommandName, type TRuntimeAdmissionFactory, type TSupervisedActivity, type TSupervisedAttachTarget } from '@robota-sdk/agent-local-host';
 
 
-const MAX_FRAME_BYTES = MAX_CONTROL_FRAME_BYTES;
-const MAX_STATUS_RESPONSE_BYTES = 32_768;
-const REQUEST_TIMEOUT_MS = 2_000;
 const MAX_NAME_BYTES = 240;
 const MAX_PR_URL_BYTES = 2_048;
 const NAME_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 
-
-/** The commands a client of the plain socket sends one request line for. */
-type TControlCommand = Extract<
-  TControlCommandName,
-  'status' | 'stop' | 'lock' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke' | 'connect'
->;
 
 const GRANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/u;
 const MAX_GRANT_HANDOFF_BYTES = 256 * 1024;
@@ -92,12 +83,6 @@ function readList<T>(value: unknown, read: (item: unknown) => T | undefined): T[
   return items.every((item) => item !== undefined) ? (items as T[]) : undefined;
 }
 
-
-type TSupervisedActivity = 'working' | 'needs-input' | 'idle' | 'unknown';
-
-function isCurrentActivity(value: unknown): value is Exclude<TSupervisedActivity, 'unknown'> {
-  return value === 'working' || value === 'needs-input' || value === 'idle';
-}
 
 const MAX_DAEMON_URL_BYTES = 2_048;
 
@@ -176,68 +161,8 @@ export interface ISupervisedSessionRow {
 }
 
 
-/** A Linux zombie has exited even when its parent has not yet reaped its PID. */
-function isRegisteredLinuxZombie(pid: number, startedAt: string): boolean {
-  if (process.platform !== 'linux') return false;
-  try {
-    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
-    const close = stat.lastIndexOf(')');
-    if (!stat.startsWith(`${pid} (`) || close < 0) return false;
-    // The command name may contain spaces and parentheses; field 3 starts after its last ')'.
-    const fields = stat.slice(close + 1).trim().split(/\s+/u);
-    return fields[0] === 'Z' && fields[19] === startedAt;
-  } catch {
-    // An unreadable process is not evidence that it exited.
-    return false;
-  }
-}
-
 export function resolveSupervisedDirectory(productRuntime: ICliRuntimeContext): string {
   return join(dirname(resolveRendezvousDirectory(productRuntime)), 'supervised');
-}
-
-/** `onRest` receives whatever arrived after the line, for a connection that stays open. */
-function readLine(
-  socket: IControlChannel,
-  maxBytes = MAX_FRAME_BYTES,
-  onRest?: (rest: string) => void,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let received = '';
-    let done = false;
-    const timer = setTimeout(() => finish(() => reject(new Error('Supervised session control timed out.'))), REQUEST_TIMEOUT_MS);
-    const finish = (action: () => void): void => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      socket.off('data', onData);
-      socket.off('error', onError);
-      socket.off('end', onEnd);
-      action();
-    };
-    const onData = (chunk: string): void => {
-      received += chunk;
-      const end = received.indexOf('\n');
-      // The bound is on the line itself: bytes an attach client sends after it belong to the
-      // session protocol, which applies its own frame limit.
-      if (Buffer.byteLength(end === -1 ? received : received.slice(0, end), 'utf8') > maxBytes) {
-        finish(() => reject(new Error('Supervised session control frame is too large.')));
-        return;
-      }
-      if (end !== -1) {
-        finish(() => {
-          onRest?.(received.slice(end + 1));
-          resolve(received.slice(0, end));
-        });
-      }
-    };
-    const onError = (): void => finish(() => reject(new Error('Supervised session control is unavailable.')));
-    const onEnd = (): void => finish(() => reject(new Error('Supervised session control closed before replying.')));
-    socket.setEncoding('utf8');
-    socket.on('data', onData);
-    socket.once('error', onError);
-    socket.once('end', onEnd);
-  });
 }
 
 /**
@@ -252,7 +177,7 @@ function readRequestLine(socket: IControlChannel): Promise<{ readonly line: stri
     let done = false;
     const timer = setTimeout(
       () => finish(() => reject(new Error('Supervised session control timed out.'))),
-      REQUEST_TIMEOUT_MS,
+      CONTROL_REQUEST_TIMEOUT_MS,
     );
     const finish = (action: () => void): void => {
       if (done) return;
@@ -268,7 +193,7 @@ function readRequestLine(socket: IControlChannel): Promise<{ readonly line: stri
       received = Buffer.concat([received, typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : chunk]);
       const end = received.indexOf(0x0a);
       // The bound is on the line itself: what follows it belongs to the protocol that line opens.
-      if ((end === -1 ? received.length : end) > MAX_FRAME_BYTES) {
+      if ((end === -1 ? received.length : end) > MAX_CONTROL_FRAME_BYTES) {
         finish(() => reject(new Error('Supervised session control frame is too large.')));
         return;
       }
@@ -289,52 +214,6 @@ function readRequestLine(socket: IControlChannel): Promise<{ readonly line: stri
   });
 }
 
-/**
- * Send one command bound to `generation`. A reply is returned only when its owner echoes that same
- * generation, so a reply from a different process start is never taken as this registration's.
- */
-/** Open the owner's control socket, refusing one this user does not own. */
-
-async function request(
-  directory: string,
-  id: string,
-  generation: string,
-  command: TControlCommand,
-  signal?: AbortSignal,
-  name?: string,
-  url?: string,
-  grantId?: string,
-): Promise<object> {
-  signal?.throwIfAborted();
-  const socket = await connectControlSocket(directory, id, signal);
-  const onAbort = (): void => { socket.destroy(new Error('Supervised session control aborted.')); };
-  signal?.addEventListener('abort', onAbort, { once: true });
-  try {
-    signal?.throwIfAborted();
-    await new Promise<void>((resolve, reject) => {
-      socket.once('connect', resolve);
-      socket.once('error', () => reject(new Error('Supervised session control is unavailable.')));
-      socket.setTimeout(REQUEST_TIMEOUT_MS, () => reject(new Error('Supervised session control timed out.')));
-    });
-    signal?.throwIfAborted();
-    socket.write(`${JSON.stringify({ command, id, generation, ...(command === 'rename' ? { name } : {}),
-      ...(command === 'link-pr' ? { url } : {}),
-      ...(command === 'events-revoke' ? { grantId } : {}) })}\n`);
-    const response = JSON.parse(
-      await readLine(socket, command === 'status' || command === 'events-list'
-        ? MAX_STATUS_RESPONSE_BYTES : MAX_FRAME_BYTES),
-    ) as unknown;
-    if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
-      !('generation' in response) || response.generation !== generation) {
-      throw new Error('Supervised session changed since it was verified.');
-    }
-    return response;
-  } finally {
-    signal?.removeEventListener('abort', onAbort);
-    socket.destroy();
-  }
-}
-
 function optionalGrants(
   grants: TSupervisedGrantSummary[] | undefined,
 ): { readonly externalEvents?: readonly TSupervisedGrantSummary[] } {
@@ -349,124 +228,39 @@ export async function listSupervisedSessions(
     readonly includeGeneration?: boolean; readonly includeExternalEvents?: boolean;
     readonly includeDaemon?: boolean; readonly includeSecure?: boolean } = {},
 ): Promise<readonly ISupervisedSessionRow[]> {
-  signal?.throwIfAborted();
-  const candidates = await listRegisteredCandidates(root, signal);
   const unfiltered = options.cwd === undefined && options.name === undefined && options.pr === undefined;
-  const rows = await Promise.all(candidates.map(async (candidate): Promise<ISupervisedSessionRow | null> => {
-    signal?.throwIfAborted();
-    const { id, liveness, generation } = candidate;
-    if (liveness !== 'alive' || generation === undefined) return unfiltered
-      ? { id, liveness, control: 'unavailable', activity: 'unknown',
-          ...(candidate.problem ? { problem: candidate.problem } : {}) }
-      : null;
-    try {
-      const { directory } = verifyLiveOwner(root, id, generation);
-      const response = await request(directory, id, generation, 'status', signal);
-      if ('status' in response && response.status === 'running') {
-        if (options.cwd !== undefined && (!('cwd' in response) || response.cwd !== options.cwd)) return null;
-        const name = 'name' in response && isSupervisedSessionName(response.name) ? response.name : undefined;
-        const pr = 'pr' in response && isSupervisedPr(response.pr) ? response.pr : undefined;
-        const cwd = 'cwd' in response && typeof response.cwd === 'string' && isAbsolute(response.cwd) &&
-          response.cwd.length <= 4_096 ? response.cwd : undefined;
-        if (options.name !== undefined && !name?.toLowerCase().includes(options.name.toLowerCase())) return null;
-        if (options.pr !== undefined && pr?.number !== options.pr) return null;
-        return {
-          id, liveness, control: 'available',
-          activity: 'activity' in response && isCurrentActivity(response.activity) ? response.activity : 'unknown',
-          ...(options.includeName && name !== undefined ? { name } : {}),
-          ...(options.includeCwd && cwd !== undefined ? { cwd } : {}),
-          ...(options.includePr && pr !== undefined ? { pr } : {}),
-          ...(options.includeGeneration ? { generation } : {}),
-          ...(options.includeSecure && 'certified' in response && typeof response.certified === 'boolean'
-            ? { secure: { certified: response.certified } } : {}),
-          ...(options.includeDaemon && 'daemon' in response && response.daemon === true
-            ? { daemon: true as const,
-                ...('restricted' in response && response.restricted === true ? { restricted: true as const } : {}) }
-            : {}),
-          ...(options.includeExternalEvents && 'externalEvents' in response
-            ? optionalGrants(readList(response.externalEvents, readGrantSummary)) : {}),
-          ...('activity' in response && response.activity === 'idle' &&
-            'nextLoopAt' in response && isLoopTime(response.nextLoopAt)
-            ? { nextLoopAt: response.nextLoopAt } : {}),
-        };
-      }
-    } catch {
-      signal?.throwIfAborted();
-      // A registered process can lose its control endpoint during shutdown.
+  const rows: ISupervisedSessionRow[] = [];
+  for (const runtime of await listSupervisedRuntimes(root, signal)) {
+    const { id, liveness, status } = runtime;
+    if (status === undefined) {
+      if (unfiltered) rows.push({ id, liveness, control: 'unavailable', activity: 'unknown',
+        ...(runtime.problem ? { problem: runtime.problem } : {}) });
+      continue;
     }
-    return unfiltered ? { id, liveness, control: 'unavailable', activity: 'unknown' } : null;
-  }));
-  return rows.filter((row): row is ISupervisedSessionRow => row !== null)
-    .sort((a, b) => a.id.localeCompare(b.id));
-}
-
-/** Lock one registered secure runtime without opening an owner link. */
-export async function lockSupervisedSession(id: string, root: string, expectedGeneration: string): Promise<void> {
-  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  const response = await request(directory, id, generation, 'lock');
-  if (!('status' in response) || response.status !== 'locked') {
-    throw new Error('Supervised session did not confirm locking.');
+    const { reply } = status;
+    if (options.cwd !== undefined && (!('cwd' in reply) || reply.cwd !== options.cwd)) continue;
+    const name = 'name' in reply && isSupervisedSessionName(reply.name) ? reply.name : undefined;
+    const pr = 'pr' in reply && isSupervisedPr(reply.pr) ? reply.pr : undefined;
+    if (options.name !== undefined && !name?.toLowerCase().includes(options.name.toLowerCase())) continue;
+    if (options.pr !== undefined && pr?.number !== options.pr) continue;
+    rows.push({
+      id, liveness, control: 'available', activity: status.activity,
+      ...(options.includeName && name !== undefined ? { name } : {}),
+      ...(options.includeCwd && status.cwd !== undefined ? { cwd: status.cwd } : {}),
+      ...(options.includePr && pr !== undefined ? { pr } : {}),
+      ...(options.includeGeneration ? { generation: runtime.generation } : {}),
+      ...(options.includeSecure && status.certified !== undefined
+        ? { secure: { certified: status.certified } } : {}),
+      ...(options.includeDaemon && status.daemon === true
+        ? { daemon: true as const, ...(status.restricted === true ? { restricted: true as const } : {}) }
+        : {}),
+      ...(options.includeExternalEvents && 'externalEvents' in reply
+        ? optionalGrants(readList(reply.externalEvents, readGrantSummary)) : {}),
+      ...(status.activity === 'idle' && 'nextLoopAt' in reply && isLoopTime(reply.nextLoopAt)
+        ? { nextLoopAt: reply.nextLoopAt } : {}),
+    });
   }
-}
-
-/**
- * Stop the live owner. With `expectedGeneration` (the one a view displayed), a registration that has
- * changed since is refused instead of stopping whichever process now holds the id.
- */
-export async function stopSupervisedSession(
-  id: string,
-  root: string,
-  expectedGeneration?: string,
-): Promise<void> {
-  const { directory, record, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  const response = await request(directory, id, generation, 'stop');
-  if (!('status' in response) || response.status !== 'stopping') {
-    throw new Error('Supervised session did not confirm shutdown.');
-  }
-  await awaitRuntimeExit(directory, record);
-}
-
-/**
- * End a runtime this process started and return only once it is gone. A runtime whose spawner
- * left without certifying it ends itself, and its control closes before it answers a stop request:
- * that is a runtime on its way out, not one that has left, and a caller that goes on while it is
- * still registered sees it as a live session with no control. So an unanswered or refused stop is
- * not an error here, and the wait for the exit does not depend on the answer.
- */
-export async function stopStartedSupervisedSession(
-  id: string,
-  root: string,
-  expectedGeneration: string,
-): Promise<void> {
-  const { directory, record, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  try {
-    await request(directory, id, generation, 'stop');
-  } catch {
-    // allow-fallback: the runtime may already be stopping itself; the wait below decides.
-  }
-  await awaitRuntimeExit(directory, record);
-}
-
-/** Resolves once the registration is removed and the registered process has exited. */
-export async function awaitRuntimeExit(directory: string, record: Pick<IRegistration, 'pid' | 'startedAt'>): Promise<void> {
-  const deadline = Date.now() + 15_000;
-  while (Date.now() < deadline) {
-    let registrationRemoved = false;
-    try {
-      lstatSync(directory);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') registrationRemoved = true;
-      else throw error;
-    }
-    const startedAt = readProcessStartTime(record.pid);
-    const originalProcessExited = startedAt === undefined
-      ? probePid(record.pid) === 'absent'
-      : startedAt !== record.startedAt ||
-        (registrationRemoved && isRegisteredLinuxZombie(record.pid, record.startedAt));
-    if (registrationRemoved && originalProcessExited) return;
-    await new Promise<void>((resolve) => setTimeout(resolve, 25));
-  }
-  throw new Error('Supervised session accepted stop but did not finish shutdown.');
+  return rows;
 }
 
 export async function renameSupervisedSession(
@@ -478,7 +272,7 @@ export async function renameSupervisedSession(
   sessionDirectory(root, id);
   if (!isSupervisedSessionName(name)) throw new Error('Supervised session name is invalid or too long.');
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  const response = await request(directory, id, generation, 'rename', undefined, name);
+  const response = await requestSupervisedControl(directory, id, generation, 'rename', undefined, { name });
   if (!('status' in response) || response.status !== 'renamed') {
     throw new Error('Supervised session did not confirm rename.');
   }
@@ -497,7 +291,7 @@ export async function linkSupervisedPr(
 ): Promise<void> {
   if (!parseSupervisedPr(url)) throw new Error('Invalid supervised session PR URL.');
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  const response = await request(directory, id, generation, 'link-pr', undefined, undefined, url);
+  const response = await requestSupervisedControl(directory, id, generation, 'link-pr', undefined, { url });
   if (!('status' in response) || response.status !== 'linked') {
     throw new Error('Supervised session did not confirm PR link.');
   }
@@ -509,7 +303,7 @@ export async function unlinkSupervisedPr(
   expectedGeneration?: string,
 ): Promise<void> {
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  const response = await request(directory, id, generation, 'unlink-pr');
+  const response = await requestSupervisedControl(directory, id, generation, 'unlink-pr');
   if (!('status' in response) || response.status !== 'unlinked') {
     throw new Error('Supervised session did not confirm PR unlink.');
   }
@@ -522,7 +316,7 @@ export async function getVerifiedSupervisedPr(
   expectedGeneration?: string,
 ): Promise<ISupervisedPr | undefined> {
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  const response = await request(directory, id, generation, 'status');
+  const response = await requestSupervisedControl(directory, id, generation, 'status');
   if (!('status' in response) || response.status !== 'running') {
     throw new Error('Supervised session control response was not verified.');
   }
@@ -541,73 +335,12 @@ export async function connectSupervisedDaemon(
   expectedGeneration?: string,
 ): Promise<string> {
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  const response = await request(directory, id, generation, 'connect');
+  const response = await requestSupervisedControl(directory, id, generation, 'connect');
   if (!('status' in response) || response.status !== 'connected' || !('url' in response) ||
     !isDaemonUrl(response.url)) {
     throw new Error('Supervised session did not hand over a daemon connection.');
   }
   return response.url;
-}
-
-const ATTACH_REFUSALS: Readonly<Record<string, string>> = {
-  'stale-generation': 'Supervised session changed since it was listed.',
-  'attach-limit': 'Too many terminals are already attached to this supervised session.',
-  'attach-unavailable': 'This supervised session does not accept attached terminals.',
-  'unsupported-attach': 'This supervised session does not support this kind of attach.',
-  declined: 'This supervised session declined the attach.',
-};
-
-export interface ISupervisedAttachSocket {
-  readonly socket: IControlChannel;
-  readonly driverId: string;
-  /** Protocol bytes that arrived with the handshake reply. The socket is paused. */
-  readonly rest: string;
-}
-
-/**
- * Attach to a live owner. The registration is re-read here, not trusted from a listed row: with
- * `expectedGeneration` (the one the user confirmed) a restart since then is refused, and the owner
- * compares the same generation again before admitting the connection.
- */
-export async function openSupervisedAttachSocket(
-  id: string,
-  mode: 'drive' | 'observe',
-  root: string,
-  expectedGeneration?: string,
-): Promise<ISupervisedAttachSocket> {
-  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  const socket = await connectControlSocket(directory, id);
-  try {
-    await new Promise<void>((resolve, reject) => {
-      socket.once('connect', resolve);
-      socket.once('error', () => reject(new Error('Supervised session control is unavailable.')));
-      socket.setTimeout(REQUEST_TIMEOUT_MS, () => reject(new Error('Supervised session control timed out.')));
-    });
-    socket.write(`${JSON.stringify({ command: 'attach', id, generation, mode, protocol: 1 })}\n`);
-    let rest = '';
-    // Paused until the caller reads the protocol, so no frame is dropped in between.
-    const reply = JSON.parse(await readLine(socket, MAX_FRAME_BYTES, (remaining) => {
-      rest = remaining;
-      socket.pause();
-    })) as unknown;
-    if (typeof reply !== 'object' || reply === null || !('id' in reply) || reply.id !== id) {
-      throw new Error('Supervised session did not confirm the attach.');
-    }
-    if ('status' in reply && reply.status === 'refused') {
-      const reason = 'reason' in reply && typeof reply.reason === 'string' ? ATTACH_REFUSALS[reply.reason] : undefined;
-      throw new Error(reason ?? 'Supervised session refused the attach.');
-    }
-    if (!('status' in reply) || reply.status !== 'attached' || !('generation' in reply) ||
-      reply.generation !== generation || !('driverId' in reply) || typeof reply.driverId !== 'string' ||
-      !/^attach:[1-9][0-9]*$/u.test(reply.driverId)) {
-      throw new Error('Supervised session did not confirm the attach.');
-    }
-    socket.setTimeout(0);
-    return { socket, driverId: reply.driverId, rest };
-  } catch (error) {
-    socket.destroy();
-    throw error;
-  }
 }
 
 /** The owner's grants on a live session: labels, principal kinds, states and counts. */
@@ -617,7 +350,7 @@ export async function listSupervisedExternalEvents(
   expectedGeneration?: string,
 ): Promise<readonly IExternalEventGrantRow[]> {
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  const response = await request(directory, id, generation, 'events-list');
+  const response = await requestSupervisedControl(directory, id, generation, 'events-list');
   const grants = 'status' in response && response.status === 'events' && 'grants' in response
     ? readList(response.grants, readGrantRow) : undefined;
   if (grants === undefined) throw new Error('Supervised session did not list its external event grants.');
@@ -633,9 +366,7 @@ export async function revokeSupervisedExternalEventGrant(
 ): Promise<void> {
   if (!GRANT_ID_PATTERN.test(grantId)) throw new Error('Invalid external event grant label.');
   const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
-  const response = await request(
-    directory, id, generation, 'events-revoke', undefined, undefined, undefined, grantId,
-  );
+  const response = await requestSupervisedControl(directory, id, generation, 'events-revoke', undefined, { grantId });
   if ('status' in response && response.status === 'revoked') return;
   if ('reason' in response && response.reason === 'unknown-grant') {
     throw new Error(`Supervised session holds no external event grant ${grantId}.`);
@@ -825,7 +556,7 @@ function createControlHandler(
       body: {
         status: 'running',
         activity: isCurrentActivity(observed) ? observed : 'unknown',
-        ...(typeof cwd === 'string' && isAbsolute(cwd) && cwd.length <= 4_096 ? { cwd } : {}),
+        ...(isControlCwd(cwd) ? { cwd } : {}),
         ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
         ...(isSupervisedSessionName(name) ? { name } : {}),
         ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}),

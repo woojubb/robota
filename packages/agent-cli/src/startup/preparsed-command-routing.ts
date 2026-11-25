@@ -4,6 +4,7 @@ import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { withholdProviderCredentials } from '../product/command-environment.js';
 import { createProductUserSessionStore } from '../product/session-stores.js';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import { stopSupervisedSession } from '@robota-sdk/agent-local-host';
 import { realpathSync } from 'node:fs';
 import { isIP } from 'node:net';
 
@@ -27,7 +28,6 @@ import {
   parseSupervisedPr,
   renameSupervisedSession,
   revokeSupervisedExternalEventGrant,
-  stopSupervisedSession,
   unlinkSupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
 import { readExternalEventGrantFiles } from '../external-events/external-event-grant-file.js';

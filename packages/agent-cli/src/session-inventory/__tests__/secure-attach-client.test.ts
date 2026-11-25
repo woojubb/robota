@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createKeyring, openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
-import { openRegisteredOwnerLink, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
+import { openRegisteredOwnerLink, stopSupervisedSession, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import { expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
@@ -16,7 +16,7 @@ import { openSecureAttach } from '../secure-attach-client.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { runSessionAttachCommand } from '../session-attach-command.js';
 import { runSessionViewCommand } from '../session-view-command.js';
-import { resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
+import { resolveSupervisedDirectory } from '../supervised-session-control.js';
 import * as supervisedControl from '../supervised-session-control.js';
 
 /**

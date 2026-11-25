@@ -15,7 +15,7 @@ Gives Node composition roots the local authority they need to keep owner-protect
 ### Discovery of supervised runtimes
 
 - A registration is untrusted metadata, read only from an owner-private directory and a regular file the user owns, never through a link.
-- A runtime is controlled only once its recorded process start time proves it alive and its generation matches. A daemon is named only after an authenticated status exchange reports that it serves the workspace.
+- A runtime is controlled only once its recorded process start time proves it alive and its generation matches, a reply counts only when its owner echoes that generation, and a stop completes only once the registration is gone and the registered process has exited. A daemon is named only after an authenticated status exchange reports that it serves the workspace.
 - A registration not known dead whose control cannot be proven refuses discovery instead of being skipped, and two daemons for one workspace refuse as ambiguous.
 - Starts of a workspace's daemon take turns through one lock per workspace in the supervised directory. A live owner is waited for; a lock whose start is gone is never removed by a start, which refuses with the product's own removal hint, so removing it is the user's call.
 
