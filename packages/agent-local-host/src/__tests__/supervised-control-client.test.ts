@@ -52,6 +52,16 @@ function spawnLongLivedProcess(): ChildProcess {
   return child;
 }
 
+/**
+ * Resolves when Node delivers the child's `exit` event. The wait under test counts a registered
+ * zombie as exited, which can be seen a moment before Node delivers that event, so a test awaits
+ * the event instead of reading a flag it sets. A long-lived child ends only when the test kills it,
+ * so `child.killed` (set by the kill call itself) shows the wait did not return before that.
+ */
+function exitOf(child: ChildProcess): Promise<void> {
+  return new Promise<void>((resolve) => child.once('exit', () => resolve()));
+}
+
 describe('control request bytes', () => {
   const head = (command: string): string => `{"command":"${command}","id":"${ID}","generation":"${GENERATION}"`;
   const cases: ReadonlyArray<[TControlCommand, Readonly<Record<string, string>> | undefined, string]> = [
@@ -146,10 +156,11 @@ describe('lock', () => {
 
 describe('stop', () => {
   /** A runtime that, once asked to stop, leaves in two steps: its registration first, its process after. */
-  async function stoppingRuntime(answer: TControlAnswer): Promise<{ endpoint: IControlEndpoint; exited: () => boolean }> {
+  async function stoppingRuntime(
+    answer: TControlAnswer,
+  ): Promise<{ endpoint: IControlEndpoint; child: ChildProcess; exited: Promise<void> }> {
     const child = spawnLongLivedProcess();
-    let hasExited = false;
-    child.once('exit', () => { hasExited = true; });
+    const exited = exitOf(child);
     const endpoint = await endpointAnswering(() => {
       setTimeout(() => {
         rmSync(join(root, ID), { recursive: true, force: true });
@@ -157,13 +168,14 @@ describe('stop', () => {
       }, 20);
       return answer;
     }, { pid: child.pid! });
-    return { endpoint, exited: () => hasExited };
+    return { endpoint, child, exited };
   }
 
   it('returns only once the registration is gone and the registered process has exited', async () => {
-    const { endpoint, exited } = await stoppingRuntime({ id: ID, status: 'stopping', generation: GENERATION });
+    const { endpoint, child, exited } = await stoppingRuntime({ id: ID, status: 'stopping', generation: GENERATION });
     await stopSupervisedSession(ID, root, GENERATION);
-    expect(exited()).toBe(true);
+    expect(child.killed).toBe(true);
+    await exited;
     expect(existsSync(join(root, ID))).toBe(false);
     expect(endpoint.lines).toEqual([`{"command":"stop","id":"${ID}","generation":"${GENERATION}"}`]);
   });
@@ -195,8 +207,7 @@ describe('stop of a runtime this process started', () => {
     ['confirms the stop', { id: ID, status: 'stopping', generation: GENERATION }],
   ])('goes on to wait for the exit when the runtime %s', async (_name, answer) => {
     const child = spawnLongLivedProcess();
-    let exited = false;
-    child.once('exit', () => { exited = true; });
+    const exited = exitOf(child);
     const endpoint = await endpointAnswering(() => {
       setTimeout(() => {
         rmSync(join(root, ID), { recursive: true, force: true });
@@ -205,7 +216,8 @@ describe('stop of a runtime this process started', () => {
       return answer;
     }, { pid: child.pid! });
     await stopStartedSupervisedSession(ID, root, GENERATION);
-    expect(exited).toBe(true);
+    expect(child.killed).toBe(true);
+    await exited;
     expect(endpoint.lines).toEqual([`{"command":"stop","id":"${ID}","generation":"${GENERATION}"}`]);
   });
 

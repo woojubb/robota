@@ -29,7 +29,7 @@ Gives Node composition roots the local authority they need to keep owner-protect
 
 ### Start of a secure runtime
 
-- A runtime takes its WebSocket token only from the pipe its launcher handed it and answers its spawner's pair before it starts any process. Both are checked exactly, nothing read is echoed, and a runtime told to expect either never falls back to another.
+- A launcher hands a runtime its WebSocket token only over an extra inherited pipe, never in its environment (which another program of the same user can read for as long as the process lives), its command line or a failed start's message. A runtime takes the token only from that pipe and answers its spawner's pair before it starts any process. Both are checked exactly, nothing read is echoed, and a runtime told to expect either never falls back to another.
 - The pair, the token and the secure mode of the state root must agree, or the start ends with a fixed message before anything listens: the pair belongs only to a supervised secure launch and excludes a token, and a secure runtime that is supervised or serves starts only with it.
 - A secure runtime holds no passphrase and has no terminal; its key holder starts locked, and an owner link hands it read keys.
 

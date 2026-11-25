@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 
-import { MAX_FORWARDED_ENVIRONMENT_BYTES } from '../session-inventory/runtime-process-launch.js';
+import { MAX_FORWARDED_ENVIRONMENT_BYTES } from '@robota-sdk/agent-local-host';
+
 import { optionArgv } from '../utils/option-argv.js';
 
 /** A forwarding launcher supplies only its admitted child environment on its private IPC channel. */
