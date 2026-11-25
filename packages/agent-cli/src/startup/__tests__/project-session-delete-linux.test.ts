@@ -12,13 +12,13 @@ import { dirname, join, relative } from 'node:path';
 
 import { getWorkspaceProjectStateStorage } from '@robota-sdk/agent-framework';
 import { WorkspaceSessionLogSink, resolveSubagentLogDir } from '@robota-sdk/agent-framework/node';
+import { workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
-import { BrokeredWorkspaceTrustService } from '../brokered-workspace-trust.js';
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
-import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
+import { createBrokeredWorkspaceTrust } from '../workspace-root-broker-composition.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
@@ -55,14 +55,14 @@ describe.skipIf(process.platform !== 'linux')('deleting a project session in the
     execFileSync('git', ['init', '--quiet', root]);
     writeFileSync(join(root, 'notes.txt'), 'before');
     const runtime = createTestProductRuntime('test-product', { HOME: home });
-    const endpoint = workspaceRootBrokerEndpoint(runtime);
+    const endpoint = workspaceRootBrokerEndpoint(runtime.layout.userRoot);
     mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
     const broker = await startTestBroker(
       endpoint,
       dirname(endpoint),
       runtime.layout.userPaths.workspaceTrust,
     );
-    const service = await BrokeredWorkspaceTrustService.create(runtime);
+    const service = await createBrokeredWorkspaceTrust(runtime);
     cleanups.push(async () => {
       service.close();
       await broker.close();

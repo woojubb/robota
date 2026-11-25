@@ -28,10 +28,10 @@ import { _electron as electron } from 'playwright';
 import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';
 import { resolveProductConfig } from '@robota-sdk/product-config';
 import { createCliRuntimeContext } from '../../../packages/agent-cli/src/product/runtime-context.ts';
-import { workspaceRootBrokerEndpoint } from '../../../packages/agent-cli/src/startup/workspace-root-broker-process.ts';
 import {
   requestWorkspaceRootBroker,
   startWorkspaceRootBroker,
+  workspaceRootBrokerEndpoint,
 } from '../../../packages/agent-local-host/src/index.ts';
 
 
@@ -61,7 +61,7 @@ const productFixture = buildProductTestEnvironment(
 const trustRuntime = createCliRuntimeContext(
   resolveProductConfig({ environment: productFixture.environment }), productFixture.environment,
 );
-const brokerEndpoint = workspaceRootBrokerEndpoint(trustRuntime);
+const brokerEndpoint = workspaceRootBrokerEndpoint(trustRuntime.layout.userRoot);
 const brokerDirectory = process.platform === 'win32'
   ? join(trustRuntime.layout.userRoot, 'root-broker') : dirname(brokerEndpoint);
 mkdirSync(brokerDirectory, { recursive: true, mode: 0o700 });

@@ -14,31 +14,32 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import {
   BROKER_LOCK_NAME,
   BROKER_SOCKET_NAME,
   brokerNamespaceName,
   claimBrokerNamespaceDirectory,
-  requestWorkspaceRootBroker,
-  startWorkspaceRootBroker,
-} from '@robota-sdk/agent-local-host';
-import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
+} from '../workspace-root-broker-directory.js';
 import {
   ensureWorkspaceRootBroker,
   removeStaleBrokerDirectories,
+  workspaceRootBrokerEndpoint,
 } from '../workspace-root-broker-process.js';
+import { requestWorkspaceRootBroker, startWorkspaceRootBroker } from '../workspace-root-broker.js';
+import { fixtureBrokerLauncher, neverLaunch } from './helpers/fixture-broker.js';
 
-import type { ICliRuntimeContext } from '../../product/runtime-context.js';
+import type { IWorkspaceRootBrokerServe } from '../workspace-root-broker-process.js';
 
 // Both wrappers run the real function unless a test hands one call a replacement.
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
   return { ...actual, spawn: vi.fn(actual.spawn) };
 });
-vi.mock('@robota-sdk/agent-local-host', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@robota-sdk/agent-local-host')>();
+vi.mock('../workspace-root-broker.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../workspace-root-broker.js')>();
   return { ...actual, requestWorkspaceRootBroker: vi.fn(actual.requestWorkspaceRootBroker) };
 });
 
@@ -87,6 +88,19 @@ function duringNextPing(during: () => void): void {
     during();
     throw new Error('No broker answers.');
   });
+}
+
+async function exited(pid: number): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0);
+    } catch {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`The broker ${pid} did not exit.`);
 }
 
 afterEach(async () => {
@@ -251,9 +265,7 @@ describe.skipIf(process.platform === 'win32')(
       roots.push(userRoot, directory);
       mkdirSync(directory, { mode: 0o700 });
       leaveCrashedBroker(directory);
-      const runtime = {
-        layout: { userRoot, userPaths: { workspaceTrust: join(userRoot, 'workspace-trust.json') } },
-      } as ICliRuntimeContext;
+      const start = { userRoot, historyFile: join(userRoot, 'workspace-trust.json') };
 
       // The broker never starts: the stand-in child ends at once, which fails the start after the spawn.
       let ageAtSpawn = Number.POSITIVE_INFINITY;
@@ -270,8 +282,43 @@ describe.skipIf(process.platform === 'win32')(
         return child;
       }) as unknown as typeof spawn);
 
-      await expect(ensureWorkspaceRootBroker(runtime)).rejects.toThrow('could not be attached');
+      await expect(ensureWorkspaceRootBroker(start, fixtureBrokerLauncher)).rejects.toThrow(
+        'could not be attached',
+      );
       expect(ageAtSpawn).toBeLessThan(60_000);
     });
+  },
+);
+
+describe.skipIf(process.platform === 'win32')(
+  'a start runs the launcher the composition root supplies',
+  () => {
+    it('launches one broker with the values it names and attaches to it afterwards', async () => {
+      const userRoot = mkdtempSync('/tmp/rbl-');
+      const endpoint = workspaceRootBrokerEndpoint(userRoot);
+      const directory = join('/tmp', brokerNamespaceName(userRoot, owner));
+      roots.push(userRoot, directory);
+      const start = { userRoot, historyFile: join(userRoot, 'workspace-trust.json') };
+      const asked: IWorkspaceRootBrokerServe[] = [];
+
+      expect(
+        await ensureWorkspaceRootBroker(start, (broker) => {
+          asked.push(broker);
+          return fixtureBrokerLauncher(broker);
+        }),
+      ).toBe(endpoint);
+      expect(asked).toEqual([
+        { endpoint, lockDirectory: directory, historyFile: start.historyFile },
+      ]);
+      const live = await requestWorkspaceRootBroker(endpoint, { op: 'ping' });
+      if (live.status !== 'ready') throw new Error('The launched broker does not answer.');
+      try {
+        // A live broker needs no launch: the launcher is not asked again.
+        expect(await ensureWorkspaceRootBroker(start, neverLaunch)).toBe(endpoint);
+      } finally {
+        process.kill(live.pid);
+        await exited(live.pid);
+      }
+    }, 30_000);
   },
 );

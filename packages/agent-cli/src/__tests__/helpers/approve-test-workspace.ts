@@ -1,7 +1,6 @@
-import { BrokeredWorkspaceTrustService } from '../../startup/brokered-workspace-trust.js';
-import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
+import { createBrokeredWorkspaceTrust } from '../../startup/workspace-root-broker-composition.js';
 import { spawn } from '@homebridge/node-pty-prebuilt-multiarch';
-import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
+import { requestWorkspaceRootBroker, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import { rmSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -9,7 +8,7 @@ import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 
 /** Supplies a test-owned approval directly to the brokered service. */
 export async function approveTestWorkspace(cwd: string, runtime: ICliRuntimeContext): Promise<number> {
-  const brokered = await BrokeredWorkspaceTrustService.create(runtime);
+  const brokered = await createBrokeredWorkspaceTrust(runtime);
   try {
     const candidate = await brokered.prepare(cwd);
     return (await brokered.grant(cwd, candidate)).status === 'trusted' ? 0 : 1;
@@ -20,8 +19,7 @@ export async function approveTestWorkspace(cwd: string, runtime: ICliRuntimeCont
 
 /** Stop only the broker launched for this fixture's disposable product state. */
 export async function stopTestWorkspaceBroker(runtime: ICliRuntimeContext | string): Promise<void> {
-  const endpoint = workspaceRootBrokerEndpoint(typeof runtime === 'string'
-    ? { layout: { userRoot: runtime } } as ICliRuntimeContext : runtime);
+  const endpoint = workspaceRootBrokerEndpoint(typeof runtime === 'string' ? runtime : runtime.layout.userRoot);
   let pid: number;
   try {
     const response = await requestWorkspaceRootBroker(endpoint, { op: 'ping' });

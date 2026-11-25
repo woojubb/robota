@@ -14,7 +14,7 @@ import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { openSecureAttach } from './secure-attach-client.js';
-import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-process.js';
+import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-composition.js';
 import { openSupervisedAttach, type ISupervisedAttachConnection } from './supervised-attach-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';

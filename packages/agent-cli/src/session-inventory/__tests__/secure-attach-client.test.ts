@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createKeyring, openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
+import { workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import { expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
@@ -13,7 +14,6 @@ import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpe
 import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
 import { openRegisteredOwnerLink } from '../owner-link-client.js';
 import { openSecureAttach } from '../secure-attach-client.js';
-import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { runSessionAttachCommand } from '../session-attach-command.js';
 import { runSessionViewCommand } from '../session-view-command.js';
@@ -40,7 +40,7 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
   const home = realpathSync(mkdtempSync(join(process.platform === 'win32' ? tmpdir() : realpathSync('/tmp'), 'sat-')));
   const env = createTestBinaryEnvironment(home, { PRODUCT_TELEMETRY_ENABLED: '0' });
   const runtime = createTestProductRuntime('test-product', env);
-  const brokerEndpoint = workspaceRootBrokerEndpoint(runtime);
+  const brokerEndpoint = workspaceRootBrokerEndpoint(runtime.layout.userRoot);
   mkdirSync(dirname(brokerEndpoint), { recursive: true, mode: 0o700 });
   const broker = await startTestBroker(brokerEndpoint, dirname(brokerEndpoint), runtime.layout.userPaths.workspaceTrust);
   const root = resolveSupervisedDirectory(runtime);

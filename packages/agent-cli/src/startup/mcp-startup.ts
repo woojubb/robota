@@ -23,9 +23,8 @@ import {
   isWorkspaceHelperSource,
   withoutExpansions,
 } from '@robota-sdk/agent-mcp';
-import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
+import { requestWorkspaceRootBroker, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import { userLocalStorageRoot } from '../product/user-paths.js';
-import { workspaceRootBrokerEndpoint } from './workspace-root-broker-process.js';
 import { commandEnvironment } from '../product/command-environment.js';
 import { createProductToolResultSpillStore } from '../product/session-stores.js';
 
@@ -140,7 +139,7 @@ async function inspectRealWorkspaceTrust(
   identity: IWorkspaceIdentity,
   runtime: ICliRuntimeContext,
 ): Promise<IMcpWorkspaceTrustSnapshot> {
-  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  const endpoint = workspaceRootBrokerEndpoint(runtime.layout.userRoot);
   let response;
   try {
     response = await requestWorkspaceRootBroker(endpoint, {

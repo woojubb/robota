@@ -17,7 +17,7 @@ import {
   createNodeHostSettingsStore,
   supportsWorkspaceProjectMutation,
 } from '@robota-sdk/agent-framework/node';
-import { BrokeredWorkspaceTrustService } from './brokered-workspace-trust.js';
+import { createBrokeredWorkspaceTrust } from './workspace-root-broker-composition.js';
 
 import type {
   IEditCheckpointStore,
@@ -140,7 +140,7 @@ export async function resolveInitialCliWorkspaceProjectAccess(
   if (runtime === undefined)
     throw new Error('Workspace admission requires an explicit CLI runtime context.');
   try {
-    return await (await BrokeredWorkspaceTrustService.create(runtime)).inspect(cwd);
+    return await (await createBrokeredWorkspaceTrust(runtime)).inspect(cwd);
   } catch (error) {
     return createRestrictedWorkspaceProjectAccess(
       'store-unavailable', cwd, error instanceof Error ? error : new Error(String(error)),

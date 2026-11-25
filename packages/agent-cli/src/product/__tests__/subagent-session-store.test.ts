@@ -8,9 +8,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { BrokeredWorkspaceTrustService } from '../../startup/brokered-workspace-trust.js';
 import { createCliWorkspaceComposition } from '../../startup/workspace-project-composition.js';
+import { createBrokeredWorkspaceTrust } from '../../startup/workspace-root-broker-composition.js';
 import { createProductSubagentComposition } from '../subagent-composition.js';
+
+import type { BrokeredWorkspaceTrustService } from '@robota-sdk/agent-local-host';
 
 const roots: string[] = [];
 const trustServices: BrokeredWorkspaceTrustService[] = [];
@@ -28,7 +30,7 @@ async function fixture() {
   const cwd = join(root, 'project');
   execFileSync('git', ['init', '-q', cwd]);
   const runtime = createTestProductRuntime('test-product', { HOME: root });
-  const trust = await BrokeredWorkspaceTrustService.create(runtime);
+  const trust = await createBrokeredWorkspaceTrust(runtime);
   trustServices.push(trust);
   const access = await trust.grant(cwd, await trust.prepare(cwd));
   if (access.status !== 'trusted') throw new Error('Could not grant fixture trust');

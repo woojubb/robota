@@ -48,8 +48,7 @@ import type {
   TRuntimeAdmissionFactory,
 } from '../session-inventory/runtime-admission.js';
 import type { TSupervisedAttachTarget } from '../session-inventory/supervised-attach.js';
-import type { KeyHolder } from '@robota-sdk/agent-local-host';
-import type { SecureWorkspaceRootFence } from './workspace-root-fence.js';
+import type { KeyHolder, SecureWorkspaceRootFence } from '@robota-sdk/agent-local-host';
 
 export interface IRuntimeCustodyOptions {
   /** This runtime's identity, whose spawner exchange has already run. */

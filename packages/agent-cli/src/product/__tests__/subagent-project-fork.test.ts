@@ -7,16 +7,17 @@ import { fileURLToPath } from 'node:url';
 
 import { getWorkspaceProjectIdentity } from '@robota-sdk/agent-framework';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+import { workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
 import { ChildProcessSubagentRunner } from '@robota-sdk/agent-subagent-runner';
 import { afterEach, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
-import { BrokeredWorkspaceTrustService } from '../../startup/brokered-workspace-trust.js';
-import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 import { createCliWorkspaceComposition } from '../../startup/workspace-project-composition.js';
+import { createBrokeredWorkspaceTrust } from '../../startup/workspace-root-broker-composition.js';
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
+import type { BrokeredWorkspaceTrustService } from '@robota-sdk/agent-local-host';
 
 const roots: string[] = [];
 let broker: Awaited<ReturnType<typeof startTestBroker>> | undefined;
@@ -61,11 +62,11 @@ it.runIf(process.platform === 'linux')(
     const cwd = join(root, 'project');
     execFileSync('git', ['init', '-q', cwd]);
     const runtime = createTestProductRuntime('test-product', { HOME: root });
-    const endpoint = workspaceRootBrokerEndpoint(runtime);
+    const endpoint = workspaceRootBrokerEndpoint(runtime.layout.userRoot);
     mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
     broker = await startTestBroker(endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust);
     if (await approveTestWorkspace(cwd, runtime) !== 0) throw new Error('Expected a live trust grant');
-    trust = await BrokeredWorkspaceTrustService.create(runtime);
+    trust = await createBrokeredWorkspaceTrust(runtime);
     const access = await trust.inspect(cwd);
     if (access.status !== 'trusted') throw new Error('Expected a trusted fixture');
     const identity = getWorkspaceProjectIdentity(access.authority);
