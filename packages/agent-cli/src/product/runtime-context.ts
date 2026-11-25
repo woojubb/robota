@@ -13,7 +13,7 @@ import type {
 import type { IProductConfig, TConfigEnvironment } from '@robota-sdk/product-config';
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 import type { IProductCliRuntimeArtifact } from './artifact.js';
-import type { TProductConversationMode } from '../secure/conversation-mode-state.js';
+import type { TProductConversationMode } from '@robota-sdk/agent-local-host';
 
 export interface ICliProductLayout {
   readonly userRoot: string;

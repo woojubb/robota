@@ -4,12 +4,12 @@ import { openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
 import {
   SecureWorkspaceRootFence,
   createKeyringFileStore,
+  readProductConversationMode,
   secureWorkspaceRoot,
 } from '@robota-sdk/agent-local-host';
 
 import { createCliRuntimeContext } from './product/runtime-context.js';
 import { ensureWorkspaceRootBroker } from './startup/workspace-root-broker-composition.js';
-import { readProductConversationMode } from './secure/conversation-mode-state.js';
 import { launchCertifiedRuntime } from './session-inventory/certified-runtime-launch.js';
 import { openPreparedOwnerLink } from './session-inventory/owner-link-client.js';
 import { proveWorkspaceDaemon } from './session-inventory/prove-workspace-daemon.js';

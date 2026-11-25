@@ -11,7 +11,8 @@ import {
 } from '@robota-sdk/agent-transport/mcp';
 
 import { shutdownSession } from './session-shutdown.js';
-import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
+import { SECURE_SURFACES, startListener } from '@robota-sdk/agent-local-host';
+import { productSecureMode } from '../product/session-sealing.js';
 
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 import type { TAccessTokenAlgorithm } from '@robota-sdk/agent-interface/transport';
@@ -62,7 +63,7 @@ async function serveHttpCarrier<T>(
   process.once('SIGTERM', signal);
   try {
     const endpoint = await Promise.race([
-      startListener(SECURE_SURFACES['mcp-http'], productRuntime, () => host.start()),
+      startListener(SECURE_SURFACES['mcp-http'], productSecureMode(productRuntime), () => host.start()),
       stopped.then(() => undefined),
     ]);
     if (!endpoint) return;

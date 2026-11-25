@@ -28,8 +28,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
-import { writeProductConversationMode } from '../conversation-mode-state.js';
-import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
+import { createKeyringFileStore, writeProductConversationMode } from '@robota-sdk/agent-local-host';
 import { SECURE_USAGE, runSecureCommand, type ISecureCommandOptions } from '../secure-command.js';
 import {
   FIXTURE_PASSPHRASE,

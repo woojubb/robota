@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { createHostCredentialStore } from '../credentials/select-credential-store.js';
 import { openInBrowser } from './browser-opener.js';
 import { acquireOpenRouterKey } from './openrouter-oauth.js';
-import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
+import { SECURE_SURFACES, startListener } from '@robota-sdk/agent-local-host';
+import { productSecureMode } from '../product/session-sealing.js';
 import { loadOrgPolicy } from '@robota-sdk/agent-framework/node';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 
@@ -58,7 +59,7 @@ export function createCliOpenRouterConnectionHost(
     requireApiKeyFromEnv: orgPolicy?.requireApiKeyFromEnv,
     // The browser sign-in's loopback callback opens under its surface row.
     acquireKey: (request) =>
-      startListener(SECURE_SURFACES['oauth-callback'], runtime, () => acquireOpenRouterKey(request)),
+      startListener(SECURE_SURFACES['oauth-callback'], productSecureMode(runtime), () => acquireOpenRouterKey(request)),
   });
 }
 

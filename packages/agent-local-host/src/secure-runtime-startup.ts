@@ -6,24 +6,23 @@
  * the pair is what a secure supervised start carries and the only thing that does; the transport
  * token of a plain one cannot stand in for it. Each disagreement ends the start with a fixed message
  * before the process listens on anything.
+ *
+ * The caller gives the part of argv that can hold options, everything before the first `--`, so a
+ * prompt after it that spells a flag stays text. What is product launch layout (which option names a
+ * supervised session, which one serves), the secure decision and the keyring location are values the
+ * caller supplies; registering the returned holder with the product's sealing is the caller's act.
  */
 import { holdChildSpawns } from '@robota-sdk/agent-core/node';
 
-import { optionArgv } from '../utils/option-argv.js';
+import { KeyHolder } from './key-holder.js';
+import { createKeyringFileStore } from './keyring-store.js';
 import {
-  KeyHolder,
   SUPERVISED_SPAWNER_PAIR_FLAG,
-  SUPERVISED_TRANSPORT_TOKEN_FLAG,
   answerHandedOverSpawnerPair,
-  createKeyringFileStore,
-} from '@robota-sdk/agent-local-host';
-import { productSecureMode, useProductKeyHolder } from '../product/session-sealing.js';
-import { userPaths } from '../product/user-paths.js';
+} from './supervised-spawner-pair.js';
+import { SUPERVISED_TRANSPORT_TOKEN_FLAG } from './supervised-transport-token.js';
 
 import type { IRuntimeIdentity } from '@robota-sdk/agent-keyring';
-import type { ICliRuntimeContext } from '../product/runtime-context.js';
-
-export { SUPERVISED_SPAWNER_PAIR_FLAG };
 
 /** What a secure runtime is made of once its start is accepted. */
 export interface ISecureServeRuntime {
@@ -31,12 +30,12 @@ export interface ISecureServeRuntime {
   readonly holder: KeyHolder;
 }
 
-function hasFlag(argv: readonly string[], flag: string): boolean {
-  return optionArgv(argv).some((argument) => argument === flag || argument.startsWith(`${flag}=`));
+function hasFlag(options: readonly string[], flag: string): boolean {
+  return options.some((argument) => argument === flag || argument.startsWith(`${flag}=`));
 }
 
-export function spawnerPairRequested(argv: readonly string[]): boolean {
-  return hasFlag(argv, SUPERVISED_SPAWNER_PAIR_FLAG);
+export function spawnerPairRequested(options: readonly string[]): boolean {
+  return hasFlag(options, SUPERVISED_SPAWNER_PAIR_FLAG);
 }
 
 export interface ISecureStartupFacts {
@@ -71,8 +70,8 @@ export function secureStartupRefusal(facts: ISecureStartupFacts): string | undef
  * process. Ends the process with the reason when the exchange cannot be done, because a runtime told
  * to expect a spawner must not start without one.
  */
-export function answerSpawnerPairOrExit(argv: readonly string[]): IRuntimeIdentity | undefined {
-  if (!spawnerPairRequested(argv)) return undefined;
+export function answerSpawnerPairOrExit(options: readonly string[]): IRuntimeIdentity | undefined {
+  if (!spawnerPairRequested(options)) return undefined;
   const release = holdChildSpawns();
   try {
     return answerHandedOverSpawnerPair();
@@ -85,22 +84,34 @@ export function answerSpawnerPairOrExit(argv: readonly string[]): IRuntimeIdenti
   }
 }
 
+/** What a start is checked against, and where its key holder reads the keyring. */
+export interface ISecureRuntimeStart {
+  /** Secure mode is on for this state root. */
+  readonly secure: boolean;
+  /** The part of argv before the first `--`. */
+  readonly options: readonly string[];
+  /** The launch names a supervised session. */
+  readonly supervised: boolean;
+  readonly serve: boolean;
+  /** The keyring file and the state root it belongs to. */
+  readonly keyring: { readonly path: string; readonly root: string };
+}
+
 /**
- * Checks that the pair and the secure mode of `runtime` agree, and for a secure runtime gives the
+ * Checks that the pair and the secure mode of the start agree, and for a secure runtime gives the
  * process the key holder its stores seal with. Ends the process with the fixed message when they do
  * not agree. Returns the secure runtime, or `undefined` for a plain one.
  */
 export function startSecureRuntimeOrExit(
-  runtime: ICliRuntimeContext,
-  argv: readonly string[],
+  start: ISecureRuntimeStart,
   identity: IRuntimeIdentity | undefined,
 ): ISecureServeRuntime | undefined {
   const refusal = secureStartupRefusal({
-    secure: productSecureMode(runtime),
-    pairFlag: spawnerPairRequested(argv),
-    tokenFlag: hasFlag(argv, SUPERVISED_TRANSPORT_TOKEN_FLAG),
-    supervised: hasFlag(argv, '--supervised-session-id'),
-    serve: hasFlag(argv, '--serve'),
+    secure: start.secure,
+    pairFlag: spawnerPairRequested(start.options),
+    tokenFlag: hasFlag(start.options, SUPERVISED_TRANSPORT_TOKEN_FLAG),
+    supervised: start.supervised,
+    serve: start.serve,
   });
   if (refusal !== undefined) {
     process.stderr.write(`${refusal}\n`);
@@ -109,11 +120,7 @@ export function startSecureRuntimeOrExit(
   if (identity === undefined) return undefined;
   // The runtime holds no passphrase and has no terminal: an owner link hands it read keys.
   const holder = new KeyHolder({
-    store: createKeyringFileStore({
-      path: userPaths(runtime).keyring,
-      root: runtime.layout.userRoot,
-    }),
+    store: createKeyringFileStore({ path: start.keyring.path, root: start.keyring.root }),
   });
-  useProductKeyHolder(runtime, holder);
   return { identity, holder };
 }

@@ -29,7 +29,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { runSecureCommand } from '../../secure/secure-command.js';
-import { writeProductConversationMode } from '../../secure/conversation-mode-state.js';
+import { writeProductConversationMode } from '@robota-sdk/agent-local-host';
 import { sweepStaleEphemeralState } from '../../startup/ephemeral-state.js';
 import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
 import {

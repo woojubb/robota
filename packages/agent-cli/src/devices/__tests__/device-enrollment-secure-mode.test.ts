@@ -10,7 +10,7 @@ import {
   createTestProductRuntime,
 } from '../../__tests__/helpers/product-runtime.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
-import { SecureSurfaceRefusedError } from '../../secure/secure-surfaces.js';
+import { SecureSurfaceRefusedError } from '@robota-sdk/agent-local-host';
 import { joinEnrollment, offerEnrollment } from '../device-enrollment.js';
 
 import type { IMeshRelay } from '@robota-sdk/agent-transport/webrtc';

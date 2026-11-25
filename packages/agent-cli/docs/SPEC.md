@@ -337,14 +337,14 @@ import of them anywhere else in the product packages, because only the factory k
 decision: a store built elsewhere could write plaintext beside sealed files. Whether secure mode is
 on is one predicate every decision that depends on it reads: the decision is plain unless it is on,
 and no process is given a key holder while it is off. What every surface may be while it is on is
-one exhaustive table, and every listener a product process opens goes through the one gate that
-reads its row, at the call site that starts it, so the libraries that open listeners keep their
-constructors. Any program of the same user can satisfy an admission by a token it can read, a login
-or "the same user", so in secure mode a listener admitting that way does not start when it reaches a
-session or a token; the control socket opens, its row marking it for owner-link admission, which the
-control endpoint enforces; and the OAuth sign-in callback opens under its own rule (loopback, bound
-by a fresh path or a required state, consumed by its first match, timed out) because it reaches no
-session. Plain mode opens what it always did: while it is off, the children a process starts share
+`agent-local-host`'s table, and every listener the CLI opens goes through that package's gate at the
+call site that starts it, handing the gate this predicate, so the libraries that open listeners keep
+their constructors; a scan names every place that can open a listener and refuses a call site that
+decides in place. The control socket's row marks it for owner-link admission, which the control
+endpoint enforces; the OAuth sign-in callback is the only other listener a secure process opens,
+under its own rule (loopback, bound by a fresh path or a required state, consumed by its first
+match, timed out).
+Plain mode opens what it always did: while it is off, the children a process starts share
 its terminal session as before. Once it is on, each entry gives every child its own session before
 it starts any, so none can reach the terminal a secret is typed at; only the terminal handover
 (`/keybindings`, `/shell`, the workspace-move re-exec) hands a child the terminal; the external

@@ -20,11 +20,14 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
-import { writeProductConversationMode } from '../conversation-mode-state.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
 import { KeyHolder } from '@robota-sdk/agent-local-host';
-import { createKeyringFileStore, workspaceRootBrokerEndpoint } from '@robota-sdk/agent-local-host';
+import {
+  createKeyringFileStore,
+  workspaceRootBrokerEndpoint,
+  writeProductConversationMode,
+} from '@robota-sdk/agent-local-host';
 import { runSecureCommand, type ISecureCommandOptions } from '../secure-command.js';
 import {
   acceptMigratedQuestion,

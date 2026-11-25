@@ -14,7 +14,7 @@ import {
   cleanupTestProductRuntimes,
   createTestProductRuntime,
 } from '../../__tests__/helpers/product-runtime.js';
-import { SecureSurfaceRefusedError } from '../../secure/secure-surfaces.js';
+import { SecureSurfaceRefusedError } from '@robota-sdk/agent-local-host';
 import { createCliUsageTransportRegistry } from '../../usage/usage-transport-registry.js';
 import { overrideProductSecureMode } from '../session-sealing.js';
 

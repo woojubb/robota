@@ -7,16 +7,14 @@
  * its plain disposition, which plain mode keeps, and its secure one: such a listener does not start
  * when it reaches a session or a token, the control socket opens for owner links, and the OAuth
  * callbacks open under their rule because they reach no session. It is exhaustive over the surface
- * unions, so a surface added without a decision fails to build. This package opens each listener
+ * unions, so a surface added without a decision fails to build. A product opens each listener
  * through `startListener`, at the call site that starts it, with the listener's row as its first
- * argument; the listener-sites scan test names every place in product code that can open one, the
- * row it belongs to, and the rows no product call site gates yet.
+ * argument and its own secure-mode decision as its second; the product's listener-sites scan names
+ * every place in its code that can open one, the row it belongs to, and the rows no call site gates
+ * yet.
  *
  * Plain mode never reads a secure disposition: `startListener` opens exactly what it opened before.
  */
-import { productSecureMode } from '../product/session-sealing.js';
-
-import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 /** The ways a product process runs. */
 export const PROCESS_SURFACES = ['tui', 'print', 'acp', 'mcp-stdio', 'supervised-runtime'] as const;
@@ -238,17 +236,18 @@ export class SecureSurfaceRefusedError extends Error {
 }
 
 /**
- * Open a listener under its row. In plain mode this is `open()` itself, so the listener binds, fails
- * and resolves exactly as it did before the gate existed. In secure mode a refused row is a rejected
+ * Open a listener under its row. `secure` is the product's own secure-mode decision, taken where the
+ * listener is started. In plain mode this is `open()` itself, so the listener binds, fails and
+ * resolves exactly as it did before the gate existed. In secure mode a refused row is a rejected
  * promise (never a throw, so a caller that only attaches `.catch` still sees it) and `open` never
  * runs; how each surface reports that is the surface's own decision.
  */
 export function startListener<T>(
   rule: TListenerRule,
-  runtime: ICliRuntimeContext,
+  secure: boolean,
   open: () => Promise<T>,
 ): Promise<T> {
-  if (productSecureMode(runtime) && rule.secure.admit === 'none') {
+  if (secure && rule.secure.admit === 'none') {
     return Promise.reject(new SecureSurfaceRefusedError(rule.surface, rule.secure.reason));
   }
   return open();

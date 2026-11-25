@@ -6,7 +6,8 @@ import { hostedAdmissionError } from './hosted-runtime-config.js';
 import { HostedRuntimeController } from './hosted-runtime-controller.js';
 import { createE2BHostedRuntimeExecutorFactory } from './e2b-hosted-executor.js';
 import { loadE2BSdk } from './e2b-sdk.js';
-import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
+import { SECURE_SURFACES, startListener } from '@robota-sdk/agent-local-host';
+import { productSecureMode } from '../product/session-sealing.js';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { IStartCliOptions } from '../startup/cli-options-types.js';
@@ -89,7 +90,7 @@ export async function runHostedRuntime(
       }
       // A served task opens its loopback ingress while its executor starts, under the ingress row.
       return invocation.mode === 'serve'
-        ? startListener(SECURE_SURFACES['hosted-ingress'], productRuntime, () =>
+        ? startListener(SECURE_SURFACES['hosted-ingress'], productSecureMode(productRuntime), () =>
             factory(admission, signal, invocation),
           )
         : factory(admission, signal, invocation);

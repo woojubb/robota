@@ -1,9 +1,12 @@
 import {
-  RuntimeCustody,
-  SecureWorkspaceRootFence,
-  SupervisedControlPathTooLongError,
   armUncertifiedStop,
+  RuntimeCustody,
+  SECURE_SURFACES,
   secureWorkspaceRoot,
+  SecureWorkspaceRootFence,
+  startListener,
+  SupervisedControlPathTooLongError,
+  type ISecureServeRuntime,
 } from '@robota-sdk/agent-local-host';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
@@ -51,10 +54,9 @@ import {
   startRuntimeHost,
 } from '@robota-sdk/agent-framework';
 import { startServeHttpHost, type IServeHttpHost } from './serve-http-host.js';
-import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
+import { productSecureMode } from '../product/session-sealing.js';
 import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-composition.js';
 import { secureServeRefusal } from './secure-serve-refusal.js';
-import type { ISecureServeRuntime } from '../startup/secure-runtime-startup.js';
 import type { IServeHttpOptions } from '../utils/serve-http-args.js';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
@@ -630,7 +632,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     if (opts.http !== undefined) {
       const http = opts.http;
       try {
-        httpEndpoint = await startListener(SECURE_SURFACES['serve-http'], opts.productRuntime, () =>
+        httpEndpoint = await startListener(SECURE_SURFACES['serve-http'], productSecureMode(opts.productRuntime), () =>
           startServeHttpHost({
             port: http.port,
             ...(http.remote !== undefined ? { remote: http.remote } : { token: http.token }),
@@ -676,7 +678,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         const wsUrl = opts.getMonitorWsUrl?.();
         const webRoot = resolveProductWebRoot(opts.productRuntime);
         if (wsUrl && webRoot) {
-          monitorUi = await startListener(SECURE_SURFACES['serve-monitor'], opts.productRuntime, () =>
+          monitorUi = await startListener(SECURE_SURFACES['serve-monitor'], productSecureMode(opts.productRuntime), () =>
             startMonitorUiServer(webRoot, wsUrl, opts.productRuntime),
           );
           process.stdout.write(servedAtMessage(monitorUi.url, opts.productRuntime));
@@ -807,7 +809,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
                 : {}),
               audit,
             });
-            await startListener(SECURE_SURFACES['external-events'], opts.productRuntime, () =>
+            await startListener(SECURE_SURFACES['external-events'], productSecureMode(opts.productRuntime), () =>
               endpoint.start(),
             );
             eventEndpoint = endpoint;
@@ -843,7 +845,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
                 ...(secureWorkspaceFence ? { workspaceFence: secureWorkspaceFence } : {}),
                 restricted: opts.projectAccess?.status === 'restricted',
               });
-        supervisedControl = await startListener(SECURE_SURFACES['control-socket'], opts.productRuntime, () =>
+        supervisedControl = await startListener(SECURE_SURFACES['control-socket'], productSecureMode(opts.productRuntime), () =>
           startSupervisedControl({
             id: supervisedSessionId,
             onStop: () => requestSettle('supervised session stopped'),
