@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
 import {
+  openNativeSecureOwner,
   readProductConversationMode,
   requestWorkspaceRootBroker,
   stopSupervisedSession,
@@ -16,7 +17,7 @@ import {
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from './helpers/product-runtime.js';
-import { openDesktopSecureOwner } from '../desktop-secure-host.js';
+import { resolveDesktopSecureLayout } from '../desktop-secure-layout.js';
 import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../secure/__tests__/helpers.js';
 import { resolveSupervisedDirectory } from '../session-inventory/supervised-session-control.js';
 import { startTestBroker } from './helpers/test-workspace-root-broker.js';
@@ -56,17 +57,16 @@ it.each([
     args: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source', fixture],
   };
   const options = {
-    config: runtime.config,
-    environment: runtime.environment,
+    ...resolveDesktopSecureLayout({ config: runtime.config, environment: runtime.environment }),
     workspace,
     restricted: true,
     restrictedHold: retained.hold,
     signal: new AbortController().signal,
-    childEnvironment: environment,
-    launchCommand,
+    environment,
+    command: { executable: launchCommand.executable, execArgs: [], entryArgs: launchCommand.args },
   };
-  await expect(openDesktopSecureOwner({ ...options, secret: { type: 'passphrase', value: 'wrong credential' } })).rejects.toThrow();
-  const owner = await openDesktopSecureOwner({ ...options, secret: { type: 'passphrase', value: FIXTURE_PASSPHRASE } });
+  await expect(openNativeSecureOwner({ ...options, secret: { type: 'passphrase', value: 'wrong credential' } })).rejects.toThrow();
+  const owner = await openNativeSecureOwner({ ...options, secret: { type: 'passphrase', value: FIXTURE_PASSPHRASE } });
   try {
     expect(owner.link.standing).toBe('owner');
     expect(owner.link.binding).toEqual(owner.selected);
@@ -75,7 +75,7 @@ it.each([
     });
     await owner.link.unlock();
     expect((await owner.link.control({ command: 'attach', fields: { mode: 'drive' } })).status).toBe('attached');
-    const reused = await openDesktopSecureOwner({ ...options, secret: { type: 'passphrase', value: FIXTURE_PASSPHRASE } });
+    const reused = await openNativeSecureOwner({ ...options, secret: { type: 'passphrase', value: FIXTURE_PASSPHRASE } });
     expect(reused.selected).toEqual(owner.selected);
     expect(reused.grantNeeded).toBe(false);
     expect((await reused.link.control({ command: 'attach', fields: { mode: 'observe' } })).status).toBe('attached');
@@ -89,7 +89,7 @@ it.each([
     await reused.link.closed;
     reused.release();
     if (!revokeBeforeLock) {
-      const recovered = await openDesktopSecureOwner({ ...options, secret: { type: 'passphrase', value: FIXTURE_PASSPHRASE } });
+      const recovered = await openNativeSecureOwner({ ...options, secret: { type: 'passphrase', value: FIXTURE_PASSPHRASE } });
       expect(recovered.grantNeeded).toBe(true);
       expect(recovered.link.custody.unlocked).toBe(false);
       recovered.link.close();

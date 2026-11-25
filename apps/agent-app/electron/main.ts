@@ -880,21 +880,21 @@ async function createWindow(): Promise<void> {
           expected: { workspace: realpathSync(workspace), restricted },
           requestSecret: (signal) => openSecretWindow(win, signal),
           openOwner: async (secret, signal) => {
-            const { openDesktopSecureOwner } = await import('@robota-sdk/agent-cli/desktop-host');
-            return openDesktopSecureOwner({
-              config: productConfig,
-              environment: hostEnvironment,
+            const { resolveDesktopSecureLayout } = await import('@robota-sdk/agent-cli/desktop-host');
+            const { openNativeSecureOwner } = await import('@robota-sdk/agent-local-host');
+            return openNativeSecureOwner({
+              ...resolveDesktopSecureLayout({ config: productConfig, environment: hostEnvironment }),
               workspace,
               restricted,
               ...(restrictedHold ? { restrictedHold } : {}),
               secret,
               signal,
-              childEnvironment: desktopDaemonEnvironment(productConfig, hostEnvironment, {
+              environment: desktopDaemonEnvironment(productConfig, hostEnvironment, {
                 restricted,
                 providerEnvironmentReferences: admittedProviderEnvironmentReferences,
                 allowScriptedE2eVariables,
               }),
-              launchCommand: { executable: productCli(), args: [] },
+              command: { executable: productCli(), execArgs: [], entryArgs: [] },
             });
           },
           isCurrent: () =>

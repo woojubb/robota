@@ -10,13 +10,12 @@ import { _electron as electron } from 'playwright';
 
 import { resolveProductConfig } from '@robota-sdk/product-config';
 import { createCliRuntimeContext } from '../../../packages/agent-cli/src/product/runtime-context.ts';
-import { openDesktopSecureOwner } from '../../../packages/agent-cli/src/desktop-secure-host.ts';
+import { resolveDesktopSecureLayout } from '../../../packages/agent-cli/src/desktop-secure-layout.ts';
 import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../../packages/agent-local-host/src/testing.ts';
 import { startTestBroker } from '../../../packages/agent-cli/src/__tests__/helpers/test-workspace-root-broker.ts';
-import { listSupervisedSessions, resolveSupervisedDirectory } from '../../../packages/agent-cli/src/session-inventory/supervised-session-control.ts';
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
-import { KeyHolder, KeyHolderArtifactSealer, WriteOnlyArtifactSealer, requestWorkspaceRootBroker, stopSupervisedSession, workspaceRootBrokerEndpoint, writeProductConversationMode } from '../../../packages/agent-local-host/src/index.ts';
+import { KeyHolder, KeyHolderArtifactSealer, WriteOnlyArtifactSealer, listSupervisedRuntimes, openNativeSecureOwner, requestWorkspaceRootBroker, stopSupervisedSession, workspaceRootBrokerEndpoint, writeProductConversationMode } from '../../../packages/agent-local-host/src/index.ts';
 import { createMemoryKeyringStore } from '../../../packages/agent-local-host/src/testing.ts';
 import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';
 import { desktopDaemonEnvironment, desktopHostEnvironment } from '../electron/product-config.ts';
@@ -93,14 +92,15 @@ try {
   };
   const assertLocked = async () => {
     const hostEnvironment = desktopHostEnvironment(config, fixture.environment);
-    const owner = await openDesktopSecureOwner({
-      config, environment: hostEnvironment, workspace, restricted: false,
+    const owner = await openNativeSecureOwner({
+      ...resolveDesktopSecureLayout({ config, environment: hostEnvironment }),
+      workspace, restricted: false,
       secret: { type: 'passphrase', value: FIXTURE_PASSPHRASE },
       signal: new AbortController().signal,
-      childEnvironment: desktopDaemonEnvironment(config, hostEnvironment, {
+      environment: desktopDaemonEnvironment(config, hostEnvironment, {
         restricted: false, providerEnvironmentReferences: [], allowScriptedE2eVariables: false,
       }),
-      launchCommand: { executable: sidecar, args: [] },
+      command: { executable: sidecar, execArgs: [], entryArgs: [] },
     });
     try {
       if (owner.link.custody.unlocked) throw new Error('The secure runtime remained unlocked after the desktop closed.');
@@ -180,8 +180,8 @@ try {
     await closed.catch(() => {});
   }
   if (broker) await broker.close();
-  const directory = resolveSupervisedDirectory(runtime);
-  for (const session of await listSupervisedSessions(directory, undefined, { includeGeneration: true })) {
+  const { supervisedDirectory: directory } = resolveDesktopSecureLayout({ config, environment: fixture.environment });
+  for (const session of await listSupervisedRuntimes(directory)) {
     await stopSupervisedSession(session.id, directory, session.generation);
   }
   rmSync(root, { recursive: true, force: true, maxRetries: 10 });
