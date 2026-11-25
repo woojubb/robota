@@ -16,6 +16,7 @@ import {
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
+import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
@@ -28,7 +29,6 @@ import {
 import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
 import { runWorkspaceTrustCommand } from '../workspace-trust-command.js';
 import { prepareDesktopRestrictedRoot } from '../../desktop-host.js';
-import { requestWorkspaceRootBroker } from '../workspace-root-broker.js';
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {

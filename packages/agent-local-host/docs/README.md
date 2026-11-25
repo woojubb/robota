@@ -1,6 +1,6 @@
 # agent-local-host Docs
 
-`@robota-sdk/agent-local-host` is the private Node-only authority for owner-controlled local runtime state: the keyring file store, the owner-private session directory and control carrier through which a supervised runtime is registered and reached, and the proof that a registered runtime is the daemon serving a workspace. Product hosts supply the paths and keep responsibility for secrets and admission. The package is not published to npm.
+`@robota-sdk/agent-local-host` is the private Node-only authority for owner-controlled local runtime state: the keyring file store, the owner-private session directory and control carrier through which a supervised runtime is registered and reached, the proof that a registered runtime is the daemon serving a workspace, and the broker that retains approved workspace roots. Product hosts supply the paths and keep responsibility for secrets and admission. The package is not published to npm.
 
 ## Documents
 

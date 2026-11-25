@@ -591,28 +591,19 @@ here because the reasoning differs between them:
 
 ### Workspace trust and project access
 
-The CLI resolves one host-owned `TWorkspaceProjectAccess` decision through a live broker before
-composition; a saved grant is history, never a renewed approval. In normal CLI and desktop flows, the
-broker retains the exact folder object approved through the user prompt, and all project file
-operations compare their opened root with it; its same-user IPC cannot authenticate a person, so a
-direct local client can create a new approval. CLI
-and desktop restarts reattach without another approval. The broker lives only as long as the user-state
-root its approvals belong to and leaves nothing under its shared directory when that ends, so removing
-that root, like a broker or OS restart, requires one new approval per root. Absence is deterministically **Restricted**: only user contribution/settings sources and
+The CLI resolves one host-owned `TWorkspaceProjectAccess` decision through a live broker (its
+guarantees are `agent-local-host`'s) before composition; a saved grant is history, never a renewed
+approval. In normal CLI and desktop flows the person approves through the user prompt, and CLI and
+desktop restarts reattach to the broker without another approval. Absence is deterministically **Restricted**: only user contribution/settings sources and
 the user session store are available, no project memory, and `cwd` alone cannot mint any project
 capability. **Trusted** composition derives project sources plus named state facets from the exact
 runtime-accepted authority, and is refused when the real CLI working directory is outside the
 authority's frozen workspace root. Every session it builds gets an edit checkpoint store, and
 sessions that can run turns at the same time never share one, because a store holds its session's
-turn in progress. The broker holds the project root, so it also takes the checkpoint writer's
-exclusive lease, its atomic directory claims and the removals that let deleting a project session
-take everything the session left (its subagent logs, which are the user's, included) on the
-stores' behalf; a lease ends when its trust
-lease is revoked, when the broker closes or when the process that took it is gone, so a crashed
-client never leaves a live-looking writer owned by the long-lived broker. A broker an older CLI
-started refuses an operation added since as malformed, having done nothing, and the CLI says to
-restart it rather than bump the protocol version, which would break the check that finds a live
-broker. On a host that cannot prove a project write stays under that root,
+turn in progress. The checkpoint writer's exclusive lease, its atomic directory claims and the
+removals that let deleting a project session take everything the session left (its subagent logs,
+which are the user's, included) go through the broker on the stores' behalf. When a broker an older
+CLI started refuses an operation added since, the CLI says to restart it. On a host that cannot prove a project write stays under that root,
 nothing is written under the project: the workspace's sessions, which are the user's own, are kept in
 the user session store and found there by their working directory, so they are still saved and
 resumable, while project memory, which belongs to the repository, and edit checkpoints, whose restore

@@ -37,7 +37,6 @@ graph TD
     REPLAY[agent-provider-replay<br/>private · test replay]
     EXEC[agent-executor]
     RTR[agent-roundtable-robota<br/>Session/Robota roundtable participants]
-    LOCAL[agent-local-host<br/>private · owner-protected local state]
   end
 
   subgraph Assembly["Assembly"]
@@ -61,6 +60,7 @@ graph TD
   subgraph Composition["Product composition"]
     SUB[agent-subagent-runner]
     PROD[agent-product<br/>assembleProduct + capability-pack · preset · command · coding subpaths]
+    LOCAL[agent-local-host<br/>private · owner-protected local state]
   end
 
   WF["External @robota-sdk/workflows/command"]
@@ -91,7 +91,6 @@ graph TD
   OS --> EXEC
   IF --> EXEC
   CORE & SESS & RT --> RTR
-  CORE & KR & OS & PAIR --> LOCAL
   ORG --> ORGH
 
   %% Assembly (providers are injected by the composition root, never imported)
@@ -111,7 +110,8 @@ graph TD
   UIW --> GUI
 
   %% Product composition
-  FW --> SUB & PROD
+  FW --> SUB & PROD & LOCAL
+  KR & PAIR --> LOCAL
   TOOLS --> PROD
   EXEC & OS --> SUB
 

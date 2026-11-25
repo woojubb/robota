@@ -32,7 +32,7 @@ import { workspaceRootBrokerEndpoint } from '../../../packages/agent-cli/src/sta
 import {
   requestWorkspaceRootBroker,
   startWorkspaceRootBroker,
-} from '../../../packages/agent-cli/src/startup/workspace-root-broker.ts';
+} from '../../../packages/agent-local-host/src/index.ts';
 
 
 /** One line of output (scripts write to the streams directly). */

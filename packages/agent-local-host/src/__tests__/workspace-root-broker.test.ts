@@ -11,27 +11,28 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { startTestBrokerProcess } from '../testing.js';
 import {
   requestWorkspaceRootBroker,
   startWorkspaceRootBroker,
 } from '../workspace-root-broker.js';
-import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 
 const roots: string[] = [];
 const servers: Array<{ close(): Promise<void> }> = [];
 const children: ReturnType<typeof spawn>[] = [];
+const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
+const fixturePath = fileURLToPath(new URL('./fixtures/workspace-root-broker-server.mjs', import.meta.url));
 
 async function spawnBroker(endpoint: string): Promise<ReturnType<typeof spawn>> {
-  const loader = new URL('../../../node_modules/tsx/dist/loader.mjs', import.meta.url).href;
-  const fixturePath = fileURLToPath(new URL('./fixtures/workspace-root-broker-server.mjs', import.meta.url));
-  const child = spawn(process.execPath, ['--import', loader, '--conditions=product-source', fixturePath, endpoint], {
+  const child = spawn(process.execPath, ['--import', tsx, fixturePath, endpoint], {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   children.push(child);
@@ -517,7 +518,9 @@ describe('root broker lifetime', () => {
 
   it('ends the broker process once its user-state root is removed', async () => {
     const f = owned();
-    const broker = await startTestBroker(f.endpoint, f.privateDirectory, f.history);
+    const broker = await startTestBrokerProcess([
+      '--import', tsx, fixturePath, f.endpoint, f.privateDirectory, f.history,
+    ]);
     servers.push(broker);
     rmSync(f.state, { recursive: true, force: true });
     await expect(broker.exited).resolves.toBeUndefined();

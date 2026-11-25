@@ -1,11 +1,10 @@
 import { realpathSync } from 'node:fs';
 
 import { openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
-import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
+import { createKeyringFileStore, secureWorkspaceRoot } from '@robota-sdk/agent-local-host';
 
 import { createCliRuntimeContext } from './product/runtime-context.js';
 import { SecureWorkspaceRootFence } from './secure/workspace-root-fence.js';
-import { secureWorkspaceRoot } from './secure/workspace-root-selection.js';
 import { ensureWorkspaceRootBroker } from './startup/workspace-root-broker-process.js';
 import { readProductConversationMode } from './secure/conversation-mode-state.js';
 import { launchCertifiedRuntime } from './session-inventory/certified-runtime-launch.js';

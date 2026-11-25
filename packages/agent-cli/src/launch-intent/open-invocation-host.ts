@@ -11,6 +11,7 @@ import {
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceTrustStore,
 } from '@robota-sdk/agent-framework/node';
+import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { statSync } from 'node:fs';
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
@@ -18,7 +19,6 @@ import { join } from 'node:path';
 import { createRemoteUrlReader, resolveLaunchInvocation, stripOpenInvocation } from './index.js';
 import { userPaths } from '../product/user-paths.js';
 import { workspaceRootBrokerEndpoint } from '../startup/workspace-root-broker-process.js';
-import { requestWorkspaceRootBroker } from '../startup/workspace-root-broker.js';
 
 import type { IResolveLaunchInvocationDeps, TLaunchTargetTrust } from './index.js';
 
