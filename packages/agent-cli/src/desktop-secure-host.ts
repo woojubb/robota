@@ -37,17 +37,12 @@ export interface IDesktopSecureOwnerOptions {
   readonly launchCommand: { readonly executable: string; readonly args: readonly string[] };
 }
 
-/** The main process reads the choice before it can start a plain daemon or expose its URL. */
-export function desktopConversationMode(config: IProductConfig): 'plain' | 'preparing' | 'secure' {
-  return readProductConversationMode(config.storage.userRoot);
-}
-
 /**
  * Open a native owner's handover, prove the workspace daemon or start and certify one, and return
  * only an authenticated owner link. The caller keeps this handover until its relay is closed.
  */
 export async function openDesktopSecureOwner(options: IDesktopSecureOwnerOptions) {
-  if (desktopConversationMode(options.config) !== 'secure') {
+  if (readProductConversationMode(options.config.storage.userRoot) !== 'secure') {
     throw new Error('Secure conversations are not active for this product state.');
   }
   if (options.signal.aborted) throw new Error('The desktop window is no longer available.');
@@ -75,7 +70,7 @@ export async function openDesktopSecureOwner(options: IDesktopSecureOwnerOptions
       await ensureWorkspaceRootBroker(runtime), !options.restricted, options.restrictedHold,
     );
     const current = store.load();
-    if (options.signal.aborted || desktopConversationMode(options.config) !== 'secure' ||
+    if (options.signal.aborted || readProductConversationMode(options.config.storage.userRoot) !== 'secure' ||
         current.status !== 'present' || serializeKeyring(current.keyring) !== snapshot) {
       throw new Error('The secure conversation choice or keyring changed during unlock.');
     }

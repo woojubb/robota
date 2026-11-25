@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import {
+  prepareRestrictedRoot,
   requestWorkspaceRootBroker,
   workspaceRootBrokerEndpoint,
 } from '@robota-sdk/agent-local-host';
@@ -11,7 +12,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
-import { prepareDesktopRestrictedRoot } from '../../desktop-host.js';
 import {
   createBrokeredWorkspaceTrust,
   staleBrokerMessage,
@@ -45,9 +45,9 @@ describe.skipIf(process.platform === 'win32')(
           state: 'identity-unavailable',
           workspace: root,
         });
-        expect(
-          await prepareDesktopRestrictedRoot(runtime.config, runtime.environment, root),
-        ).toMatch(/^[0-9a-f]{8}-/u);
+        expect(await prepareRestrictedRoot(runtime.layout.userRoot, root)).toMatch(
+          /^[0-9a-f]{8}-/u,
+        );
       } finally {
         write.mockRestore();
         try {

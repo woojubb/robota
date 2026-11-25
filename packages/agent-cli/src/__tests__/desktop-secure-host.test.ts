@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
 import {
+  readProductConversationMode,
   requestWorkspaceRootBroker,
   workspaceRootBrokerEndpoint,
   writeProductConversationMode,
@@ -14,7 +15,7 @@ import {
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from './helpers/product-runtime.js';
-import { desktopConversationMode, openDesktopSecureOwner } from '../desktop-secure-host.js';
+import { openDesktopSecureOwner } from '../desktop-secure-host.js';
 import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../secure/__tests__/helpers.js';
 import { resolveSupervisedDirectory, stopSupervisedSession } from '../session-inventory/supervised-session-control.js';
 import { startTestBroker } from './helpers/test-workspace-root-broker.js';
@@ -37,9 +38,9 @@ it.each([
   mkdirSync(dirname(runtime.layout.userPaths.keyring), { recursive: true, mode: 0o700 });
   const { keyring } = await fixtureKeyring();
   writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
-  expect(desktopConversationMode(runtime.config)).toBe('plain');
+  expect(readProductConversationMode(runtime.layout.userRoot)).toBe('plain');
   writeProductConversationMode(runtime.layout.userRoot, 'plain', 'secure');
-  expect(desktopConversationMode(runtime.config)).toBe('secure');
+  expect(readProductConversationMode(runtime.layout.userRoot)).toBe('secure');
   const endpoint = workspaceRootBrokerEndpoint(runtime.layout.userRoot);
   mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
   const broker = await startTestBroker(endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust);

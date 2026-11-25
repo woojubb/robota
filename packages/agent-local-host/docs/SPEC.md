@@ -52,6 +52,7 @@ Gives Node composition roots the local authority they need to keep owner-protect
 - It also takes the checkpoint writer's exclusive lease, its atomic directory claims and the removals that let deleting a project session take everything the session left. A lease ends when its trust lease is revoked, the broker closes or the process that took it is gone.
 - A start attaches to a live broker instead of launching a second, and only to an endpoint that answers.
 - The trust service grants only a root a person approved through a prepared candidate. Every read, write, directory operation and writer lease of a trusted root crosses the broker, so the host never touches a project file directly, and a guarded checkpoint operation runs only while the broker still holds its lease.
+- A native owner shell may ask the broker to approve a prepared candidate and to hold or release a Restricted choice; the person's answer is the shell's, since the broker cannot ask.
 - Secure clients and runtimes fence the same physical Git root, or the exact folder outside one. A fence holds it through its own descriptor with the trust generation at admission, and refuses a folder replaced under the same name, a changed generation and a Restricted choice that no longer names the displayed folder.
 
 ## Invariants
