@@ -82,7 +82,8 @@ try {
   const result = await within(application.evaluate(() => globalThis.desktopOwnerFixture.state()), 'Fixture state');
   assert.deepEqual(result.sent, [{ type: 'get-messages' }]);
   assert.equal(result.networkRequests, 0);
-  assert.deepEqual({ disposed: result.disposed, locked: result.locked, closed: result.closed }, { disposed: 1, locked: 1, closed: 1 });
+  // Closing detaches this owner and leaves the keys to the runtime's last-client rule: no global lock.
+  assert.deepEqual({ disposed: result.disposed, locked: result.locked, detached: result.detached, closed: result.closed }, { disposed: 1, locked: 0, detached: 1, closed: 1 });
   console.log('Sandboxed desktop fixture: explicit prompt, session-only relay, early frame and revocation passed.');
 } finally {
   if (application) {

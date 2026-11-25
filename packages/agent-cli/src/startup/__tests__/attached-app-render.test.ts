@@ -9,7 +9,15 @@ import { createCliRuntimeContext } from '../../product/runtime-context.js';
  * one and raw mode is a no-op. Nothing is typed: the daemon ends the app.
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -245,10 +253,7 @@ describe('test-product --attach with the real renderer', () => {
 
 describe("test-product --attach's own commands follow the plain TUI's module selection", () => {
   it('refuses /editor before creating a plaintext draft in secure mode', async () => {
-    const plain = createTestProductRuntime('test-product', {
-      HOME: process.env['HOME'],
-      PRODUCT_PROMPT_HISTORY: '0',
-    });
+    const plain = createTestProductRuntime('test-product', { HOME: process.env['HOME'] });
     const productRuntime = createCliRuntimeContext(
       plain.config,
       plain.environment,
@@ -333,5 +338,62 @@ describe("test-product --attach's own commands follow the plain TUI's module sel
 
     const names = renderStub.mock.calls[0]?.[0].clientCommands?.commands.map(({ name }) => name);
     expect(names?.sort()).toEqual(['editor', 'keybindings', 'theme']);
+  });
+});
+
+describe("test-product --attach's prompt history search", () => {
+  /** The options the renderer is given, for an attached terminal in `mode`, and where the history file would be. */
+  async function renderedOptions(mode: 'plain' | 'secure'): Promise<{
+    readonly options: Parameters<typeof renderAttachedApp>[0];
+    readonly historyFile: string;
+  }> {
+    const base = createTestProductRuntime('test-product', { HOME: process.env['HOME'] });
+    const productRuntime =
+      mode === 'plain'
+        ? base
+        : createCliRuntimeContext(base.config, base.environment, undefined, 'secure');
+    const renderStub = vi.fn<typeof renderAttachedApp>(async () => 'user');
+    const render = createAttachedAppRender(
+      {
+        renderAttachedApp: renderStub,
+        createThemeSurface,
+        createNodeKeybindingsSource,
+        createDefaultTuiCliAdapter,
+        installTuiProcessGuards: vi.fn(),
+      },
+      {
+        productRuntime,
+        cwd: scratch,
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
+        providerDefinitions: [],
+      },
+    );
+    const { connection } = closingConnection();
+    await render({
+      connection,
+      driverId: connection.driverId,
+      sessionLabel: 'Main daemon',
+      mode: 'drive',
+      screenReaderFlag: undefined,
+    });
+    return {
+      options: renderStub.mock.calls[0]![0],
+      historyFile: productRuntime.layout.userPaths.history,
+    };
+  }
+
+  it('searches the user history file in plain mode, as the plain TUI does', async () => {
+    const { options } = await renderedOptions('plain');
+    expect(options.promptHistorySource).toBeDefined();
+    expect(options.promptHistoryProject).toBeDefined();
+  });
+
+  it('builds no history store and offers no search in secure mode: this terminal holds no key holder', async () => {
+    // A secure process given no key holder refuses to build any conversation store, so the
+    // attached terminal must not ask for the history file at all.
+    const { options, historyFile } = await renderedOptions('secure');
+    expect(options.promptHistorySource).toBeUndefined();
+    expect(options.promptHistoryProject).toBeUndefined();
+    expect(existsSync(historyFile)).toBe(false);
   });
 });

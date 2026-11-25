@@ -30,18 +30,24 @@ app.whenReady().then(async () => {
   let sent = [];
   let disposed = 0;
   let locked = 0;
+  let detached = 0;
   let closed = 0;
+  let resolveClosed;
   const link = {
     standing: 'owner',
     binding: { runtimeId: 'runtime-fixture', generation: 'generation-fixture' },
     custody: { certified: true, unlocked: false },
-    closed: new Promise(() => {}),
+    closed: new Promise((resolve) => { resolveClosed = resolve; }),
     onCustody: () => () => {},
-    close: () => { closed++; },
+    close: () => { closed++; resolveClosed(); },
+    revokeToCleanup: () => {},
     lock: async () => { locked++; },
     unlock: async () => 'verified',
-    control: (request) => request.command === 'status'
-      ? status : Promise.resolve({ status: 'attached', driverId: 'driver-fixture' }),
+    control: (request) => {
+      if (request.command === 'status') return status;
+      if (request.command === 'owner-detach') { detached++; return Promise.resolve({ status: 'detached' }); }
+      return Promise.resolve({ status: 'attached', driverId: 'driver-fixture' });
+    },
     session: {
       send: (message) => { sent.push(message); },
       onMessage: (listener) => { receive = listener; signalSubscribed(); return () => { receive = undefined; }; },
@@ -79,7 +85,7 @@ app.whenReady().then(async () => {
     releaseStatus: () => releaseStatus({ status: 'running', daemon: true, cwd: '/synthetic/workspace' }),
     result: async () => (await opened).kind,
     close: async () => { const result = await opened; if (result.kind === 'open') await result.close(); },
-    state: () => ({ sent, disposed, locked, closed, networkRequests }),
+    state: () => ({ sent, disposed, locked, detached, closed, networkRequests }),
   };
   await parent.loadFile(process.env.FIXTURE_HTML);
 });

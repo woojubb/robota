@@ -574,7 +574,8 @@ here because the reasoning differs between them:
 - **Prompt history:** default ON (prompts are already persisted verbatim per session,
   and this is a shell-history analogue). Precedence: `settings.json` `promptHistory: false` ←
   `__PRODUCT_ENV_PREFIX__PROMPT_HISTORY` env (**env wins**, same direction as memory — a machine-level policy).
-  TUI only; print/serve receive no writer. A run with `--no-session-persistence` writes none,
+  TUI only; print/serve receive no writer, and a terminal attached to a secure runtime has no search, since it
+  holds no key holder and builds no store of its own. A run with `--no-session-persistence` writes none,
   whatever the setting or the environment says.
 - **Advisor:** default OFF. Precedence: `settings.json` `advisorModel` ← `--advisor` flag (**flag
   wins**, a per-run choice like the screen-reader flag), and `__PRODUCT_ENV_PREFIX__DISABLE_ADVISOR` above both as a
