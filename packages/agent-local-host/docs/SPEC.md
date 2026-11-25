@@ -24,7 +24,7 @@ Gives Node composition roots the local authority they need to keep owner-protect
 - Before certification only the spawner is admitted: it may start and drive sessions and certify the runtime, and it holds no read keys. After it only the owner is admitted, and opens the runtime by handing it read keys over the link.
 - Read keys go away on the owner's request, when the last attached client leaves, on a lock command and when the owner stops acting, and every link is told.
 - A runtime nothing certified ends itself when no spawner links to it and when its spawner leaves without certifying it.
-- An attached terminal or an owner link's session is one more surface under the session's own co-drive, prompt and session-switching rules and never an operator approver, so a connection that needs one is still refused. A reader that stops reading loses only its own connection.
+- An attached terminal or an owner link's session is one more surface under the session's own co-drive, prompt and session-switching rules and never an operator approver (an observer never submits or answers), so a connection that needs one is still refused. A reader that stops reading loses only its own connection.
 
 ### Start of a secure runtime
 
@@ -41,7 +41,8 @@ Gives Node composition roots the local authority they need to keep owner-protect
 
 ### Conversation mode choice
 
-- The mode is one owner-only file under the state root. A missing choice is plain on a first run but ambiguous beside secure artifacts, and a linked, non-private, empty, oversized or malformed file is refused, never guessed at.
+- The mode is one owner-only file under the state root saying whether the root's conversations are plain, being prepared for sealing, or sealed. Deciding to change it is the product's, under its own exclusive barrier; the package only reads it and commits the change.
+- A missing choice is plain on a first run but ambiguous beside secure artifacts, and anything but a private, well-formed file is refused, never guessed at.
 - A change commits only while the mode it expected is still on disk, checked again just before replacement, and is read back.
 
 ### Workspace-root broker, trust and fence
@@ -66,7 +67,7 @@ Gives Node composition roots the local authority they need to keep owner-protect
 ## Non-goals
 
 - The keyring store does not choose product paths, collect a passphrase, unlock a keyring, or decide which process receives owner authority. The composition root owns these decisions.
-- Which surfaces a product runs and opens, whether secure mode is on, when the conversation mode changes and what an interrupted change blocks are the product's: the table says what each surface may be, not what the product starts.
+- Which surfaces a product runs and opens, whether secure mode is on and what an interrupted mode change blocks are the product's: the table says what each surface may be, not what the product starts.
 - The broker cannot authenticate a person over its same-user IPC, so a direct local client can create a new approval; asking the person is the composition root's.
 - The prover does not authenticate a control link itself: the opener the composition root supplies must authenticate the selected binding before it returns a link.
 
@@ -78,6 +79,6 @@ Gives Node composition roots the local authority they need to keep owner-protect
 - A broker started by an older host refuses an operation added since as malformed, having done nothing, and the protocol version stays fixed because a bump would break the check that finds a live broker; telling the person to restart that broker is the composition root's. How a host runs its own binary as a broker is a function it supplies, not a command line the package builds, because the argument layout and the start bound belong to the binary that serves the broker; the package asks it only when no broker answers, so a live broker costs the host no launch work.
 - A lock retires every link admitted before it so that an older link can neither install a delayed grant nor keep a decision open, and locking needs no proof because taking access away is something anyone who could stop the runtime can do. The idle lock counts only what a person does, because it exists for an owner who walked away: a viewer left open on a screen nobody watches, paging or refreshing, would otherwise keep the keys open for as long as it does.
 - A spawner's authority ends with certification because a spawner only starts a runtime for its owner, and nothing it sent behind the certification may act with authority the runtime no longer grants it. The stop of an uncertified runtime exists because it was started for an owner and is useful to nobody until certified; it lets the work it runs end first, since stopping it mid-turn would cut that work short.
-- A secure runtime has nothing to be admitted by but the owner link its spawner makes possible, so the pair is what a secure supervised start carries and the only thing that does; a plain runtime's token cannot stand in for it. The start takes plain values rather than a product's runtime because the option names are the product's launch layout, a prompt after `--` that spells a flag must stay text, and registering the holder as the product's sealing is the product's act.
-- The listener gate takes the product's secure decision as an argument, evaluated where the listener starts, so the table does not know which product it serves. The cost is that a call site could write a decision in place, so each product names every place it opens a listener and checks that the decision is its own.
+- A secure runtime has nothing to be admitted by but the owner link its spawner makes possible, which is why a plain runtime's token cannot stand in for the pair. The start takes plain values rather than a product's runtime because the option names are the product's launch layout, a prompt after `--` that spells a flag must stay text, and registering the holder as the product's sealing is the product's act.
+- The listener gate takes the product's secure decision as an argument, evaluated where the listener starts, so the table does not know how the product decides secure mode. The cost is that a call site could write a decision in place, so each product names every place it opens a listener and checks that the decision is its own.
 - Doubt about the conversation mode choice refuses rather than falling back, because plain beside sealed artifacts would write plaintext conversations next to sealed ones.
