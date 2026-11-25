@@ -15,6 +15,7 @@ app.whenReady().then(async () => {
   let resolveReleased;
   const releaseComplete = new Promise((resolve) => { resolveReleased = resolve; });
   let locked = 0;
+  let detached = 0;
   let closed = 0;
   let prompts = 0;
   let unconfirmed = 0;
@@ -35,9 +36,11 @@ app.whenReady().then(async () => {
     custody: { certified: true, unlocked: false }, closed: new Promise((resolve) => { resolveClosed = resolve; }),
     onCustody: () => () => {}, close: () => { closed++; resolveClosed(); }, revokeToCleanup: () => {},
     lock: async () => { locked++; }, unlock: async () => 'verified',
-    control: async (request) => request.command === 'status'
-      ? { status: 'running', daemon: true, cwd: '/synthetic/workspace' }
-      : { status: 'attached', driverId: 'driver-fixture' },
+    control: async (request) => {
+      if (request.command === 'status') return { status: 'running', daemon: true, cwd: '/synthetic/workspace' };
+      if (request.command === 'owner-detach') { detached++; return { status: 'detached' }; }
+      return { status: 'attached', driverId: 'driver-fixture' };
+    },
     session: { send: (message) => sent.push(message), onMessage: () => () => {} },
   };
   const admission = admissionModule.registerDesktopSessionAdmission({
@@ -105,6 +108,6 @@ app.whenReady().then(async () => {
       probe.destroy();
       return { child, foreign: result.kind };
     },
-    state: () => ({ sent, released, locked, closed, prompts, unconfirmed, sourceWasMainFrame, requestPorts }),
+    state: () => ({ sent, released, locked, detached, closed, prompts, unconfirmed, sourceWasMainFrame, requestPorts }),
   };
 });
