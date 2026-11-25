@@ -1,7 +1,6 @@
-import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
+import { createKeyringFileStore, openRegisteredOwnerLink } from '@robota-sdk/agent-local-host';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
-import { openRegisteredOwnerLink } from './owner-link-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
 
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';

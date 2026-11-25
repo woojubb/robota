@@ -1,4 +1,5 @@
-import { openRegisteredOwnerLink, openRegisteredSpawnerLink } from './owner-link-client.js';
+import { openRegisteredOwnerLink, openRegisteredSpawnerLink } from '@robota-sdk/agent-local-host';
+
 import { listSupervisedSessions, resolveSupervisedDirectory, stopStartedSupervisedSession } from './supervised-session-control.js';
 import { launchRuntimeProcess, type ISupervisedLaunchOptions } from './supervised-session-launch.js';
 

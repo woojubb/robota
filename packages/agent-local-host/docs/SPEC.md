@@ -17,6 +17,7 @@ Gives Node composition roots the local authority they need to keep owner-protect
 - A registration is untrusted metadata, read only from an owner-private directory and a regular file the user owns, never through a link.
 - A runtime is controlled only once its recorded process start time proves it alive and its generation matches. A daemon is named only after an authenticated status exchange reports that it serves the workspace.
 - A registration not known dead whose control cannot be proven refuses discovery instead of being skipped, and two daemons for one workspace refuse as ambiguous.
+- Starts of a workspace's daemon take turns through one lock per workspace in the supervised directory. A live owner is waited for; a lock whose start is gone is never removed by a start, which refuses with the product's own removal hint, so removing it is the user's call.
 
 ### Admission and custody of a secure runtime
 
@@ -70,7 +71,7 @@ Gives Node composition roots the local authority they need to keep owner-protect
 - The keyring store does not choose product paths, collect a passphrase, unlock a keyring, or decide which process receives owner authority. The composition root owns these decisions.
 - Which surfaces a product runs and opens, whether secure mode is on and what an interrupted mode change blocks are the product's: the table says what each surface may be, not what the product starts.
 - The broker cannot authenticate a person over its same-user IPC, so a direct local client can create a new approval; asking the person is the composition root's.
-- The prover does not authenticate a control link itself: the opener the composition root supplies must authenticate the selected binding before it returns a link.
+- `createWorkspaceDaemonProver` does not authenticate a control link itself: the opener its caller supplies (the owner link, for `proveWorkspaceDaemon`) must authenticate the selected binding before it returns a link.
 
 ## Design decisions
 

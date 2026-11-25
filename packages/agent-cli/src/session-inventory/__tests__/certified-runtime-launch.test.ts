@@ -5,13 +5,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createKeyring, openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
-import { createWorkspaceDaemonProver, listRegisteredCandidates } from '@robota-sdk/agent-local-host';
+import { createWorkspaceDaemonProver, listRegisteredCandidates, openRegisteredOwnerLink } from '@robota-sdk/agent-local-host';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpers.js';
-import { openRegisteredOwnerLink } from '../owner-link-client.js';
 import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
 import { runDaemonCommand } from '../daemon-command.js';
 import { runDaemonAttachCommand } from '../daemon-attach-command.js';

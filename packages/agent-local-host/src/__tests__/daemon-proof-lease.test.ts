@@ -15,7 +15,7 @@ function deferred<T>() {
 
 const row = { id: 'runtime', generation: 'generation', liveness: 'alive', control: 'available', activity: 'idle' } as const;
 
-describe('CLI daemon proof owner lifetime', () => {
+describe('daemon proof owner lifetime', () => {
   it('holds the handover until the late link closes after timeout', async () => {
     const late = deferred<IOwnerRuntimeLinkClient>();
     const timedOut = deferred<void>();

@@ -1,14 +1,14 @@
 import { expect, it, vi } from 'vitest';
 
-import { openPreparedOwnerLink } from '../owner-link-client.js';
+import { openPreparedOwnerLink } from '@robota-sdk/agent-local-host';
 import { openSecureAttach } from '../secure-attach-client.js';
 
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 import type { IOwnerRuntimeLinkClient, IRuntimeCustodyState, TOwnerControlResult } from '@robota-sdk/agent-transport/link';
 
-vi.mock('../owner-link-client.js', () => ({ openPreparedOwnerLink: vi.fn() }));
 vi.mock('@robota-sdk/agent-local-host', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@robota-sdk/agent-local-host')>()),
+  openPreparedOwnerLink: vi.fn(),
   SecureWorkspaceRootFence: class {
     proof() { return { tag: 'fixture', generation: 1, trustTag: 'untrusted' }; }
     assertCurrent() {}
