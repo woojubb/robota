@@ -1618,6 +1618,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: npm:@robota-sdk/agent-core@3.3.3
         version: 3.3.3
+      '@robota-sdk/agent-framework':
+        specifier: npm:@robota-sdk/agent-framework@3.3.6
+        version: 3.3.6
       '@robota-sdk/agent-keyring':
         specifier: npm:@robota-sdk/agent-keyring@3.2.2
         version: 3.2.2
@@ -1627,6 +1630,9 @@ importers:
       '@robota-sdk/agent-remote-pairing':
         specifier: npm:@robota-sdk/agent-remote-pairing@3.3.0
         version: 3.3.0
+      '@robota-sdk/agent-session':
+        specifier: npm:@robota-sdk/agent-session@3.2.8
+        version: 3.2.8
       koffi:
         specifier: 3.3.1
         version: 3.3.1

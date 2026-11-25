@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
+import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from './helpers/product-runtime.js';
@@ -14,7 +15,6 @@ import { writeProductConversationMode } from '../secure/conversation-mode-state.
 import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../secure/__tests__/helpers.js';
 import { resolveSupervisedDirectory, stopSupervisedSession } from '../session-inventory/supervised-session-control.js';
 import { workspaceRootBrokerEndpoint } from '../startup/workspace-root-broker-process.js';
-import { requestWorkspaceRootBroker } from '../startup/workspace-root-broker.js';
 import { startTestBroker } from './helpers/test-workspace-root-broker.js';
 
 const roots: string[] = [];

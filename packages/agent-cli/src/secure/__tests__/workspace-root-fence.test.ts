@@ -2,12 +2,12 @@ import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { expect, it } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
-import { requestWorkspaceRootBroker } from '../../startup/workspace-root-broker.js';
 import { SecureWorkspaceRootFence } from '../workspace-root-fence.js';
 
 it.skipIf(process.platform !== 'darwin' && process.platform !== 'linux')('refuses a replacement at the same workspace path', async () => {

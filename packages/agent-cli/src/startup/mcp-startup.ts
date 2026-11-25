@@ -23,9 +23,9 @@ import {
   isWorkspaceHelperSource,
   withoutExpansions,
 } from '@robota-sdk/agent-mcp';
+import { requestWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { userLocalStorageRoot } from '../product/user-paths.js';
 import { workspaceRootBrokerEndpoint } from './workspace-root-broker-process.js';
-import { requestWorkspaceRootBroker } from './workspace-root-broker.js';
 import { commandEnvironment } from '../product/command-environment.js';
 import { createProductToolResultSpillStore } from '../product/session-stores.js';
 

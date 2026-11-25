@@ -3,8 +3,6 @@ import { existsSync, lstatSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, parse, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
-
 import {
   BROKER_LOCK_NAME,
   BROKER_SOCKET_NAME,
@@ -13,9 +11,10 @@ import {
   isBrokerNamespaceName,
   isOwnerPrivateDirectory,
   removeBrokerNamespaceDirectory,
+  requestWorkspaceRootBroker,
   userRootNamespace,
-} from './workspace-root-broker-directory.js';
-import { requestWorkspaceRootBroker } from './workspace-root-broker.js';
+} from '@robota-sdk/agent-local-host';
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 

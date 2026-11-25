@@ -34,7 +34,10 @@ Composition roots
         ▼
 SDK packages (@robota-sdk/*)
   Product composition   agent-product (the capability-pack contract, presets, slash-command
-                        modules and the coding pack are its subpaths) · agent-subagent-runner
+                        modules and the coding pack are its subpaths) · agent-subagent-runner ·
+                        agent-local-host (private: Node host authority for owner-protected local
+                        runtime state; it composes the framework's and session's Node entries to
+                        hold approved workspace roots)
   Presentation          agent-ui-terminal (React + Ink)
                         agent-ui-web (browser session surface) ·
                         agent-gui-web (private GUI web app) ·
@@ -48,9 +51,7 @@ SDK packages (@robota-sdk/*)
   Runtime               agent-session · agent-executor ·
                         agent-roundtable-robota (runs a session or agent as a roundtable participant and
                         selectors) ·
-                        agent-provider-replay (private: replays recorded provider responses in tests) ·
-                        agent-local-host (private: Node host authority for owner-protected local
-                        runtime state)
+                        agent-provider-replay (private: replays recorded provider responses in tests)
   Building blocks       agent-tools (its ./defaults entry is the default tool set, Node only) ·
                         agent-plugin · agent-mcp · agent-session-analytics ·
                         agent-telemetry-otel ·

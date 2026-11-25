@@ -16,7 +16,7 @@ import type { TListenerSurface } from '../secure-surfaces.js';
 const LISTENER_SITES: Readonly<Record<string, readonly TListenerSurface[]>> = {
   'packages/agent-cli/src/session-inventory/supervised-session-control.ts': ['control-socket'],
   'packages/agent-local-host/src/windows-control-pipe.ts': ['control-socket'],
-  'packages/agent-cli/src/startup/workspace-root-broker.ts': ['control-socket'],
+  'packages/agent-local-host/src/workspace-root-broker.ts': ['control-socket'],
   'packages/agent-cli/src/modes/serve-http-host.ts': ['serve-http'],
   'packages/agent-local-host/src/loopback-gui-server.ts': ['serve-monitor'],
   'packages/agent-cli/src/external-events/external-event-http-host.ts': ['external-events'],
