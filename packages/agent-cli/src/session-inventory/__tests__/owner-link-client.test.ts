@@ -8,9 +8,8 @@ import { readProcessStartTime } from '@robota-sdk/agent-core/node';
 import { createKeyring, createRuntimeIdentity, openOwnerHandover, startSpawnerExchange } from '@robota-sdk/agent-keyring';
 import { afterEach, expect, it } from 'vitest';
 
-import { KeyHolder, RuntimeCustody } from '@robota-sdk/agent-local-host';
+import { KeyHolder, RuntimeCustody, openRegisteredOwnerLink, openRegisteredSpawnerLink } from '@robota-sdk/agent-local-host';
 import { createMemoryKeyringStore, FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpers.js';
-import { openRegisteredOwnerLink, openRegisteredSpawnerLink } from '../owner-link-client.js';
 import { startSupervisedControl, type ISupervisedControl } from '../supervised-session-control.js';
 
 const ID = '7bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';

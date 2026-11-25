@@ -1,8 +1,8 @@
-import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
+import { acquireSupervisedDaemonStartLock, createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { launchCertifiedRuntime } from './certified-runtime-launch.js';
-import { acquireSupervisedDaemonStartLock, resolveSupervisedDirectory } from './supervised-session-control.js';
+import { resolveSupervisedDirectory } from './supervised-session-control.js';
 
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 import type { ISupervisedLaunchOptions } from './supervised-session-launch.js';
@@ -22,7 +22,7 @@ export async function startSecureBackground(cwd: string, options: Pick<ISupervis
   })))();
   if (owner === undefined) throw new Error(`Not started: secure mode needs an unlock. Ask the user to run: ${runtime.vocabulary.cliName} session start --background`);
   try {
-    const release = await (options.lock ?? acquireSupervisedDaemonStartLock)(cwd, root, { cliName: runtime.vocabulary.cliName });
+    const release = await (options.lock ?? acquireSupervisedDaemonStartLock)(cwd, root, { removalHint: `${runtime.vocabulary.cliName} daemon clear-start-lock` });
     try {
       return await (options.launch ?? launchCertifiedRuntime)(cwd, {
         productRuntime: runtime, root, handover: owner,

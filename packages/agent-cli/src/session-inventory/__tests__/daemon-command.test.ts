@@ -5,13 +5,14 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { acquireSupervisedDaemonStartLock } from '@robota-sdk/agent-local-host';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runDaemonCommand, type IDaemonCommandOptions } from '../daemon-command.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 
 import { readProcessStartTime } from '../../remote-control/local-peer-registry.js';
-import { acquireSupervisedDaemonStartLock, type ISupervisedSessionRow } from '../supervised-session-control.js';
+import type { ISupervisedSessionRow } from '../supervised-session-control.js';
 
 const LIVE = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 const OTHER = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
@@ -277,7 +278,7 @@ describe('test-product daemon', () => {
     it('waits for a start in progress, then reuses its daemon instead of launching another', async () => {
       const h = harness([]);
       const root = h.options.root as string;
-      const first = await acquireSupervisedDaemonStartLock(workspace, root, { cliName: 'test-product' });
+      const first = await acquireSupervisedDaemonStartLock(workspace, root, { removalHint: 'test-product daemon clear-start-lock' });
       expect(readdirSync(root)).toEqual([expect.stringMatching(/^\.daemon-[0-9a-f]{16}\.lock$/u)]);
       let released = false;
       h.list.mockImplementation(async () => (released ? [daemonRow(LIVE)] : []));
@@ -345,16 +346,6 @@ describe('test-product daemon', () => {
       writeFileSync(lockFile(root), `${process.pid} ${readProcessStartTime(process.pid)}`, { mode: 0o600 });
       expect(await runDaemonCommand(['clear-start-lock'], h.options)).toBe(1);
       expect(h.err()).toMatch(/still running.*its lock was kept/u);
-      expect(existsSync(lockFile(root))).toBe(true);
-    });
-
-    it('gives up on a lock held by a live start after its wait', async () => {
-      const h = harness([]);
-      const root = h.options.root as string;
-      mkdirSync(root, { mode: 0o700 });
-      writeFileSync(lockFile(root), `${process.pid} ${readProcessStartTime(process.pid)}`, { mode: 0o600 });
-      await expect(acquireSupervisedDaemonStartLock(workspace, root, { cliName: 'test-product', timeoutMs: 200, pollMs: 20 }))
-        .rejects.toThrow(/Another daemon start is still running.*test-product daemon clear-start-lock/u);
       expect(existsSync(lockFile(root))).toBe(true);
     });
   });

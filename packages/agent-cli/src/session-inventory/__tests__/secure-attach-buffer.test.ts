@@ -12,6 +12,7 @@ vi.mock('@robota-sdk/agent-local-host', async (importOriginal) => ({
     proof() { this.assertCurrent(); return { tag: 'root', generation: 1, trustTag: 'untrusted' }; }
     close() {}
   },
+  openPreparedOwnerLink: async () => ({ link, grantNeeded: true }),
 }));
 
 const link = vi.hoisted(() => {
@@ -27,7 +28,6 @@ const link = vi.hoisted(() => {
     revokeToCleanup: vi.fn(), lock: vi.fn(async () => {}), close: vi.fn(() => close()), closed,
   };
 });
-vi.mock('../owner-link-client.js', () => ({ openPreparedOwnerLink: async () => ({ link, grantNeeded: true }) }));
 
 import { openSecureAttach } from '../secure-attach-client.js';
 

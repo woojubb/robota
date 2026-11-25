@@ -12,12 +12,11 @@ import { realpathSync } from 'node:fs';
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 
 import { productSecureMode } from '../product/session-sealing.js';
-import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
+import { createKeyringFileStore, proveWorkspaceDaemon } from '@robota-sdk/agent-local-host';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { confirmAttachOnTerminal, type IAttachConfirmation } from './attach-confirmation.js';
 import { findWorkspaceDaemon } from './daemon-command.js';
-import { proveWorkspaceDaemon } from './prove-workspace-daemon.js';
 import { runConfirmedAttach, type TAttachedAppRender } from './session-attach-command.js';
 import { openSecureAttach } from './secure-attach-client.js';
 import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-composition.js';
