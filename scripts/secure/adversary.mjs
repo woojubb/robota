@@ -13,9 +13,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../packages/agent-cli/src/__tests__/helpers/product-runtime.ts';
 import { resolveSdk } from '../../packages/agent-cli/src/__tests__/helpers/sdk-url.ts';
-import { connectSupervisedDaemon, listSupervisedSessions, openSupervisedAttachSocket, resolveSupervisedDirectory } from '../../packages/agent-cli/src/session-inventory/supervised-session-control.ts';
+import { connectSupervisedDaemon, listSupervisedSessions, resolveSupervisedDirectory } from '../../packages/agent-cli/src/session-inventory/supervised-session-control.ts';
 import { windowsControlPipePath } from '../../packages/agent-local-host/src/windows-control-pipe.ts';
-import { KeyHolder, KeyHolderArtifactSealer, createKeyringFileStore } from '../../packages/agent-local-host/src/index.ts';
+import { KeyHolder, KeyHolderArtifactSealer, createKeyringFileStore, openSupervisedAttachSocket } from '../../packages/agent-local-host/src/index.ts';
 import { createMemoryKeyringStore } from '../../packages/agent-local-host/src/testing.ts';
 
 const { LINK_HELLO_BYTES, createKeyring, createLinkInitiator, createLinkResponder, createRuntimeIdentity, openOwnerHandover, startSpawnerExchange } = await import(resolveSdk('@robota-sdk/agent-keyring'));

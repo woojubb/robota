@@ -5,9 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stopSupervisedSession } from '@robota-sdk/agent-local-host';
 import { describe, expect, it } from 'vitest';
-
-import { stopSupervisedSession } from '../supervised-session-control.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/supervised-serve-fixture.ts', import.meta.url));

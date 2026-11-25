@@ -3,6 +3,7 @@ import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { stopSupervisedSession } from '@robota-sdk/agent-local-host';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -12,7 +13,6 @@ import {
   parseSupervisedPr,
   renameSupervisedSession,
   startSupervisedControl,
-  stopSupervisedSession,
   unlinkSupervisedPr,
 } from '../supervised-session-control.js';
 

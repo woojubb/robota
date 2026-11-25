@@ -1,7 +1,7 @@
 import { once } from 'node:events';
 import { spawn } from 'node:child_process';
 import { Duplex } from 'node:stream';
-import { openRegisteredSpawnerLink } from '@robota-sdk/agent-local-host';
+import { openRegisteredSpawnerLink, stopSupervisedSession } from '@robota-sdk/agent-local-host';
 import { completeSpawnerPair } from '@robota-sdk/agent-transport/link';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -12,7 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterEach, expect, it } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
+import { listSupervisedSessions, resolveSupervisedDirectory } from '../supervised-session-control.js';
 import { launchRuntimeProcess } from '../supervised-session-launch.js';
 
 import type { ChildProcess } from 'node:child_process';

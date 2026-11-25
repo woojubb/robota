@@ -6,9 +6,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { stopSupervisedSession } from '@robota-sdk/agent-local-host';
 import { expect, it, vi } from 'vitest';
 
-import { listSupervisedSessions, stopSupervisedSession } from '../supervised-session-control.js';
+import { listSupervisedSessions } from '../supervised-session-control.js';
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 

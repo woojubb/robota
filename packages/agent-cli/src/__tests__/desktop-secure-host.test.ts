@@ -9,6 +9,7 @@ import { serializeKeyring } from '@robota-sdk/agent-keyring';
 import {
   readProductConversationMode,
   requestWorkspaceRootBroker,
+  stopSupervisedSession,
   workspaceRootBrokerEndpoint,
   writeProductConversationMode,
 } from '@robota-sdk/agent-local-host';
@@ -17,7 +18,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { createTestBinaryEnvironment, createTestProductRuntime } from './helpers/product-runtime.js';
 import { openDesktopSecureOwner } from '../desktop-secure-host.js';
 import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../secure/__tests__/helpers.js';
-import { resolveSupervisedDirectory, stopSupervisedSession } from '../session-inventory/supervised-session-control.js';
+import { resolveSupervisedDirectory } from '../session-inventory/supervised-session-control.js';
 import { startTestBroker } from './helpers/test-workspace-root-broker.js';
 
 const roots: string[] = [];

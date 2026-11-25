@@ -6,6 +6,8 @@ export { openPreparedOwnerLink, openRegisteredOwnerLink, openRegisteredSpawnerLi
 export { proveWorkspaceDaemon } from './prove-workspace-daemon.js';
 export { acquireSupervisedDaemonStartLock, removeSupervisedDaemonStartLock } from './supervised-start-lock.js';
 export type { ISupervisedDaemonStartLockOptions } from './supervised-start-lock.js';
+export { CONTROL_REQUEST_TIMEOUT_MS, isControlCwd, isCurrentActivity, listSupervisedRuntimes, lockSupervisedSession, openSupervisedAttachSocket, requestSupervisedControl, stopStartedSupervisedSession, stopSupervisedSession } from './supervised-control-client.js';
+export type { ISupervisedAttachSocket, ISupervisedRuntime, ISupervisedRuntimeStatus, TSupervisedActivity } from './supervised-control-client.js';
 export { MAX_CONTROL_FRAME_BYTES, SUPERVISED_ID_PATTERN, SupervisedControlPathTooLongError, connectControlSocket, controlSocketPath, ensurePrivateDirectory, isGeneration, openRegisteredControlStream, readOwnedFile, readRegistration, sessionDirectory, verifyExistingDirectory, verifyLiveOwner } from './supervised-control-carrier.js';
 export type { IRegistration } from './supervised-control-carrier.js';
 export { WindowsControlPipeServer, connectWindowsControlPipe, windowsControlPipePath } from './windows-control-pipe.js';

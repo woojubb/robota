@@ -5,7 +5,7 @@ import { realpathSync } from 'node:fs';
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 
 import { productSecureMode } from '../product/session-sealing.js';
-import { acquireSupervisedDaemonStartLock, createKeyringFileStore, proveWorkspaceDaemon, removeSupervisedDaemonStartLock } from '@robota-sdk/agent-local-host';
+import { acquireSupervisedDaemonStartLock, createKeyringFileStore, proveWorkspaceDaemon, removeSupervisedDaemonStartLock, stopSupervisedSession } from '@robota-sdk/agent-local-host';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { fingerprintOf } from '../secure/sealing-key-warning.js';
@@ -15,7 +15,6 @@ import {
   resolveSupervisedDirectory,
   connectSupervisedDaemon,
   listSupervisedSessions,
-  stopSupervisedSession,
   type ISupervisedSessionRow,
 } from './supervised-session-control.js';
 import { launchSupervisedSession } from './supervised-session-launch.js';
