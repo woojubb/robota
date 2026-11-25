@@ -4,7 +4,7 @@ import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 
 import { runServeMode, type IServeModeOptions } from '../../../modes/serve-mode.js';
 import { parseCliArgs } from '../../../utils/cli-args.js';
-import { readSupervisedTransportToken } from '../../supervised-transport-token.js';
+import { readSupervisedTransportToken } from '@robota-sdk/agent-local-host';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';

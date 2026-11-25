@@ -23,6 +23,13 @@ export type { IWorkspaceRootBrokerLaunch, IWorkspaceRootBrokerServe, IWorkspaceR
 export { BrokeredWorkspaceTrustService } from './brokered-workspace-trust.js';
 export type { IBrokeredWorkspaceTrustOptions, TStaleBrokerMessage } from './brokered-workspace-trust.js';
 export { SecureWorkspaceRootFence } from './workspace-root-fence.js';
+export { CONTROL_ACCESS, isControlCommandName } from './control-access.js';
+export type { TControlCommandName } from './control-access.js';
+export type { IRuntimeAdmission, IRuntimeAdmissionContext, IRuntimeAdmissionStatus, TRuntimeAdmissionFactory } from './runtime-admission.js';
+export { MAX_ATTACHED_SURFACES, createSupervisedAttachCarrier } from './supervised-attach.js';
+export type { TSupervisedAttachTarget } from './supervised-attach.js';
+export { SUPERVISED_SPAWNER_PAIR_FLAG, answerHandedOverSpawnerPair } from './supervised-spawner-pair.js';
+export { SUPERVISED_TRANSPORT_TOKEN_FD, SUPERVISED_TRANSPORT_TOKEN_FLAG, isSupervisedTransportToken, readSupervisedTransportToken } from './supervised-transport-token.js';
 export { secureWorkspaceRoot } from './workspace-root-selection.js';
 export { LOOPBACK_GUI_API_HEADER, startLoopbackGuiServer } from './loopback-gui-server.js';
 export type {

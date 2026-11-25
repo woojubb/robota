@@ -4,8 +4,8 @@ import { resetChildSessionsForTesting } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const pair = vi.hoisted(() => ({ answer: vi.fn() }));
-vi.mock('../../session-inventory/supervised-spawner-pair.js', async (loadOriginal) => ({
-  ...(await loadOriginal<typeof import('../../session-inventory/supervised-spawner-pair.js')>()),
+vi.mock('@robota-sdk/agent-local-host', async (loadOriginal) => ({
+  ...(await loadOriginal<typeof import('@robota-sdk/agent-local-host')>()),
   answerHandedOverSpawnerPair: pair.answer,
 }));
 

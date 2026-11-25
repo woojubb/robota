@@ -92,7 +92,7 @@ import { driverListenerPort, resolveServeObserverOptions } from './utils/serve-o
 import {
   readSupervisedTransportToken,
   SUPERVISED_TRANSPORT_TOKEN_FLAG,
-} from './session-inventory/supervised-transport-token.js';
+} from '@robota-sdk/agent-local-host';
 import {
   answerSpawnerPairOrExit,
   startSecureRuntimeOrExit,

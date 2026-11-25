@@ -1621,6 +1621,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: npm:@robota-sdk/agent-framework@3.3.6
         version: 3.3.6
+      '@robota-sdk/agent-interface':
+        specifier: npm:@robota-sdk/agent-interface@3.3.2
+        version: 3.3.2(@robota-sdk/agent-core@3.3.3)
       '@robota-sdk/agent-keyring':
         specifier: npm:@robota-sdk/agent-keyring@3.2.2
         version: 3.2.2
@@ -1633,6 +1636,9 @@ importers:
       '@robota-sdk/agent-session':
         specifier: npm:@robota-sdk/agent-session@3.2.8
         version: 3.2.8
+      '@robota-sdk/agent-transport':
+        specifier: npm:@robota-sdk/agent-transport@3.4.3
+        version: 3.4.3(@agentclientprotocol/sdk@1.9.0(zod@4.6.7))(@modelcontextprotocol/node@2.1.2(@modelcontextprotocol/server@2.4.0))(@modelcontextprotocol/server@2.4.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.19)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2(patch_hash=08596088a94f1cd27ea03c299bc0baaece49dd21d796e6ebb1d40909ba66ea4a)(typescript@6.0.3))(ws@8.21.1)(zod@4.6.7)
       koffi:
         specifier: 3.3.1
         version: 3.3.1
