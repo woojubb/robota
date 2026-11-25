@@ -10,7 +10,6 @@ import { dirname, isAbsolute, join } from 'node:path';
 import { isLinkRequest } from '@robota-sdk/agent-transport/link';
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
-import type { IRuntimeAdmission, TRuntimeAdmissionFactory } from './runtime-admission.js';
 import type {
   IExternalEventGrantCounters,
   IExternalEventGrantRow,
@@ -22,13 +21,7 @@ import {
 } from '../external-events/external-event-grant-file.js';
 
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
-import {
-  CONTROL_ACCESS,
-  isControlCommandName,
-  type TControlCommandName,
-} from './control-access.js';
-import { createSupervisedAttachCarrier, type TSupervisedAttachTarget } from './supervised-attach.js';
-import { MAX_CONTROL_FRAME_BYTES, SUPERVISED_ID_PATTERN, WindowsControlPipeServer, connectControlSocket, controlSocketPath, createWindowsPrivateDirectory, ensurePrivateDirectory, listRegisteredCandidates, probeRegisteredPid as probePid, readRegisteredProcessStartTime as readProcessStartTime, readOwnedFile, sessionDirectory, verifyExistingDirectory, verifyLiveOwner, type IControlChannel, type IRegistration } from '@robota-sdk/agent-local-host';
+import { CONTROL_ACCESS, MAX_CONTROL_FRAME_BYTES, SUPERVISED_ID_PATTERN, WindowsControlPipeServer, connectControlSocket, controlSocketPath, createSupervisedAttachCarrier, createWindowsPrivateDirectory, ensurePrivateDirectory, isControlCommandName, listRegisteredCandidates, probeRegisteredPid as probePid, readRegisteredProcessStartTime as readProcessStartTime, readOwnedFile, sessionDirectory, verifyExistingDirectory, verifyLiveOwner, type IControlChannel, type IRegistration, type IRuntimeAdmission, type TControlCommandName, type TRuntimeAdmissionFactory, type TSupervisedAttachTarget } from '@robota-sdk/agent-local-host';
 
 
 const MAX_FRAME_BYTES = MAX_CONTROL_FRAME_BYTES;

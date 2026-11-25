@@ -42,8 +42,7 @@ import {
   startSupervisedControl,
   type ISupervisedControl,
 } from '../../session-inventory/supervised-session-control.js';
-import { MAX_ATTACHED_SURFACES } from '../../session-inventory/supervised-attach.js';
-import { KeyHolder, type IKeyHolderTimer, type IKeyHolderTimers, type TLockReason } from '@robota-sdk/agent-local-host';
+import { KeyHolder, MAX_ATTACHED_SURFACES, type IKeyHolderTimer, type IKeyHolderTimers, type TLockReason } from '@robota-sdk/agent-local-host';
 import { RuntimeCustody } from '../runtime-custody.js';
 import {
   FIXTURE_PASSPHRASE,

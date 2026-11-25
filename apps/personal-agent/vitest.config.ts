@@ -4,9 +4,9 @@ import { resourceCeiling } from '../../vitest.shared';
 
 // The app runs on the workspace SDK sources (the `source` export condition), so tests need no
 // prior build of every SDK package. A product module such as `agent-local-host` pins published
-// copies of core, framework and session, which ship a build but no sources for that condition to
-// name, so the app's workspace copies answer their imports (the bin's source-first resolver instead
-// lets such a pin run from its shipped build).
+// copies of core, framework, session, interface and transport; most ship a build but no sources for
+// that condition to name, so the app's workspace copies answer their imports and one copy runs (the
+// bin's source-first resolver instead lets such a pin run from its shipped build).
 export default mergeConfig(
   resourceCeiling,
   defineConfig({
@@ -15,7 +15,9 @@ export default mergeConfig(
       dedupe: [
         '@robota-sdk/agent-core',
         '@robota-sdk/agent-framework',
+        '@robota-sdk/agent-interface',
         '@robota-sdk/agent-session',
+        '@robota-sdk/agent-transport',
       ],
     },
     ssr: { resolve: { conditions: ['source'], externalConditions: ['source'] } },

@@ -8,10 +8,10 @@ import { createRequire } from 'node:module';
 
 import { readSupervisedTransportToken } from '../../supervised-transport-token.js';
 
-const requireFromCli = createRequire(new URL('../../../../package.json', import.meta.url));
+const requireFromHost = createRequire(new URL('../../../package.json', import.meta.url));
 // A running runtime has resolved modules before it reads the token, so the loader's realpath
 // cache already holds this checkout's directories.
-requireFromCli.resolve('ws');
+requireFromHost.resolve('koffi');
 readSupervisedTransportToken();
-const resolved = requireFromCli.resolve('zod');
+const resolved = requireFromHost.resolve('@robota-sdk/agent-keyring');
 process.stdout.write(JSON.stringify({ resolved, realPath: realpathSync.native(resolved) }));

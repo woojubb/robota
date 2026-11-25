@@ -113,7 +113,7 @@ describe('supervised transport token pipe', () => {
   it.skipIf(process.platform === 'win32')(
     'leaves module resolution through pnpm links intact once the token is read',
     async () => {
-      const repoRoot = fileURLToPath(new URL('../../../../..', import.meta.url));
+      const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
       const fixture = fileURLToPath(new URL('./fixtures/supervised-token-then-resolve.ts', import.meta.url));
       const run = await new Promise<{ code: number | null; stdout: string; stderr: string }>(
         (resolve, reject) => {

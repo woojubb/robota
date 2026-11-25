@@ -25,7 +25,7 @@ import type {
   IRuntimeAdmissionContext,
   IRuntimeAdmissionStatus,
   TRuntimeAdmissionFactory,
-} from '../runtime-admission.js';
+} from '@robota-sdk/agent-local-host';
 import {
   parseSupervisedPr,
   startSupervisedControl,

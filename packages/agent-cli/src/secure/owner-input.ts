@@ -10,7 +10,7 @@
  */
 import { decodeClientMessage, decodeFrame, type TClientMessage } from '@robota-sdk/agent-transport';
 
-import type { TControlCommandName } from '../session-inventory/control-access.js';
+import type { TControlCommandName } from '@robota-sdk/agent-local-host';
 
 export const OWNER_INPUT: Readonly<Record<TClientMessage['type'], boolean>> = {
   submit: true,

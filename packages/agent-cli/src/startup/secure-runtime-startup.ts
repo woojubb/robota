@@ -10,15 +10,15 @@
 import { holdChildSpawns } from '@robota-sdk/agent-core/node';
 
 import { optionArgv } from '../utils/option-argv.js';
-import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
-import { KeyHolder } from '@robota-sdk/agent-local-host';
+import {
+  KeyHolder,
+  SUPERVISED_SPAWNER_PAIR_FLAG,
+  SUPERVISED_TRANSPORT_TOKEN_FLAG,
+  answerHandedOverSpawnerPair,
+  createKeyringFileStore,
+} from '@robota-sdk/agent-local-host';
 import { productSecureMode, useProductKeyHolder } from '../product/session-sealing.js';
 import { userPaths } from '../product/user-paths.js';
-import {
-  SUPERVISED_SPAWNER_PAIR_FLAG,
-  answerHandedOverSpawnerPair,
-} from '../session-inventory/supervised-spawner-pair.js';
-import { SUPERVISED_TRANSPORT_TOKEN_FLAG } from '../session-inventory/supervised-transport-token.js';
 
 import type { IRuntimeIdentity } from '@robota-sdk/agent-keyring';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
