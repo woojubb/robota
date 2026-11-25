@@ -72,10 +72,15 @@ export interface IListenerHit {
   readonly match: string;
 }
 
-/** A `startListener` call; `surface` is the row it names, or `undefined` when it names none literally. */
+/**
+ * A `startListener` call; `surface` is the row it names, or `undefined` when it names none literally.
+ * `decidedByProduct` is whether its secure decision is a `productSecureMode(…)` call rather than a
+ * value written in place.
+ */
 export interface IGateCall {
   readonly line: number;
   readonly surface: string | undefined;
+  readonly decidedByProduct: boolean;
 }
 
 /** Whether `path` (relative to the repository root, `/`-separated) is product code the scan covers. */
@@ -188,6 +193,15 @@ function namedRow(argument: ts.Expression | undefined): string | undefined {
   return undefined;
 }
 
+/** A `productSecureMode(…)` call: the one decision a gate may be given, never a literal. */
+function isProductSecureModeCall(argument: ts.Expression | undefined): boolean {
+  return (
+    argument !== undefined &&
+    ts.isCallExpression(argument) &&
+    calleeName(argument.expression) === 'productSecureMode'
+  );
+}
+
 /** Every `startListener(…)` call in one source file, with the row it opens under. */
 export function gateCalls(fileName: string, text: string): IGateCall[] {
   if (!text.includes('startListener')) return [];
@@ -195,7 +209,11 @@ export function gateCalls(fileName: string, text: string): IGateCall[] {
   const calls: IGateCall[] = [];
   visit(source, (node) => {
     if (ts.isCallExpression(node) && calleeName(node.expression) === 'startListener') {
-      calls.push({ line: lineOf(source, node), surface: namedRow(node.arguments[0]) });
+      calls.push({
+        line: lineOf(source, node),
+        surface: namedRow(node.arguments[0]),
+        decidedByProduct: isProductSecureModeCall(node.arguments[1]),
+      });
     }
   });
   return calls;

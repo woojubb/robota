@@ -25,7 +25,8 @@ import {
 import { createHandoffReceiver, saveReceivedSession } from '../handoff/handoff-receiving.js';
 import { prepareOutgoingFile } from '../peer-files/outgoing-file.js';
 import { userLocalStorageRoot } from '../product/user-paths.js';
-import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
+import { SECURE_SURFACES, startListener } from '@robota-sdk/agent-local-host';
+import { productSecureMode } from '../product/session-sealing.js';
 
 import { announceLocalPeerPresence } from '../remote-control/local-peer-presence.js';
 import { bindLocalPeerStatus } from '../remote-control/local-peer-status.js';
@@ -299,7 +300,7 @@ function startMessaging(
   mesh: TMeshPeers | undefined,
   productRuntime: ICliRuntimeContext,
 ): Promise<IPeerMessaging | undefined> {
-  return startListener(SECURE_SURFACES['local-peers'], productRuntime, () =>
+  return startListener(SECURE_SURFACES['local-peers'], productSecureMode(productRuntime), () =>
     start({
       ...(files !== undefined ? { files } : {}),
       ...(onHandoff !== undefined ? { onHandoff } : {}),

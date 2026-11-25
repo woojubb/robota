@@ -46,7 +46,7 @@ vi.mock('@robota-sdk/agent-transport/mcp', async (importOriginal) => ({
 
 import { runMcpServeMode } from '../mcp-serve-mode.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
-import { SecureSurfaceRefusedError } from '../../secure/secure-surfaces.js';
+import { SecureSurfaceRefusedError } from '@robota-sdk/agent-local-host';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 import type { IMcpRemoteHttpHostOptions } from '@robota-sdk/agent-transport/mcp';

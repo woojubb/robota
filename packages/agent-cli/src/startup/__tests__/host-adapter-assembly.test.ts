@@ -16,7 +16,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { attachHostAdapters, attachLocalPeerMessaging } from '../host-action-adapters.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
-import { SECURE_SURFACES } from '../../secure/secure-surfaces.js';
+import { SECURE_SURFACES } from '@robota-sdk/agent-local-host';
 
 vi.mock('../../remote-control/local-peer-messaging.js', () => ({
   startLocalPeerMessaging: vi.fn(async () => ({

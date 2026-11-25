@@ -5,7 +5,6 @@ import {
 import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
 import { assertLocalForwardingPosture, readHostedRuntimeConfig } from './hosted/hosted-runtime-config.js';
 import { runHostedRuntime } from './hosted/hosted-runtime-startup.js';
-import { SECURE_SURFACES, startListener } from './secure/secure-surfaces.js';
 
 import { PrintTerminal } from './print-terminal.js';
 import { readExternalEventGrantFiles } from './external-events/external-event-grant-file.js';
@@ -90,14 +89,14 @@ import { createDeviceMeshHost, startDeviceListReissue } from './devices/index.js
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
 import { driverListenerPort, resolveServeObserverOptions } from './utils/serve-observer-args.js';
 import {
-  readSupervisedTransportToken,
-  SUPERVISED_TRANSPORT_TOKEN_FLAG,
-} from '@robota-sdk/agent-local-host';
-import {
   answerSpawnerPairOrExit,
-  startSecureRuntimeOrExit,
+  readSupervisedTransportToken,
+  SECURE_SURFACES,
+  startListener,
+  SUPERVISED_TRANSPORT_TOKEN_FLAG,
   type ISecureServeRuntime,
-} from './startup/secure-runtime-startup.js';
+} from '@robota-sdk/agent-local-host';
+import { startSecureRuntimeOrExit } from './startup/secure-runtime-composition.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
 import { takeProductTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
 import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
@@ -237,7 +236,7 @@ export async function startCliCore(
   // that process is started. Held by the transport from here on, never written into the environment.
   // The spawner pair of a secure runtime comes first of all, for the same reason and more: it is the
   // one channel only this process and its spawner hold, and it is closed before anything can start.
-  const spawnerIdentity = answerSpawnerPairOrExit(process.argv);
+  const spawnerIdentity = answerSpawnerPairOrExit(optionArgv(process.argv));
   const supervisedTransportToken = readHandedOverTransportTokenOrExit();
   const initialRuntime = resolveCliRuntimeContext(initialOptions);
   assertProductConversationLaunch(initialRuntime, process.argv);
@@ -800,7 +799,7 @@ async function runCliCore(
         audit: createRefusalReporter((line) => terminal.writeLine(line)),
       });
       tuiEventEndpoint = endpoint;
-      await startListener(SECURE_SURFACES['external-events'], productRuntime, () => endpoint.start());
+      await startListener(SECURE_SURFACES['external-events'], productSecureMode(productRuntime), () => endpoint.start());
     } catch (error) {
       process.stderr.write(
         `${error instanceof Error ? error.message : 'External event endpoint could not start.'}\n`,

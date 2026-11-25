@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { RemoteControlController } from '../remote-control-controller.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
-import { SECURE_SURFACES } from '../../secure/secure-surfaces.js';
+import { SECURE_SURFACES } from '@robota-sdk/agent-local-host';
 import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 
 import type { IRemoteControlControllerDeps } from '../remote-control-controller.js';

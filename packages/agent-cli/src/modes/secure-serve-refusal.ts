@@ -1,6 +1,6 @@
-import { SECURE_SURFACES } from '../secure/secure-surfaces.js';
+import { SECURE_SURFACES } from '@robota-sdk/agent-local-host';
 
-import type { TListenerRule } from '../secure/secure-surfaces.js';
+import type { TListenerRule } from '@robota-sdk/agent-local-host';
 
 /** What a served runtime was asked to open or be. */
 export interface ISecureServeRequest {

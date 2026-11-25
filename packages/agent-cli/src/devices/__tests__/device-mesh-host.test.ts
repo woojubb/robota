@@ -13,7 +13,7 @@ import { createFileCredentialStore } from '../../credentials/file-credential-sto
 import { createDeviceIdentityService } from '../device-identity-service.js';
 import { createDeviceMeshHost } from '../device-mesh-host.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
-import { SECURE_SURFACES } from '../../secure/secure-surfaces.js';
+import { SECURE_SURFACES } from '@robota-sdk/agent-local-host';
 import { parseMeshSettings } from '../mesh-settings.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
 import { createTestRuntimeContext } from './runtime-context-fixture.js';

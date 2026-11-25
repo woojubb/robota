@@ -5,19 +5,17 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import {
-  SUPERVISED_SPAWNER_PAIR_FLAG,
-  secureStartupRefusal,
-  spawnerPairRequested,
-} from '../secure-runtime-startup.js';
+import { secureStartupRefusal, spawnerPairRequested } from '../secure-runtime-startup.js';
+import { SUPERVISED_SPAWNER_PAIR_FLAG } from '../supervised-spawner-pair.js';
 
 const secureServing = { secure: true, pairFlag: true, tokenFlag: false, supervised: true, serve: true };
 
 describe('the flag that hands a runtime its spawner pair', () => {
-  it('is read from the options of argv, and not from a prompt that spells it', () => {
+  it('is read from the options it is given, bare or with a value', () => {
     expect(spawnerPairRequested(['node', 'cli', '--serve', SUPERVISED_SPAWNER_PAIR_FLAG])).toBe(true);
+    expect(spawnerPairRequested(['node', 'cli', `${SUPERVISED_SPAWNER_PAIR_FLAG}=3`])).toBe(true);
     expect(spawnerPairRequested(['node', 'cli', '--serve'])).toBe(false);
-    expect(spawnerPairRequested(['node', 'cli', '-p', '--', SUPERVISED_SPAWNER_PAIR_FLAG])).toBe(false);
+    expect(spawnerPairRequested(['node', 'cli', `${SUPERVISED_SPAWNER_PAIR_FLAG}-other`])).toBe(false);
   });
 });
 

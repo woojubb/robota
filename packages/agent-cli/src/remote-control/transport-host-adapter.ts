@@ -1,6 +1,7 @@
 import { bindTransportAdapter } from '@robota-sdk/agent-framework';
 
-import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
+import { SECURE_SURFACES, startListener } from '@robota-sdk/agent-local-host';
+import { productSecureMode } from '../product/session-sealing.js';
 
 import type { TransportRegistry } from '@robota-sdk/agent-framework';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
@@ -25,7 +26,9 @@ export function createRemoteControlTransportHost(
     return {
       ...adapter,
       start: () =>
-        startListener(SECURE_SURFACES['remote-control'], productRuntime, () => adapter.start()),
+        startListener(SECURE_SURFACES['remote-control'], productSecureMode(productRuntime), () =>
+          adapter.start(),
+        ),
     };
   };
   return {

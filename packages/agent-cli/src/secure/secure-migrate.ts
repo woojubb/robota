@@ -47,9 +47,13 @@ import {
   inspectProductPromptHistory,
 } from '../product/session-stores.js';
 import { userPaths } from '../product/user-paths.js';
-import { readProductConversationMode, writeProductConversationMode } from './conversation-mode-state.js';
 import { importSealedProjectArchives, importSealedUserArchive } from './secure-archive-import.js';
-import { KeyHolder, SealingKeyMismatchError } from '@robota-sdk/agent-local-host';
+import {
+  KeyHolder,
+  SealingKeyMismatchError,
+  readProductConversationMode,
+  writeProductConversationMode,
+} from '@robota-sdk/agent-local-host';
 import {
   EXIT_FAILED,
   EXIT_OK,

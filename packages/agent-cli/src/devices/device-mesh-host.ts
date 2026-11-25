@@ -22,7 +22,8 @@ import { createHostCredentialStore } from '../credentials/select-credential-stor
 import { describeReceived } from '../peer-files/receiving.js';
 import { productUserSettingsPath } from '../product/user-settings.js';
 import { userLocalStorageRoot } from '../product/user-paths.js';
-import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
+import { SECURE_SURFACES, startListener } from '@robota-sdk/agent-local-host';
+import { productSecureMode } from '../product/session-sealing.js';
 import {
   openDeviceMesh,
   type IDeviceMeshEndpoint,
@@ -416,7 +417,7 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
         notify: () => undefined,
       }).store;
       // The mesh host as a whole opens under one row: its node, LAN listener, relay, DHT and mDNS.
-      opened = await startListener(SECURE_SURFACES['device-mesh'], options.productRuntime, () =>
+      opened = await startListener(SECURE_SURFACES['device-mesh'], productSecureMode(options.productRuntime), () =>
         (options.open ?? openDeviceMesh)({
           root,
           store,

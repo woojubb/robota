@@ -1,11 +1,11 @@
-import { startWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
+import { SECURE_SURFACES, startListener, startWorkspaceRootBroker } from '@robota-sdk/agent-local-host';
 import { isSubagentWorkerModeArgv } from '@robota-sdk/agent-subagent-runner';
 import { installCliDiagnostics } from './bootstrap-diagnostics.js';
 import { installCliCrashPolicy } from './cli-crash-policy.js';
 import { startCli } from './cli.js';
 import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
 import { optionArgv } from './utils/option-argv.js';
-import { SECURE_SURFACES, startListener } from './secure/secure-surfaces.js';
+import { productSecureMode } from './product/session-sealing.js';
 import type { IStartCliOptions } from './startup/cli-options-types.js';
 
 /** Launch a host entry with binary diagnostics, crash policy, startup errors and worker dispatch. */
@@ -16,7 +16,7 @@ export async function startCliEntry(options: IStartCliOptions = {}): Promise<voi
     const brokerArgIndex = process.argv.length - 4;
     if (brokerArgIndex >= 1 && process.argv[brokerArgIndex] === '--internal-root-broker' &&
         process.argv[brokerArgIndex + 1] !== undefined) {
-      await startListener(SECURE_SURFACES['control-socket'], resolveCliRuntimeContext(options), () =>
+      await startListener(SECURE_SURFACES['control-socket'], productSecureMode(resolveCliRuntimeContext(options)), () =>
         startWorkspaceRootBroker(
           process.argv[brokerArgIndex + 1], process.argv[brokerArgIndex + 2],
           process.argv[brokerArgIndex + 3],

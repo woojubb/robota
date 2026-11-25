@@ -10,7 +10,7 @@ import { RemoteControlController } from '../remote-control-controller.js';
 import { createRemoteControlTransportHost } from '../transport-host-adapter.js';
 import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
-import { SecureSurfaceRefusedError } from '../../secure/secure-surfaces.js';
+import { SecureSurfaceRefusedError } from '@robota-sdk/agent-local-host';
 
 const directories: string[] = [];
 afterEach(() => {

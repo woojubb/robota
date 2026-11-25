@@ -1,16 +1,18 @@
 /**
  * Every listener product code opens is named here with its row of
- * `SECURE_SURFACES`, and opens through `startListener` at the product call site the row lists.
+ * `SECURE_SURFACES`, and opens through `startListener` at the product call site the row lists, with
+ * the product's own secure-mode decision: the gate takes it as a value, so a call site that wrote one
+ * in place would open a refused row in secure mode.
  *
  * A new product listener fails the first test until it is named. Product call sites also carry the
  * gate for listeners provided by the pinned SDK, whose development sources are not product code.
  */
+import { LISTENER_SURFACES } from '@robota-sdk/agent-local-host';
 import { describe, expect, it } from 'vitest';
 
-import { LISTENER_SURFACES } from '../secure-surfaces.js';
 import { gateCalls, isProductSource, listenerHits, scanProductSources } from './listener-scan.js';
 
-import type { TListenerSurface } from '../secure-surfaces.js';
+import type { TListenerSurface } from '@robota-sdk/agent-local-host';
 
 /** Every product file that can open a listener, and the rows its listeners belong to. */
 const LISTENER_SITES: Readonly<Record<string, readonly TListenerSurface[]>> = {
@@ -96,6 +98,13 @@ describe('listener gates', () => {
       calls.filter((call) => call.surface === undefined).map((call) => `${path}:${call.line}`),
     );
     expect(unnamed).toEqual([]);
+  });
+
+  it('decides every startListener call by productSecureMode, never by a value written in place', () => {
+    const undecided = [...scan.gates].flatMap(([path, calls]) =>
+      calls.filter((call) => !call.decidedByProduct).map((call) => `${path}:${call.line}`),
+    );
+    expect(undecided).toEqual([]);
   });
 
   it('opens every listener row through a product call site, except the rows named as ungated', () => {
@@ -189,12 +198,27 @@ describe('the listener scan itself', () => {
 
   it('reads the row a gate opens under, and only a row named literally', () => {
     const code = [
-      "startListener(SECURE_SURFACES['serve-http'], runtime, open);",
-      'startListener(rule, runtime, open);',
+      "startListener(SECURE_SURFACES['serve-http'], productSecureMode(runtime), open);",
+      'startListener(rule, productSecureMode(runtime), open);',
     ].join('\n');
     expect(gateCalls('packages/x/src/a.ts', code)).toEqual([
-      { line: 1, surface: 'serve-http' },
-      { line: 2, surface: undefined },
+      { line: 1, surface: 'serve-http', decidedByProduct: true },
+      { line: 2, surface: undefined, decidedByProduct: true },
+    ]);
+  });
+
+  it('reads whether a gate is decided by productSecureMode, and not by a value written in place', () => {
+    const code = [
+      "startListener(SECURE_SURFACES['serve-http'], false, open);",
+      "startListener(SECURE_SURFACES['serve-http'], secure, open);",
+      "startListener(SECURE_SURFACES['serve-http'], options.productSecureMode(runtime), open);",
+      "startListener(SECURE_SURFACES['serve-http']);",
+    ].join('\n');
+    expect(gateCalls('packages/x/src/a.ts', code).map((call) => call.decidedByProduct)).toEqual([
+      false,
+      false,
+      true,
+      false,
     ]);
   });
 });
