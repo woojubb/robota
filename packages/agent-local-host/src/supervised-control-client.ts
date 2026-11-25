@@ -92,10 +92,14 @@ function readLine(
   });
 }
 
+/** The request line's own keys: a field carrying one would replace the bound value on the wire. */
+const BOUND_REQUEST_KEYS: ReadonlySet<string> = new Set(['command', 'id', 'generation']);
+
 /**
  * Send one command bound to `generation`. A reply is returned only when its owner echoes that same
  * generation, so a reply from a different process start is never taken as this registration's.
- * `fields` follow `command`, `id` and `generation` on the request line, in the order given.
+ * `fields` follow `command`, `id` and `generation` on the request line, in the order given; a field
+ * named like one of those three is refused before anything is sent.
  */
 export async function requestSupervisedControl(
   directory: string,
@@ -105,6 +109,10 @@ export async function requestSupervisedControl(
   signal?: AbortSignal,
   fields: Readonly<Record<string, string>> = {},
 ): Promise<object> {
+  const reserved = Object.keys(fields).find((name) => BOUND_REQUEST_KEYS.has(name));
+  if (reserved !== undefined) {
+    throw new Error(`Supervised session control field "${reserved}" is reserved: the request binds its own command, id and generation.`);
+  }
   signal?.throwIfAborted();
   const socket = await connectControlSocket(directory, id, signal);
   const onAbort = (): void => { socket.destroy(new Error('Supervised session control aborted.')); };
