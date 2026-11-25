@@ -15,7 +15,7 @@ const START_MS = 5_000;
 const SOURCE_START_MS = 15_000;
 
 /** Runs this CLI's own binary as the broker: the `--internal-root-broker` entry of `cli-entry`. */
-const launchCliBroker: TWorkspaceRootBrokerLauncher = ({
+export const launchCliBroker: TWorkspaceRootBrokerLauncher = ({
   endpoint,
   lockDirectory,
   historyFile,

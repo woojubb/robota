@@ -8,6 +8,8 @@ export { launchAndCertifyRuntime } from './certified-runtime-launch.js';
 export type { ICertifiedRuntimeLaunch } from './certified-runtime-launch.js';
 export { MAX_FORWARDED_ENVIRONMENT_BYTES, startForwardedRuntime, startPlainRuntime, startSpawnerRuntime } from './runtime-process-launch.js';
 export type { IRuntimeStartCommand, IRuntimeStartHandoff, IRuntimeStartLayout, IRuntimeStartRequest, TPreparedForwardedEnvironment } from './runtime-process-launch.js';
+export { openNativeSecureOwner } from './native-secure-owner.js';
+export type { INativeSecureOwner, INativeSecureOwnerOptions, TNativeOwnerSecret } from './native-secure-owner.js';
 export { acquireSupervisedDaemonStartLock, removeSupervisedDaemonStartLock } from './supervised-start-lock.js';
 export type { ISupervisedDaemonStartLockOptions } from './supervised-start-lock.js';
 export { CONTROL_REQUEST_TIMEOUT_MS, isControlCwd, isCurrentActivity, listSupervisedRuntimes, lockSupervisedSession, openSupervisedAttachSocket, requestSupervisedControl, stopStartedSupervisedSession, stopSupervisedSession } from './supervised-control-client.js';

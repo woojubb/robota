@@ -37,7 +37,7 @@ code and no user depends on where a file sits.
 | `index.ts`                     | Package exports                                                                                                                                    |
 | `product-host.ts`              | `createProductCliHost()`, the `./host` entry: one consumer executable bound to a fixed product identity                                            |
 | `desktop-host.ts`              | The `./desktop-host` entry: the desktop controller for trust admission, daemon start and the loopback endpoint                                     |
-| `desktop-secure-host.ts`       | The desktop's secure-conversation owner handover, exported through `./desktop-host`                                                                |
+| `desktop-secure-layout.ts`     | The product layout a desktop needs to open a secure owner link, as plain values, exported through `./desktop-host`                                 |
 | `bootstrap-diagnostics.ts`     | Routes agent-core diagnostics (warnings and errors) to stderr                                                                                      |
 | `process-guards.ts`            | TUI-only last-resort guards that report uncaught errors into the live session instead of exiting                                                   |
 | `print-terminal.ts`            | `PrintTerminal`, the `ITerminalOutput` used outside the TUI                                                                                        |
