@@ -86,8 +86,9 @@ function holdInspectorSignal(): void {}
 
 /**
  * Keeps SIGUSR1 from opening the Node inspector for the life of the process, and returns whether the
- * signal is held. Not under Bun, whose SIGUSR1 opens no Node inspector, nor on Windows, which has no
- * SIGUSR1. A listener already installed holds it as well. The listener is never removed: once none
+ * signal is held. Not under Bun, whose SIGUSR1 opens no inspector (with no listener it ends the
+ * process, as any unhandled signal does), nor on Windows, which has no SIGUSR1. A listener already
+ * installed holds it as well. The listener is never removed: once none
  * is left, the signal ends the process.
  */
 export function keepInspectorClosedOnSignal(options: IInspectorSignalOptions = {}): boolean {
@@ -103,14 +104,30 @@ export function keepInspectorClosedOnSignal(options: IInspectorSignalOptions = {
   }
 }
 
+export interface IInspectorLaunch {
+  /** `process.versions.bun`: set when the process runs on Bun. */
+  readonly bun?: string;
+  readonly environment?: Readonly<Record<string, string | undefined>>;
+}
+
 /**
- * Whether this process has a Node inspector open, which a debugger client can use to read what the
- * process reads and what is typed into it. A same-user SIGUSR1 sent before the entry held the signal
- * opens one, and so does `--inspect` at launch; either stays open for the life of the process. A
- * process about to hold keys asks first and holds none while one is open. Answers `false` where
- * there is no Node inspector to ask, as under Bun.
+ * Whether this process has an inspector open, which a debugger client can use to read what the
+ * process reads and what is typed into it. A process about to hold keys asks first and holds none
+ * while one is open.
+ *
+ * On Node a same-user SIGUSR1 sent before the entry held the signal opens one, and so does
+ * `--inspect` at launch; either stays open for the life of the process, and `inspector.url()` says so.
+ * Bun's SIGUSR1 opens none (it ends the process), and Bun's `inspector.url()` does not report an
+ * inspector Bun itself opened: a binary launched with `BUN_INSPECT` set listens on a loopback port
+ * while `url()` answers `undefined` and nothing is printed (measured on the pinned Bun, compiled
+ * binary and script alike). That variable is the door a compiled binary has, so under Bun it is
+ * read as well.
  */
-export function isInspectorOpen(url: () => string | undefined = () => inspector.url()): boolean {
+export function isInspectorOpen(
+  url: () => string | undefined = () => inspector.url(),
+  launch: IInspectorLaunch = { bun: process.versions.bun, environment: process.env },
+): boolean {
+  if (launch.bun !== undefined && (launch.environment?.BUN_INSPECT ?? '') !== '') return true;
   try {
     return url() !== undefined;
   } catch {
