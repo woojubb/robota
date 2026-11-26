@@ -42,6 +42,10 @@ describe('isProjectSetupInvocation', () => {
       ['--configure-provider', 'work', '--type', 'openai', '-p', 'hello'],
     ],
     [
+      '--configure-provider with a print flag and no prompt',
+      ['--configure-provider', 'work', '--type', 'openai', '-p'],
+    ],
+    [
       '--configure-provider with a prompt',
       ['--configure-provider', 'work', '--type', 'openai', 'hello'],
     ],
