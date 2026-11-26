@@ -239,10 +239,12 @@ export function resolveLatestSessionId(
  * `otherClientsOf` reports how many clients are on a session besides the one asking, when the caller
  * knows; omitted, every candidate is treated as free (the common case: nothing is live yet, as at a
  * serve/daemon start, when nothing could be bound to anything). `isBusy` reports whether a candidate
- * has work of its own in progress even with no client on it — a background task or a self-paced loop
- * outlives the client that started it, and "New session" landing someone there would join that work
- * mid-flight rather than starting fresh. Omitted, no candidate is treated as busy, for the same
- * "nothing is live yet" reason `otherClientsOf` is omittable.
+ * must not be landed on although no client is on it: it has work of its own in progress — a
+ * background task or a self-paced loop outlives the client that started it, and "New session" landing
+ * someone there would join that work mid-flight rather than starting fresh — or its writer claim is
+ * held by another process, store instance or child, which would refuse the claim. Omitted, no
+ * candidate is treated as busy, for the same "nothing is live yet" reason `otherClientsOf` is
+ * omittable.
  */
 export function resolveReusableEmptySessionId(
   sessionStore: IInteractiveSessionStore | undefined,
