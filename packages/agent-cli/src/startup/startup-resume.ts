@@ -59,7 +59,10 @@ export interface IStartupResumeInput {
   readonly continueMode: boolean;
   /** `-r <id|name>`; `''` opens the picker. */
   readonly resumeId: string | undefined;
-  /** A served runtime's own launch, which reuses an empty session of this workspace. */
+  /**
+   * A served runtime's own launch, which reuses an empty session of this workspace that no other
+   * process holds the writer claim of.
+   */
   readonly reuseEmptySession: boolean;
   /** A person at a terminal can answer a question before the session starts. */
   readonly interactive: boolean;
@@ -257,7 +260,12 @@ export async function resolveStartupResume(
       : judgeTarget(input, store, resolved.id);
   }
   if (input.reuseEmptySession) {
-    const reusable = resolveReusableEmptySessionId(store, input.cwd);
+    const reusable = resolveReusableEmptySessionId(store, input.cwd, {
+      // Nothing in this process is bound to anything yet, but another runtime of this workspace may
+      // hold an empty session's writer claim: landing on it would refuse this launch, so it is
+      // skipped and a fresh session starts. The claim stays the only fence; this only avoids asking.
+      isBusy: (sessionId) => store?.hasWriter(sessionId) === true,
+    });
     if (reusable === undefined || store === undefined) return { kind: 'start' };
     return judgeTarget(input, store, reusable);
   }
