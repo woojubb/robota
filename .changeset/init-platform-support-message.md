@@ -1,0 +1,5 @@
+---
+'@robota-sdk/agent-cli': patch
+---
+
+`init` now says, before it prints or writes anything, that project initialization is not available on a platform that cannot prove a project write stays under the trusted root (every platform but Linux today): ``Project initialization is not available on this platform, because it cannot prove that a project write stays inside the trusted folder; run `<cli> init` on Linux, or create AGENTS.md and <project-state>/settings.json yourself and set up a provider with `<cli> --configure`.`` and it exits 1. Before, on macOS it printed its header and ended with `The live workspace broker refused the operation (write-outcome-unknown).`, which hid that the limit is the platform's and that retrying cannot cure it. The question is put to the framework (`supportsWorkspaceProjectMutation`), the same answer its project writer gives, so the two cannot disagree. A host that supplies its own project mutation capability keeps it, a refusal on a platform that can write is still reported as the host gave it, and `init` on Linux behaves exactly as before.

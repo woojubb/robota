@@ -66,7 +66,10 @@ __PRODUCT_CLI_NAME__ init            # write AGENTS.md and <project-state>/setti
 logs, checkpoints and `settings.local.json` stay out of Git, and offers to carry over
 `.claude/settings.json` when the folder has a `.claude/` directory. When both `AGENTS.md` and
 `<project-state>/settings.json` already exist it asks before replacing them; `--yes` (or `CI=true`)
-answers no.
+answers no. It needs Linux, the one platform where Robota can prove that a write under the project stays
+inside it; on any other platform it says so and exits with status 1 before writing anything, so create
+`AGENTS.md` and `<project-state>/settings.json` yourself and set up a provider with
+`__PRODUCT_CLI_NAME__ --configure`.
 
 `__PRODUCT_CLI_NAME__` loads a project's own configuration only from a folder you trust. Starting the terminal UI in
 a folder you have not decided about asks first: trust it, start Restricted (project content not

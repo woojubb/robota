@@ -109,7 +109,7 @@ __PRODUCT_CLI_NAME__ --configure-provider anthropic --type anthropic --model cla
 __PRODUCT_CLI_NAME__ trust --yes
 ```
 
-`__PRODUCT_CLI_NAME__ init` writes a starter `AGENTS.md` and `<configured-project-state-dir>/settings.json` for the current project.
+`__PRODUCT_CLI_NAME__ init` writes a starter `AGENTS.md` and `<configured-project-state-dir>/settings.json` for the current project; it needs Linux, and on another platform it says so and writes nothing.
 `__PRODUCT_CLI_NAME__ --configure` reruns the interactive provider setup, and `__PRODUCT_CLI_NAME__ --reset` deletes
 `<configured-user-state-dir>/settings.json`.
 

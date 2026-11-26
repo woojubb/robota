@@ -1,6 +1,7 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
 import { createStartupProviderInteraction, promptInput } from '../cli-input.js';
 import { createWorkspaceProjectMutation, ProviderConfigError } from '@robota-sdk/agent-framework';
+import { supportsWorkspaceProjectMutation } from '@robota-sdk/agent-framework/node';
 
 import { runInitCommand, type IInitCommandOptions } from '../init/init-command.js';
 import { productProviderDefinitions } from '../product/provider-definitions.js';
@@ -14,6 +15,7 @@ import {
 import { createProviderSetupHost, exitOnUnreadableOrgPolicy } from './command-setup.js';
 import { createCliWorkspaceSources } from './workspace-project-composition.js';
 
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { IStartCliOptions } from './command-setup.js';
 import type { ICliWorkspaceSources } from './workspace-project-composition.js';
 import { subcommandWord, type IParsedCliArgs } from '../utils/cli-args.js';
@@ -32,6 +34,8 @@ export interface IProjectSetupRoutingOptions {
   workspace: ICliWorkspaceSources;
   providerConnectionHost?: IProviderConnectionHost;
   orgPolicy?: IOrgPolicy;
+  /** The platform the host runs on; the process's own by default. A seam for the project-write limit. */
+  platform?: NodeJS.Platform;
 }
 
 /**
@@ -184,18 +188,38 @@ export async function runProjectSetupWithoutStores(input: {
 }
 
 /**
+ * What a person on a platform that cannot write the project is told instead of the broker's generic
+ * refusal, which hides that the limit is the platform's and that retrying cannot cure it.
+ */
+function projectInitUnavailableMessage(runtime: ICliRuntimeContext): string {
+  const { cliName } = runtime.vocabulary;
+  return (
+    'Project initialization is not available on this platform, because it cannot prove that a ' +
+    `project write stays inside the trusted folder; run \`${cliName} init\` on Linux, or create ` +
+    `AGENTS.md and ${runtime.layout.projectDirectory}/settings.json yourself and set up a provider ` +
+    `with \`${cliName} --configure\`.`
+  );
+}
+
+/**
  * `init` is a command the person typed in a trusted folder, which is the approval its writes need.
  * A host that supplies its own bounded capability keeps it; the stock entry supplies none, so
- * without minting one here `init` would refuse in every trusted folder.
+ * without minting one here `init` would refuse in every trusted folder. The minted capability writes
+ * through the host's anchored project writer, which not every platform has; the framework says in
+ * advance which do, so `init` says so before it starts instead of having its first write refused.
  */
 function projectInitMutation(
   startOptions: IStartCliOptions,
   workspace: ICliWorkspaceSources,
+  platform: NodeJS.Platform | undefined,
 ): Pick<IInitCommandOptions, 'projectMutation'> {
   if (startOptions.projectMutation !== undefined) {
     return { projectMutation: startOptions.projectMutation };
   }
   if (workspace.projectAccess.status !== 'trusted') return {};
+  if (!supportsWorkspaceProjectMutation(platform)) {
+    throw new Error(projectInitUnavailableMessage(resolveCliRuntimeContext(startOptions)));
+  }
   return {
     projectMutation: createWorkspaceProjectMutation(workspace.projectAccess.authority, {
       status: 'approved',
@@ -208,12 +232,12 @@ async function runProjectInit(
   options: IProjectSetupRoutingOptions,
   settingsAccess: IProviderStartupSettingsAccess,
 ): Promise<void> {
-  const { cwd, args, startOptions, terminal, providerDefinitions, workspace } = options;
+  const { cwd, args, startOptions, terminal, providerDefinitions, workspace, platform } = options;
   try {
     await runInitCommand(terminal, {
       productRuntime: resolveCliRuntimeContext(startOptions),
       projectAccess: workspace.projectAccess,
-      ...projectInitMutation(startOptions, workspace),
+      ...projectInitMutation(startOptions, workspace, platform),
       yes: args.yes,
       onProviderSetup: () =>
         runInteractiveProviderSetup(
