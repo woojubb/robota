@@ -211,24 +211,34 @@ export function createServeSessionDirectory<
   };
 
   /**
+   * Whether a session id is held by a writer this pool does not run: its writer claim is taken by
+   * another process or store instance of this workspace, by a child the record is lent to, or by a
+   * session of this process still closing. The pool knows nothing of those, and moving a client there
+   * would be refused when the claim is taken. A session the pool runs holds its own claim, which says
+   * nothing more, so it is never held elsewhere. The claim stays the only fence; this only avoids
+   * asking for a session that is held.
+   */
+  const isHeldElsewhere = (
+    target: IServeSessionDirectoryHost<TSession, TSlot>,
+  ): ((sessionId: string) => boolean) => {
+    const live = new Set(target.pool.listLive().map((row) => row.sessionId));
+    return (sessionId) => !live.has(sessionId) && target.store.hasWriter(sessionId);
+  };
+
+  /**
    * Whether "New session" must not land on a session id. A session this pool runs is busy when it has
    * work of its own in progress: a background task or a self-paced loop outlives the client that
    * started it, so it can be busy with zero clients on it, and reusing that row would land someone in
-   * the middle of that work. Its writer claim is this process's own and says nothing more.
-   *
-   * Any other session is taken when its writer claim is held anyway: by another process or store
-   * instance of this workspace, by a child the record is lent to, or by a session of this process
-   * still closing. The pool knows nothing of those, and landing there would be refused when the claim
-   * is taken. The claim stays the only fence; this only avoids asking for a session that is held.
+   * the middle of that work. Any other session is taken when it is {@link isHeldElsewhere}.
    */
   const isSessionUnavailable = (
     target: IServeSessionDirectoryHost<TSession, TSlot>,
   ): ((sessionId: string) => boolean) => {
     const live = new Map(target.pool.listLive().map((row) => [row.sessionId, row.session]));
+    const heldElsewhere = isHeldElsewhere(target);
     return (sessionId) => {
       const session = live.get(sessionId);
-      if (session !== undefined) return isSessionBusy(session);
-      return target.store.hasWriter(sessionId);
+      return session !== undefined ? isSessionBusy(session) : heldElsewhere(sessionId);
     };
   };
 
@@ -434,10 +444,15 @@ export function createServeSessionDirectory<
         }
         if (isCurrent) {
           // Switch this binding away before the record it is on disappears: to another session of
-          // this workspace when one exists, newest first, or a fresh one when this was the only one.
-          // A record nobody vouched for is never landed in unasked.
+          // this workspace when one exists, newest first, or a fresh one when this was the only one
+          // or every other one is held. A record nobody vouched for is never landed in unasked, and
+          // neither is one another writer holds: its claim would be refused and the delete with it.
+          const heldElsewhere = isHeldElsewhere(target);
           const nextExisting = listResumableSessionSummaries(target.store, target.cwd).find(
-            (summary) => summary.id !== sessionId && summary.authorship !== 'unverified',
+            (summary) =>
+              summary.id !== sessionId &&
+              summary.authorship !== 'unverified' &&
+              !heldElsewhere(summary.id),
           )?.id;
           await changeTo(nextExisting);
         }
