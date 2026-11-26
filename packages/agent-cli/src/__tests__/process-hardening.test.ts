@@ -174,4 +174,32 @@ describe('isInspectorOpen', () => {
       }),
     ).toBe(false);
   });
+
+  describe('under Bun, whose inspector the runtime does not report', () => {
+    const none = (): undefined => undefined;
+    const underBun = (environment: Record<string, string | undefined>) => ({
+      bun: '1.4.2',
+      environment,
+    });
+
+    it('is true when the launch set BUN_INSPECT, which opens one that the runtime does not report', () => {
+      expect(isInspectorOpen(none, underBun({ BUN_INSPECT: 'ws://127.0.0.1:0/x' }))).toBe(true);
+      expect(isInspectorOpen(none, underBun({ BUN_INSPECT: '6499' }))).toBe(true);
+    });
+
+    it('is false when BUN_INSPECT is unset or empty', () => {
+      expect(isInspectorOpen(none, underBun({}))).toBe(false);
+      expect(isInspectorOpen(none, underBun({ BUN_INSPECT: '' }))).toBe(false);
+      expect(isInspectorOpen(none, underBun({ BUN_INSPECT: undefined }))).toBe(false);
+    });
+
+    it('still answers from the runtime when it does report an inspector', () => {
+      expect(isInspectorOpen(() => 'ws://127.0.0.1:6499/x', underBun({}))).toBe(true);
+    });
+
+    it('is not asked of Node, where BUN_INSPECT opens nothing', () => {
+      const underNode = { bun: undefined, environment: { BUN_INSPECT: 'ws://127.0.0.1:0/x' } };
+      expect(isInspectorOpen(none, underNode)).toBe(false);
+    });
+  });
 });

@@ -44,7 +44,7 @@ import { productKeyHolder } from './session-sealing.js';
 import { userPaths } from './user-paths.js';
 
 import type { ICliRuntimeContext } from './runtime-context.js';
-import type { ISecretTerminalSession } from '../devices/secret-terminal.js';
+import type { ISecretTerminal, ISecretTerminalSession } from '../devices/secret-terminal.js';
 import type { ITerminalHandoffHost } from '../remote-control/operator-approval.js';
 import type { KeyHolder } from '@robota-sdk/agent-local-host';
 import type { IKeyringStore } from '@robota-sdk/agent-local-host';
@@ -126,6 +126,14 @@ export interface IProcessKeyCustodyOptions {
   readonly input?: () => Pick<NodeJS.ReadableStream, 'on' | 'off'>;
 }
 
+/** The inspector opened between the question and the typed answer; the answer is dropped unread. */
+class InspectorOpenedWhileAsking extends Error {
+  constructor() {
+    super(INSPECTOR_OPEN_NOTICE);
+    this.name = 'InspectorOpenedWhileAsking';
+  }
+}
+
 /** The sequences a terminal sends when its window gains or loses focus: the window system's, not a key. */
 const FOCUS_REPORTS = ['\x1b[I', '\x1b[O'] as const;
 
@@ -163,6 +171,24 @@ export function createProcessKeyCustody(options: IProcessKeyCustodyOptions): IPr
   const warning = (mismatch: ISealingKeyMismatch): string =>
     said(productRuntime, (output) => warnSealingKeyMismatch(store, output, mismatch));
 
+  /**
+   * `terminal`, except that a line typed while this process has an inspector open is dropped before
+   * anything opens with it. The first check is made before the prompt, and a person takes seconds to
+   * type, so it is made again here, after the typing and before the keyring is tried with the line:
+   * the error leaves the unlock before a credential exists. A typed string cannot be overwritten in
+   * JavaScript, so keeping it nowhere is all there is to do; the secret terminal discards what it
+   * held when it gives the terminal back.
+   */
+  const dropsLinesWhileInspected = (terminal: ISecretTerminal): ISecretTerminal => ({
+    write: (text) => terminal.write(text),
+    clearScreen: () => terminal.clearScreen(),
+    readLine: async (prompt, readOptions) => {
+      const typed = await terminal.readLine(prompt, readOptions);
+      if (inspectorOpen()) throw new InspectorOpenedWhileAsking();
+      return typed;
+    },
+  });
+
   /** One question on a terminal already handed over: the passphrase, a few tries, as `secure verify` asks. */
   const askHere = async (line: string): Promise<IUnlockAnswer> => {
     // Nothing is asked in a process a debugger can read: the passphrase and the keys would be in it.
@@ -179,7 +205,7 @@ export function createProcessKeyCustody(options: IProcessKeyCustodyOptions): IPr
     try {
       const opened = await session.run(async (terminal) => {
         terminal.write(`${line}${NL}Nothing you type is shown.${NL}${NL}`);
-        return unlockAtTerminal(terminal, holder, 'passphrase');
+        return unlockAtTerminal(dropsLinesWhileInspected(terminal), holder, 'passphrase');
       });
       if (opened === undefined) return { readability: 'declined', notices: NOTHING };
       if (opened.sealingKey !== 'repaired') return { readability: 'readable', notices: NOTHING };
@@ -193,6 +219,9 @@ export function createProcessKeyCustody(options: IProcessKeyCustodyOptions): IPr
         ],
       };
     } catch (error) {
+      if (error instanceof InspectorOpenedWhileAsking) {
+        return { readability: 'unavailable', notices: [INSPECTOR_OPEN_NOTICE] };
+      }
       if (error instanceof SecretInputCancelled) {
         return { readability: 'declined', notices: NOTHING };
       }
