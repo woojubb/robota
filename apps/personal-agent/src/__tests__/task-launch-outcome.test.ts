@@ -440,32 +440,35 @@ describe('the reading tools of a launched run', () => {
     expect(await world.launches.get(launchId)).toMatchObject({ progress: 'verified' });
   });
 
-  it('record a run that only looks at the page a previous run left the browser on, and that run is unverified', async () => {
-    const { port } = stubBrowser({ [PAGE]: page });
+  it('refuse a run that only looks at the page a previous run left the browser on, so that run reads nothing and is unverified', async () => {
+    const { port, calls } = stubBrowser({ [PAGE]: page });
     const world = startWorld({ browserPort: port });
     // An earlier run, or a chat, left the agent's one browser page on the page the person names.
     await port.open(PAGE);
+    calls.length = 0;
     const { launchId, goalId } = await started(world);
     const goal = (await world.goals.get(goalId))!;
     const run = await world.goals.startRun(goalId);
     const shape = (await world.launches.shape(goal, run))!;
     const view = shape.scopedTools!.find((tool) => tool.getName() === 'BrowserView')!;
     const result = await view.execute({}, { toolName: 'BrowserView', parameters: {} });
-    expect(JSON.stringify(result)).toContain('Free shipping');
+    expect(JSON.stringify(result)).not.toContain('Free shipping');
+    expect(calls).toEqual([]);
+    // The refusal is kept for the run, and a look before an open does not void it.
     expect((await world.store.get(launchId))!.receipts).toEqual([
-      expect.objectContaining({ runId: run.id, tool: 'view', address: PAGE }),
+      expect.objectContaining({
+        kind: 'page-refused',
+        runId: run.id,
+        tool: 'view',
+        reason: 'not-opened',
+      }),
     ]);
     await world.goals.finishRun(run, 'done', REPORT);
-    const standing = (await world.launches.get(launchId))!;
-    expect(standing).toMatchObject({
+    expect(await world.launches.get(launchId)).toMatchObject({
       progress: 'unverified',
-      reason:
-        'The run finished, but it only looked at a page that was already open and never opened the page you named.',
+      reason: 'The run finished, but nothing it read matches the page you named.',
+      evidence: [],
     });
-    // What was read is still shown, as a read of the current page.
-    expect(standing.evidence.map((read) => [read.tool, read.requested, read.address])).toEqual([
-      ['view', undefined, PAGE],
-    ]);
   });
 
   it('are not made when the host has no browser to wrap, and no run can then be verified', async () => {
@@ -475,6 +478,7 @@ describe('the reading tools of a launched run', () => {
     const run = await world.goals.startRun(goalId);
     const shape = (await world.launches.shape(goal, runOf(goal)))!;
     expect(shape.scopedTools).toBeUndefined();
+    expect(shape.onlyTools).toEqual([]);
     await world.goals.finishRun(run, 'done', REPORT);
     expect(await world.launches.get(launchId)).toMatchObject({ progress: 'unverified' });
   });

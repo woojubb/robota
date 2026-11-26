@@ -63,10 +63,43 @@ export interface IEvidenceReceipt {
   readonly at: string;
 }
 
+/** Why the host's browser kept a run from a page; each is one of the three ways a call can miss the page that was named. */
+export const REFUSAL_REASONS = ['unnamed', 'landed-elsewhere', 'not-opened'] as const;
+export type TRefusalReason = (typeof REFUSAL_REASONS)[number];
+
+/**
+ * What the host recorded when its browser kept a run from a page: an address nobody named was asked for
+ * (`unnamed`), the page that was opened or looked at turned out to be somewhere else and was withheld
+ * (`landed-elsewhere`), or the run looked at a page it had not opened (`not-opened`). It is not evidence
+ * of anything read: it only says what the run tried. It keeps no text of any page.
+ */
+export interface IPageRefusal {
+  readonly kind: 'page-refused';
+  /** Which of the browser's two reading tools was refused. */
+  readonly tool: 'open' | 'view';
+  readonly reason: TRefusalReason;
+  /** The address the run asked to open, as the host keeps an address; absent when it could not be kept. */
+  readonly requested?: string;
+  /** The address the page was at, for a page that was withheld; absent when it could not be kept. */
+  readonly address?: string;
+  readonly at: string;
+}
+
 /** A receipt as kept while its launch waits for an outcome: tied to the run that made it. */
 export interface IRunReceipt extends IEvidenceReceipt {
   readonly runId: string;
 }
+
+/** A refusal as kept while its launch waits for an outcome: tied to the run it was made for. */
+export interface IRunRefusal extends IPageRefusal {
+  readonly runId: string;
+}
+
+/** What the host's browser made for a run: a page it returned, or a refusal to. */
+export type TBrowserReceipt = IEvidenceReceipt | IPageRefusal;
+
+/** What is kept for a run while its launch waits for an outcome. */
+export type TKeptReceipt = IRunReceipt | IRunRefusal;
 
 /** How a launched task ended. It is decided once, when its goal ended, and never changes. */
 export interface ILaunchOutcome {
@@ -104,8 +137,8 @@ export interface ILaunchIntent {
   readonly goalId?: string;
   /** Present when failed, and only then. */
   readonly failure?: ILaunchFailure;
-  /** What the host's browser returned to the goal's runs, kept only until the outcome is decided. */
-  readonly receipts?: readonly IRunReceipt[];
+  /** What the host's browser returned to the goal's runs, or refused them, kept only until the outcome is decided. */
+  readonly receipts?: readonly TKeptReceipt[];
   /** Present once the goal ended and the host decided, and only on a launched intent. */
   readonly outcome?: ILaunchOutcome;
   readonly createdAt: string;
