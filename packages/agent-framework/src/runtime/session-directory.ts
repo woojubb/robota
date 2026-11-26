@@ -211,18 +211,24 @@ export function createServeSessionDirectory<
   };
 
   /**
-   * Whether a session id, if it is currently live, has work of its own in progress — never true for
-   * a non-live id, since nothing is running for a session that is not even loaded. A background task
-   * or a self-paced loop outlives the client that started it, so a session can be busy with zero
-   * clients on it; "New session" reusing that row would land someone in the middle of that work.
+   * Whether "New session" must not land on a session id. A session this pool runs is busy when it has
+   * work of its own in progress: a background task or a self-paced loop outlives the client that
+   * started it, so it can be busy with zero clients on it, and reusing that row would land someone in
+   * the middle of that work. Its writer claim is this process's own and says nothing more.
+   *
+   * Any other session is taken when its writer claim is held anyway: by another process or store
+   * instance of this workspace, by a child the record is lent to, or by a session of this process
+   * still closing. The pool knows nothing of those, and landing there would be refused when the claim
+   * is taken. The claim stays the only fence; this only avoids asking for a session that is held.
    */
-  const isLiveSessionBusy = (
+  const isSessionUnavailable = (
     target: IServeSessionDirectoryHost<TSession, TSlot>,
   ): ((sessionId: string) => boolean) => {
     const live = new Map(target.pool.listLive().map((row) => [row.sessionId, row.session]));
     return (sessionId) => {
       const session = live.get(sessionId);
-      return session !== undefined && isSessionBusy(session);
+      if (session !== undefined) return isSessionBusy(session);
+      return target.store.hasWriter(sessionId);
     };
   };
 
@@ -341,12 +347,13 @@ export function createServeSessionDirectory<
       },
       async newSession() {
         invalidate();
-        // Reuse an existing empty session of this workspace that no other client is on and
-        // has no work of its own in progress, rather than adding another one to the list every time
-        // this is pressed, or joining someone into a background task/loop still running on it.
+        // Reuse an existing empty session of this workspace that no other client is on, has no work
+        // of its own in progress and no writer holding it, rather than adding another one to the list
+        // every time this is pressed, or joining someone into a background task/loop still running on
+        // it, or asking for a session another process holds.
         const reusable = resolveReusableEmptySessionId(target.store, target.cwd, {
           otherClientsOf: otherClientsOn(target, binding),
-          isBusy: isLiveSessionBusy(target),
+          isBusy: isSessionUnavailable(target),
         });
         await changeTo(reusable);
       },
