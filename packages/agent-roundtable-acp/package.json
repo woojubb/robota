@@ -1,0 +1,73 @@
+{
+  "name": "@robota-sdk/agent-roundtable-acp",
+  "version": "0.0.0",
+  "description": "Seat an Agent Client Protocol agent as an agent-roundtable participant",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "browser": null,
+      "node": {
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
+      },
+      "default": {
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "files": [
+    "dist",
+    "src",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsdown",
+    "test": "vitest run",
+    "typecheck": "tsgo --noEmit",
+    "lint": "eslint src/ --ext .ts",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-roundtable": "workspace:^"
+  },
+  "peerDependencies": {
+    "@agentclientprotocol/sdk": "1.9.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@agentclientprotocol/sdk": "1.9.0",
+    "@types/node": "^20.19.43",
+    "rimraf": "^6.1.4",
+    "tsdown": "^0.22.14",
+    "vitest": "^4.1.12",
+    "zod": "^4.6.7"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "publishConfig": {
+    "access": "public"
+  },
+  "volta": {
+    "extends": "../../package.json"
+  }
+}

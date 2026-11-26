@@ -51,6 +51,8 @@ SDK packages (@robota-sdk/*)
   Runtime               agent-session · agent-executor ·
                         agent-roundtable-robota (runs a session or agent as a roundtable participant and
                         selectors) ·
+                        agent-roundtable-acp (seats an Agent Client Protocol agent as a roundtable
+                        participant; Node host) ·
                         agent-provider-replay (private: replays recorded provider responses in tests)
   Building blocks       agent-tools (its ./defaults entry is the default tool set, Node only) ·
                         agent-plugin · agent-mcp · agent-session-analytics ·
@@ -153,9 +155,9 @@ configuration or network endpoint. In particular, a provider SDK may refuse clie
   like the neutral packages, and they also need a DOM.
 - **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-os`, `agent-local-host`,
   `agent-organization-host`, `agent-subagent-runner`,
-  `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host
-  (a terminal, child processes, the file system, listeners, stdio, local sockets, `node:crypto` key
-  custody), so their main entry is Node-only.
+  `agent-provider-replay`, `agent-keyring`, `agent-roundtable-acp` — they exist to drive a Node
+  host (a terminal, child processes, the file system, listeners, stdio, local sockets, `node:crypto`
+  key custody), so their main entry is Node-only.
 
 ## Dependency and interface rule identifiers
 
