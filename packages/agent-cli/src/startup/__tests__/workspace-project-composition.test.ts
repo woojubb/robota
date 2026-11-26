@@ -13,7 +13,11 @@ import {
 import { EditCheckpointStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
+import {
+  createCliWorkspaceComposition,
+  createCliWorkspaceSources,
+} from '../workspace-project-composition.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { productProjectStateDirectories } from '../../product/project-state-directories.js';
 import { listProjectContributionPaths } from '../project-contribution-preview.js';
 import { productSkillRoots } from '../../product/skill-roots.js';
@@ -391,5 +395,91 @@ describe('CLI workspace project composition', () => {
       'user',
       'project-local',
     ]);
+  });
+});
+
+describe('CLI workspace composition without a session store', () => {
+  const REFUSAL = /sealing key holder is unavailable; no conversation store may open/u;
+
+  function secureRuntime() {
+    const userHome = tempRoot('test-product-cli-sources-user-');
+    const runtime = createTestProductRuntime('test-product', { HOME: userHome });
+    overrideProductSecureMode(runtime, true);
+    return { runtime, userHome };
+  }
+
+  it('holds the sources of a Restricted workspace with no key holder, where the stores refuse', () => {
+    const cwd = tempRoot('test-product-cli-sources-restricted-');
+    const { runtime, userHome } = secureRuntime();
+    const access = createRestrictedWorkspaceProjectAccess('untrusted', cwd);
+    const options = { productRuntime: runtime, cwd, userHome, projectAccess: access };
+
+    const sources = createCliWorkspaceSources(options);
+
+    expect(sources.projectAccess).toBe(access);
+    expect(sources.settingsSources.length).toBeGreaterThan(0);
+    expect(Object.keys(sources).sort()).toEqual([
+      'contributionSources',
+      'projectAccess',
+      'settingsSources',
+      'settingsStores',
+      'skillRoots',
+    ]);
+    expect(() => createCliWorkspaceComposition(options)).toThrow(REFUSAL);
+  });
+
+  it('holds the sources of a trusted workspace with no key holder, where the stores refuse', async () => {
+    const cwd = tempRoot('test-product-cli-sources-trusted-');
+    const { runtime, userHome } = secureRuntime();
+    const access = await trustedAccess(cwd);
+    const options = { productRuntime: runtime, cwd, userHome, projectAccess: access };
+
+    const sources = createCliWorkspaceSources(options);
+
+    expect(sources.projectAccess).toBe(access);
+    expect(sources.settingsSources.length).toBeGreaterThan(1);
+    expect('sessionStore' in sources).toBe(false);
+    expect(() => createCliWorkspaceComposition(options)).toThrow(REFUSAL);
+  });
+
+  it('keeps the checks a composition makes: a working directory outside the trusted root is refused', async () => {
+    const trustedRoot = tempRoot('test-product-cli-sources-root-');
+    const outside = tempRoot('test-product-cli-sources-outside-');
+    const { runtime, userHome } = secureRuntime();
+    const access = await trustedAccess(trustedRoot);
+
+    expect(() =>
+      createCliWorkspaceSources({
+        productRuntime: runtime,
+        cwd: outside,
+        userHome,
+        projectAccess: access,
+      }),
+    ).toThrow('Trusted project access does not cover the requested working directory.');
+  });
+
+  it('is the same sources the full composition holds, in plain mode', () => {
+    const cwd = tempRoot('test-product-cli-sources-plain-');
+    const userHome = tempRoot('test-product-cli-sources-plain-user-');
+    const options = {
+      productRuntime: createTestProductRuntime('test-product', { HOME: userHome }),
+      cwd,
+      userHome,
+      projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+    };
+
+    const sources = createCliWorkspaceSources(options);
+    const composition = createCliWorkspaceComposition(options);
+
+    expect(composition.projectAccess).toBe(sources.projectAccess);
+    expect(composition.settingsSources.map((source) => source.kind)).toEqual(
+      sources.settingsSources.map((source) => source.kind),
+    );
+    expect(composition.skillRoots).toEqual(sources.skillRoots);
+    expect(composition.contributionSources.length).toBe(sources.contributionSources.length);
+    expect(composition.settingsStores.map((store) => store.scope)).toEqual(
+      sources.settingsStores.map((store) => store.scope),
+    );
+    expect(composition.sessionStoreScope).toBe('user');
   });
 });

@@ -58,12 +58,21 @@ export interface ICreateCliWorkspaceCompositionOptions {
   readonly ephemeralEditCheckpoints?: boolean;
 }
 
-export interface ICliWorkspaceComposition {
+/**
+ * What a workspace is without any conversation store: its admission decision and the settings and
+ * contributions that decision lets in. Enough for every command that never reads a saved
+ * conversation, and the one part that needs no key holder in secure mode.
+ */
+export interface ICliWorkspaceSources {
   readonly projectAccess: TWorkspaceProjectAccess;
   readonly contributionSources: readonly IContributionSource[];
   readonly skillRoots: ICliRuntimeContext['layout']['skillRoots'];
   readonly settingsSources: readonly TSettingsSource[];
   readonly settingsStores: readonly ISettingsDocumentStore[];
+}
+
+/** The workspace's sources together with the stores that hold its conversations. */
+export interface ICliWorkspaceComposition extends ICliWorkspaceSources {
   readonly sessionStore: IInteractiveSessionStore;
   /** Where `sessionStore` keeps records: the trusted project, or the user's own store. */
   readonly sessionStoreScope: 'project' | 'user';
@@ -148,11 +157,11 @@ export async function resolveInitialCliWorkspaceProjectAccess(
   }
 }
 
-function createTrustedCliWorkspaceComposition(
+function createTrustedCliWorkspaceSources(
   projectAccess: ITrustedWorkspaceProjectAccess,
   options: ICreateCliWorkspaceCompositionOptions,
   userSettingsStore: ISettingsDocumentStore,
-): ICliWorkspaceComposition {
+): ICliWorkspaceSources {
   const authority = projectAccess.authority;
   for (const namespace of ['sessions', 'session-logs', 'memory', 'checkpoints'] as const) {
     if (
@@ -183,6 +192,16 @@ function createTrustedCliWorkspaceComposition(
       ),
     ],
     settingsStores,
+  };
+}
+
+/** The stores of a trusted workspace: its sessions, its memory and its edit checkpoints. */
+function createTrustedCliConversationStores(
+  projectAccess: ITrustedWorkspaceProjectAccess,
+  options: ICreateCliWorkspaceCompositionOptions,
+): Omit<ICliWorkspaceComposition, keyof ICliWorkspaceSources> {
+  const authority = projectAccess.authority;
+  return {
     ...trustedSessionStore(authority, options),
     ...trustedMemoryStore(authority, options),
     ...trustedEditCheckpointStore(authority, options),
@@ -280,9 +299,41 @@ export function createInitialCliWorkspaceSettingsSources(
   ];
 }
 
+/**
+ * The workspace's sources without its conversation stores, for a command that never reads a saved
+ * conversation. In secure mode only a process that holds a key holder may build a store, and a
+ * command holds none, so it composes this and builds a store only where it reads one.
+ */
+export function createInitialCliWorkspaceSources(
+  cwd: string,
+  overrides: TCliWorkspaceCompositionOverrides,
+): ICliWorkspaceSources {
+  return createCliWorkspaceSources({
+    cwd,
+    ...overrides,
+    productRuntime: requiredProductRuntime(overrides.productRuntime),
+  });
+}
+
 export function createCliWorkspaceComposition(
   options: ICreateCliWorkspaceCompositionOptions,
 ): ICliWorkspaceComposition {
+  const sources = createCliWorkspaceSources(options);
+  const { projectAccess } = sources;
+  return {
+    ...sources,
+    ...(projectAccess.status === 'trusted'
+      ? createTrustedCliConversationStores(projectAccess, options)
+      : {
+          sessionStore: createProductUserSessionStore(options.productRuntime),
+          sessionStoreScope: 'user' as const,
+        }),
+  };
+}
+
+export function createCliWorkspaceSources(
+  options: ICreateCliWorkspaceCompositionOptions,
+): ICliWorkspaceSources {
   const projectAccess =
     options.projectAccess ??
     createRestrictedWorkspaceProjectAccess('identity-unavailable', options.cwd);
@@ -325,12 +376,10 @@ export function createCliWorkspaceComposition(
       skillRoots: options.productRuntime.layout.skillRoots,
       settingsSources: createProductUserSettingsSources(options.productRuntime),
       settingsStores: [userSettingsStore],
-      sessionStore: createProductUserSessionStore(options.productRuntime),
-      sessionStoreScope: 'user',
     };
   }
 
-  return createTrustedCliWorkspaceComposition(projectAccess, options, userSettingsStore);
+  return createTrustedCliWorkspaceSources(projectAccess, options, userSettingsStore);
 }
 
 /** Product user roots are independent of the workspace state directory and third-party home roots. */

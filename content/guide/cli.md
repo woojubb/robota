@@ -679,7 +679,11 @@ Anything that a program running as your account could join does not start while 
 `--serve --open`, `--serve --http-port`, `--serve --observer-port`, `mcp serve` over HTTP,
 external-event grants, local peers, the device mesh, `/remote-control` and the terminal's own WebSocket
 listener. The terminal UI, print mode, `mcp serve` over stdio and `acp` still work; print mode, `acp` and
-`mcp serve` never ask for a passphrase and never open a sealed session, they only write, sealed. A
+`mcp serve` never ask for a passphrase and never open a sealed session, they only write, sealed.
+`--help`, `--version`, `session list`, `doctor` and the other commands that read no saved
+conversation work without a passphrase too; `session list` shows live and background sessions and
+says the saved ones are sealed, which the terminal opens with `/unlock` and `/resume`. `usage`,
+`usage export`, `session analyze`, `init` and `--configure` do not run while secure mode is on. A
 background session or daemon asks the person at the terminal to unlock when it starts, and is reached
 through an owner link instead of a WebSocket token: `daemon start --json` prints no URL. See the
 [agent-cli README](../../packages/agent-cli/README.md#create-a-keyring-for-secure-conversations).
