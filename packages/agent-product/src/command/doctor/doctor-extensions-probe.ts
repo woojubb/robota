@@ -6,6 +6,7 @@
  * `warn` until the CLI has an MCP consumer; MCP connection and hook execution are the enumerated
  * `not-probed` exclusions of a read-only doctor.
  */
+import { joinPath } from '@robota-sdk/agent-core';
 import {
   inspectSkillSources,
   loadHostBundlePluginInspectionFromScopes,
@@ -15,6 +16,7 @@ import type { IDoctorCheck, IDoctorDeps, IDoctorInputs } from './doctor-types.js
 import type {
   IBundlePluginInspection,
   IBundlePluginMcpServer,
+  ILoadedBundlePlugin,
   ISettingsInspection,
 } from '@robota-sdk/agent-framework';
 
@@ -69,6 +71,7 @@ function pluginChecks(inspections: readonly IBundlePluginInspection[]): IDoctorC
         detail: ['Report-only: the plugin still loads; these hooks may not run.'],
       });
     }
+    for (const plugin of inspection.loaded) checks.push(...wrappedHookChecks(plugin));
   }
   return checks;
 }
@@ -111,32 +114,100 @@ function skillChecks(inputs: IDoctorInputs): IDoctorCheck[] {
   return checks;
 }
 
-/** The shape of a hook group as both settings layers and plugin `hooks.json` carry it. */
-interface IHookGroupLike {
-  readonly hooks?: ReadonlyArray<{ readonly type?: string; readonly command?: string }>;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The events of a plugin's parsed `hooks.json`, where the session reads them: at the top level, or
+ * wrapped under `hooks`. The document is whatever JSON the file holds, so every level below is read
+ * as unknown and a value of the wrong type is skipped, as the session skips it.
+ */
+function pluginHookTable(hooks: Record<string, unknown>): { table: unknown; prefix: string } {
+  return hooks.hooks === undefined || hooks.hooks === null
+    ? { table: hooks, prefix: '' }
+    : { table: hooks.hooks, prefix: 'hooks.' };
+}
+
+interface IHookTableReading {
+  /** The command of every hook that declares one. */
+  readonly commands: string[];
+  /** The field path of every value that is not a list of groups, a group, a list of hooks or a hook. */
+  readonly unusable: string[];
+}
+
+/** Read an event table (event, groups, each group's `hooks`) without assuming any value's type. */
+function readHookTable(table: unknown, prefix: string): IHookTableReading {
+  const reading: IHookTableReading = { commands: [], unusable: [] };
+  if (table === undefined) return reading;
+  if (!isRecord(table)) {
+    reading.unusable.push(prefix.replace(/\.$/, ''));
+    return reading;
+  }
+  for (const [event, groups] of Object.entries(table)) {
+    if (!Array.isArray(groups)) {
+      reading.unusable.push(`${prefix}${event}`);
+      continue;
+    }
+    groups.forEach((group: unknown, groupIndex) => {
+      const groupPath = `${prefix}${event}.${groupIndex}`;
+      if (!isRecord(group)) {
+        reading.unusable.push(groupPath);
+        return;
+      }
+      const hooks = group.hooks;
+      if (hooks === undefined) return;
+      if (!Array.isArray(hooks)) {
+        reading.unusable.push(`${groupPath}.hooks`);
+        return;
+      }
+      hooks.forEach((hook: unknown, hookIndex) => {
+        if (!isRecord(hook)) reading.unusable.push(`${groupPath}.hooks.${hookIndex}`);
+        else if (hook.type === 'command' && typeof hook.command === 'string')
+          reading.commands.push(hook.command);
+      });
+    });
+  }
+  return reading;
 }
 
 function commandHooks(
   settings: ISettingsInspection,
   plugins: readonly IBundlePluginInspection[],
 ): string[] {
-  const commands: string[] = [];
-  const collect = (hooks: object | undefined): void => {
-    if (hooks === undefined) return;
-    for (const groups of Object.values(
-      hooks as Record<string, readonly IHookGroupLike[] | undefined>,
-    )) {
-      for (const group of groups ?? []) {
-        for (const hook of group.hooks ?? []) {
-          if (hook.type === 'command' && typeof hook.command === 'string')
-            commands.push(hook.command);
-        }
-      }
+  // Merged settings come from layers that passed their schema; a layer that did not is a failed
+  // settings check of its own, and contributes no hooks here.
+  const commands = readHookTable(settings.merged.hooks, '').commands;
+  for (const inspection of plugins) {
+    for (const plugin of inspection.loaded) {
+      const { table, prefix } = pluginHookTable(plugin.hooks);
+      commands.push(...readHookTable(table, prefix).commands);
     }
-  };
-  collect(settings.merged.hooks);
-  for (const inspection of plugins) for (const plugin of inspection.loaded) collect(plugin.hooks);
+  }
   return commands;
+}
+
+/**
+ * The loader's schema pass reads a plugin's `hooks.json` at its top level only, so a wrapped file
+ * (`{ "hooks": { ... } }`), which the session does read, is never validated there. A wrapped value
+ * that is not a hook list, group or hook is named here by file and field; an unwrapped file is
+ * reported by the loader's own check.
+ */
+function wrappedHookChecks(plugin: ILoadedBundlePlugin): IDoctorCheck[] {
+  const { table, prefix } = pluginHookTable(plugin.hooks);
+  if (prefix === '') return [];
+  const { unusable } = readHookTable(table, prefix);
+  if (unusable.length === 0) return [];
+  return [
+    {
+      id: `plugin.${plugin.descriptor?.identity ?? plugin.manifest.name}.hooks`,
+      label: 'Plugin hooks',
+      status: 'warn',
+      path: joinPath(plugin.pluginDir, 'hooks', 'hooks.json'),
+      cause: `hooks.json fails the hooks schema: ${unusable.map((path) => `${path} (invalid_type)`).join(', ')}`,
+      detail: ['Report-only: the plugin still loads; these hooks may not run.'],
+    },
+  ];
 }
 
 function hookChecks(
