@@ -37,6 +37,7 @@ graph TD
     REPLAY[agent-provider-replay<br/>private · test replay]
     EXEC[agent-executor]
     RTR[agent-roundtable-robota<br/>Session/Robota roundtable participants]
+    RTA[agent-roundtable-acp<br/>ACP agent roundtable participant]
   end
 
   subgraph Assembly["Assembly"]
@@ -91,6 +92,7 @@ graph TD
   OS --> EXEC
   IF --> EXEC
   CORE & SESS & RT --> RTR
+  RT --> RTA
   ORG --> ORGH
 
   %% Assembly (providers are injected by the composition root, never imported)
