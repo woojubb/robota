@@ -217,6 +217,37 @@ describe('detached supervised runtime', () => {
     }
   }, 60_000);
 
+  it('tells that no such session exists for the id of a runtime that has stopped, naming no path', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-gone-'));
+    const root = join(scratch, 'supervised');
+    let id: string | undefined;
+    try {
+      id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
+        entrypoint: fixture,
+        execArgs: ['--import', 'tsx', '--conditions=product-source'],
+        env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
+      });
+      await stopSupervisedSession(id, root);
+      const sentence = `No supervised session ${id} exists.`;
+      for (const control of [
+        () => stopSupervisedSession(id!, root),
+        () => renameSupervisedSession(id!, 'Evening review', root),
+        () => linkSupervisedPr(id!, 'https://github.com/team/repo/pull/123', root),
+        () => unlinkSupervisedPr(id!, root),
+        () => connectSupervisedDaemon(id!, root),
+      ]) {
+        const error = await control().then(() => undefined, (rejection: unknown) => rejection);
+        expect((error as Error | undefined)?.message).toBe(sentence);
+        expect((error as Error).message).not.toContain(scratch);
+      }
+    } finally {
+      if (id) {
+        try { await stopSupervisedSession(id, root); } catch { /* already stopped */ }
+      }
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   it('does not present a crashed supervisor as a controllable live session', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-crash-'));
     const root = join(scratch, 'supervised');
