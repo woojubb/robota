@@ -10,7 +10,15 @@
  * counter-case: their data is sealed and no command holds a key, so they say so and fail before
  * anything is built.
  */
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -88,6 +96,8 @@ interface IRunOptions {
   readonly plain?: boolean;
   /** Trusted access to the project, with the mutation capability `init` is approved to use. */
   readonly trusted?: boolean;
+  /** Puts something in the user's state root before the invocation starts. */
+  readonly prepare?: (userRoot: string) => void;
 }
 
 /** Starts the CLI on `argv` in a fresh state root, secure unless `plain`. */
@@ -101,6 +111,7 @@ async function run(argv: readonly string[], options: IRunOptions = {}) {
   const base = createTestProductRuntime('test-product', { HOME: home, ...options.env });
   if (options.plain !== true) await enableSecureConversations(base);
   const runtime = options.plain === true ? base : resolveSecureRuntime(base);
+  options.prepare?.(runtime.layout.userRoot);
   const access =
     options.trusted === true
       ? await createTrustedWorkspaceProjectAccess(project, runtime)
@@ -475,6 +486,32 @@ describe('project setup commands, in secure conversations', () => {
     expect(existsSync(join(result.project, 'AGENTS.md'))).toBe(false);
     expect(result.built).toEqual([]);
     expect(productKeyHolder(result.runtime)).toBeUndefined();
+  });
+
+  it('stops at an unreadable settings file, which it neither repairs nor replaces', async () => {
+    const result = await run(PROFILE, {
+      env: ENV,
+      prepare: (userRoot) => writeFileSync(join(userRoot, 'settings.json'), '{ not json'),
+    });
+
+    expect(result.outcome).toContain('contains invalid JSON');
+    expect(result.out).toBe('');
+    expect(readFileSync(result.runtime.layout.userPaths.settings, 'utf8')).toBe('{ not json');
+    expect(result.built).toEqual([]);
+    expect(productKeyHolder(result.runtime)).toBeUndefined();
+  });
+
+  it('presents an unreadable organization policy and saves nothing', async () => {
+    const result = await run(PROFILE, {
+      env: ENV,
+      prepare: (userRoot) => writeFileSync(join(userRoot, 'org-policy.json'), '{ not json'),
+    });
+
+    expect(result.outcome).toBe('exit 1');
+    expect(result.err).toContain('org-policy.json');
+    expect(result.out).toBe('');
+    expect(existsSync(result.runtime.layout.userPaths.settings)).toBe(false);
+    expect(result.built).toEqual([]);
   });
 
   it('leaves a profile saved together with a print run to the session, which still refuses first', async () => {

@@ -12,7 +12,6 @@ import {
   type IProviderStartupSettingsAccess,
 } from './provider-startup.js';
 import { createProviderSetupHost, exitOnUnreadableOrgPolicy } from './command-setup.js';
-import { readUserSettingsOrExit } from './user-settings.js';
 import { createCliWorkspaceSources } from './workspace-project-composition.js';
 
 import type { IStartCliOptions } from './command-setup.js';
@@ -151,8 +150,6 @@ export async function runProjectSetupWithoutStores(input: {
 }): Promise<void> {
   const { cwd, args, startOptions, terminal } = input;
   const runtime = resolveCliRuntimeContext(startOptions);
-  // An unreadable user settings file is presented as every start presents it, not as a stack trace.
-  readUserSettingsOrExit(runtime);
   const workspace = createCliWorkspaceSources({
     cwd,
     productRuntime: runtime,
