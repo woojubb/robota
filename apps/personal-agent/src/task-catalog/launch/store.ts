@@ -5,7 +5,7 @@
 import { advanceIn, decideIn, recordIn, reserveInto } from './records.js';
 
 import type { TLaunchChange } from './records.js';
-import type { IEvidenceReceipt, ILaunchIntent, ILaunchOutcome } from './types.js';
+import type { ILaunchIntent, ILaunchOutcome, TBrowserReceipt } from './types.js';
 
 export interface ILaunchStore {
   /** Every kept intent, newest first. */
@@ -18,13 +18,14 @@ export interface ILaunchStore {
   advance(id: string, change: TLaunchChange): Promise<ILaunchIntent>;
   /**
    * Keep a receipt the host's browser made for a run of a launched intent still waiting for its
-   * outcome. False when none was kept: the intent ended, has its outcome, or is another goal's.
+   * outcome: a page it returned, or a refusal to return one. False when none was kept: the intent
+   * ended, has its outcome, or is another goal's, or the receipt was kept already or its kind is full.
    */
   recordReceipt(
     id: string,
     goalId: string,
     runId: string,
-    receipt: IEvidenceReceipt,
+    receipt: TBrowserReceipt,
   ): Promise<boolean>;
   /** Decide a launched intent's outcome, with its receipts dropped; an intent that has one keeps it and is answered as it is. */
   decide(id: string, outcome: ILaunchOutcome): Promise<ILaunchIntent>;

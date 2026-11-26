@@ -5,7 +5,8 @@
  * A receipt keeps the addresses, how much text came back, a digest of it and when, and no page text
  * beyond a short plain excerpt for the person to see. A read that cannot be recorded safely (an
  * address too long to keep, one that looks like it carries a secret) leaves no receipt, so it is not
- * evidence, and the tool still answers the run.
+ * evidence, and the tool still answers the run. The same module keeps the other thing the host's
+ * browser makes for a run: the record that it kept the run from a page, which proves nothing was read.
  */
 import { createHash } from 'node:crypto';
 
@@ -21,8 +22,17 @@ import {
   singleLine,
 } from '../fields.js';
 
+import { REFUSAL_REASONS } from './types.js';
+
 import type { IBrowserPort, IBrowserView } from '@robota-sdk/agent-product/personal';
-import type { IEvidenceReceipt, IRunReceipt } from './types.js';
+import type {
+  IEvidenceReceipt,
+  IPageRefusal,
+  IRunReceipt,
+  TBrowserReceipt,
+  TKeptReceipt,
+  TRefusalReason,
+} from './types.js';
 
 export const RECEIPT_LIMITS = {
   address: 2048,
@@ -64,6 +74,58 @@ const excerptOf = (text: string): string | undefined => {
 
 const keepable = (address: string): boolean =>
   address.length <= RECEIPT_LIMITS.address && !containsSensitiveMemoryContent(address);
+
+/**
+ * An address as a refusal keeps it: in the spelling of `pageKey`, short enough, free of anything that
+ * looks like a secret, and one plain line that is read back exactly as it went in. A refusal that is
+ * kept for an address that cannot be kept is kept without it, so the attempt still counts.
+ */
+function keptAddress(text: string): string | undefined {
+  const address = pageKey(text);
+  if (address === undefined || !keepable(address)) return undefined;
+  try {
+    return singleLine(address, 'address', RECEIPT_LIMITS.address) === address ? address : undefined;
+  } catch {
+    // allow-fallback: an address that would not be read back as it was written is left out of the refusal.
+    return undefined;
+  }
+}
+
+/** The record that the browser kept a run from a page, with the addresses it can keep. Never any page text. */
+export function refusalOf(
+  refusal: {
+    readonly tool: 'open' | 'view';
+    readonly reason: TRefusalReason;
+    readonly requested?: string;
+    readonly address?: string;
+  },
+  at: Date,
+): IPageRefusal {
+  const requested = refusal.requested === undefined ? undefined : keptAddress(refusal.requested);
+  const address = refusal.address === undefined ? undefined : keptAddress(refusal.address);
+  return {
+    kind: 'page-refused',
+    tool: refusal.tool,
+    reason: refusal.reason,
+    ...(requested !== undefined && { requested }),
+    ...(address !== undefined && { address }),
+    at: at.toISOString(),
+  };
+}
+
+/** Whether a receipt is a refusal rather than a read. */
+export function isPageRefusal<T extends TBrowserReceipt | TKeptReceipt>(
+  receipt: T,
+): receipt is Extract<T, { readonly kind: 'page-refused' }> {
+  return receipt.kind === 'page-refused';
+}
+
+/** The same refusal again: the same tool, reason and addresses, whenever it was made. */
+export const sameRefusal = (a: IPageRefusal, b: IPageRefusal): boolean =>
+  a.tool === b.tool &&
+  a.reason === b.reason &&
+  a.requested === b.requested &&
+  a.address === b.address;
 
 /** The receipt for a page the browser returned, or nothing when it cannot be kept safely. */
 export function receiptOf(
@@ -165,12 +227,36 @@ export function parseReceipt(raw: unknown, what = 'A receipt'): IEvidenceReceipt
   return readReceipt(receipt, what);
 }
 
-/** A kept receipt with the run it belongs to. */
-export function parseRunReceipt(raw: unknown, what = 'A receipt'): IRunReceipt {
+const REFUSAL_KEYS = ['kind', 'tool', 'reason', 'requested', 'address', 'at'];
+
+function readRefusal(refusal: Record<string, unknown>, what: string): IPageRefusal {
+  return {
+    kind: 'page-refused',
+    tool: oneOf(refusal['tool'], `${what} tool`, ['open', 'view'] as const),
+    reason: oneOf(refusal['reason'], `${what} reason`, REFUSAL_REASONS),
+    ...(refusal['requested'] !== undefined && {
+      requested: singleLine(refusal['requested'], `${what} requested`, RECEIPT_LIMITS.address),
+    }),
+    ...(refusal['address'] !== undefined && {
+      address: singleLine(refusal['address'], `${what} address`, RECEIPT_LIMITS.address),
+    }),
+    at: isoTime(refusal['at'], `${what} at`),
+  };
+}
+
+/** A kept receipt or refusal with the run it belongs to. */
+export function parseRunReceipt(raw: unknown, what = 'A receipt'): TKeptReceipt {
   const receipt = asRecord(raw, what);
+  if (receipt['kind'] === 'page-refused') {
+    rejectUnknownKeys(receipt, [...REFUSAL_KEYS, 'runId'], what);
+    return {
+      ...readRefusal(receipt, what),
+      runId: shaped(receipt['runId'], `${what} runId`, RUN_ID, 80),
+    };
+  }
   rejectUnknownKeys(receipt, [...RECEIPT_KEYS, 'runId'], what);
   return {
     ...readReceipt(receipt, what),
     runId: shaped(receipt['runId'], `${what} runId`, RUN_ID, 80),
-  };
+  } satisfies IRunReceipt;
 }

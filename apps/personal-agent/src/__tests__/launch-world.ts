@@ -32,6 +32,7 @@ import type {
   IEvidenceReceipt,
   ILaunchIntent,
   ILaunchOutcome,
+  IPageRefusal,
 } from '../task-catalog/launch/types.js';
 import type { ITaskDefinition } from '../task-catalog/types.js';
 
@@ -222,6 +223,19 @@ export const receipt = (change: Partial<IEvidenceReceipt> = {}): IEvidenceReceip
   ...change,
 });
 
+/**
+ * What the host's browser records when it keeps a run from a page, as the host makes it: here a run
+ * that asked to open an address nobody named.
+ */
+export const refusal = (change: Partial<IPageRefusal> = {}): IPageRefusal => ({
+  kind: 'page-refused',
+  tool: 'open',
+  reason: 'unnamed',
+  requested: 'https://elsewhere.example/pricing',
+  at: '2026-11-24T10:00:05.000Z',
+  ...change,
+});
+
 /** An outcome as the host decides one, for a store test that keeps it. */
 export const outcomeOf = (change: Partial<ILaunchOutcome> = {}): ILaunchOutcome => ({
   state: 'verified',
@@ -290,4 +304,69 @@ export function stubBrowser(pages: Readonly<Record<string, IBrowserView>>) {
     },
   };
   return { port, calls };
+}
+
+/** What `siteBrowser` shows after opening an address: the page's text, and where it ended up if that is another address. */
+export interface ISitePage {
+  readonly text: string;
+  readonly landsOn?: string;
+}
+
+/**
+ * A browser over a few sites that counts what it was asked. An address it has no page for still
+ * answers, with a page of its own, so a test tells a fence that stopped a request from a browser that
+ * had nothing to give. A page may land on another address, as a redirect does, and `moveTo` is a page
+ * that goes elsewhere by itself, or that another chat took the browser to.
+ */
+export function siteBrowser(
+  sites: Readonly<Record<string, ISitePage>> = {},
+  options: { readonly leftOn?: IBrowserView } = {},
+) {
+  let current: IBrowserView | undefined = options.leftOn;
+  const calls: string[] = [];
+  const port: IBrowserPort = {
+    open: async (url) => {
+      calls.push(`open ${url}`);
+      let href = url;
+      let bare = url;
+      try {
+        const parsed = new URL(url);
+        href = parsed.href;
+        parsed.hash = '';
+        bare = parsed.href;
+      } catch {
+        // allow-fallback: a stand-in browser answers any text, so a test sees what a fence let through.
+      }
+      const page = sites[bare] ?? { text: 'A page nobody named.' };
+      current = { url: page.landsOn ?? href, title: 'Page', text: page.text, marks: [] };
+      return current;
+    },
+    view: async () => {
+      calls.push('view');
+      if (current === undefined) throw new Error('nothing is open');
+      return current;
+    },
+    click: async (mark) => {
+      calls.push(`click ${mark}`);
+      return { view: current! };
+    },
+    type: async (mark) => {
+      calls.push(`type ${mark}`);
+      return { view: current! };
+    },
+    submitHeld: async (id) => {
+      calls.push(`submit ${id}`);
+      return { view: current! };
+    },
+    close: async () => {
+      calls.push('close');
+    },
+  };
+  return {
+    port,
+    calls,
+    moveTo: (view: IBrowserView): void => {
+      current = view;
+    },
+  };
 }

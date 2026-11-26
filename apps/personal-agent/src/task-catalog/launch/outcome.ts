@@ -3,7 +3,9 @@
  * The goal's own ending says whether the run errored or was stopped; for a run that finished, the
  * definition revision's evidence rule says whether the host's recorded receipts prove the work. A run
  * that finished without that proof is unverified, which is not a failure and not a success: the
- * model's report is shown as its own account. The decision is a pure function of the goal, its
+ * model's report is shown as its own account. A run that the host's browser kept from a page other
+ * than the one named is unverified too, whatever else it read, since a result that rests on a run
+ * that went beyond its task cannot be confirmed. The decision is a pure function of the goal, its
  * deciding run and the receipts of that run, so the same record always yields the same outcome.
  */
 import {
@@ -17,7 +19,7 @@ import {
   singleLine,
 } from '../fields.js';
 import { ruleFor } from './evidence-rules.js';
-import { parseReceipt } from './receipts.js';
+import { isPageRefusal, parseReceipt } from './receipts.js';
 import { OUTCOME_STATES } from '../types.js';
 
 import type { IGoal, IGoalRun } from '@robota-sdk/agent-product/personal';
@@ -81,11 +83,15 @@ const outcome = (
 
 const bare = ({ runId: _runId, ...receipt }: IRunReceipt): IEvidenceReceipt => receipt;
 
+/** What the person is told when the browser kept the run from a page other than the one named. */
+const KEPT_FROM_PAGE =
+  'The run was kept from a page other than the one you named, so its result cannot be confirmed.';
+
 /**
  * The outcome for a launched intent, or nothing while its goal is still going to run (or run again).
  * A goal that was removed was stopped by the person. A run that errored is failed; one that was
- * stopped is cancelled; one that finished is as the rule for the definition revision finds, and with
- * no rule it cannot be verified.
+ * stopped is cancelled; one that finished is unverified when the browser kept it from another page,
+ * and otherwise as the rule for the definition revision finds, and with no rule it cannot be verified.
  */
 export function decideOutcome(input: IOutcomeInput): ILaunchOutcome | undefined {
   const { intent, goal, run, rules, now } = input;
@@ -103,7 +109,11 @@ export function decideOutcome(input: IOutcomeInput): ILaunchOutcome | undefined 
     return outcome('failed', 'The run ended with an error before it finished.', now, run);
   if (run.outcome === 'interrupted')
     return outcome('cancelled', 'The run was stopped before it finished.', now, run);
-  const reads = (intent.receipts ?? []).filter((receipt) => receipt.runId === run.id).map(bare);
+  const kept = (intent.receipts ?? []).filter((receipt) => receipt.runId === run.id);
+  const reads = kept.filter((receipt): receipt is IRunReceipt => !isPageRefusal(receipt)).map(bare);
+  // A look before any open is only noted: it read nothing and asked for nothing the person did not name.
+  if (kept.some((receipt) => isPageRefusal(receipt) && receipt.reason !== 'not-opened'))
+    return outcome('unverified', KEPT_FROM_PAGE, now, run, reads);
   const rule = ruleFor(rules, { id: intent.definitionId, revision: intent.definitionRevision });
   if (rule === undefined)
     return outcome(

@@ -158,11 +158,12 @@ runner to start it. The link is typed metadata, not a string hidden in the Goal 
 the intent and recording that ID on the Goal allow recovery to find a Goal created just before a
 crash and avoid creating a second one. A new definition revision never changes a running Goal.
 
-During execution the host limits the session to the bound capabilities. For a connector operation,
-the exact connector, tool and allowed argument shape are checked again at final dispatch. Revoked
-access pauses or fails the task with an explanation. The existing approval gate still holds each
-consequential action; a card click or OAuth consent never approves sending, purchasing, publishing,
-or other consequential effects. Denial leaves that action unperformed and is reported in the Feed.
+During execution the host limits the session to the bound capabilities. At final dispatch it checks
+again what the call may reach: for a connector operation, the exact connector, tool and allowed argument
+shape; for a page, the one address the person named. Revoked access pauses or fails the task with an
+explanation. The existing approval gate still holds each consequential action; a card click or OAuth
+consent never approves sending, purchasing, publishing, or other consequential effects. Denial leaves
+that action unperformed and is reported in the Feed.
 
 The card opens the linked Goal immediately after launch. The Goal and Feed show progress, waiting
 setup or approval, cancellation, partial results, and failure. A model's final message is a report,

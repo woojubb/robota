@@ -18,7 +18,7 @@ import {
 import { checkBindingSpec } from '../bindings.js';
 import { DEFINITION_LIMITS, INPUT_NAME, SLUG } from '../validate-definition.js';
 import { parseOutcome } from './outcome.js';
-import { parseRunReceipt } from './receipts.js';
+import { isPageRefusal, parseRunReceipt } from './receipts.js';
 import { LAUNCH_STATUSES, LaunchRefusedError } from './types.js';
 
 import type { ICapabilityBinding } from '../bindings.js';
@@ -26,6 +26,7 @@ import type {
   ILaunchBinding,
   ILaunchFailure,
   ILaunchIntent,
+  TKeptReceipt,
   TLaunchInputs,
   TLaunchOrigin,
   TLaunchStatus,
@@ -36,8 +37,10 @@ export const LAUNCH_LIMITS = {
   value: 2048,
   bindings: 16,
   failure: 300,
-  /** The receipts one launch keeps while it waits for its outcome. */
+  /** The page reads one launch keeps while it waits for its outcome. */
   receipts: 50,
+  /** The refusals it keeps beside them, in a room of their own so that reads cannot crowd them out. */
+  refusals: 10,
   /** The whole request body, as JSON. */
   body: 8192,
 } as const;
@@ -147,6 +150,17 @@ export function launchOfferId(value: unknown): string {
   return value;
 }
 
+/** The receipts kept for a launch: no more reads than a launch keeps, and no more refusals, each in its own room. */
+function parseReceipts(raw: unknown): TKeptReceipt[] {
+  const receipts = listOf(raw, 'receipts', 0, LAUNCH_LIMITS.receipts + LAUNCH_LIMITS.refusals).map(
+    (entry, index) => parseRunReceipt(entry, `receipts[${index}]`),
+  );
+  const refusals = receipts.filter(isPageRefusal).length;
+  if (refusals > LAUNCH_LIMITS.refusals || receipts.length - refusals > LAUNCH_LIMITS.receipts)
+    throw new TaskCatalogRefusedError('receipts has more entries than a launch keeps');
+  return receipts;
+}
+
 const INTENT_KEYS = [
   'id',
   'idempotencyKey',
@@ -200,11 +214,7 @@ export function parseIntent(raw: unknown): ILaunchIntent {
     status,
     ...(launched && { goalId: shaped(intent['goalId'], 'goalId', GOAL_ID, 80) }),
     ...(status === 'failed' && { failure: parseFailure(intent['failure']) }),
-    ...(intent['receipts'] !== undefined && {
-      receipts: listOf(intent['receipts'], 'receipts', 0, LAUNCH_LIMITS.receipts).map(
-        (entry, index) => parseRunReceipt(entry, `receipts[${index}]`),
-      ),
-    }),
+    ...(intent['receipts'] !== undefined && { receipts: parseReceipts(intent['receipts']) }),
     ...(intent['outcome'] !== undefined && { outcome: parseOutcome(intent['outcome']) }),
     createdAt,
     updatedAt,
