@@ -2,7 +2,8 @@
  * What the CLI supplies to the secure-runtime start: the part of argv before `--`, the option names
  * that say a launch is supervised or serves, the secure decision and keyring of its own state root,
  * and the registration of the returned holder as the product's sealing. The agreement rule itself is
- * the local host's.
+ * the local host's. Every process that runs as its own starts on a locked holder; the terminal's is
+ * the one a person can unlock.
  */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,6 +12,7 @@ import { join } from 'node:path';
 import { ArtifactLockedError } from '@robota-sdk/agent-core';
 import { SUPERVISED_SPAWNER_PAIR_FLAG } from '@robota-sdk/agent-local-host';
 import { createRuntimeIdentity } from '@robota-sdk/agent-keyring';
+import { FIXTURE_PASSPHRASE } from '@robota-sdk/agent-local-host/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -136,7 +138,7 @@ describe('the key holder of a secure runtime', () => {
   });
 });
 
-describe('the locked key holder of the surfaces that only write what they seal', () => {
+describe('the locked key holder of the surfaces that run as their own process', () => {
   it.each([
     ['print mode', ['node', 'cli', '-p', 'hi']],
     ['--goal', ['node', 'cli', '--goal', 'finish']],
@@ -161,9 +163,9 @@ describe('the locked key holder of the surfaces that only write what they seal',
   });
 
   it.each([
-    ['the terminal', ['node', 'cli']],
-    ['a continued terminal session', ['node', 'cli', '--continue']],
     ['usage', ['node', 'cli', 'usage']],
+    ['the direct user-local command with a print flag', ['node', 'cli', 'user-local', 'list', '-p']],
+    ['the direct user-local command', ['node', 'cli', 'user-local', 'list']],
     ['a session listing, even with a print flag', ['node', 'cli', 'session', 'list', '-p']],
     ['a daemon start', ['node', 'cli', 'daemon', 'start']],
     ['a background session start', ['node', 'cli', 'session', 'start', '--background']],
@@ -178,6 +180,34 @@ describe('the locked key holder of the surfaces that only write what they seal',
 
     expect(productKeyHolder(runtime)).toBeUndefined();
     expect(() => resolveProductSessionSealing(runtime)).toThrow(REFUSAL);
+  });
+
+  it.each([
+    ['the terminal', ['node', 'cli']],
+    ['a continued terminal session', ['node', 'cli', '--continue']],
+    ['a terminal given a first prompt', ['node', 'cli', 'fix the failing test']],
+  ])('is registered for %s, starts locked, and is the one a person can unlock', async (_what, argv) => {
+    const runtime = await secureRuntime();
+
+    const holder = registerLockedKeyHolder(runtime, argv, undefined);
+
+    expect(holder).toBeDefined();
+    expect(productKeyHolder(runtime)).toBe(holder);
+    expect(holder?.isUnlocked).toBe(false);
+    const sealing = resolveProductSessionSealing(runtime);
+    if (sealing === 'plain') throw new Error('a secure process never seals plain');
+    const context = { kind: 'session-record', id: 'session_terminal_holder' } as const;
+    const sealed = sealing.sealer.sealBytes(Buffer.from('CANARY-terminal-write'), context);
+    expect(Buffer.from(sealed).includes(Buffer.from('CANARY-terminal-write'))).toBe(false);
+    // Locked is write-only: what the terminal sealed does not open until the person unlocks.
+    expect(() => sealing.sealer.openBytes(sealed, context)).toThrow(ArtifactLockedError);
+
+    await holder?.unlock({ type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
+    expect(Buffer.from(sealing.sealer.openBytes(sealed, context)).toString()).toBe(
+      'CANARY-terminal-write',
+    );
+    holder?.lock('explicit');
+    expect(() => sealing.sealer.openBytes(sealed, context)).toThrow(ArtifactLockedError);
   });
 
   it('registers none for a plain state root, whose stores stay plain, even beside a keyring file', async () => {

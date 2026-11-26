@@ -119,7 +119,8 @@ robota trust --yes
 
 `robota` starts an interactive session. Type a request, or `/` to open the command menu (`/help`
 lists every command). `Esc` stops the current response, `Ctrl+R` searches the prompts you have typed
-before, and every key can be rebound in `<configured-user-state-dir>/keybindings.json` (see the
+before (a secure attached terminal has no history search), and every key can be rebound in
+`<configured-user-state-dir>/keybindings.json` (see the
 [keybindings guide](../../content/guide/keybindings.md)).
 
 The agent works with file and shell tools (`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Bash`),
