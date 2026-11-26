@@ -28,6 +28,7 @@ import type {
   IInteractiveSession,
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
+  ISessionClaim,
   ISessionListEntry,
   TSessionChangeRefusalCode,
   TSessionDeleteRefusalCode,
@@ -163,6 +164,13 @@ async function deleteRefusalOf(change: Promise<void>): Promise<TSessionDeleteRef
   if (!isSessionDeleteRefusal(error))
     throw new Error(`expected a delete refusal, got ${String(error)}`);
   return error.code;
+}
+
+/** A live process other than this one: the one that started this test worker. */
+function anotherLiveProcess() {
+  const { startTime: _ignored, ...here } = readCurrentProcessIdentity();
+  const startTime = readProcessStartTime(process.ppid);
+  return { ...here, pid: process.ppid, ...(startTime === undefined ? {} : { startTime }) };
 }
 
 describe('serve session directory', () => {
@@ -742,6 +750,163 @@ describe('serve session directory', () => {
       expect(buildSession).toHaveBeenCalledWith(undefined);
       expect(binding.session.current.id).toBe('fresh');
     });
+
+    describe('with real stores, where a claim may be another process’s', () => {
+      const directories: string[] = [];
+      const claimed: ISessionClaim[] = [];
+      afterEach(() => {
+        for (const claim of claimed.splice(0)) claim.release();
+        for (const directory of directories.splice(0)) {
+          rmSync(directory, { recursive: true, force: true });
+        }
+      });
+
+      const emptied = (id: string, updatedAt: string): IInteractiveSessionRecord => ({
+        ...record(id, updatedAt),
+        messages: [],
+      });
+
+      /**
+       * Two stores over one directory of saved sessions, the way two processes of a workspace each
+       * hold their own: `mine` is the served runtime's, `theirs` stands for the other process.
+       */
+      function sharedStores(saved: IInteractiveSessionRecord[]) {
+        const dir = realpathSync(mkdtempSync(join(tmpdir(), 'serve-directory-')));
+        directories.push(dir);
+        const mine = new NodeSessionStore(dir, { sealing: 'plain' });
+        for (const entry of saved) mine.save(entry);
+        return {
+          mine,
+          theirs: new NodeSessionStore(dir, { sealing: 'plain' }),
+          claims: join(dir, 'claims'),
+        };
+      }
+
+      /**
+       * A served runtime over `store` whose session `primaryId` holds its claim, and whose sessions
+       * claim their id as they start, as a real session does: a claim another writer holds refuses
+       * the start.
+       */
+      function runtimeOver(store: NodeSessionStore, primaryId: string) {
+        claimed.push(store.claim(primaryId));
+        return served(fakeSession(primaryId), store, (resumeSessionId) =>
+          fakeSession(resumeSessionId ?? 'fresh', async () => {
+            if (resumeSessionId !== undefined) claimed.push(store.claim(resumeSessionId));
+          }),
+        );
+      }
+
+      it('builds fresh when the empty session’s claim is held through another store over the same files', async () => {
+        const { mine, theirs } = sharedStores([
+          record('full', '2026-09-01T00:00:00Z'),
+          emptied('empty', '2026-09-02T00:00:00Z'),
+        ]);
+        claimed.push(theirs.claim('empty'));
+        const { directory, buildSession } = runtimeOver(mine, 'full');
+        const binding = directory.bind('drive');
+
+        await binding.directory.newSession();
+
+        expect(buildSession).toHaveBeenCalledWith(undefined);
+        expect(buildSession).not.toHaveBeenCalledWith('empty');
+        expect(binding.session.current.id).toBe('fresh');
+        // The other store's claim was never touched: this runtime asked for nothing it holds.
+        expect(mine.hasWriter('empty')).toBe(true);
+        expect(() => mine.claim('empty')).toThrow();
+      });
+
+      it('builds fresh when another live process holds the empty session’s writer marker', async () => {
+        const { mine, claims } = sharedStores([
+          record('full', '2026-09-01T00:00:00Z'),
+          emptied('empty', '2026-09-02T00:00:00Z'),
+        ]);
+        leaveProcessMarker(claims, 'empty', anotherLiveProcess());
+        const { directory, buildSession } = runtimeOver(mine, 'full');
+        const binding = directory.bind('drive');
+
+        await binding.directory.newSession();
+
+        expect(buildSession).toHaveBeenCalledWith(undefined);
+        expect(binding.session.current.id).toBe('fresh');
+      });
+
+      it('lands on the next free empty session when a newer empty one is held elsewhere', async () => {
+        const { mine, theirs } = sharedStores([
+          record('full', '2026-09-01T00:00:00Z'),
+          emptied('free', '2026-09-02T00:00:00Z'),
+          emptied('held', '2026-09-03T00:00:00Z'),
+        ]);
+        claimed.push(theirs.claim('held'));
+        const { directory, buildSession } = runtimeOver(mine, 'full');
+        const binding = directory.bind('drive');
+
+        await binding.directory.newSession();
+
+        expect(buildSession).toHaveBeenCalledTimes(1);
+        expect(buildSession).toHaveBeenCalledWith('free');
+        expect(binding.session.current.id).toBe('free');
+      });
+
+      it('skips an empty session lent to a child, and takes it again once the lease ends', async () => {
+        const { mine } = sharedStores([
+          record('full', '2026-09-01T00:00:00Z'),
+          emptied('lent', '2026-09-02T00:00:00Z'),
+        ]);
+        const lease = mine.lend('lent');
+        const { directory, buildSession } = runtimeOver(mine, 'full');
+        const binding = directory.bind('drive');
+
+        await binding.directory.newSession();
+        expect(buildSession).toHaveBeenCalledTimes(1);
+        expect(buildSession).toHaveBeenCalledWith(undefined);
+        expect(binding.session.current.id).toBe('fresh');
+
+        lease.end();
+        const later = directory.bind('drive');
+        await later.directory.newSession();
+        expect(buildSession).toHaveBeenLastCalledWith('lent');
+        expect(later.session.current.id).toBe('lent');
+      });
+
+      it('stays on the current empty session when New session is pressed on it, however often', async () => {
+        const { mine } = sharedStores([
+          record('full', '2026-09-01T00:00:00Z'),
+          emptied('current', '2026-09-02T00:00:00Z'),
+        ]);
+        const { directory, buildSession } = runtimeOver(mine, 'current');
+        const binding = directory.bind('drive');
+
+        await binding.directory.newSession();
+        await binding.directory.newSession();
+
+        expect(buildSession).not.toHaveBeenCalled();
+        expect(binding.session.current.id).toBe('current');
+        expect(
+          mine
+            .list()
+            .map((entry) => entry.id)
+            .sort(),
+        ).toEqual(['current', 'full']);
+      });
+
+      it('reuses an empty session this process runs for no client, whose claim is its own', async () => {
+        const { mine } = sharedStores([
+          record('full', '2026-09-01T00:00:00Z'),
+          emptied('parked', '2026-09-02T00:00:00Z'),
+        ]);
+        const { directory, buildSession } = runtimeOver(mine, 'full');
+        const parked = directory.bind('drive');
+        await parked.directory.switchSession('parked');
+        parked.release();
+        expect(buildSession).toHaveBeenCalledTimes(1);
+
+        const binding = directory.bind('drive');
+        await binding.directory.newSession();
+
+        expect(buildSession).toHaveBeenCalledTimes(1);
+        expect(binding.session.current.id).toBe('parked');
+      });
+    });
   });
 
   describe('renaming a session from the list', () => {
@@ -947,13 +1112,6 @@ describe('serve session directory', () => {
         store.save(record('a', '2026-09-01T00:00:00Z'));
         store.save(record('b', '2026-09-02T00:00:00Z'));
         return { store, claims: join(dir, 'claims') };
-      }
-
-      /** A live process other than this one: the one that started this test worker. */
-      function anotherLiveProcess() {
-        const { startTime: _ignored, ...here } = readCurrentProcessIdentity();
-        const startTime = readProcessStartTime(process.ppid);
-        return { ...here, pid: process.ppid, ...(startTime === undefined ? {} : { startTime }) };
       }
 
       async function refusalOfDelete(change: Promise<void>): Promise<unknown> {
