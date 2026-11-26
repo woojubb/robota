@@ -1,9 +1,11 @@
 /**
- * Print mode in secure conversations through the real composition (`startCli` over the scripted
- * provider), with the keyring file and the conversation mode choice a `secure setup` and `secure
- * enable` leave on disk. Print mode seals what it writes through a locked key holder, never reads what
- * it did not write, and never asks for a passphrase; the terminal, a command, a plain state root and
- * a subagent worker get no such holder.
+ * The surfaces that run as their own process in secure conversations, through the real composition
+ * (`startCli` over the scripted provider), with the keyring file and the conversation mode choice a
+ * `secure setup` and `secure enable` leave on disk. Print mode seals what it writes through a locked
+ * key holder, never reads what it did not write, and never asks for a passphrase. The terminal starts
+ * on the same locked holder and is the one surface that builds the unlock gate: `/unlock` opens the
+ * keys in this process, `/lock` and the idle lock close them, and the model reaches neither. A
+ * command, a plain state root and a subagent worker get no such holder.
  */
 
 import {
@@ -18,8 +20,12 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough } from 'node:stream';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
+import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
+import { scriptedSession } from '@robota-sdk/agent-framework/testing';
+import { FIXTURE_PASSPHRASE } from '@robota-sdk/agent-local-host/testing';
 import { SUBAGENT_WORKER_MODE_FLAG } from '@robota-sdk/agent-subagent-runner';
 import {
   createDefaultTuiCliAdapter,
@@ -32,16 +38,25 @@ import { startCliCore } from '../../cli-core.js';
 import { productKeyHolder } from '../../product/session-sealing.js';
 import { createThemeSurface } from '../../startup/theme-surface.js';
 import { createTestProductRuntime } from '../helpers/product-runtime.js';
+import { probeArgs } from '../helpers/probe-tool-args.js';
 import {
   enableSecureConversations,
   resolveSecureRuntime,
 } from '../helpers/secure-product-state.js';
 import { createTrustedWorkspaceProjectAccess } from '../helpers/trusted-workspace-project-access.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+import { scriptedSecureTerminal } from '../../secure/__tests__/helpers.js';
 
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 import type { IScriptedProvider } from '@robota-sdk/agent-core/testing';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { ICommandModule } from '@robota-sdk/agent-framework';
+import type {
+  IInteractiveSession,
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+} from '@robota-sdk/agent-interface/session';
+import type { ITuiCliAdapter } from '@robota-sdk/agent-ui-terminal';
 
 const worker = vi.hoisted(() => ({ runSubagentWorkerMain: vi.fn() }));
 vi.mock('@robota-sdk/agent-subagent-runner', async (importOriginal) => ({
@@ -50,15 +65,33 @@ vi.mock('@robota-sdk/agent-subagent-runner', async (importOriginal) => ({
 }));
 
 // What would open a passphrase prompt or build the local unlock gate is counted, and still real.
-const gate = vi.hoisted(() => ({ terminals: 0, custodies: 0 }));
+const gate = vi.hoisted(() => ({
+  terminals: 0,
+  custodies: 0,
+  /** What the secret terminal is while a test plays the person typing the passphrase. */
+  session: undefined as unknown,
+}));
 vi.mock('../../secure/secure-terminal.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../secure/secure-terminal.js')>();
   return {
     ...actual,
     openSecureTerminal: (...args: Parameters<typeof actual.openSecureTerminal>) => {
       gate.terminals += 1;
-      return actual.openSecureTerminal(...args);
+      return (
+        (gate.session as ReturnType<typeof actual.openSecureTerminal>) ??
+        actual.openSecureTerminal(...args)
+      );
     },
+  };
+});
+// An `open` link is read and applied here, which rewrites the argument list the way the real one does.
+const launch = vi.hoisted(() => ({ apply: undefined as undefined | (() => unknown) }));
+vi.mock('../../launch-intent/open-invocation-host.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../launch-intent/open-invocation-host.js')>();
+  return {
+    ...actual,
+    applyLaunchInvocation: (...args: Parameters<typeof actual.applyLaunchInvocation>) =>
+      launch.apply === undefined ? actual.applyLaunchInvocation(...args) : launch.apply(),
   };
 });
 vi.mock('../../product/key-custody.js', async (importOriginal) => {
@@ -71,6 +104,9 @@ vi.mock('../../product/key-custody.js', async (importOriginal) => {
     },
   };
 });
+
+// Each composition in this process leaves its exit handler behind, which a binary composes once.
+process.setMaxListeners(process.getMaxListeners() + 40);
 
 const testHost = createTestFrameworkHost();
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-secure-writer-')));
@@ -106,6 +142,39 @@ function spiedPresentation() {
   };
 }
 
+/** What the terminal UI is given to mount, which a test reads instead of mounting it. */
+interface IMountedOptions {
+  readonly cliAdapter: ITuiCliAdapter;
+  readonly sessionStore: IInteractiveSessionStore;
+  readonly commandModules: readonly ICommandModule[];
+  readonly transportRegistry: {
+    getAll(): readonly { readonly transport: { readonly name: string } }[];
+    startAll(): Promise<void>;
+    stopAll(): Promise<unknown>;
+  };
+  /** What the terminal UI calls for each session it builds, which binds the transports. */
+  readonly bindTransports: (session: IInteractiveSession) => Promise<void>;
+}
+
+/** The terminal UI's entry points with `renderApp` answering at once, keeping what it was given to mount. */
+function mountedPresentation() {
+  let mounted: IMountedOptions | undefined;
+  const presentation = {
+    ...spiedPresentation(),
+    renderApp: vi.fn((options: IMountedOptions) => {
+      mounted = options;
+      return Promise.resolve();
+    }),
+  };
+  return {
+    presentation,
+    options: (): IMountedOptions => {
+      if (mounted === undefined) throw new Error('the terminal UI was not mounted');
+      return mounted;
+    },
+  };
+}
+
 describe('the writer surfaces in secure conversations', () => {
   let project: string;
   let home: string;
@@ -124,7 +193,7 @@ describe('the writer surfaces in secure conversations', () => {
     argv: string[],
     options: {
       productRuntime?: ICliRuntimeContext;
-      presentation?: ReturnType<typeof spiedPresentation>;
+      presentation?: object;
     } = {},
   ): Promise<{ exitCode: number | undefined; error: Error | undefined }> {
     process.argv = ['node', 'test-product', ...argv];
@@ -196,6 +265,8 @@ describe('the writer surfaces in secure conversations', () => {
     }) as never);
     gate.terminals = 0;
     gate.custodies = 0;
+    gate.session = undefined;
+    launch.apply = undefined;
     worker.runSubagentWorkerMain.mockReset();
     runtime = await secureRuntime();
   });
@@ -294,16 +365,272 @@ describe('the writer surfaces in secure conversations', () => {
     rmSync(join(TMP_BASE, 'no-keyring-home'), { recursive: true, force: true });
   });
 
-  it('gives the terminal no holder, so it still refuses before anything mounts', async () => {
-    const presentation = spiedPresentation();
+  describe('the terminal', () => {
+    const CANARY = 'CANARY-terminal-record-5b3f';
+    const record: IInteractiveSessionRecord = {
+      id: 'session_terminal_canary',
+      cwd: '/work',
+      createdAt: '2026-11-26T00:00:00.000Z',
+      updatedAt: '2026-11-26T00:00:00.000Z',
+      messages: [],
+      name: CANARY,
+    };
 
-    const result = await run([], { presentation });
+    /** Starts the terminal, as the binary does, and hands back what it was given to mount. */
+    async function startedTerminal() {
+      const mounted = mountedPresentation();
+      const result = await run([], { presentation: mounted.presentation });
+      expect(result.error).toBeUndefined();
+      expect(result.exitCode).toBe(0);
+      expect(mounted.presentation.renderApp).toHaveBeenCalledTimes(1);
+      return mounted.options();
+    }
 
-    expect(result.error?.message).toContain(REFUSAL);
-    expect(productKeyHolder(runtime)).toBeUndefined();
-    expect(presentation.renderApp).not.toHaveBeenCalled();
-    expect(gate.custodies).toBe(0);
-    expect(gate.terminals).toBe(0);
+    /** A session built from the commands the terminal composed, where a person's slash command can run. */
+    function terminalSession(
+      options: IMountedOptions,
+      handovers = vi.fn(),
+      turns: Parameters<typeof scriptedSession>[0]['turns'] = [{ text: 'done' }],
+    ) {
+      return {
+        handovers,
+        harness: scriptedSession({
+          turns,
+          cwd: project,
+          commandModules: options.commandModules,
+          terminalHandoff: {
+            canHandoffTerminal: true,
+            runWithTerminal: <T>(operation: () => Promise<T>): Promise<T> => {
+              handovers();
+              return operation();
+            },
+          },
+        }),
+      };
+    }
+
+    it('starts on a locked key holder with no passphrase prompt, and has the unlock gate', async () => {
+      const options = await startedTerminal();
+
+      const holder = productKeyHolder(runtime);
+      expect(holder).toBeDefined();
+      expect(holder?.isUnlocked).toBe(false);
+      // The gate exists for the terminal, and nothing asked for a passphrase to start it.
+      expect(gate.custodies).toBe(1);
+      expect(gate.terminals).toBe(0);
+      expect(stderr.join('')).not.toMatch(/passphrase/iu);
+      expect(options.cliAdapter.keyCustody).toBeDefined();
+      const commands = options.commandModules.flatMap((module) =>
+        (module.systemCommands ?? []).map((command) => command.name),
+      );
+      expect(commands).toContain('unlock');
+      expect(commands).toContain('lock');
+    });
+
+    it('seals what it writes, reads it back after /unlock, and refuses it again after /lock', async () => {
+      const options = await startedTerminal();
+      const holder = productKeyHolder(runtime)!;
+      options.sessionStore.save(record);
+
+      const file = [...sessionRecords().entries()].find(([name]) => name.includes(record.id));
+      expect(file).toBeDefined();
+      expect(file![1].subarray(0, 4).toString('latin1')).toBe('RSL1');
+      expect(file![1].includes(Buffer.from(CANARY))).toBe(false);
+      // Written while locked, so it cannot be read here yet.
+      expect(options.sessionStore.load(record.id)).toMatchObject({ status: 'locked' });
+
+      const person = scriptedSecureTerminal({ passphrase: FIXTURE_PASSPHRASE });
+      gate.session = person.session;
+      const { harness, handovers } = terminalSession(options);
+      try {
+        const unlocked = await harness.session.executeCommand('unlock', '');
+        expect(unlocked?.success).toBe(true);
+        expect(holder.isUnlocked).toBe(true);
+        expect(handovers).toHaveBeenCalledTimes(1);
+        expect(person.prompts()).toEqual(['Passphrase: ']);
+        expect(person.everything()).not.toContain(FIXTURE_PASSPHRASE);
+        const opened = options.sessionStore.load(record.id);
+        expect(opened.status).toBe('valid');
+        expect(JSON.stringify(opened)).toContain(CANARY);
+
+        const locked = await harness.session.executeCommand('lock', '');
+        expect(locked?.success).toBe(true);
+        expect(holder.isUnlocked).toBe(false);
+        expect(options.sessionStore.load(record.id)).toMatchObject({ status: 'locked' });
+      } finally {
+        await harness.dispose();
+      }
+    });
+
+    /**
+     * Runs `work` with the terminal's input and clock the test's own: stdin is a stream the test types
+     * on, and time moves only when told, from before the keys open so the idle timer is controlled too.
+     */
+    async function withControlledTerminal(
+      work: (typed: (text: string) => void, minutes: (count: number) => Promise<unknown>) => Promise<void>,
+    ): Promise<void> {
+      const original = Object.getOwnPropertyDescriptor(process, 'stdin')!;
+      const input = new PassThrough();
+      input.pause();
+      Object.defineProperty(process, 'stdin', { configurable: true, value: input });
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+      try {
+        await work(
+          (text) => {
+            input.emit('data', Buffer.from(text));
+          },
+          (count) => vi.advanceTimersByTimeAsync(count * 60_000),
+        );
+      } finally {
+        vi.useRealTimers();
+        Object.defineProperty(process, 'stdin', original);
+      }
+    }
+
+    it('locks by itself after the idle bound, which a key typed at the terminal moves', async () => {
+      const options = await startedTerminal();
+      const holder = productKeyHolder(runtime)!;
+      options.sessionStore.save(record);
+      await withControlledTerminal(async (typed, minutes) => {
+        await holder.unlock({ type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
+        await minutes(14);
+        expect(holder.isUnlocked).toBe(true);
+        // A key typed at the terminal: the idle bound now counts from here.
+        typed('k');
+        await minutes(14);
+        expect(holder.isUnlocked).toBe(true);
+        expect(options.sessionStore.load(record.id).status).toBe('valid');
+        await minutes(2);
+        expect(holder.isUnlocked).toBe(false);
+        expect(options.sessionStore.load(record.id)).toMatchObject({ status: 'locked' });
+      });
+    });
+
+    it('locks at the idle bound when nothing was typed since the unlock', async () => {
+      await startedTerminal();
+      const holder = productKeyHolder(runtime)!;
+      await withControlledTerminal(async (_typed, minutes) => {
+        await holder.unlock({ type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
+        await minutes(14);
+        expect(holder.isUnlocked).toBe(true);
+        await minutes(2);
+        expect(holder.isUnlocked).toBe(false);
+      });
+    });
+
+    it('is not asked to unlock by any tool or command the model runs, and offers it neither', async () => {
+      const options = await startedTerminal();
+      const holder = productKeyHolder(runtime)!;
+      const handovers = vi.fn();
+      // The tools as this session gives them to the model, read from a session built the same way.
+      const census = terminalSession(options, handovers, [{ text: 'listed' }]);
+      await census.harness.submit('list your tools');
+      const tools = census.harness.session.getSession().getToolSchemas();
+      await census.harness.dispose();
+      expect(tools.length).toBeGreaterThan(0);
+      const { harness } = terminalSession(options, handovers, [
+        { toolCalls: tools.map((tool) => ({ name: tool.name, args: probeArgs(tool) })) },
+        ...Array.from({ length: 20 }, () => ({ text: 'done' })),
+      ]);
+      try {
+        await harness.submit('use every tool you have');
+        expect(
+          harness
+            .toolCalls()
+            .map((call) => call.name)
+            .sort(),
+        ).toEqual(tools.map((tool) => tool.name).sort());
+
+        const offered = new SystemCommandExecutor(
+          options.commandModules.flatMap((module) => [...(module.systemCommands ?? [])]),
+        ).listModelInvocableCommands();
+        expect(offered.length).toBeGreaterThan(0);
+        expect(offered.map(({ name }) => name)).not.toContain('unlock');
+        expect(offered.map(({ name }) => name)).not.toContain('lock');
+        for (const { name } of offered) await harness.session.executeModelCommand(name, '');
+        // Reached as the model's command route would reach them, the credential commands are not its.
+        expect(await harness.session.executeModelCommand('unlock', '')).toBeNull();
+        expect(await harness.session.executeModelCommand('lock', '')).toBeNull();
+      } finally {
+        await harness.dispose();
+      }
+
+      expect(handovers).not.toHaveBeenCalled();
+      expect(gate.terminals).toBe(0);
+      expect(holder.isUnlocked).toBe(false);
+    }, 60_000);
+
+    it('binds no WebSocket listener, so it starts instead of failing on the one the table refuses', async () => {
+      const options = await startedTerminal();
+
+      await options.bindTransports({} as IInteractiveSession);
+
+      expect(options.transportRegistry.getAll()).toHaveLength(0);
+      await expect(options.transportRegistry.startAll()).resolves.toBeUndefined();
+      await options.transportRegistry.stopAll();
+    });
+
+    it('binds its WebSocket listener in a plain state root, as before', async () => {
+      const plainHome = join(TMP_BASE, 'plain-terminal-home');
+      mkdirSync(plainHome, { recursive: true });
+      const plain = createTestProductRuntime('test-product', { HOME: plainHome });
+      const mounted = mountedPresentation();
+
+      const result = await run([], { productRuntime: plain, presentation: mounted.presentation });
+      expect(result.error).toBeUndefined();
+      const options = mounted.options();
+      await options.bindTransports({} as IInteractiveSession);
+
+      expect(options.transportRegistry.getAll().map((entry) => entry.transport.name)).toEqual([
+        'ws',
+      ]);
+      expect(productKeyHolder(plain)).toBeUndefined();
+      expect(options.cliAdapter.keyCustody).toBeUndefined();
+      rmSync(plainHome, { recursive: true, force: true });
+    });
+
+    it('starts from an open link on the same locked holder, which reads as the terminal it starts', async () => {
+      // What the link's host does on success: drop the two tokens, so the arguments read as a terminal.
+      launch.apply = () => {
+        process.argv.splice(2, 2);
+        return { kind: 'launched', initialInput: 'link prompt' };
+      };
+      try {
+        const mounted = mountedPresentation();
+        const result = await run(['open', 'robota://open?v=1'], {
+          presentation: mounted.presentation,
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(mounted.presentation.renderApp).toHaveBeenCalledTimes(1);
+        expect(productKeyHolder(runtime)?.isUnlocked).toBe(false);
+        expect(gate.custodies).toBe(1);
+        expect(gate.terminals).toBe(0);
+      } finally {
+        launch.apply = undefined;
+      }
+    });
+
+    it('refuses to start without its keyring file, with no holder and no mount', async () => {
+      const gone = createTestProductRuntime('test-product', {
+        HOME: join(TMP_BASE, 'no-keyring-terminal-home'),
+      });
+      await enableSecureConversations(gone, { keyring: false });
+      const withoutKeyring = resolveSecureRuntime(gone);
+      mkdirSync(join(TMP_BASE, 'no-keyring-terminal-home'), { recursive: true });
+      const mounted = mountedPresentation();
+
+      const result = await run([], {
+        productRuntime: withoutKeyring,
+        presentation: mounted.presentation,
+      });
+
+      expect(result.error?.message ?? stderr.join('')).toContain(REFUSAL);
+      expect(productKeyHolder(withoutKeyring)).toBeUndefined();
+      expect(mounted.presentation.renderApp).not.toHaveBeenCalled();
+      expect(gate.custodies).toBe(0);
+      rmSync(join(TMP_BASE, 'no-keyring-terminal-home'), { recursive: true, force: true });
+    });
   });
 
   it.each([

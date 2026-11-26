@@ -667,7 +667,9 @@ argument and is never read from the environment, a pipe or a file, so the agent'
 run these commands for you. `secure enable` needs every session closed and refuses while plaintext
 conversation data remains; `secure disable` asks for confirmation and needs every current-version
 session to exit. In a secure terminal session `/unlock` asks for the passphrase and `/lock` discards the
-keys again; both are yours alone, and the agent cannot run them.
+keys again; both are yours alone, and the agent cannot run them. The terminal also locks by itself
+after 15 minutes without a key typed at it. `secure lock` reaches live runtimes, not terminals: a
+terminal's keys close with `/lock`, that idle lock, or when it exits.
 
 Secure CLI conversations are available on macOS and Linux. On Windows `secure enable` refuses, and a
 state that already has secure mode on refuses every command except `secure` (so `secure disable` is the
@@ -675,10 +677,11 @@ way back). The secure desktop window is available on macOS only.
 
 Anything that a program running as your account could join does not start while secure mode is on:
 `--serve --open`, `--serve --http-port`, `--serve --observer-port`, `mcp serve` over HTTP,
-external-event grants, local peers, the device mesh and `/remote-control`. The terminal UI, print mode,
-`mcp serve` over stdio and `acp` still work. A background session or daemon asks the person at the
-terminal to unlock when it starts, and is reached through an owner link instead of a WebSocket token:
-`daemon start --json` prints no URL. See the
+external-event grants, local peers, the device mesh, `/remote-control` and the terminal's own WebSocket
+listener. The terminal UI, print mode, `mcp serve` over stdio and `acp` still work; print mode, `acp` and
+`mcp serve` never ask for a passphrase and never open a sealed session, they only write, sealed. A
+background session or daemon asks the person at the terminal to unlock when it starts, and is reached
+through an owner link instead of a WebSocket token: `daemon start --json` prints no URL. See the
 [agent-cli README](../../packages/agent-cli/README.md#create-a-keyring-for-secure-conversations).
 
 ## Devices and remote control
@@ -855,7 +858,8 @@ trust, credential or pairing action, runs only when you type it.
 
 ## The terminal UI
 
-- **Input.** Up and Down move between the rows of a long prompt; Ctrl+R searches prompt history.
+- **Input.** Up and Down move between the rows of a long prompt; Ctrl+R searches prompt history (a
+  secure attached terminal has no history search).
   Pasted multi-line text collapses to a label such as `[Pasted text #1 +42 lines]` and is expanded
   when you send it.
 - **Queue.** A prompt sent while the agent is working waits in a queue (the input border changes

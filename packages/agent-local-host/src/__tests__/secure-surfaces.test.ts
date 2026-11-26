@@ -13,6 +13,7 @@ import {
   SecureSurfaceRefusedError,
   holdsNoReadKey,
   startListener,
+  unlocksAtTerminal,
 } from '../secure-surfaces.js';
 
 import type { TListenerSurface } from '../secure-surfaces.js';
@@ -142,5 +143,27 @@ describe('startListener in secure mode', () => {
     );
     await expect(startListener(SECURE_SURFACES['serve-http'], false, open)).resolves.toBe('bound');
     expect(open).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('unlocksAtTerminal', () => {
+  it('is true for exactly the process surfaces whose row admits their own process and unlocks at a terminal', () => {
+    for (const surface of PROCESS_SURFACES) {
+      const { secure } = SECURE_SURFACES[surface];
+      expect(unlocksAtTerminal(surface), surface).toBe(
+        secure.admit === 'own-process' && secure.unlock === 'terminal',
+      );
+    }
+    expect(PROCESS_SURFACES.filter(unlocksAtTerminal)).toEqual(['tui']);
+  });
+
+  it('is never true where a process holds no read key, so no surface is both', () => {
+    for (const surface of PROCESS_SURFACES) {
+      expect(unlocksAtTerminal(surface) && holdsNoReadKey(surface), surface).toBe(false);
+    }
+  });
+
+  it('is false for a supervised runtime, which a grant unlocks and no passphrase ever reaches', () => {
+    expect(unlocksAtTerminal('supervised-runtime')).toBe(false);
   });
 });

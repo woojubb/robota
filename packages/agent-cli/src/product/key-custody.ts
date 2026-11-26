@@ -14,12 +14,19 @@
  * composition builds one for the terminal UI alone: the locked holder of a surface that never unlocks
  * (print mode, ACP, MCP over stdio) gets none. Everywhere else there is none, so no read, listing or
  * command behaves differently.
+ *
+ * The keys it opens live as long as the person is at the terminal: the holder locks them after its
+ * idle bound, counted from the last key the terminal's input stream carried, because the idle lock
+ * exists for a person who walked away. The stream is watched only while the keys are open, and only
+ * the keys count: not output, not a timer, not what the model does, not the terminal's own focus
+ * reports.
  */
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { fingerprint } from '@robota-sdk/agent-keyring';
 import { isUserReadRequest } from '@robota-sdk/agent-ui-terminal';
 
 import { SecretInputCancelled } from '../devices/secret-terminal.js';
+import { isInspectorOpen } from '../process-hardening.js';
 import { terminalHandoffHostOf } from '../remote-control/operator-approval.js';
 import { SealingKeyMismatchError } from '@robota-sdk/agent-local-host';
 import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
@@ -63,6 +70,14 @@ export const READ_PURPOSES: { readonly [P in TReadPurpose]: string } = {
   'follow-history': 'Unlock to read the earlier fork conversation; it is sealed to your keyring.',
 };
 
+/** Said in the session when the idle lock closed the keys, which nothing the person did announced. */
+export const IDLE_LOCK_NOTICE =
+  'Locked: no key was typed here for a while, so sealed sessions cannot be read until `/unlock`; new conversations are still sealed as you go.';
+
+/** Said instead of asking for the passphrase when this process has a debugger inspector open. */
+export const INSPECTOR_OPEN_NOTICE =
+  'The keys stay locked: this process has its debugger inspector open, which could read what you type and the keys it opens. Start it again without one.';
+
 /** The line `/unlock` shows above the prompt. */
 export const UNLOCK_COMMAND_LINE =
   'Unlock to read the conversations sealed to your keyring in this session.';
@@ -102,6 +117,23 @@ export interface IProcessKeyCustodyOptions {
   readonly productRuntime: ICliRuntimeContext;
   /** Defaults to this platform's secret terminal. */
   readonly openTerminal?: () => ISecretTerminalSession | undefined;
+  /** Whether this process has a debugger inspector open; defaults to asking the runtime. */
+  readonly inspectorOpen?: () => boolean;
+  /**
+   * The stream the person's keys arrive on, read when the keys open. Defaults to this process's stdin,
+   * which the terminal UI reads too.
+   */
+  readonly input?: () => Pick<NodeJS.ReadableStream, 'on' | 'off'>;
+}
+
+/** The sequences a terminal sends when its window gains or loses focus: the window system's, not a key. */
+const FOCUS_REPORTS = ['\x1b[I', '\x1b[O'] as const;
+
+/** Whether `chunk` carries a key the person typed, which a lone focus report does not. */
+function carriesKeys(chunk: Buffer | string): boolean {
+  let rest = typeof chunk === 'string' ? chunk : chunk.toString('latin1');
+  for (const report of FOCUS_REPORTS) rest = rest.split(report).join('');
+  return rest.length > 0;
 }
 
 const NOTHING: readonly string[] = [];
@@ -122,6 +154,8 @@ function said(
 export function createProcessKeyCustody(options: IProcessKeyCustodyOptions): IProcessKeyCustody {
   const { holder, keyringStore: store, productRuntime } = options;
   const openTerminal = options.openTerminal ?? (() => openSecureTerminal());
+  const keysInput = options.input ?? (() => process.stdin);
+  const inspectorOpen = options.inspectorOpen ?? (() => isInspectorOpen());
   const cliName = productRuntime.vocabulary.cliName;
   let channel: IKeyCustodyChannel | undefined;
   let open: Promise<IUnlockAnswer> | undefined;
@@ -131,6 +165,8 @@ export function createProcessKeyCustody(options: IProcessKeyCustodyOptions): IPr
 
   /** One question on a terminal already handed over: the passphrase, a few tries, as `secure verify` asks. */
   const askHere = async (line: string): Promise<IUnlockAnswer> => {
+    // Nothing is asked in a process a debugger can read: the passphrase and the keys would be in it.
+    if (inspectorOpen()) return { readability: 'unavailable', notices: [INSPECTOR_OPEN_NOTICE] };
     const before = store.load();
     if (before.status === 'missing') {
       return {
@@ -212,6 +248,26 @@ export function createProcessKeyCustody(options: IProcessKeyCustodyOptions): IPr
     },
   };
 
+  // The person is at the terminal while keys reach its input. Watched only while the keys are open,
+  // so a locked process holds no reader of its own on the stream the terminal UI reads.
+  let watched: Pick<NodeJS.ReadableStream, 'on' | 'off'> | undefined;
+  const onKeys = (chunk: Buffer | string): void => {
+    if (carriesKeys(chunk)) holder.touch();
+  };
+  const watchKeys = (): void => {
+    if (watched !== undefined) return;
+    watched = keysInput();
+    watched.on('data', onKeys);
+  };
+  holder.onUnlock(watchKeys);
+  if (holder.isUnlocked) watchKeys();
+  holder.onLock((reason) => {
+    watched?.off('data', onKeys);
+    watched = undefined;
+    // Only the idle lock closes the keys without the person doing it, so only it is announced.
+    if (reason === 'idle') channel?.report(IDLE_LOCK_NOTICE);
+  });
+
   const commands: IKeyCustodyCommandPort = {
     isUnlocked: () => holder.isUnlocked,
     async unlock(): Promise<IUnlockResult> {
@@ -257,7 +313,11 @@ export function keyCustodyChannelOf(live: ILiveKeyCustodyChannel): IKeyCustodyCh
  */
 export function productKeyCustody(
   runtime: ICliRuntimeContext,
-  options: { readonly openTerminal?: () => ISecretTerminalSession | undefined } = {},
+  options: {
+    readonly openTerminal?: () => ISecretTerminalSession | undefined;
+    readonly input?: IProcessKeyCustodyOptions['input'];
+    readonly inspectorOpen?: IProcessKeyCustodyOptions['inspectorOpen'];
+  } = {},
 ): IProcessKeyCustody | undefined {
   const holder = productKeyHolder(runtime);
   if (holder === undefined) return undefined;
@@ -269,5 +329,7 @@ export function productKeyCustody(
     }),
     productRuntime: runtime,
     ...(options.openTerminal === undefined ? {} : { openTerminal: options.openTerminal }),
+    ...(options.input === undefined ? {} : { input: options.input }),
+    ...(options.inspectorOpen === undefined ? {} : { inspectorOpen: options.inspectorOpen }),
   });
 }

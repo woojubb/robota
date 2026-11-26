@@ -271,9 +271,6 @@ export async function startCliCore(
   if (readHostedRuntimeConfig(productRuntime.environment) !== undefined) {
     return runHostedRuntime(initialOptions, productRuntime);
   }
-  // Print mode, `acp` and MCP over stdio only write what they seal: their locked key holder is
-  // registered before the first workspace composition builds a session store.
-  registerLockedKeyHolder(productRuntime, process.argv, secureRuntime);
   const options = { ...initialOptions, productRuntime };
   const telemetryInput = { ...productRuntime.environment };
   // The configured service name is product identity, not an exporter setting.
@@ -303,6 +300,10 @@ export async function startCliCore(
   const launch = await applyLaunchInvocation(productRuntime);
   if (launch.kind === 'refused') return;
   const initialInput = launch.kind === 'launched' ? launch.initialInput : undefined;
+  // A process that runs as its own — print mode, `acp`, MCP over stdio, the terminal — seals with a
+  // locked key holder, registered before the first workspace composition builds a session store and
+  // after the launch invocation above, which turns an `open` link into the terminal it starts.
+  registerLockedKeyHolder(productRuntime, process.argv, secureRuntime);
   // `mcp serve` and `acp` speak a protocol on stdout: reserve it before startup can print anything.
   const parsedProtocolArgs =
     mcpServeProtocolArgs(process.argv.slice(2)) ?? acpProtocolArgs(process.argv.slice(2));
@@ -812,7 +813,10 @@ async function runCliCore(
   }
   const externalEvents = tuiExternalEvents;
   const bindTuiTransports = async (session: IInteractiveSession): Promise<void> => {
-    bindTransports(session);
+    // The WebSocket listener admits whoever holds its token, which the secure table refuses; a
+    // terminal that failed to start on that refusal would be no terminal, so, like a secure runtime,
+    // it binds none and the registry starts nothing.
+    if (!productSecureMode(productRuntime)) bindTransports(session);
     if (externalEvents === undefined) return;
     if (!(session instanceof InteractiveSession)) {
       throw new Error('External event grants require an InteractiveSession runtime');

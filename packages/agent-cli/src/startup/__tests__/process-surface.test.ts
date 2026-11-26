@@ -2,9 +2,9 @@
  * Which surface of the secure table an invocation runs as, decided from its arguments alone before
  * any session store is built. A command is never a surface whatever flags follow it, so a locked
  * key holder is never given to a command; a run that serves or reads nothing a person asked for is
- * none either.
+ * none either. A session started at the terminal is the terminal surface, the one a person unlocks.
  */
-import { holdsNoReadKey } from '@robota-sdk/agent-local-host';
+import { holdsNoReadKey, unlocksAtTerminal } from '@robota-sdk/agent-local-host';
 import { describe, expect, it } from 'vitest';
 
 import { processSurfaceOf } from '../process-surface.js';
@@ -30,11 +30,37 @@ describe('the surfaces that only write what they seal', () => {
   });
 });
 
+describe('the terminal, which a person unlocks', () => {
+  it.each([
+    ['no arguments', []],
+    ['a continued session', ['--continue']],
+    ['a resumed session', ['--resume', 'session_abc']],
+    ['a forked session', ['--continue', '--fork-session']],
+    ['a first prompt typed in the terminal', ['fix the failing test']],
+    ['options that shape the session', ['--model', 'fixture', '--permission-mode', 'plan']],
+    ['text after the option terminator that spells a subcommand', ['--', 'usage']],
+    ['text after the option terminator that spells a print flag', ['--', '-p']],
+    ['a restricted workspace', ['--restricted-workspace']],
+  ] as const)('%s runs as the terminal', (_label, args) => {
+    expect(surfaceOf(...args)).toBe('tui');
+  });
+
+  it('is the one surface a person unlocks, and holds a key no print, acp or MCP process does', () => {
+    expect(unlocksAtTerminal('tui')).toBe(true);
+    expect(holdsNoReadKey('tui')).toBe(false);
+    for (const surface of ['print', 'acp', 'mcp-stdio'] as const) {
+      expect(unlocksAtTerminal(surface), surface).toBe(false);
+    }
+    expect(unlocksAtTerminal('supervised-runtime')).toBe(false);
+  });
+});
+
 describe('what is no surface of its own', () => {
   it.each([
-    ['the terminal', []],
-    ['a continued terminal session', ['--continue']],
     ['usage', ['usage']],
+    ['the direct user-local command', ['user-local', 'list']],
+    ['the direct user-local command with a print flag', ['user-local', 'list', '-p']],
+    ['the direct user-local command after a print flag', ['-p', 'user-local', 'list']],
     ['usage with a print flag', ['usage', '-p']],
     ['a session listing with a print flag', ['session', 'list', '-p']],
     ['a background session start', ['session', 'start', '--background']],

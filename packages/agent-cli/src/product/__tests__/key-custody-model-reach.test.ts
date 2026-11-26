@@ -17,6 +17,7 @@ import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { probeArgs } from '../../__tests__/helpers/probe-tool-args.js';
 import { KeyHolder } from '@robota-sdk/agent-local-host';
 import { fixtureKeyring } from '../../secure/__tests__/helpers.js';
 import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
@@ -41,40 +42,6 @@ function directory(prefix: string): string {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
   roots.push(dir);
   return dir;
-}
-
-/** A value a tool's schema accepts by type, chosen so nothing it does leaves the workspace. */
-function probeValue(name: string, schema: { readonly type?: unknown } | undefined): unknown {
-  switch (schema?.type) {
-    case 'array':
-      return [];
-    case 'object':
-      return {};
-    case 'number':
-    case 'integer':
-      return 1;
-    case 'boolean':
-      return false;
-    default:
-      if (name === 'command') return 'true';
-      if (/path/i.test(name)) return '{{cwd}}/probe.txt';
-      return 'probe';
-  }
-}
-
-/** Arguments for one call of `tool`: each required property, with a value of its type. */
-function probeArgs(tool: {
-  readonly parameters?: {
-    readonly required?: readonly string[];
-    readonly properties?: Record<string, { readonly type?: unknown }>;
-  };
-}): Record<string, unknown> {
-  return Object.fromEntries(
-    (tool.parameters?.required ?? []).map((name) => [
-      name,
-      probeValue(name, tool.parameters?.properties?.[name]),
-    ]),
-  );
 }
 
 async function secureTuiComposition() {
