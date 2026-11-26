@@ -184,6 +184,53 @@ describe('one turn at a time', () => {
     expect(fake.prompts()).toHaveLength(2);
     await lease.release();
   });
+
+  it('still refuses a second turn while the last deltas of the first are being delivered', async () => {
+    let prompts = 0;
+    const fake = createFakeAgent({
+      prompt: async (call) => {
+        prompts += 1;
+        await call.chunk(prompts === 1 ? 'first reply' : 'second reply');
+        return { stopReason: 'end_turn' };
+      },
+    });
+    const lease = await openLease(fake);
+    const deliveryStarted = deferred();
+    const deliveryMayEnd = deferred();
+    const first = lease.session.runTurn(
+      turnOf(),
+      executionOptions({
+        onDelta: async () => {
+          deliveryStarted.resolve();
+          await deliveryMayEnd.promise;
+        },
+      }),
+    );
+    await deliveryStarted.promise;
+    // The agent's answer is written; a round trip behind it returns only after the client has
+    // handled that answer, so the first turn is now waiting on its last delta alone.
+    await fake.whenAgentWrote(
+      (message) => message.result !== undefined && 'stopReason' in (message.result as object),
+    );
+    await fake.peer()!.request('session/request_permission', {
+      sessionId: 'fake-session-1',
+      toolCall: { toolCallId: 'sync' },
+      options: [{ optionId: 'no', name: 'No', kind: 'reject_once' }],
+    });
+    await expect(
+      lease.session.runTurn(turnOf([], { turnId: 'turn-2' }), executionOptions()),
+    ).rejects.toMatchObject({ code: 'turn-in-progress' });
+    expect(fake.prompts()).toHaveLength(1);
+
+    deliveryMayEnd.resolve();
+    expect(await first).toEqual({ kind: 'speak', content: 'first reply' });
+    // The refused turn left nothing behind: the next turn records its own reply in full.
+    expect(
+      await lease.session.runTurn(turnOf([], { turnId: 'turn-3' }), executionOptions()),
+    ).toEqual({ kind: 'speak', content: 'second reply' });
+    expect(fake.prompts()).toHaveLength(2);
+    await lease.release();
+  });
 });
 
 describe('release', () => {

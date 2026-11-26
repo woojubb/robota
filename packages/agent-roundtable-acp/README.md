@@ -5,8 +5,8 @@ Seats an agent that speaks the [Agent Client Protocol](https://agentclientprotoc
 sent only the public messages it has not yet seen, once per turn, and the text it says in reply
 becomes the turn's message. Its thoughts, tool calls and plans stay with it.
 
-This is the client side of the protocol. `agent-roundtable` stays free of it; this package is the
-only one that imports `@agentclientprotocol/sdk` to bridge them.
+This is the client side of the protocol. `agent-roundtable`, the core, stays free of it and never
+imports `@agentclientprotocol/sdk`; this package bridges the two.
 
 ## Installation
 
@@ -35,6 +35,7 @@ import { createRoundtable, MemoryConversationStore } from '@robota-sdk/agent-rou
 import { acpParticipant, type AcpLauncher } from '@robota-sdk/agent-roundtable-acp';
 
 // A sketch: a production launcher also ends the whole process tree and drains the agent's stderr.
+// It also passes an explicit `env` to `spawn` rather than letting the agent inherit this process's.
 const launcher: AcpLauncher = {
   async launch() {
     const child = spawn('my-acp-agent', ['--stdio'], { stdio: ['pipe', 'pipe', 'inherit'] });

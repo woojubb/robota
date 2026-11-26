@@ -175,6 +175,7 @@ async function startSession(
   const sessionId = state.sessionId;
   let released = false;
   let dead = false;
+  let running = false;
   let firstTurnDone = false;
 
   const session: ParticipantSession = {
@@ -186,7 +187,9 @@ async function startSession(
           'A host abort ended this session; its agent may still be working, so it takes no more turns',
         );
       }
-      if (state.active !== undefined) {
+      // A turn is running from here until its `finally`, which includes delivering the last deltas
+      // after the response has arrived; `state.active` only says where chunks are recorded.
+      if (running) {
         throw new AcpParticipantError(
           'turn-in-progress',
           'A turn is already running on this session',
@@ -194,18 +197,17 @@ async function startSession(
       }
       const { signal } = options;
       signal.throwIfAborted();
-
-      const text = settings.render(turn, { firstTurn: !firstTurnDone });
-      const active: ActiveTurn = { chunks: [], deltas: createDeltaQueue(options.onDelta) };
-      state.active = active;
-
-      const prompt = acp.agent
-        .request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] })
-        .catch((error: unknown) => {
-          throw promptFailure(error, acp.signal.aborted);
-        });
+      running = true;
       const abortion = whenAborted(signal);
       try {
+        const text = settings.render(turn, { firstTurn: !firstTurnDone });
+        const active: ActiveTurn = { chunks: [], deltas: createDeltaQueue(options.onDelta) };
+        state.active = active;
+        const prompt = acp.agent
+          .request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] })
+          .catch((error: unknown) => {
+            throw promptFailure(error, acp.signal.aborted);
+          });
         // Every wait below also ends on a host abort, and an abort that settles alongside the last
         // of them still wins: a cancelled turn never publishes the words it had produced so far.
         const response = await Promise.race([prompt, abortion.promise]);
@@ -226,6 +228,7 @@ async function startSession(
       } finally {
         state.active = undefined;
         abortion.stop();
+        running = false;
       }
     },
   };
