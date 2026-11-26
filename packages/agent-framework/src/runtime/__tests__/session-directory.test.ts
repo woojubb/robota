@@ -173,6 +173,64 @@ function anotherLiveProcess() {
   return { ...here, pid: process.ppid, ...(startTime === undefined ? {} : { startTime }) };
 }
 
+/**
+ * Real stores over one directory of saved sessions, the way two processes of a workspace each hold
+ * their own, and a served runtime over one of them. Call it inside a `describe`: after each test it
+ * lets every claim it took go and removes the directories.
+ */
+function realStoresHarness() {
+  const directories: string[] = [];
+  const claimed: ISessionClaim[] = [];
+  afterEach(() => {
+    for (const claim of claimed.splice(0)) claim.release();
+    for (const directory of directories.splice(0)) {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  const emptied = (id: string, updatedAt: string): IInteractiveSessionRecord => ({
+    ...record(id, updatedAt),
+    messages: [],
+  });
+
+  /**
+   * Two stores over one directory of saved sessions: `mine` is the served runtime's, `theirs` stands
+   * for the other process.
+   */
+  function sharedStores(saved: IInteractiveSessionRecord[]) {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'serve-directory-')));
+    directories.push(dir);
+    const mine = new NodeSessionStore(dir, { sealing: 'plain' });
+    for (const entry of saved) mine.save(entry);
+    return {
+      mine,
+      theirs: new NodeSessionStore(dir, { sealing: 'plain' }),
+      claims: join(dir, 'claims'),
+    };
+  }
+
+  /**
+   * A served runtime over `store` whose session `primaryId` holds its claim, and whose sessions claim
+   * their id as they start and let it go as they shut down, as a real session does: a claim another
+   * writer holds refuses the start.
+   */
+  function runtimeOver(store: NodeSessionStore, primaryId: string) {
+    claimed.push(store.claim(primaryId));
+    return served(fakeSession(primaryId), store, (resumeSessionId) => {
+      let claim: ISessionClaim | undefined;
+      const session = fakeSession(resumeSessionId ?? 'fresh', async () => {
+        if (resumeSessionId === undefined) return;
+        claim = store.claim(resumeSessionId);
+        claimed.push(claim);
+      });
+      session.shutdown.mockImplementation(async () => claim?.release());
+      return session;
+    });
+  }
+
+  return { claimed, emptied, sharedStores, runtimeOver };
+}
+
 describe('serve session directory', () => {
   it('offers a safe local terminal remedy before asking about a sandbox snapshot', async () => {
     const digest = 'a'.repeat(64);
@@ -752,49 +810,7 @@ describe('serve session directory', () => {
     });
 
     describe('with real stores, where a claim may be another process’s', () => {
-      const directories: string[] = [];
-      const claimed: ISessionClaim[] = [];
-      afterEach(() => {
-        for (const claim of claimed.splice(0)) claim.release();
-        for (const directory of directories.splice(0)) {
-          rmSync(directory, { recursive: true, force: true });
-        }
-      });
-
-      const emptied = (id: string, updatedAt: string): IInteractiveSessionRecord => ({
-        ...record(id, updatedAt),
-        messages: [],
-      });
-
-      /**
-       * Two stores over one directory of saved sessions, the way two processes of a workspace each
-       * hold their own: `mine` is the served runtime's, `theirs` stands for the other process.
-       */
-      function sharedStores(saved: IInteractiveSessionRecord[]) {
-        const dir = realpathSync(mkdtempSync(join(tmpdir(), 'serve-directory-')));
-        directories.push(dir);
-        const mine = new NodeSessionStore(dir, { sealing: 'plain' });
-        for (const entry of saved) mine.save(entry);
-        return {
-          mine,
-          theirs: new NodeSessionStore(dir, { sealing: 'plain' }),
-          claims: join(dir, 'claims'),
-        };
-      }
-
-      /**
-       * A served runtime over `store` whose session `primaryId` holds its claim, and whose sessions
-       * claim their id as they start, as a real session does: a claim another writer holds refuses
-       * the start.
-       */
-      function runtimeOver(store: NodeSessionStore, primaryId: string) {
-        claimed.push(store.claim(primaryId));
-        return served(fakeSession(primaryId), store, (resumeSessionId) =>
-          fakeSession(resumeSessionId ?? 'fresh', async () => {
-            if (resumeSessionId !== undefined) claimed.push(store.claim(resumeSessionId));
-          }),
-        );
-      }
+      const { claimed, emptied, sharedStores, runtimeOver } = realStoresHarness();
 
       it('builds fresh when the empty session’s claim is held through another store over the same files', async () => {
         const { mine, theirs } = sharedStores([
@@ -1193,6 +1209,150 @@ describe('serve session directory', () => {
         lease.end();
         await binding.directory.deleteSession('b');
         expect(store.load('b')).toEqual({ status: 'missing' });
+      });
+    });
+
+    describe('the session a client moves to when it deletes the one it is on, with real stores', () => {
+      const { claimed, sharedStores, runtimeOver } = realStoresHarness();
+
+      /** A client of the runtime, on session `id` already. */
+      async function clientOn(directory: ReturnType<typeof runtimeOver>['directory'], id: string) {
+        const binding = directory.bind('drive');
+        await binding.directory.switchSession(id);
+        return binding;
+      }
+
+      const holders: readonly (readonly [
+        string,
+        (stores: ReturnType<typeof sharedStores>) => void,
+      ])[] = [
+        [
+          'another store instance over the same files',
+          ({ theirs }) => {
+            claimed.push(theirs.claim('held'));
+          },
+        ],
+        [
+          'the writer marker of another live process',
+          ({ claims }) => {
+            leaveProcessMarker(claims, 'held', anotherLiveProcess());
+          },
+        ],
+        [
+          'a child the record is lent to',
+          ({ mine }) => {
+            mine.lend('held');
+          },
+        ],
+      ];
+
+      it.each(holders)(
+        'skips a newer session held by %s and moves to the next free one',
+        async (_holder, hold) => {
+          const stores = sharedStores([
+            record('primary', '2026-09-01T00:00:00Z'),
+            record('current', '2026-09-02T00:00:00Z'),
+            record('free', '2026-09-03T00:00:00Z'),
+            record('held', '2026-09-04T00:00:00Z'),
+          ]);
+          hold(stores);
+          const { directory, buildSession } = runtimeOver(stores.mine, 'primary');
+          const binding = await clientOn(directory, 'current');
+
+          await binding.directory.deleteSession('current');
+
+          expect(buildSession).toHaveBeenLastCalledWith('free');
+          expect(buildSession).not.toHaveBeenCalledWith('held');
+          expect(binding.session.current.id).toBe('free');
+          expect(stores.mine.load('current')).toEqual({ status: 'missing' });
+          // Nothing was asked of the holder: its claim and its record are as they were.
+          expect(stores.mine.hasWriter('held')).toBe(true);
+          expect(stores.mine.load('held')).toMatchObject({ status: 'valid' });
+        },
+      );
+
+      it('starts a fresh session, and still deletes, when every other session is held elsewhere', async () => {
+        const { mine, theirs, claims } = sharedStores([
+          record('current', '2026-09-02T00:00:00Z'),
+          record('held-by-store', '2026-09-03T00:00:00Z'),
+          record('held-by-process', '2026-09-04T00:00:00Z'),
+        ]);
+        claimed.push(theirs.claim('held-by-store'));
+        leaveProcessMarker(claims, 'held-by-process', anotherLiveProcess());
+        const { directory, buildSession } = runtimeOver(mine, 'primary');
+        const binding = await clientOn(directory, 'current');
+
+        await binding.directory.deleteSession('current');
+
+        expect(buildSession).toHaveBeenLastCalledWith(undefined);
+        expect(binding.session.current.id).toBe('fresh');
+        expect(mine.load('current')).toEqual({ status: 'missing' });
+        for (const id of ['held-by-store', 'held-by-process']) {
+          expect(mine.hasWriter(id)).toBe(true);
+          expect(mine.load(id)).toMatchObject({ status: 'valid' });
+        }
+      });
+
+      it('takes a session lent to a child again once the lease ends', async () => {
+        const { mine } = sharedStores([
+          record('primary', '2026-09-01T00:00:00Z'),
+          record('current', '2026-09-02T00:00:00Z'),
+          record('free', '2026-09-03T00:00:00Z'),
+          record('lent', '2026-09-04T00:00:00Z'),
+        ]);
+        const lease = mine.lend('lent');
+        const { directory, buildSession } = runtimeOver(mine, 'primary');
+        const binding = await clientOn(directory, 'current');
+
+        await binding.directory.deleteSession('current');
+        expect(binding.session.current.id).toBe('free');
+
+        lease.end();
+        await binding.directory.deleteSession('free');
+        expect(buildSession).toHaveBeenLastCalledWith('lent');
+        expect(binding.session.current.id).toBe('lent');
+        expect(mine.load('free')).toEqual({ status: 'missing' });
+      });
+
+      it('still moves to a newer session this runtime runs for another client, whose claim is its own', async () => {
+        const { mine } = sharedStores([
+          record('primary', '2026-09-01T00:00:00Z'),
+          record('current', '2026-09-02T00:00:00Z'),
+          record('shared', '2026-09-03T00:00:00Z'),
+        ]);
+        const { directory, buildSession } = runtimeOver(mine, 'primary');
+        await clientOn(directory, 'shared');
+        const binding = await clientOn(directory, 'current');
+        expect(mine.hasWriter('shared')).toBe(true);
+
+        await binding.directory.deleteSession('current');
+
+        expect(binding.session.current.id).toBe('shared');
+        // `shared` was joined where it runs, not built again.
+        expect(buildSession.mock.calls).toEqual([['shared'], ['current']]);
+        expect(
+          binding.directory.listSessions().sessions.find((row) => row.id === 'shared'),
+        ).toMatchObject({ live: true, clients: 2 });
+        expect(mine.load('current')).toEqual({ status: 'missing' });
+      });
+
+      it('deletes a session that is not current without choosing another, whatever is held', async () => {
+        const { mine, theirs } = sharedStores([
+          record('primary', '2026-09-01T00:00:00Z'),
+          record('current', '2026-09-02T00:00:00Z'),
+          record('victim', '2026-09-03T00:00:00Z'),
+          record('held', '2026-09-04T00:00:00Z'),
+        ]);
+        claimed.push(theirs.claim('held'));
+        const { directory, buildSession } = runtimeOver(mine, 'primary');
+        const binding = await clientOn(directory, 'current');
+
+        await binding.directory.deleteSession('victim');
+
+        expect(buildSession.mock.calls).toEqual([['current']]);
+        expect(binding.session.current.id).toBe('current');
+        expect(mine.load('victim')).toEqual({ status: 'missing' });
+        expect(mine.hasWriter('held')).toBe(true);
       });
     });
   });
