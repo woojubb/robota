@@ -7,6 +7,7 @@ import { admitLocalPeerDirectory } from '@robota-sdk/agent-remote-pairing/local'
 import { listPeers } from '../remote-control/local-peer-registry.js';
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
 import { createProductUserSessionStore } from '../product/session-stores.js';
+import { productSecureMode } from '../product/session-sealing.js';
 import {
   listSupervisedSessions,
   resolveSupervisedDirectory,
@@ -22,7 +23,12 @@ interface IPeer {
 
 export interface ISessionListDependencies {
   readonly cliName: string;
-  readonly userSessionStore: IInteractiveSessionStore;
+  /**
+   * `undefined` in secure mode, where this command opens no saved conversation: a process that is no
+   * conversation surface holds no key holder, so no store may be built for it, and it reports the
+   * saved sessions as sealed instead of listing or counting them.
+   */
+  readonly userSessionStore: IInteractiveSessionStore | undefined;
   readonly projectSessionStore?: IInteractiveSessionStore;
   readonly readPeers: () =>
     | { readonly status: 'available'; readonly peers: readonly IPeer[] }
@@ -36,6 +42,10 @@ interface IResult {
 }
 
 const HELP = (cliName: string): string => `Usage: ${cliName} session list [--format text|json]\n`;
+
+/** What the saved-sessions group says in secure mode, where this command opens none. */
+const SEALED_SAVED_SESSIONS =
+  'Saved sessions are sealed in secure mode and are not listed here; run /unlock in the terminal, then /resume.';
 
 /** Inspect, but never create or change, the guarded same-user peer rendezvous. */
 export function readLocalPeersForInventory(
@@ -108,10 +118,14 @@ export function executeSessionListCommand(
     // "(none)".
     let locked = 0;
     let noKeys = 0;
-    for (const [source, store] of [
-      ['user', dependencies.userSessionStore],
-      ['project', dependencies.projectSessionStore],
-    ] as const) {
+    const sealed = dependencies.userSessionStore === undefined;
+    // Sealed: nothing is opened, whatever else a caller handed over.
+    for (const [source, store] of sealed
+      ? []
+      : ([
+          ['user', dependencies.userSessionStore],
+          ['project', dependencies.projectSessionStore],
+        ] as const)) {
       const scan = scanSessionStore(store);
       locked += scan.locked;
       noKeys += scan.noKeys ?? 0;
@@ -136,7 +150,7 @@ export function executeSessionListCommand(
     const lockedNotice = lockedSessionsNotice(locked, noKeys);
     const stdout =
       format === 'json'
-        ? `${JSON.stringify({ live, saved, ...(locked > 0 ? { locked } : {}), ...(noKeys > 0 ? { noKeys } : {}) })}\n`
+        ? `${JSON.stringify({ live, saved, ...(sealed ? { savedSealed: true } : {}), ...(locked > 0 ? { locked } : {}), ...(noKeys > 0 ? { noKeys } : {}) })}\n`
         : [
             'Live processes (not linked to saved sessions):',
             live.status === 'unavailable'
@@ -150,15 +164,17 @@ export function executeSessionListCommand(
                     )
                     .join('\n'),
             'Saved sessions (not linked to live processes):',
-            saved.length === 0
-              ? '  (none)'
-              : saved
-                  .map(
-                    (session) =>
-                      `  ${JSON.stringify(session.id)}  ${session.availability}  ${session.source}` +
-                      (session.authorship === 'unverified' ? '  unverified' : ''),
-                  )
-                  .join('\n'),
+            sealed
+              ? `  ${SEALED_SAVED_SESSIONS}`
+              : saved.length === 0
+                ? '  (none)'
+                : saved
+                    .map(
+                      (session) =>
+                        `  ${JSON.stringify(session.id)}  ${session.availability}  ${session.source}` +
+                        (session.authorship === 'unverified' ? '  unverified' : ''),
+                    )
+                    .join('\n'),
             ...(lockedNotice !== undefined ? [`  ${lockedNotice}`] : []),
           ].join('\n') + '\n';
     return {
@@ -178,15 +194,23 @@ export function executeSessionListCommand(
   }
 }
 
+/**
+ * Runs `session list`. In secure mode this process holds no key holder (it is no conversation
+ * surface), so it builds no session store and the saved sessions are reported as sealed; the live
+ * processes and supervised sessions come from registrations, which hold no conversation.
+ * `projectSessionStore` is asked for only where saved sessions are read.
+ */
 export async function runSessionListCommand(
   argv: readonly string[],
   productRuntime: ICliRuntimeContext,
-  projectSessionStore?: IInteractiveSessionStore,
+  projectSessionStore?: () => IInteractiveSessionStore | undefined,
 ): Promise<number> {
+  const sealed = productSecureMode(productRuntime);
+  const project = sealed ? undefined : projectSessionStore?.();
   const result = executeSessionListCommand(argv, {
     cliName: productRuntime.vocabulary.cliName,
-    userSessionStore: createProductUserSessionStore(productRuntime),
-    ...(projectSessionStore ? { projectSessionStore } : {}),
+    userSessionStore: sealed ? undefined : createProductUserSessionStore(productRuntime),
+    ...(project ? { projectSessionStore: project } : {}),
     readPeers: () => readLocalPeersForInventory(resolveRendezvousDirectory(productRuntime)),
   });
   if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {

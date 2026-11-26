@@ -382,7 +382,11 @@ unconfirmed request, including a plain runtime's refusal. Open control replies a
 requests without authenticated confirmation return an unverified result even when acknowledged. Print
 mode, `acp` and MCP over stdio hold a key holder that stays locked for good: they seal what they write
 to the public key, and nothing they run, or the program that started them, can ask for the passphrase,
-so a saved session sealed to the keyring is never opened there. The
+so a saved session sealed to the keyring is never opened there. A command that is no conversation
+surface holds no key holder and has no session store built for it: it composes the workspace's
+settings and contributions alone, and `session list` reports the saved sessions as sealed instead of
+listing them; a command that must read saved conversations to answer has no holder to read them
+with, so it refuses. The
 terminal starts on the same locked holder, and a terminal session holding keys is unlocked where it
 runs instead, by the local unlock gate: store reads
 never say why they read (many are not the person's), so the reason lives on the prompt, which opens
@@ -787,7 +791,8 @@ interactive picker) and rejects `--no-session-persistence` combined with `-c`/`-
 whose keys are locked is in no picker and is not what `-c` picks, because there is no record to
 show; so `-r` names the lock for an id, and counts the locked sessions for a name it cannot match,
 instead of reporting the session missing, and every surface that lists or picks sessions says how
-many it left out whenever some are locked — the latest readable session may not be the latest one —
+many it left out whenever some are locked (`session list` in secure mode opens none, so it says they
+are sealed) — the latest readable session may not be the latest one —
 while `usage export` refuses rather than send a partial snapshot. A served rename or delete of a
 locked session names the lock instead of calling it unknown. Resuming a record that is there but
 cannot be read (locked, corrupt, or from a build this one does not read) is refused rather than

@@ -45,6 +45,11 @@ Options:
   -h, --help              Show this help message
 `;
 
+/** The help `usage --help` prints. */
+export function usageHelp(cliName: string): string {
+  return USAGE_HELP.replaceAll('{{cli}}', cliName);
+}
+
 interface IUsageCommandArgs extends IPersonalUsageRequest {
   readonly format: 'text' | 'json';
 }
@@ -209,7 +214,7 @@ export function executeUsageCommand(
   cliName: string,
 ): IUsageCommandResult {
   if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
-    return { exitCode: 0, stdout: USAGE_HELP.replaceAll('{{cli}}', cliName), stderr: '' };
+    return { exitCode: 0, stdout: usageHelp(cliName), stderr: '' };
   }
   const args = parseUsageArgs(argv);
   if ('exitCode' in args) return args;
