@@ -117,7 +117,10 @@ sent and the operator is told.
 
 Supervised background sessions (`session start --background`) run as independent, same-user
 processes behind the same headless trust boundary, each with its own guarded local control endpoint
-that survives the launching terminal. The session list reports only content-free activity and
+that survives the launching terminal. A daemon and any number of background sessions share a
+workspace, each on a saved session of its own: a launch reuses the workspace's empty saved session
+only while no other process holds it, so a saved session never has two writers, and otherwise
+starts a fresh one. The session list reports only content-free activity and
 liveness for them — never session content, launch environment, or provider credentials. Unverified
 identity, a missing control response, initialization, or shutdown read as `unknown`; `idle` means
 only that every session the runtime keeps live is initialized with no pending question and is not
