@@ -200,11 +200,13 @@ decision grows with the conversation rather than staying flat.
 
 ## Rendering a turn's shared increment
 
-Both participants render a turn's `context.messages` — never the participant's own prior output or
-anything already delivered to it, which the roundtable core already excludes — into that turn's input
-text. The default renderer, `renderSharedIncrement`, quotes every message's content line by line so it
-can never be read back as a new message header; a host that wants a different shape for its runtime's
-input passes its own `render` function to either participant.
+Both participants render a turn's `context.messages`, and its `context.summary` when the roundtable's
+context policy consumed messages into one — never the participant's own prior output or anything
+already delivered to it, which the roundtable core already excludes — into that turn's input text.
+The default renderer, `renderSharedIncrement`, quotes every message's content and the summary line by
+line so neither can ever be read back as a new message header; a host that wants a different shape for
+its runtime's input passes its own `render` function to either participant, and that function then owns
+quoting the summary too.
 
 ## `meterJournal`: metering a host's own selector or participant
 

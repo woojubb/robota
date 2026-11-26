@@ -62,7 +62,14 @@ export interface ParticipantTurn {
   attemptId: string;
   groupId: string;
   purpose?: string;
-  context: { baseRevision: number; messages: readonly SharedMessage[] };
+  context: {
+    baseRevision: number;
+    messages: readonly SharedMessage[];
+    /** Text the context policy substituted for the messages it consumed without delivering them. */
+    summary?: string;
+    /** Ids of undelivered messages this turn accounts for through `summary` alone, or not at all. */
+    consumed?: readonly string[];
+  };
 }
 
 export type ParticipantOutcome =
@@ -158,6 +165,39 @@ export interface TurnSelector {
   ): Selection | Promise<Selection>;
 }
 
+export interface ContextAssemblyInput {
+  recipient: { kind: 'participant'; id: string };
+  /** Every message the recipient has not consumed and did not write, in transcript order. */
+  undelivered: readonly SharedMessage[];
+  purpose?: string;
+}
+
+export interface ContextAssembly {
+  /** A subset of `undelivered`, each message unchanged and listed once. */
+  messages: readonly SharedMessage[];
+  /** Replaces what `consumed` leaves out; non-empty, at most 32768 characters, never a message. */
+  summary?: string;
+  /**
+   * Ids of undelivered messages left out of `messages` that are consumed anyway: the recipient is
+   * never offered them again. An undelivered message in neither list is deferred to a later turn.
+   */
+  consumed: readonly string[];
+}
+
+/** What a participant is offered at the start of its turn out of the messages it has not seen. */
+export interface ContextPolicy {
+  /** A version covers policy and configuration; a conversation saves it and loading must resolve the same one. */
+  reference: RuntimeReference;
+  /** Only a policy that makes no model calls is admitted; a model-backed summarizer is a metered caller. */
+  modelCalls?: 'none';
+  /**
+   * A function of its input alone: its own state is not saved, and the view it assembles is stored
+   * with the turn, so a loaded conversation never asks again. An invalid or thrown result fails the
+   * conversation before any turn starts.
+   */
+  assemble(input: ContextAssemblyInput): ContextAssembly;
+}
+
 export interface SelectorRegistration {
   reference: RuntimeReference;
   checkpointVersions?: readonly string[];
@@ -174,6 +214,8 @@ export interface RoundtableRegistry {
   resolveSelector?(
     reference: RuntimeReference,
   ): SelectorRegistration | Promise<SelectorRegistration>;
+  /** Required to load a conversation saved with a context policy other than the built-in one. */
+  resolveContextPolicy?(reference: RuntimeReference): ContextPolicy | Promise<ContextPolicy>;
 }
 
 export interface LoadRoundtableOptions {
@@ -215,6 +257,8 @@ export interface RoundtableOptions {
   purpose?: string;
   participants: readonly ParticipantDefinition[];
   selector?: TurnSelector;
+  /** Defaults to `increments()`; its reference is saved with the conversation and checked on load. */
+  contextPolicy?: ContextPolicy;
   limits: {
     maxTurnsPerRun: number;
     timeoutMs?: number;

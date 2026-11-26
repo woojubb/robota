@@ -1,5 +1,6 @@
 import { ConversationPersistence } from './conversation-persistence';
 import { abortableWait } from './abortable-wait';
+import { assembleContext, requireContextPolicy } from './context-policy';
 import type { ConversationState, StoredMember, TerminalResult } from './conversation-state';
 import { errorMessage, RoundtableError } from './errors';
 import { executeGroup } from './group';
@@ -15,12 +16,13 @@ import {
   validateResponse,
 } from './conversation-requests';
 import { MemoryConversationStore } from './memory-store';
-import { roundRobin } from './policies';
+import { increments, roundRobin } from './policies';
 import { resolveSelection, validateSelection } from './selection';
 import type { StoreOwner } from './store-owner';
 import { createTurnServices, modelCallsSpent, requireModelCallCapabilities } from './usage-ledger';
 import type {
   AgentParticipant,
+  ContextPolicy,
   ConversationSnapshot,
   ExternalInput,
   ParticipantDefinition,
@@ -47,6 +49,7 @@ export class Conversation implements Roundtable {
   private readonly sessions = new Map<string, Promise<ParticipantLease>>();
   private readonly releaseErrors: unknown[] = [];
   private readonly selector: TurnSelector;
+  private readonly contextPolicy: ContextPolicy;
   private readonly persistence: ConversationPersistence;
   private readonly concurrency: number;
   private active?: Promise<unknown>;
@@ -68,6 +71,7 @@ export class Conversation implements Roundtable {
     };
     this.concurrency = options.maxConcurrentParticipants ?? 1;
     this.selector = options.selector ?? roundRobin();
+    this.contextPolicy = options.contextPolicy ?? increments();
     this.validate();
     this.participants = new Map(this.options.participants.map((p) => [p.id, p]));
     this.persistence = new ConversationPersistence(
@@ -87,7 +91,10 @@ export class Conversation implements Roundtable {
           recovery: options.recovery ?? 'none',
           leaseMs: options.leaseMs ?? 30_000,
           selector: this.selector.reference ?? null,
-          contextPolicy: { id: 'roundtable/increments', version: '1' },
+          contextPolicy: {
+            id: this.contextPolicy.reference.id,
+            version: this.contextPolicy.reference.version,
+          },
           pricingVersion: options.pricing?.version ?? null,
         },
         selectorCheckpoint: null,
@@ -487,14 +494,13 @@ export class Conversation implements Roundtable {
       turnId: crypto.randomUUID(),
       attemptId: crypto.randomUUID(),
       ...(this.options.purpose === undefined ? {} : { purpose: this.options.purpose }),
-      context: {
+      context: assembleContext(this.contextPolicy, {
+        participantId: p.id,
+        transcript: state.snapshot.messages,
+        delivered: state.participants.find((stored) => stored.id === p.id)?.delivered ?? [],
         baseRevision,
-        messages: state.snapshot.messages.filter(
-          (m) =>
-            m.participantId !== p.id &&
-            !state.participants.find((stored) => stored.id === p.id)?.delivered.includes(m.id),
-        ),
-      },
+        ...(this.options.purpose === undefined ? {} : { purpose: this.options.purpose }),
+      }),
     }));
     await this.persistence.update((draft) => {
       draft.phase = {
@@ -634,7 +640,11 @@ export class Conversation implements Roundtable {
         const participant = draft.participants.find((p) => p.id === member.participantId);
         if (!participant) throw new RoundtableError('conflict', 'Participant state is missing');
         participant.checkpoint = member.checkpoint;
-        participant.delivered.push(...turn.context.messages.map((m) => m.id), ...inputIds);
+        participant.delivered.push(
+          ...turn.context.messages.map((m) => m.id),
+          ...(turn.context.consumed ?? []),
+          ...inputIds,
+        );
         draft.snapshot.turns.push({
           id: turn.turnId,
           groupId: phase.groupId,
@@ -843,6 +853,7 @@ export class Conversation implements Roundtable {
         'Conversation and unique participant ids are required',
       );
     }
+    requireContextPolicy(this.contextPolicy);
     if (this.options.recovery === 'durable')
       throw new RoundtableError(
         'invalid-config',

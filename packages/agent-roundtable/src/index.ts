@@ -2,6 +2,9 @@ export type {
   ActionRequest,
   AgentParticipant,
   CompletedTurn,
+  ContextAssembly,
+  ContextAssemblyInput,
+  ContextPolicy,
   ConversationRequest,
   ConversationSnapshot,
   ExternalInput,
@@ -54,7 +57,7 @@ export type {
 } from './store-types';
 export { RoundtableError } from './errors';
 export { MemoryConversationStore } from './memory-store';
-export { externalParticipant, roundRobin } from './policies';
+export { externalParticipant, increments, roundRobin } from './policies';
 export { loadRoundtable } from './load';
 export { summarizeUsage } from './types';
 import { Conversation } from './conversation';

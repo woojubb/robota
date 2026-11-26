@@ -15,11 +15,14 @@ admission and usage reporting, without serializing independent participant execu
 new call is refused once a run has stopped, but a response that settles afterward still records its
 usage against the call it admitted, as long as this process still owns the conversation.
 
-Parallel participants observe the same shared snapshot through their own context views. Their outputs
-remain provisional until the group commits. Publication order follows the selection, rather than
-completion timing, because later participants need a stable, replayable conversation. A participant's
-delivery cursor represents what it actually consumed, never messages that concurrent peers published
-after it started. Its own output is not delivered back as new input.
+Parallel participants observe the same shared snapshot through their own context views. A host's
+context policy assembles each view from the messages the participant has not consumed: it may defer a
+message to a later turn or consume it into a summary, but cannot add, alter or repeat one, and by
+default offers all of them. Outputs remain provisional until the group commits. Publication order
+follows the selection, rather than completion timing, because later participants need a stable,
+replayable conversation. A participant's delivery cursor represents what it actually consumed,
+offered or summarized away, never messages that concurrent peers published after it started or that
+the policy deferred. Its own output is not delivered back as new input.
 
 External input is attributed to an explicitly registered participant. Accepting a response consumes its
 exact request atomically and idempotently without executing the participant; replaying an identifier
@@ -48,8 +51,11 @@ the factory, so borrowed resources remain under their owner's control.
 Private history and tool traces are never automatically published. Limits, waiting, cancellation,
 failure and semantic completion remain distinct outcomes. Optional execution guarantees require the
 capabilities that enforce them; unsupported guarantees are rejected rather than silently weakened.
-A selector's decision is checked before it becomes saved progress, because later runs reuse it: one
-that no run could execute would leave state that can neither load nor advance.
+A selector's decision and a context policy's view are checked before they become saved progress,
+because later runs reuse them: a decision no run could execute, or a view that is not made of the
+transcript's own undelivered messages, would leave state that can neither load nor advance. A context
+policy makes no model calls, since a metered caller needs admission and attribution it has no turn to
+carry.
 
 Recovery preserves the causal connection between a selected group, model responses, tool actions and
 published messages. Loading binds saved runtime, configuration and policy versions through a host
@@ -57,7 +63,8 @@ registry; incompatible versions require explicit migration. Private checkpoints 
 delivery cursors are restored together. A stored transcript alone is not a durable runtime checkpoint.
 Prepared contributions retain their identity and are published without executing them again. A saved
 wait binds the original request, correlated response and private checkpoint to the same participant and
-turn. That execution keeps its original shared view, so unrelated input cannot enter before it resolves.
+turn. That execution keeps its original shared view, which a loaded conversation never asks the
+context policy to assemble again, so unrelated input cannot enter before it resolves.
 Uncertain external effects require reconciliation before they can be attempted again.
 
 ## Non-goals
