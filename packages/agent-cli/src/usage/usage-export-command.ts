@@ -8,7 +8,7 @@ import {
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 import { createProductUserSessionStore } from '../product/session-stores.js';
 import { readVersion, runtimeVersion } from '../startup/version.js';
-import { enumerateUsageSnapshot } from './usage-command.js';
+import { enumerateUsageSnapshot, usageHelp } from './usage-command.js';
 
 interface IUsageExportDependencies {
   readonly serviceName: string;
@@ -35,17 +35,26 @@ function invalid(message: string): IUsageExportResult {
   return { exitCode: 1, stdout: '', stderr: `${message}\n` };
 }
 
+const EXPORT_HELP =
+  'Usage: usage export [--signal metrics|traces|logs] --endpoint http://127.0.0.1:4318\nExports content-free OTLP/HTTP JSON usage, prompt traces, or completion events to a loopback collector.\n';
+
+function isHelpRequest(argv: readonly string[]): boolean {
+  return argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h');
+}
+
+/**
+ * The help a `usage` or `usage export` invocation asks for, or `undefined` when it asks for none.
+ * Help reads no saved session, so the router prints it before it composes any session store.
+ */
+export function usageHelpFor(argv: readonly string[], cliName: string): string | undefined {
+  if (argv[0] === 'export') return isHelpRequest(argv.slice(1)) ? EXPORT_HELP : undefined;
+  return isHelpRequest(argv) ? usageHelp(cliName) : undefined;
+}
+
 function endpointFrom(
   argv: readonly string[],
 ): { readonly endpoint: URL; readonly signal: TExportSignal } | IUsageExportResult {
-  if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
-    return {
-      exitCode: 0,
-      stdout:
-        'Usage: usage export [--signal metrics|traces|logs] --endpoint http://127.0.0.1:4318\nExports content-free OTLP/HTTP JSON usage, prompt traces, or completion events to a loopback collector.\n',
-      stderr: '',
-    };
-  }
+  if (isHelpRequest(argv)) return { exitCode: 0, stdout: EXPORT_HELP, stderr: '' };
   let endpointValue: string | undefined;
   let signal: TExportSignal = 'metrics';
   let signalSpecified = false;

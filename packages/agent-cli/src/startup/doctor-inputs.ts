@@ -15,7 +15,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import {
-  createCliWorkspaceComposition,
+  createCliWorkspaceSources,
   createProductContributionSources,
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
@@ -137,7 +137,9 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
   let skillRoots = runtime.layout.skillRoots;
   if (failure === undefined) {
     try {
-      const composition = createCliWorkspaceComposition({
+      // No session store: the doctor reads settings and contributions, never a saved conversation,
+      // and in secure mode it holds no key holder to build one with.
+      const composition = createCliWorkspaceSources({
         productRuntime: runtime,
         cwd: opts.cwd,
         userHome,

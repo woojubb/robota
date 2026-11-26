@@ -51,14 +51,16 @@ import { productSecureMode } from '../product/session-sealing.js';
 import { startSecureBackground } from '../session-inventory/secure-background-start.js';
 import { secureOwnerControl } from '../session-inventory/secure-owner-control.js';
 import { runUsageCommand } from '../usage/usage-command.js';
-import { runUsageExportCommand } from '../usage/usage-export-command.js';
+import { runUsageExportCommand, usageHelpFor } from '../usage/usage-export-command.js';
 import { subcommandHelpFor } from '../utils/cli-help.js';
 import {
   RESTRICTED_WORKSPACE_FLAG,
   createInitialCliWorkspaceComposition,
   createInitialCliWorkspaceSettingsSources,
+  createInitialCliWorkspaceSources,
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
+import type { ICliWorkspaceComposition } from './workspace-project-composition.js';
 import { runMcpLoginCommand, runMcpLogoutCommand } from './mcp-login-command.js';
 import { runMcpAddCommand } from './mcp-add-server.js';
 import { resolveMcpApprovalStore } from './mcp-approval-file-store.js';
@@ -591,10 +593,11 @@ export async function runPreparsedCliCommand(
     return true;
   }
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
-  const composition = createInitialCliWorkspaceComposition(cwd, {
-    ...options,
-    projectAccess,
-  });
+  // Without a session store: in secure mode a command holds no key holder, so none may be built, and
+  // only the commands below that read saved conversations compose one, where they read it.
+  const composition = createInitialCliWorkspaceSources(cwd, { ...options, projectAccess });
+  const conversationStores = (): ICliWorkspaceComposition =>
+    createInitialCliWorkspaceComposition(cwd, { ...options, projectAccess });
   // Every route from here may run commands, and the provider reads its credential from
   // the startup snapshot, so the live environment those commands inherit drops it now.
   withholdProviderCredentials(
@@ -629,8 +632,16 @@ export async function runPreparsedCliCommand(
   }
   if (argv[SUBCOMMAND_INDEX] === 'usage') {
     const usageArgs = argv.slice(ACTION_INDEX);
+    // Help reads no saved session, so it is answered before any session store is composed.
+    const help = usageHelpFor(usageArgs, productRuntime.config.identity.cliName);
+    if (help !== undefined) {
+      process.stdout.write(help);
+      process.exitCode = 0;
+      return true;
+    }
+    const stores = conversationStores();
     const projectSessionStore =
-      composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined;
+      stores.sessionStoreScope === 'project' ? stores.sessionStore : undefined;
     process.exitCode =
       usageArgs[0] === 'export'
         ? await runUsageExportCommand(usageArgs.slice(1), productRuntime, projectSessionStore)
@@ -638,10 +649,11 @@ export async function runPreparsedCliCommand(
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'analyze') {
+    const stores = conversationStores();
     await runSessionAnalyze(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
       cwd,
-      composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined,
+      stores.sessionStoreScope === 'project' ? stores.sessionStore : undefined,
       createProductUserSessionStore(productRuntime),
     );
     return true;
@@ -658,7 +670,10 @@ export async function runPreparsedCliCommand(
     process.exitCode = await runSessionListCommand(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
       productRuntime,
-      composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined,
+      () => {
+        const stores = conversationStores();
+        return stores.sessionStoreScope === 'project' ? stores.sessionStore : undefined;
+      },
     );
     return true;
   }
