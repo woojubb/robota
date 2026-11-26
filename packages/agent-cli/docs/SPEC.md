@@ -384,12 +384,13 @@ mode, `acp` and MCP over stdio hold a key holder that stays locked for good: the
 to the public key, and nothing they run, or the program that started them, can ask for the passphrase,
 so a saved session sealed to the keyring is never opened there. A command that is no conversation
 surface holds no key holder and has no session store built for it: it composes the workspace's
-settings and contributions alone, and `session list` reports the saved sessions as sealed instead of
-listing them; a command that must read saved conversations to answer has no holder to read them
-with, so it says they are sealed and refuses before any store is built, and a command that only sets
-a project or a provider up reads none, so in secure mode it runs on those sources alone instead of
-the session startup that builds the stores. The
-terminal starts on the same locked holder, and a terminal session holding keys is unlocked where it
+settings and contributions alone; `session list` reports the saved sessions as sealed instead of
+listing them, and `doctor` checks and repairs the user storage where the mode's stores keep it, so a
+secure state root never gains a plain `sessions` directory; a command that must read saved
+conversations to answer has no holder to read them with, so it says they are sealed and refuses
+before any store is built, and a command that only sets a project or a provider up reads none, so
+in secure mode it runs on those sources alone instead of the session startup that builds the
+stores. The terminal starts on the same locked holder, and a terminal session holding keys is unlocked where it
 runs instead, by the local unlock gate: store reads
 never say why they read (many are not the person's), so the reason lives on the prompt, which opens
 only for a read the terminal UI says the person started — a request its action modules mint from a key

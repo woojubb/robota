@@ -1,4 +1,8 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import {
+  enableSecureConversations,
+  resolveSecureRuntime,
+} from '../../__tests__/helpers/secure-product-state.js';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,6 +16,7 @@ import { runPreparsedCliCommand } from '../preparsed-command-routing.js';
 import { createCapturingTerminal } from './test-terminal.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 
 const homes: string[] = [];
 const savedHome = process.env['HOME'];
@@ -207,5 +212,29 @@ describe('test-product doctor route', () => {
     });
 
     expect(inputs.pluginsDirs).toEqual([join(home, '.test-product', 'plugins')]);
+  });
+
+  it('lays the user storage out where the user session store keeps its sessions, in each mode', async () => {
+    const home = isolatedHome();
+    const plain = createTestProductRuntime('test-product', { HOME: home });
+    const storageOf = (runtime: ICliRuntimeContext) =>
+      buildDoctorInputs({
+        cwd: home,
+        version: '0.0.0-test',
+        options: { productRuntime: runtime },
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
+        providerDefinitions: definitions,
+        env: {},
+        userHome: home,
+      }).userStorage;
+    const root = plain.layout.userRoot;
+
+    expect(storageOf(plain)).toEqual({ root, sessions: join(root, 'sessions') });
+
+    await enableSecureConversations(plain);
+    expect(storageOf(resolveSecureRuntime(plain))).toEqual({
+      root,
+      sessions: join(root, 'secure-v1', 'sessions'),
+    });
   });
 });
