@@ -634,13 +634,18 @@ describe('the writer surfaces in secure conversations', () => {
   });
 
   it.each([
-    ['usage', ['usage']],
-    ['a usage report, even with a print flag', ['usage', '-p']],
-    ['a session analysis', ['session', 'analyze']],
-  ])('gives %s no holder, so its stores still refuse', async (_what, argv) => {
+    ['usage', ['usage'], 'usage'],
+    ['a usage report, even with a print flag', ['usage', '-p'], 'usage'],
+    ['a session analysis', ['session', 'analyze'], 'session analyze'],
+  ])('gives %s no holder, and says its conversations are sealed', async (_what, argv, command) => {
     const result = await run(argv);
 
-    expect(result.error?.message ?? stderr.join('')).toContain(REFUSAL);
+    // Answered before any store is built, so the store factory's own refusal is never reached.
+    expect(result.error).toBeUndefined();
+    expect(stderr.join('')).toContain(
+      `\`test-product ${command}\` reads saved conversations, which are sealed in secure mode`,
+    );
+    expect(stderr.join('')).not.toContain(REFUSAL);
     expect(productKeyHolder(runtime)).toBeUndefined();
     expect(gate.terminals).toBe(0);
   });

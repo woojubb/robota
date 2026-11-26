@@ -144,7 +144,11 @@ import { forwardedEnvironmentRequested, receiveForwardedEnvironment } from './st
 import { createCliRuntimeContext } from './product/runtime-context.js';
 import { assertProductConversationLaunch, copyProductSecureMode, productSecureMode } from './product/session-sealing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
-import { routeProjectSetup } from './startup/project-setup-routing.js';
+import {
+  isProjectSetupInvocation,
+  routeProjectSetup,
+  runProjectSetupWithoutStores,
+} from './startup/project-setup-routing.js';
 import { tuiInitialInputProps } from './startup/tui-initial-input.js';
 import {
   mcpServeProtocolArgs,
@@ -540,6 +544,15 @@ async function runCliCore(
     // allow-fallback: user-local command failure is terminal — exit is the correct response
     terminal.writeError(error instanceof Error ? error.message : String(error));
     process.exit(1);
+  }
+
+  // Setting up a project or a provider reads no conversation. In secure conversations a command has
+  // no key holder, so no conversation store may be built for it, and the startup below builds them
+  // before it reaches the setup: these run on their own instead. A plain state root keeps the startup
+  // order it has always had for them.
+  if (isProjectSetupInvocation(args) && productSecureMode(productRuntime)) {
+    await runProjectSetupWithoutStores({ cwd, args, startOptions: startupOptions, terminal });
+    return;
   }
 
   if (args.serve && args.open && !process.stdout.isTTY) {

@@ -56,6 +56,7 @@ import { wrapWorkflowModule } from './workflow-write-approval.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
 
 import type { IProductSandbox } from '../product/execution-containment.js';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import {
   areSessionLoopsDisabled,
   createLoopDefaultPromptResolver,
@@ -217,6 +218,21 @@ export function providerSelectionSettingsPath(
   }
 }
 
+/**
+ * What provider setup needs from the host: the organization's policy and the credential host it
+ * shapes. Nothing of a session's workspace, so a command that only sets providers up composes this
+ * and builds no conversation store.
+ */
+export function createProviderSetupHost(
+  options: IStartCliOptions,
+  productRuntime: ICliRuntimeContext,
+): { readonly orgPolicy: IOrgPolicy | null; readonly providerConnectionHost: IOpenRouterConnectionHost } {
+  const orgPolicy = loadOrgPolicy(userPaths(productRuntime).orgPolicy);
+  const providerConnectionHost =
+    options.providerConnectionHost ?? createCliOpenRouterConnectionHost(productRuntime, orgPolicy);
+  return { orgPolicy, providerConnectionHost };
+}
+
 export function buildCommandSetup(
   cwd: string,
   args: IParsedCliArgs,
@@ -312,9 +328,7 @@ export function buildCommandSetup(
   // This call is where `loadOrgPolicy()` is read: dropping it leaves four implemented enforcement
   // sites unreachable. Nothing fails, because the parameter is optional and its
   // consumers read absence as "no policy configured".
-  const orgPolicy = loadOrgPolicy(userPaths(productRuntime).orgPolicy);
-  const providerConnectionHost =
-    options.providerConnectionHost ?? createCliOpenRouterConnectionHost(productRuntime, orgPolicy);
+  const { orgPolicy, providerConnectionHost } = createProviderSetupHost(options, productRuntime);
   // `/doctor` runs the same runner as `the product doctor`, over the inputs this host
   // composed; the shell supplies them, the command package owns the behaviour.
   const doctorInputs = buildDoctorInputs({
@@ -432,9 +446,14 @@ export function buildCommandSetupOrExit(
   try {
     return buildCommandSetup(...args);
   } catch (error) {
-    if (!(error instanceof OrgPolicyParseError)) throw error;
-    // allow-fallback: an unreadable org policy is terminal — surface the file, exit
-    process.stderr.write(`${error.message}\n`);
-    process.exit(1);
+    return exitOnUnreadableOrgPolicy(error);
   }
+}
+
+/** Presents an unreadable org policy, which is terminal, and rethrows anything else. */
+export function exitOnUnreadableOrgPolicy(error: unknown): never {
+  if (!(error instanceof OrgPolicyParseError)) throw error;
+  // allow-fallback: an unreadable org policy is terminal — surface the file, exit
+  process.stderr.write(`${error.message}\n`);
+  process.exit(1);
 }
