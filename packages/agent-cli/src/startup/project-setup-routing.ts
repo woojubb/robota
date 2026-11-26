@@ -3,15 +3,20 @@ import { createStartupProviderInteraction, promptInput } from '../cli-input.js';
 import { createWorkspaceProjectMutation, ProviderConfigError } from '@robota-sdk/agent-framework';
 
 import { runInitCommand, type IInitCommandOptions } from '../init/init-command.js';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 import {
   ensureConfig,
   handleProviderConfigurationArgs,
+  providerConfigurationFinishesStartup,
   runInteractiveProviderSetup,
   type IProviderStartupSettingsAccess,
 } from './provider-startup.js';
+import { createProviderSetupHost, exitOnUnreadableOrgPolicy } from './command-setup.js';
+import { readUserSettingsOrExit } from './user-settings.js';
+import { createCliWorkspaceSources } from './workspace-project-composition.js';
 
 import type { IStartCliOptions } from './command-setup.js';
-import type { ICliWorkspaceComposition } from './workspace-project-composition.js';
+import type { ICliWorkspaceSources } from './workspace-project-composition.js';
 import { subcommandWord, type IParsedCliArgs } from '../utils/cli-args.js';
 import type { IProviderDefinition, ITerminalOutput } from '@robota-sdk/agent-core';
 import type { IOrgPolicy, IProviderConnectionHost } from '@robota-sdk/agent-framework';
@@ -24,7 +29,8 @@ export interface IProjectSetupRoutingOptions {
   startOptions: IStartCliOptions;
   terminal: ITerminalOutput;
   providerDefinitions: readonly IProviderDefinition[];
-  workspace: ICliWorkspaceComposition;
+  /** Only what setup reads: it holds no conversation, so it needs none of a session's stores. */
+  workspace: ICliWorkspaceSources;
   providerConnectionHost?: IProviderConnectionHost;
   orgPolicy?: IOrgPolicy;
 }
@@ -40,24 +46,43 @@ export interface IProjectSetupRoutingResult {
   readonly setupRequired?: string;
 }
 
-/** Handle init/configuration routes and establish usable provider settings for normal startup. */
-export async function routeProjectSetup(
+/**
+ * Whether the whole invocation is project or provider setup: `init`, `--configure`, or saving a
+ * provider profile that no print run or prompt follows (those go on to run a session). Such an
+ * invocation reads no conversation, so it needs no conversation store.
+ */
+export function isProjectSetupInvocation(args: IParsedCliArgs): boolean {
+  if (subcommandWord(args) === 'init' || args.configure) return true;
+  return Boolean(args.configureProvider) && providerConfigurationFinishesStartup(args);
+}
+
+function providerSettingsAccess(
   options: IProjectSetupRoutingOptions,
-): Promise<IProjectSetupRoutingResult> {
-  const { cwd, args, terminal, providerDefinitions, workspace } = options;
+): IProviderStartupSettingsAccess {
   const runtime = resolveCliRuntimeContext(options.startOptions);
-  const settingsAccess = {
+  return {
     cliName: runtime.config.identity.cliName,
     env: runtime.environment,
-    settingsSources: workspace.settingsSources,
-    settingsStores: workspace.settingsStores,
+    settingsSources: options.workspace.settingsSources,
+    settingsStores: options.workspace.settingsStores,
     connectionHost: options.providerConnectionHost,
     interaction: createStartupProviderInteraction(),
     orgPolicy: options.orgPolicy,
   };
+}
+
+/**
+ * Run `init`, `--configure` or the provider flags. `true` when one of them was the invocation, and
+ * so nothing follows; `false` when startup goes on (a saved profile with a print run or a prompt).
+ */
+export async function routeProjectSetupCommand(
+  options: IProjectSetupRoutingOptions,
+): Promise<boolean> {
+  const { cwd, args, terminal, providerDefinitions } = options;
+  const settingsAccess = providerSettingsAccess(options);
   if (subcommandWord(args) === 'init') {
     await runProjectInit(options, settingsAccess);
-    return { handled: true };
+    return true;
   }
   if (args.configure) {
     await runInteractiveProviderSetup(
@@ -68,13 +93,17 @@ export async function routeProjectSetup(
       providerDefinitions,
       settingsAccess,
     );
-    return { handled: true };
+    return true;
   }
-  if (
-    await handleProviderConfigurationArgs(cwd, args, terminal, providerDefinitions, settingsAccess)
-  ) {
-    return { handled: true };
-  }
+  return handleProviderConfigurationArgs(cwd, args, terminal, providerDefinitions, settingsAccess);
+}
+
+/** Handle init/configuration routes and establish usable provider settings for normal startup. */
+export async function routeProjectSetup(
+  options: IProjectSetupRoutingOptions,
+): Promise<IProjectSetupRoutingResult> {
+  const { cwd, args, terminal, providerDefinitions } = options;
+  if (await routeProjectSetupCommand(options)) return { handled: true };
   try {
     await ensureConfig(
       cwd,
@@ -86,7 +115,7 @@ export async function routeProjectSetup(
         subcommandWord(args) === 'acp'
         ? false
         : undefined,
-      settingsAccess,
+      providerSettingsAccess(options),
     );
   } catch (error) {
     // A served runtime (including a daemon's child, which is also `--serve`) starts in
@@ -108,13 +137,63 @@ export async function routeProjectSetup(
 }
 
 /**
+ * Setting up a project or a provider on its own: the workspace's settings and contributions, the
+ * organization's policy and the credential host, and nothing that holds a conversation. For a
+ * process that may not build a conversation store — in secure conversations a command has no key
+ * holder — and which therefore cannot take the startup that composes the stores before it gets here.
+ * Everything the setup itself needs is composed from the same pieces that startup composes.
+ */
+export async function runProjectSetupWithoutStores(input: {
+  readonly cwd: string;
+  readonly args: IParsedCliArgs;
+  readonly startOptions: IStartCliOptions;
+  readonly terminal: ITerminalOutput;
+}): Promise<void> {
+  const { cwd, args, startOptions, terminal } = input;
+  const runtime = resolveCliRuntimeContext(startOptions);
+  // An unreadable user settings file is presented as every start presents it, not as a stack trace.
+  readUserSettingsOrExit(runtime);
+  const workspace = createCliWorkspaceSources({
+    cwd,
+    productRuntime: runtime,
+    ...(startOptions.projectAccess !== undefined
+      ? { projectAccess: startOptions.projectAccess }
+      : {}),
+    ...(startOptions.projectSettingsWriter !== undefined
+      ? { projectSettingsWriter: startOptions.projectSettingsWriter }
+      : {}),
+    ...(startOptions.safeMode === true ? { safeMode: true } : {}),
+  });
+  let host: ReturnType<typeof createProviderSetupHost>;
+  try {
+    host = createProviderSetupHost(startOptions, runtime);
+  } catch (error) {
+    exitOnUnreadableOrgPolicy(error);
+  }
+  try {
+    await routeProjectSetupCommand({
+      cwd,
+      args,
+      startOptions,
+      terminal,
+      providerDefinitions: startOptions.providerDefinitions ?? productProviderDefinitions(),
+      workspace,
+      providerConnectionHost: host.providerConnectionHost,
+      orgPolicy: host.orgPolicy ?? undefined,
+    });
+  } finally {
+    host.providerConnectionHost.shutdown();
+  }
+}
+
+/**
  * `init` is a command the person typed in a trusted folder, which is the approval its writes need.
  * A host that supplies its own bounded capability keeps it; the stock entry supplies none, so
  * without minting one here `init` would refuse in every trusted folder.
  */
 function projectInitMutation(
   startOptions: IStartCliOptions,
-  workspace: ICliWorkspaceComposition,
+  workspace: ICliWorkspaceSources,
 ): Pick<IInitCommandOptions, 'projectMutation'> {
   if (startOptions.projectMutation !== undefined) {
     return { projectMutation: startOptions.projectMutation };
