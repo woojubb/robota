@@ -78,6 +78,14 @@ export class SupervisedControlPathTooLongError extends Error {
   }
 }
 
+/** A well-formed id with no registration: it never ran here, or its runtime has left. Names no path. */
+export class SupervisedSessionNotFoundError extends Error {
+  constructor(readonly id: string) {
+    super(`No supervised session ${id} exists.`);
+    this.name = 'SupervisedSessionNotFoundError';
+  }
+}
+
 export function controlSocketPath(root: string, id: string): string {
   if (process.platform === 'win32') return windowsControlPipePath(root, id);
   const name = createHash('sha256').update(id).digest('hex').slice(0, 16);
@@ -165,7 +173,15 @@ export function verifyLiveOwner(
   expectedGeneration?: string,
 ): { readonly directory: string; readonly record: IRegistration; readonly generation: string } {
   const directory = sessionDirectory(root, id);
-  const record = readRegistration(directory, id);
+  let record: IRegistration;
+  try {
+    record = readRegistration(directory, id);
+  } catch (error) {
+    // No registration directory, or none holding a record (a runtime on its way out is in that state
+    // for an instant): the id is not registered. Every other failure to read it stays as it was.
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new SupervisedSessionNotFoundError(id);
+    throw error;
+  }
   if (record.generation === undefined) throw new Error('Supervised session registration cannot be controlled.');
   if (expectedGeneration !== undefined && record.generation !== expectedGeneration) {
     throw new Error('Supervised session changed since it was listed.');
