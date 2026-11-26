@@ -635,11 +635,23 @@ describe('the writer surfaces in secure conversations', () => {
 
   it.each([
     ['usage', ['usage']],
-    ['a session listing, even with a print flag', ['session', 'list', '-p']],
+    ['a usage report, even with a print flag', ['usage', '-p']],
+    ['a session analysis', ['session', 'analyze']],
   ])('gives %s no holder, so its stores still refuse', async (_what, argv) => {
     const result = await run(argv);
 
     expect(result.error?.message ?? stderr.join('')).toContain(REFUSAL);
+    expect(productKeyHolder(runtime)).toBeUndefined();
+    expect(gate.terminals).toBe(0);
+  });
+
+  it('gives a session listing, even with a print flag, no holder and builds no store for it', async () => {
+    const result = await run(['session', 'list', '-p']);
+
+    // The print flag makes it no print run, so it is answered as the listing's own usage error, not
+    // as a refusal to open a store it never builds.
+    expect(result.error?.message ?? stderr.join('')).not.toContain(REFUSAL);
+    expect(stderr.join('')).toContain('Usage:');
     expect(productKeyHolder(runtime)).toBeUndefined();
     expect(gate.terminals).toBe(0);
   });
