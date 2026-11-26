@@ -15,6 +15,7 @@ import {
   keyOf,
   request,
   runOf,
+  siteBrowser,
   startWorld,
 } from './launch-world.js';
 
@@ -402,7 +403,7 @@ describe('a goal that cannot be made', () => {
 
 describe('what a launch lets its goal run on', () => {
   it('runs a launched goal with only the browser’s reading tools and the access the person was shown', async () => {
-    const world = startWorld();
+    const world = startWorld({ browserPort: siteBrowser().port });
     const started = await world.launches.start(request());
     const goal = (await world.goals.get(started.goalId))!;
     expect(await world.launches.mayStart(goal)).toBe(true);
@@ -441,7 +442,7 @@ describe('what a launch lets its goal run on', () => {
   });
 
   it('keeps a goal from running while its launch is still being recorded', async () => {
-    const world = startWorld({ dying: { recording: true } });
+    const world = startWorld({ browserPort: siteBrowser().port, dying: { recording: true } });
     await world.launches.start(request()).catch(() => undefined);
     const [goal] = await world.goals.list();
     expect(goal).toBeDefined();

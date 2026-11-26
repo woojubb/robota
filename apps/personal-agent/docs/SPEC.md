@@ -24,8 +24,8 @@ on — in the person's own state directory.
   any goal exists, then makes the goal with the request's id as typed data on it, never as text in its
   instructions. A retry, a second tab or a restart in between gets that same request and goal back; a
   request that no longer rests on the task, access and values it was made from is ended, never started
-  later. The goal can use only the tools its bound capabilities allow, and nothing the person typed or a
-  page says adds one.
+  later. The goal can use only the tools its bound capabilities allow and reach only the addresses the
+  request named, and nothing the person typed or a page says adds a tool or an address.
 - **Completed means the host proved it.** When a started task's goal has ended, the host decides once how
   it ended: failed, cancelled, verified or unverified. Verified needs the revision's rule satisfied by
   receipts the host's own browser recorded during that run; a model's report, a page's text and anything
@@ -61,13 +61,17 @@ on — in the person's own state directory.
   request only once the first has ended.
 - The goal's wording is the host's own, written for one reviewed revision of a task, and what the person
   typed is one JSON object of data inside it, so a value cannot close its own quotation or add a tool.
-- A started run reads pages through a browser made for that run alone, which records each page it returns
-  before the model sees it. A record kept around the shared browser could not tell one run's reads from
-  another's, and the model's own account of its work could not be told from proof at all. The browser
-  keeps one page between runs, so a look at the page it was left on proves nothing: the run must itself
-  have opened the page it was asked about, and the browser must have landed on exactly that address,
-  since even a redirect inside the site can end at a login or an error page. The report that was judged
-  is kept with the outcome, so a rerun or a removed goal cannot change what the person was told.
+- A started run reads pages through a browser made for that run alone. It opens only the address the
+  person named: it refuses every other address before the browser is asked, withholds what a redirect or
+  the page itself led to, and records the refusal, so a run that tried is never called verified. The
+  prompt asks the model to stay on the page and only the host decides, and an outcome decided afterwards
+  cannot unmake a read. The browser also records each page it returns before the model sees it. A record
+  kept around the shared browser could not tell one run's reads from another's, and the model's own
+  account of its work could not be told from proof at all. The browser keeps one page between runs, so a
+  look at the page it was left on proves nothing: the run must itself have opened the page it was asked
+  about, and the browser must have landed on exactly that address, since even a redirect inside the site
+  can end at a login or an error page. The report that was judged is kept with the outcome, so a rerun
+  or a removed goal cannot change what the person was told.
 - A repeat observation updates the evidence of the offer that has its key instead of adding a card, and
   an observation never chooses an offer's decision: a new offer starts open and only the person's own
   choice changes it, so a source that keeps noticing the same thing neither fills the page, reopens
