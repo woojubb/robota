@@ -375,7 +375,10 @@ There is no `secure unlock`: unlocked keys live only in the key holder of the pr
 (its guarantees are `agent-local-host`'s), so a short-lived command could only unlock to throw the
 keys away. `secure lock` asks live runtimes to discard their keys without a credential and reports any
 unconfirmed request, including a plain runtime's refusal. Open control replies are not owner proof, so
-requests without authenticated confirmation return an unverified result even when acknowledged. A
+requests without authenticated confirmation return an unverified result even when acknowledged. Print
+mode, `acp` and MCP over stdio hold a key holder that stays locked for good: they seal what they write
+to the public key, and nothing they run, or the program that started them, can ask for the passphrase,
+so a saved session sealed to the keyring is never opened there. A
 terminal session holding keys is unlocked where it runs instead, by the local unlock gate: store reads
 never say why they read (many are not the person's), so the reason lives on the prompt, which opens
 only for a read the terminal UI says the person started — a request its action modules mint from a key

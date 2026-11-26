@@ -224,6 +224,17 @@ export const SECURE_SURFACES: TSecureSurfaces = {
   },
 };
 
+/**
+ * Whether the surface's process may only ever write what it seals: it admits as its own process and
+ * its row says it is never unlocked, so the only key it can hold is the sealing public key, with no
+ * read key and no way to ask for one. The table decides; a product registers a locked holder from
+ * this and not from a list of its own.
+ */
+export function holdsNoReadKey(surface: TProcessSurface): boolean {
+  const { secure } = SECURE_SURFACES[surface];
+  return secure.admit === 'own-process' && secure.unlock === 'never';
+}
+
 /** A listener whose row refuses it in secure mode. Nothing was bound. */
 export class SecureSurfaceRefusedError extends Error {
   constructor(
