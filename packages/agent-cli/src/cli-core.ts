@@ -96,7 +96,7 @@ import {
   SUPERVISED_TRANSPORT_TOKEN_FLAG,
   type ISecureServeRuntime,
 } from '@robota-sdk/agent-local-host';
-import { startSecureRuntimeOrExit } from './startup/secure-runtime-composition.js';
+import { registerLockedKeyHolder, startSecureRuntimeOrExit } from './startup/secure-runtime-composition.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
 import { takeProductTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
 import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
@@ -271,6 +271,9 @@ export async function startCliCore(
   if (readHostedRuntimeConfig(productRuntime.environment) !== undefined) {
     return runHostedRuntime(initialOptions, productRuntime);
   }
+  // Print mode, `acp` and MCP over stdio only write what they seal: their locked key holder is
+  // registered before the first workspace composition builds a session store.
+  registerLockedKeyHolder(productRuntime, process.argv, secureRuntime);
   const options = { ...initialOptions, productRuntime };
   const telemetryInput = { ...productRuntime.environment };
   // The configured service name is product identity, not an exporter setting.

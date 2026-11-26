@@ -10,8 +10,10 @@
  * secret terminal, the answer is `unavailable` at once. One question is open at a time, and a read
  * started while it is open waits for that answer instead of asking again.
  *
- * Only a process given a key holder in secure mode has a custody (`productKeyCustody`). Everywhere
- * else there is none, so no read, listing or command behaves differently.
+ * Only a process given a key holder in secure mode has a custody (`productKeyCustody`), and the
+ * composition builds one for the terminal UI alone: the locked holder of a surface that never unlocks
+ * (print mode, ACP, MCP over stdio) gets none. Everywhere else there is none, so no read, listing or
+ * command behaves differently.
  */
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { fingerprint } from '@robota-sdk/agent-keyring';
@@ -250,7 +252,8 @@ export function keyCustodyChannelOf(live: ILiveKeyCustodyChannel): IKeyCustodyCh
 
 /**
  * `runtime`'s custody, or `undefined` unless secure mode is on for it and it was given a key holder
- * (`useProductKeyHolder`), which is what makes the gate live: never before the stores seal.
+ * (`useProductKeyHolder`), so the gate is never live before the stores seal. Asking for it is the
+ * terminal UI's alone; a process whose surface never unlocks does not ask.
  */
 export function productKeyCustody(
   runtime: ICliRuntimeContext,
