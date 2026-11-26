@@ -107,7 +107,7 @@ __PRODUCT_CLI_NAME__ --configure-provider anthropic --type anthropic --model cla
 __PRODUCT_CLI_NAME__ trust --yes
 ```
 
-`__PRODUCT_CLI_NAME__ init`은 현재 프로젝트에 기본 `AGENTS.md`와 `<configured-project-state-dir>/settings.json`을 만듭니다.
+`__PRODUCT_CLI_NAME__ init`은 현재 프로젝트에 기본 `AGENTS.md`와 `<configured-project-state-dir>/settings.json`을 만듭니다. Linux가 필요하며, 다른 플랫폼에서는 그렇다고 알리고 아무것도 쓰지 않습니다.
 `__PRODUCT_CLI_NAME__ --configure`는 대화형 제공자 설정을 다시 실행하고, `__PRODUCT_CLI_NAME__ --reset`은
 `<configured-user-state-dir>/settings.json`을 삭제합니다.
 

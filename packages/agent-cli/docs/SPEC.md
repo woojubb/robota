@@ -626,7 +626,8 @@ nothing is written under the project: the workspace's sessions, which are the us
 the user session store and found there by their working directory, so they are still saved and
 resumable, while project memory, which belongs to the repository, and edit checkpoints, whose restore
 writes the project's files back, are not composed; `/rewind` then says which of trust or the host
-stands in the way. Print mode,
+stands in the way, and `init`, whose files are the project's own, says before it starts that the host
+cannot write them (a host that supplies its own bounded capability keeps it). Print mode,
 `--goal`, and `--serve` fail closed for `untrusted`/`revoked`/`stale`/`store-unavailable` decisions
 before provider construction, because no one is there to ask, unless the run was asked to start
 Restricted (safe mode, or a run a person chose to start Restricted) or is `--serve --open` at a TTY,
