@@ -680,8 +680,8 @@ Anything that a program running as your account could join does not start while 
 external-event grants, local peers, the device mesh, `/remote-control` and the terminal's own WebSocket
 listener. The terminal UI, print mode, `mcp serve` over stdio and `acp` still work; print mode, `acp` and
 `mcp serve` never ask for a passphrase and never open a sealed session, they only write, sealed. A
-background session or daemon asks the person at the terminal to unlock when it starts, and is reached through an owner link instead of a WebSocket token:
-`daemon start --json` prints no URL. See the
+background session or daemon asks the person at the terminal to unlock when it starts, and is reached
+through an owner link instead of a WebSocket token: `daemon start --json` prints no URL. See the
 [agent-cli README](../../packages/agent-cli/README.md#create-a-keyring-for-secure-conversations).
 
 ## Devices and remote control

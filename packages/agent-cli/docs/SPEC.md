@@ -344,8 +344,8 @@ their constructors; a scan names every place that can open a listener and refuse
 decides in place. The control socket's row marks it for owner-link admission, which the control
 endpoint enforces; the terminal, which plain mode also gives a loopback WebSocket, binds none in secure
 mode instead of failing to start on the table's refusal; the OAuth sign-in callback is the only other
-listener a secure process opens, under its own rule (loopback, bound by a fresh path or a required state, consumed by its first
-match, timed out).
+listener a secure process opens, under its own rule (loopback, bound by a fresh path or a required
+state, consumed by its first match, timed out).
 Plain mode opens what it always did: while it is off, the children a process starts share
 its terminal session as before. Once it is on, each entry gives every child its own session before
 it starts any, so none can reach the terminal a secret is typed at; only the terminal handover
@@ -387,9 +387,10 @@ only for a read the terminal UI says the person started — a request its action
 press, which the import rule keeps every other module from minting and the gate checks against the
 mint's record, refusing one it did not make — or for `/unlock`, a user-only command. `/lock` drops the
 keys, and so does the holder's idle bound, counted from the last key typed at the terminal and from
-nothing else, because the idle lock exists for a person who walked away. The passphrase is then asked on the secret terminal while the session has handed the
-terminal over, one question at a time, and never where nobody can answer, so no command or tool the
-model runs opens the prompt and nothing typed there reaches the conversation. When an unlock catches a
+nothing else, because the idle lock exists for a person who walked away. The passphrase is then
+asked on the secret terminal while the session has handed the terminal over, one question at a time,
+and never where nobody can answer or where a debugger inspector is open (a client of it reads what is
+typed and the keys it opens), so no command or tool the model runs opens the prompt and nothing typed there reaches the conversation. When an unlock catches a
 swapped stored sealing key, a terminal may repair it with the credential, while a runtime receiving an
 owner grant reports it and leaves the file untouched; the exit status tells a repair that completed
 from one that did not.
