@@ -45,7 +45,7 @@ export { SUPERVISED_SPAWNER_PAIR_FLAG, answerHandedOverSpawnerPair } from './sup
 export { SUPERVISED_TRANSPORT_TOKEN_FD, SUPERVISED_TRANSPORT_TOKEN_FLAG, isSupervisedTransportToken, readSupervisedTransportToken } from './supervised-transport-token.js';
 export { RuntimeCustody } from './runtime-custody.js';
 export { armUncertifiedStop } from './uncertified-stop.js';
-export { LISTENER_SURFACES, PROCESS_SURFACES, SECURE_SURFACES, SecureSurfaceRefusedError, holdsNoReadKey, startListener } from './secure-surfaces.js';
+export { LISTENER_SURFACES, PROCESS_SURFACES, SECURE_SURFACES, SecureSurfaceRefusedError, holdsNoReadKey, startListener, unlocksAtTerminal } from './secure-surfaces.js';
 export type { TListenerRule, TListenerSurface, TProcessSurface } from './secure-surfaces.js';
 export { answerSpawnerPairOrExit, startSecureRuntimeOrExit } from './secure-runtime-startup.js';
 export type { ISecureRuntimeStart, ISecureServeRuntime } from './secure-runtime-startup.js';

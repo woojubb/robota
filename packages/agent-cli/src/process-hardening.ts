@@ -25,6 +25,8 @@
  * after them, and an asynchronous step here would move that past the first I/O.
  */
 
+import inspector from 'node:inspector';
+
 import * as koffi from 'koffi';
 
 const PR_SET_DUMPABLE = 4;
@@ -97,6 +99,22 @@ export function keepInspectorClosedOnSignal(options: IInspectorSignalOptions = {
   } catch {
     // allow-fallback: hardening is defence in depth and must never block startup; the caller sees
     // `false`.
+    return false;
+  }
+}
+
+/**
+ * Whether this process has a Node inspector open, which a debugger client can use to read what the
+ * process reads and what is typed into it. A same-user SIGUSR1 sent before the entry held the signal
+ * opens one, and so does `--inspect` at launch; either stays open for the life of the process. A
+ * process about to hold keys asks first and holds none while one is open. Answers `false` where
+ * there is no Node inspector to ask, as under Bun.
+ */
+export function isInspectorOpen(url: () => string | undefined = () => inspector.url()): boolean {
+  try {
+    return url() !== undefined;
+  } catch {
+    // allow-fallback: a runtime without a Node inspector has nothing open to find, and no signal opens one there.
     return false;
   }
 }

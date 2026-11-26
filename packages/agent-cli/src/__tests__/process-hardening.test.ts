@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   hardenProcessAgainstSameUserInspection,
+  isInspectorOpen,
   keepInspectorClosedOnSignal,
   type IInspectorSignalOptions,
   type IProcessHardeningKoffi,
@@ -153,5 +154,24 @@ describe('keepInspectorClosedOnSignal', () => {
     } as unknown as NonNullable<IInspectorSignalOptions['target']>;
 
     expect(keepInspectorClosedOnSignal({ platform: 'linux', target })).toBe(false);
+  });
+});
+
+describe('isInspectorOpen', () => {
+  it('is true while the runtime reports an inspector URL, and false while it reports none', () => {
+    expect(isInspectorOpen(() => 'ws://127.0.0.1:9229/abc')).toBe(true);
+    expect(isInspectorOpen(() => undefined)).toBe(false);
+  });
+
+  it('reads the runtime\'s own inspector by default, which a test worker has not opened', () => {
+    expect(isInspectorOpen()).toBe(false);
+  });
+
+  it('is false where there is no Node inspector to ask, so a missing one never reads as open', () => {
+    expect(
+      isInspectorOpen(() => {
+        throw new Error('inspector is not available');
+      }),
+    ).toBe(false);
   });
 });

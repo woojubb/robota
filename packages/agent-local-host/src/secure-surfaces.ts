@@ -235,6 +235,17 @@ export function holdsNoReadKey(surface: TProcessSurface): boolean {
   return secure.admit === 'own-process' && secure.unlock === 'never';
 }
 
+/**
+ * Whether a person can unlock the surface's process at the terminal that started it. The row decides,
+ * and only a product-owned terminal may ask for the passphrase: such a process starts locked, like
+ * every other that builds its own stores, and reads sealed history only after the person unlocks it
+ * there. Every other row answers false, so a process that never unlocks never builds the gate.
+ */
+export function unlocksAtTerminal(surface: TProcessSurface): boolean {
+  const { secure } = SECURE_SURFACES[surface];
+  return secure.admit === 'own-process' && secure.unlock === 'terminal';
+}
+
 /** A listener whose row refuses it in secure mode. Nothing was bound. */
 export class SecureSurfaceRefusedError extends Error {
   constructor(

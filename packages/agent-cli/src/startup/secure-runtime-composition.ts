@@ -3,6 +3,7 @@ import {
   createKeyringFileStore,
   holdsNoReadKey,
   startSecureRuntimeOrExit as startLocalSecureRuntimeOrExit,
+  unlocksAtTerminal,
 } from '@robota-sdk/agent-local-host';
 
 import { productSecureMode, useProductKeyHolder } from '../product/session-sealing.js';
@@ -45,15 +46,17 @@ export function startSecureRuntimeOrExit(
 }
 
 /**
- * Gives a process that is only ever a writer — print mode, `acp`, MCP over stdio, the surfaces the
- * secure table never unlocks — the locked key holder its stores seal with: it holds the sealing
- * public key from the keyring file and no read key, so what it writes opens only for the owner and
- * nothing it runs, or the program that started it, can ask for a secret. Registered before the first
- * workspace composition, which builds a session store.
+ * Gives a process that runs as its own — print mode, `acp`, MCP over stdio, and the terminal — the
+ * locked key holder its stores seal with: it holds the sealing public key from the keyring file and
+ * no read key, so what it writes opens only for the owner. The first three never unlock, which the
+ * secure table says, so nothing they run, or the program that started them, can ask for a secret; the
+ * terminal is the one surface a person can unlock, and only at the terminal itself, through the
+ * unlock gate the composition builds for it alone. Registered before the first workspace
+ * composition, which builds a session store.
  *
- * A supervised runtime has its holder already; the terminal, a command and every other invocation get
- * none here. When the keyring file cannot be read there is no key to seal to, so none is registered
- * and the stores refuse as they do for any process without a holder; there is no plaintext fallback.
+ * A supervised runtime has its holder already; a command and every other invocation get none here.
+ * When the keyring file cannot be read there is no key to seal to, so none is registered and the
+ * stores refuse as they do for any process without a holder; there is no plaintext fallback.
  */
 export function registerLockedKeyHolder(
   runtime: ICliRuntimeContext,
@@ -62,7 +65,9 @@ export function registerLockedKeyHolder(
 ): KeyHolder | undefined {
   if (secureRuntime !== undefined || !productSecureMode(runtime)) return undefined;
   const surface = processSurfaceOf(argv, runtime.config.identity.cliName);
-  if (surface === undefined || !holdsNoReadKey(surface)) return undefined;
+  if (surface === undefined || !(holdsNoReadKey(surface) || unlocksAtTerminal(surface))) {
+    return undefined;
+  }
   const holder = new KeyHolder({
     store: createKeyringFileStore({
       path: userPaths(runtime).keyring,

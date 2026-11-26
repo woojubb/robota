@@ -333,6 +333,12 @@ function parseEventPort(raw: string): number {
   return port;
 }
 
+/**
+ * The command word the router leaves to its own direct dispatch after every other command, so it is
+ * in no help listing: the dispatch and the process-surface classifier read it from here.
+ */
+export const USER_LOCAL_COMMAND_WORD = 'user-local';
+
 /** The subcommand the positionals name, or `undefined` when they are text after `--`. */
 export function subcommandWord(
   args: Pick<IParsedCliArgs, 'positional' | 'literalPositionals'>,
@@ -511,7 +517,7 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
       args.version ||
       args.checkUpdate ||
       args.help ||
-      ['mcp', 'acp', 'eval', 'session', 'user-local'].includes(subcommandWord(args) ?? '')
+      ['mcp', 'acp', 'eval', 'session', USER_LOCAL_COMMAND_WORD].includes(subcommandWord(args) ?? '')
     ) {
       throw new Error(
         '--external-event-grant is available only in the interactive TUI; ' +
