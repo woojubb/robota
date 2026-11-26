@@ -160,10 +160,10 @@ describe('the writer surfaces in secure conversations', () => {
     }
   }
 
-  /** Every session record the user's store or the trusted project's keeps, by file name. */
-  function sessionRecords(): Map<string, Buffer> {
+  /** Every session record the user's store (under `userHome`) or the trusted project's keeps, by file name. */
+  function sessionRecords(userHome = home): Map<string, Buffer> {
     const records = new Map<string, Buffer>();
-    for (const root of [join(home, '.test-product'), join(project, '.test-product')]) {
+    for (const root of [join(userHome, '.test-product'), join(project, '.test-product')]) {
       for (const sub of ['sessions', join('secure-v1', 'sessions')]) {
         const directory = join(root, sub);
         if (!existsSync(directory)) continue;
@@ -328,13 +328,10 @@ describe('the writer surfaces in secure conversations', () => {
 
     expect(result.exitCode).toBe(0);
     expect(productKeyHolder(plain)).toBeUndefined();
-    const records = readdirSync(join(plainHome, '.test-product', 'sessions')).filter((file) =>
-      file.endsWith('.json'),
-    );
+    // The user's store, or the trusted project's where a host can write project state (Linux).
+    const records = [...sessionRecords(plainHome).values()];
     expect(records).toHaveLength(1);
-    expect(
-      readFileSync(join(plainHome, '.test-product', 'sessions', records[0]!), 'utf8'),
-    ).toContain(PROMPT);
+    expect(records[0]!.toString('utf8')).toContain(PROMPT);
     rmSync(plainHome, { recursive: true, force: true });
   });
 
