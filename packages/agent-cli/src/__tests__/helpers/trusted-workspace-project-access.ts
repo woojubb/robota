@@ -3,6 +3,7 @@ import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 import { productProjectStateDirectories } from '../../product/project-state-directories.js';
 
 import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
+import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 import type {
   ITrustedWorkspaceProjectAccess,
   IWorkspaceIdentity,
@@ -11,8 +12,10 @@ import type {
 const PRODUCT_PROJECT_STATE_DIRECTORIES = productProjectStateDirectories(createTestProductRuntime());
 
 
+/** Trusted access whose state directories are the plain ones, or those of `runtime` (a secure one's differ). */
 export async function createTrustedWorkspaceProjectAccess(
   worktreeRoot: string,
+  runtime?: ICliRuntimeContext,
 ): Promise<ITrustedWorkspaceProjectAccess> {
   const identity: IWorkspaceIdentity = {
     repositoryKey: `test:${worktreeRoot}`,
@@ -27,7 +30,10 @@ export async function createTrustedWorkspaceProjectAccess(
   const access = await new WorkspaceTrustService({
     projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
-    projectStateDirectories: PRODUCT_PROJECT_STATE_DIRECTORIES,
+    projectStateDirectories:
+      runtime === undefined
+        ? PRODUCT_PROJECT_STATE_DIRECTORIES
+        : productProjectStateDirectories(runtime),
     store: {
       inspect: async () => trusted,
       grant: async () => trusted,

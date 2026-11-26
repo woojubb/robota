@@ -11,6 +11,7 @@ import {
   PROCESS_SURFACES,
   SECURE_SURFACES,
   SecureSurfaceRefusedError,
+  holdsNoReadKey,
   startListener,
 } from '../secure-surfaces.js';
 
@@ -59,6 +60,23 @@ describe('SECURE_SURFACES', () => {
       admit: 'owner-link',
       unlock: 'grant',
     });
+  });
+});
+
+describe('holdsNoReadKey', () => {
+  it('is true for exactly the process surfaces whose row admits their own process and never unlocks', () => {
+    for (const surface of PROCESS_SURFACES) {
+      const { secure } = SECURE_SURFACES[surface];
+      expect(holdsNoReadKey(surface), surface).toBe(
+        secure.admit === 'own-process' && secure.unlock === 'never',
+      );
+    }
+    expect(PROCESS_SURFACES.filter(holdsNoReadKey)).toEqual(['print', 'acp', 'mcp-stdio']);
+  });
+
+  it('is false for the terminal, which a person unlocks, and for a supervised runtime, which a grant unlocks', () => {
+    expect(holdsNoReadKey('tui')).toBe(false);
+    expect(holdsNoReadKey('supervised-runtime')).toBe(false);
   });
 });
 
