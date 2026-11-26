@@ -10,6 +10,19 @@ function invalid(message: string): never {
   throw new RoundtableError('invalid-context', message);
 }
 
+/** Whether a result is a promise-like value; a hostile `then` accessor counts as not being one. */
+function isThenable(value: unknown): boolean {
+  try {
+    return (
+      (typeof value === 'object' || typeof value === 'function') &&
+      value !== null &&
+      typeof (value as { then?: unknown }).then === 'function'
+    );
+  } catch {
+    return false;
+  }
+}
+
 function sameContent(a: unknown, b: unknown): boolean {
   try {
     return canonicalJson(a) === canonicalJson(b);
@@ -75,6 +88,11 @@ export function assembleContext(
     });
   } catch (error) {
     return invalid(`Context policy failed for ${input.participantId}: ${errorMessage(error)}`);
+  }
+  if (isThenable(assembly)) {
+    // The result is abandoned, so its rejection must not escape later as an unhandled one.
+    void Promise.resolve(assembly).catch(() => {});
+    invalid(`Context policy must return its result synchronously: ${input.participantId}`);
   }
   if (assembly === null || typeof assembly !== 'object')
     invalid(`Context policy returned no result for ${input.participantId}`);

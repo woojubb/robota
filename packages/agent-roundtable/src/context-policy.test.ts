@@ -384,7 +384,7 @@ describe('a host context policy that returns something invalid', () => {
     ],
     ['no consumed list', /needs messages and consumed/, () => ({ messages: [] })],
     ['no result at all', /no result/, () => undefined],
-    ['a promise instead of a result', /needs messages and consumed/, () => Promise.resolve({})],
+    ['a promise instead of a result', /synchronously/, () => Promise.resolve({})],
     [
       'a thrown error',
       /Context policy failed for q: policy exploded/,
@@ -762,4 +762,80 @@ describe('a stored turn context is validated on load', () => {
     expect(registry.resolveContextPolicy).not.toHaveBeenCalled();
     expect(registry.resolveParticipant).not.toHaveBeenCalled();
   });
+});
+
+describe('a host context policy that is asynchronous', () => {
+  const input = {
+    participantId: 'q',
+    transcript: [] as SharedMessage[],
+    delivered: [] as string[],
+    baseRevision: 0,
+  };
+
+  /** Assemble once, then report every rejection that nobody handled once the event loop has turned. */
+  async function assembleWatchingRejections(assemble: () => unknown) {
+    const unhandled: unknown[] = [];
+    const listener = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on('unhandledRejection', listener);
+    let thrown: unknown;
+    try {
+      try {
+        assembleContext(policy(assemble as never), input);
+      } catch (error) {
+        thrown = error;
+      }
+      // A rejection is reported only after the microtask queue drains, so wait one event-loop turn.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    } finally {
+      process.off('unhandledRejection', listener);
+    }
+    return { thrown, unhandled };
+  }
+
+  const cases: [string, () => unknown][] = [
+    [
+      'an async policy that rejects after yielding',
+      async () => {
+        await Promise.resolve();
+        throw new Error('policy exploded late');
+      },
+    ],
+    ['an async policy that resolves', async () => ({ messages: [], consumed: [] })],
+    [
+      'a thenable whose then throws',
+      () => ({
+        then() {
+          throw new Error('hostile then');
+        },
+      }),
+    ],
+    [
+      'a thenable that rejects through its callback',
+      () => ({
+        then(_resolve: unknown, reject: (reason: unknown) => void) {
+          reject(new Error('rejected late'));
+        },
+      }),
+    ],
+    [
+      'a result whose then accessor throws',
+      () =>
+        Object.defineProperty({}, 'then', {
+          get() {
+            throw new Error('hostile accessor');
+          },
+        }),
+    ],
+  ];
+
+  it.each(cases)(
+    'is refused with a typed error and leaves no unhandled rejection: %s',
+    async (_label, assemble) => {
+      const { thrown, unhandled } = await assembleWatchingRejections(assemble);
+      expect(thrown).toMatchObject({ code: 'invalid-context' });
+      expect(unhandled).toEqual([]);
+    },
+  );
 });
