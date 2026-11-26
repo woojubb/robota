@@ -56,8 +56,8 @@ export function startupResumeInput(options: {
     cwd: options.cwd,
     continueMode: options.request.continueMode,
     resumeId: options.request.resumeId,
-    // A served/daemon runtime's own launch reuses an existing empty session of this
-    // workspace instead of adding another one — nothing else can be bound to anything yet.
+    // A served/daemon runtime's own launch reuses an existing empty session of this workspace
+    // instead of adding another one, unless another runtime of the workspace already holds it.
     reuseEmptySession: options.surface.serve && !options.request.noSessionPersistence,
     interactive: canAskAtStartup(options.surface),
     confirm: options.confirm,
