@@ -167,7 +167,10 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
     cwd: opts.cwd,
     userHome,
     userSettingsPath: join(userRoot, 'settings.json'),
-    userStorage: { root: userRoot, sessions: join(userRoot, 'sessions') },
+    // The directory the user session store uses in this mode: in secure mode that is the sealed
+    // layout, so the check never inspects, and a repair never creates, a plain `sessions` directory
+    // in a secure state root. Only the directory's own facts are read, never its entries.
+    userStorage: { root: userRoot, sessions: runtime.layout.userPaths.sessions },
     ...(projectStorageRoot === undefined ? {} : { projectStorageRoot }),
     settingsSources,
     projectAccess,

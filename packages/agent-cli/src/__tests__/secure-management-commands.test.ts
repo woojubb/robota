@@ -11,12 +11,14 @@
  * anything is built.
  */
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -261,6 +263,90 @@ describe('invocations that read no conversation, in secure conversations', () =>
     expect(`${result.out}${result.err}`).not.toContain('key holder');
     expect(result.built).toEqual([]);
     expect(productKeyHolder(result.runtime)).toBeUndefined();
+  });
+
+  it('names the sealed sessions directory in the storage check, never a plain one', async () => {
+    const result = await run(['doctor']);
+    const userRoot = result.runtime.layout.userRoot;
+
+    expect(result.out).toContain('[storage.user] warn: not initialized (created on first write)');
+    expect(result.out).toContain(`\n      ${join(userRoot, 'secure-v1', 'sessions')}\n`);
+    expect(result.out).not.toContain(`\n      ${join(userRoot, 'sessions')}\n`);
+    expect(existsSync(join(userRoot, 'sessions'))).toBe(false);
+    expect(existsSync(join(userRoot, 'secure-v1', 'sessions'))).toBe(false);
+    expect(result.built).toEqual([]);
+    expect(productKeyHolder(result.runtime)).toBeUndefined();
+    expect(prompts.asked).toEqual([]);
+  });
+
+  it('inspects only the directory itself, so an existing sealed sessions directory is clean', async () => {
+    const result = await run(['doctor'], {
+      prepare: (userRoot) => {
+        mkdirSync(join(userRoot, 'secure-v1', 'sessions'), { recursive: true });
+        chmodSync(join(userRoot, 'secure-v1', 'sessions'), 0o700);
+      },
+    });
+
+    expect(result.out).toContain('[storage.user] ok: writable, owner-only');
+    expect(result.out).not.toContain('--repair storage.user');
+    expect(existsSync(join(result.runtime.layout.userRoot, 'sessions'))).toBe(false);
+    expect(result.built).toEqual([]);
+    expect(productKeyHolder(result.runtime)).toBeUndefined();
+  });
+
+  it('repairs a missing sealed sessions directory without creating a plain one', async () => {
+    const result = await run(['doctor', '--repair', 'storage.user', '--yes']);
+    const userRoot = result.runtime.layout.userRoot;
+
+    expect(result.out).toContain('Repaired storage.user:');
+    expect(result.out).toContain('[storage.user] ok: writable, owner-only');
+    expect(existsSync(join(userRoot, 'secure-v1', 'sessions'))).toBe(true);
+    expect(existsSync(join(userRoot, 'sessions'))).toBe(false);
+    expect(result.built).toEqual([]);
+    expect(productKeyHolder(result.runtime)).toBeUndefined();
+    expect(prompts.asked).toEqual([]);
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'tightens a sealed sessions directory that is open to others, and still creates no plain one',
+    async () => {
+      let sealedDirectory = '';
+      const first = await run(['doctor'], {
+        prepare: (userRoot) => {
+          sealedDirectory = join(userRoot, 'secure-v1', 'sessions');
+          mkdirSync(sealedDirectory, { recursive: true });
+          chmodSync(sealedDirectory, 0o755);
+        },
+      });
+      expect(first.out).toContain('[storage.user] warn: not owner-only');
+      expect(first.out).toContain('repair: test-product doctor --repair storage.user');
+      expect(statSync(sealedDirectory).mode & 0o777).toBe(0o755);
+
+      const repaired = await run(['doctor', '--repair', 'storage.user', '--yes'], {
+        prepare: (userRoot) => {
+          sealedDirectory = join(userRoot, 'secure-v1', 'sessions');
+          mkdirSync(sealedDirectory, { recursive: true });
+          chmodSync(sealedDirectory, 0o755);
+        },
+      });
+      expect(repaired.out).toContain('[storage.user] ok: writable, owner-only');
+      expect(statSync(sealedDirectory).mode & 0o777).toBe(0o700);
+      expect(existsSync(join(repaired.runtime.layout.userRoot, 'sessions'))).toBe(false);
+      expect(repaired.built).toEqual([]);
+    },
+  );
+
+  it('leaves the plain layout as it was: the storage check names the plain sessions directory', async () => {
+    const check = await run(['doctor'], { plain: true });
+    const userRoot = check.runtime.layout.userRoot;
+
+    expect(check.out).toContain('[storage.user] warn: not initialized (created on first write)');
+    expect(check.out).toContain(`\n      ${join(userRoot, 'sessions')}\n`);
+    expect(check.out).not.toContain('secure-v1');
+
+    const repaired = await run(['doctor', '--repair', 'storage.user', '--yes'], { plain: true });
+    expect(existsSync(join(repaired.runtime.layout.userRoot, 'sessions'))).toBe(true);
+    expect(existsSync(join(repaired.runtime.layout.userRoot, 'secure-v1'))).toBe(false);
   });
 
   it.each([

@@ -291,7 +291,9 @@ probes the doctor deliberately does not run; an unexpected inability to probe is
 reason, not `not-probed` — that state must never read as a pass. Every rendered string passes through
 one redaction boundary that masks known secret values, URL userinfo, bearer tokens, and vendor-key
 shapes, fed by a single collector of literal and env-referenced credentials — inspection APIs
-themselves return facts, never raw file content. Repair is a closed, product-neutral allowlist; a
+themselves return facts, never raw file content. A probe reads an extension file the way the session
+reads it, so a shape the session tolerates never ends the probe and a value the session ignores is
+named by file and field. Repair is a closed, product-neutral allowlist; a
 repair is planned, confirmed through the caller's prompt, then **re-planned immediately before
 writing** and refused if the id is unknown, the state is not repairable, the state changed since
 planning, or the check is already clean — in every refusal case, nothing is written. The doctor
