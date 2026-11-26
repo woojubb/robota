@@ -65,6 +65,7 @@ import { runMcpLoginCommand, runMcpLogoutCommand } from './mcp-login-command.js'
 import { runMcpAddCommand } from './mcp-add-server.js';
 import { resolveMcpApprovalStore } from './mcp-approval-file-store.js';
 import { runWorkspaceTrustCommand } from './workspace-trust-command.js';
+import { sealedConversationRefusal } from './sealed-conversation-refusal.js';
 import { optionArgv } from '../utils/option-argv.js';
 import {
   formatHeadlessWorkspaceTrustError,
@@ -93,6 +94,12 @@ const START_USAGE =
 const EVENTS_USAGE =
   'Usage: {{cli}} session events list <supervised-id> [--json]\n' +
   '       {{cli}} session events revoke <supervised-id> <grant-id>\n';
+
+/** Say that a command has nothing to read in secure mode, and fail, before any store is built. */
+function refuseSealedConversations(runtime: ICliRuntimeContext, command: string): void {
+  process.stderr.write(sealedConversationRefusal(runtime.config.identity.cliName, command));
+  process.exitCode = 1;
+}
 
 /** `session start` arguments; `undefined` when they do not fit the usage. */
 function parseStartArgs(args: readonly string[]):
@@ -639,6 +646,10 @@ export async function runPreparsedCliCommand(
       process.exitCode = 0;
       return true;
     }
+    if (productSecureMode(productRuntime)) {
+      refuseSealedConversations(productRuntime, usageArgs[0] === 'export' ? 'usage export' : 'usage');
+      return true;
+    }
     const stores = conversationStores();
     const projectSessionStore =
       stores.sessionStoreScope === 'project' ? stores.sessionStore : undefined;
@@ -649,6 +660,10 @@ export async function runPreparsedCliCommand(
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'analyze') {
+    if (productSecureMode(productRuntime)) {
+      refuseSealedConversations(productRuntime, 'session analyze');
+      return true;
+    }
     const stores = conversationStores();
     await runSessionAnalyze(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),

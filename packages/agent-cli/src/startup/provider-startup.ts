@@ -84,6 +84,16 @@ function validateSettingsScope(scope: string | undefined): TSettingsScope | unde
   throw new Error(`Invalid --settings-scope "${scope}". Valid: user | project-local`);
 }
 
+/**
+ * Whether saving a provider profile or switching the current one is the whole invocation. A print
+ * run or a prompt on the command line goes on to run that session with the new setting instead.
+ */
+export function providerConfigurationFinishesStartup(
+  args: Pick<IParsedCliArgs, 'printMode' | 'positional'>,
+): boolean {
+  return !args.printMode && args.positional.length === 0;
+}
+
 export async function handleProviderConfigurationArgs(
   _cwd: string,
   args: IParsedCliArgs,
@@ -134,14 +144,14 @@ export async function handleProviderConfigurationArgs(
       );
     } else persist(input);
     terminal.writeLine(`Provider profile saved to ${settingsStore.displayName}`);
-    return !args.printMode && args.positional.length === 0;
+    return providerConfigurationFinishesStartup(args);
   }
   if (args.provider && args.setCurrent) {
     applyProviderSwitch(settingsStore, args.provider, {
       knownProviders: readMergedProviderSettings(settingsSources).providers,
     });
     terminal.writeLine(`Current provider set to ${args.provider}`);
-    return !args.printMode && args.positional.length === 0;
+    return providerConfigurationFinishesStartup(args);
   }
   return false;
 }

@@ -1,0 +1,5 @@
+---
+'@robota-sdk/agent-cli': patch
+---
+
+`init`, `--configure` and `--configure-provider` now work while secure conversations are on; before, each exited with `Secure conversation sealing key holder is unavailable; no conversation store may open.`, because the startup built conversation stores before it reached them and none of the three reads a conversation. In secure mode they run on the workspace's settings and project sources alone, with no key holder and no store, and never ask for a passphrase; a saved profile followed by a print run or a prompt is a session invocation and keeps needing its own key holder. `usage`, `usage export` and `session analyze` report only on saved conversations, which are sealed in secure mode and which no command holds a key for, so they now say so (`` `<cli> usage` reads saved conversations, which are sealed in secure mode; open them in the terminal after /unlock. ``) and exit 1 before any store is built, instead of printing the key holder refusal. Plain mode prints exactly what it printed.
