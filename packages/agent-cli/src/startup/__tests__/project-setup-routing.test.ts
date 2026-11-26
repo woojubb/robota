@@ -20,6 +20,7 @@ import { join } from 'node:path';
 import {
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectMutation,
+  WorkspaceAuthorityRequiredError,
 } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -213,9 +214,10 @@ describe('routeProjectSetup — init', () => {
     options: {
       access?: 'trusted' | 'untrusted' | 'revoked';
       hostMutation?: IWorkspaceProjectMutation;
+      platform?: NodeJS.Platform;
     } = {},
   ) {
-    const { access = 'trusted', hostMutation } = options;
+    const { access = 'trusted', hostMutation, platform } = options;
     root = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-init-routing-test-')));
     const cwd = join(root, 'project');
     mkdirSync(cwd);
@@ -238,6 +240,7 @@ describe('routeProjectSetup — init', () => {
         terminal: { ...NOOP_TERMINAL, writeError: (text: string) => void errors.push(text) },
         providerDefinitions: [],
         workspace,
+        ...(platform === undefined ? {} : { platform }),
       });
       return { cwd, productRuntime, result, errors, exit: exit.mock.calls };
     } finally {
@@ -260,16 +263,77 @@ describe('routeProjectSetup — init', () => {
     },
   );
 
+  const UNAVAILABLE_ON_THIS_PLATFORM =
+    'Project initialization is not available on this platform, because it cannot prove that a project write stays inside the trusted folder; run `test-product init` on Linux, or create AGENTS.md and .test-product/settings.json yourself and set up a provider with `test-product --configure`.';
+
   it.skipIf(process.platform === 'linux')(
-    'init reaches the host refusal, not a missing-permission refusal, when the host cannot prove project writes',
+    'init on a host that really cannot prove project writes says so, not that it lacks permission',
     async () => {
       const { cwd, errors, exit } = await runInit();
-      expect(errors.join('\n')).toContain(
-        "Project mutation requires stable root-anchored host support: only on Linux can the host prove that a project write stays under the trusted workspace root, so on this platform it refuses every project mutation. Run on Linux, or make the change to the project's files yourself.",
-      );
-      expect(errors.join('\n')).not.toContain('requires project mutation permission');
+      expect(errors).toEqual([UNAVAILABLE_ON_THIS_PLATFORM]);
       expect(exit).toEqual([[1]]);
       expect(existsSync(join(cwd, 'AGENTS.md'))).toBe(false);
+    },
+  );
+
+  it.each(['darwin', 'win32'] as const)(
+    'init on %s, which cannot prove project writes, says so in one sentence before it does anything',
+    async (platform) => {
+      const { cwd, errors, exit } = await runInit({ platform });
+
+      expect(errors).toEqual([UNAVAILABLE_ON_THIS_PLATFORM]);
+      expect(exit).toEqual([[1]]);
+      expect(readdirSync(cwd)).toEqual([]);
+      expect(vi.mocked(runInitCommand)).not.toHaveBeenCalled();
+      expect(vi.mocked(createWorkspaceProjectMutation)).not.toHaveBeenCalled();
+    },
+  );
+
+  it('init on a platform that can prove project writes mints its capability and runs, as before', async () => {
+    vi.mocked(runInitCommand).mockImplementationOnce(async () => {});
+
+    const { result, errors, exit } = await runInit({ platform: 'linux' });
+
+    expect(result.handled).toBe(true);
+    expect(errors).toEqual([]);
+    expect(exit).toEqual([]);
+    expect(vi.mocked(createWorkspaceProjectMutation)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(runInitCommand).mock.calls[0]?.[1].projectMutation).toBeDefined();
+  });
+
+  it('a refusal the platform does not explain is reported exactly as the host gave it', async () => {
+    const generic = 'The live workspace broker refused the operation (write-outcome-unknown).';
+    vi.mocked(runInitCommand).mockImplementationOnce(async () => {
+      throw new WorkspaceAuthorityRequiredError(generic);
+    });
+
+    const { errors, exit } = await runInit({ platform: 'linux' });
+
+    expect(errors).toEqual([generic]);
+    expect(exit).toEqual([[1]]);
+  });
+
+  it('a capability the host supplies is used as it is on a platform that cannot prove project writes', async () => {
+    const hostMutation = Object.freeze({
+      writeBytes: () => {},
+      deleteFile: () => false,
+    }) as unknown as IWorkspaceProjectMutation;
+    vi.mocked(runInitCommand).mockImplementationOnce(async () => {});
+
+    const { errors, exit } = await runInit({ hostMutation, platform: 'darwin' });
+
+    expect(errors).toEqual([]);
+    expect(exit).toEqual([]);
+    expect(vi.mocked(runInitCommand).mock.calls[0]?.[1].projectMutation).toBe(hostMutation);
+  });
+
+  it.each(['untrusted', 'revoked'] as const)(
+    'init in a project that is %s on a platform that cannot prove project writes still asks for project access first',
+    async (access) => {
+      const { errors, exit } = await runInit({ access, platform: 'darwin' });
+
+      expect(errors).toEqual(['Project initialization requires project access.']);
+      expect(exit).toEqual([[1]]);
     },
   );
 

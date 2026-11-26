@@ -109,7 +109,7 @@ robota --configure-provider anthropic --type anthropic --model claude-sonnet-4-6
 robota trust --yes
 ```
 
-`robota init` writes a starter `AGENTS.md` and `<configured-project-state-dir>/settings.json` for the current project.
+`robota init` writes a starter `AGENTS.md` and `<configured-project-state-dir>/settings.json` for the current project; it needs Linux, and on another platform it says so and writes nothing.
 `robota --configure` reruns the interactive provider setup, and `robota --reset` deletes
 `<configured-user-state-dir>/settings.json`.
 
