@@ -76,9 +76,11 @@ describe('sessionParticipant: callers outside the journal are refused before the
   });
 
   it('refuses a managed-run provider', async () => {
-    await expect(open(participantFor(managedProvider()))).rejects.toMatchObject({
+    const managed = managedProvider();
+    await expect(open(participantFor(managed))).rejects.toMatchObject({
       code: 'unmetered-caller',
     });
+    expect((managed as unknown as { run: unknown }).run).not.toHaveBeenCalled();
   });
 
   it.each(['prompt', 'agent'] as const)(

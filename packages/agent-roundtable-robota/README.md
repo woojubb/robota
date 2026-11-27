@@ -253,8 +253,8 @@ its first provider call, because no limit can count a call it never sees. The re
 are a `Session` with a `permissionClassifier`, a provider that implements `resolveModelRoute` (a
 fallback chain, for example), a managed-run provider, and a `prompt` or `agent` hook executor. The
 check runs when the lease opens (for `runtimeSelector`, at the start of each `select`), before the
-lease is claimed or a `Session` is constructed, so the conversation ends failed with no provider call
-and an agent built for the refused open is destroyed. It applies whether or not the conversation has
+lease is claimed or a `Session` is constructed, so the turn fails before the refused runtime makes any
+provider call, and an agent built for the refused open is destroyed. It applies whether or not the conversation has
 limits.
 
 ## Provider SDK retries

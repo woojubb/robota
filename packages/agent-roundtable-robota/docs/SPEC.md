@@ -19,9 +19,10 @@ A conversation's purpose is announced to a runtime once, on the turn that opens 
 
 Every provider call a wrapped runtime makes is admitted and reported through that turn's own bound
 services before it reaches the provider; a call an admission rejects is never dispatched, so a spent
-limit stops a runtime before it produces a result nothing asked for. A runtime configured to reach a
-provider by any other path, or to carry one admitted call on to other models, is refused before its
-first call, because no limit can count calls it never sees. A cache hit costs nothing to
+limit stops a runtime before it produces a result nothing asked for. A runtime configured, through
+what the adapter can see (its provider options, a routing or managed provider, a model-backed hook),
+to reach a provider by another path or to carry one admitted call on to other models is refused
+before its first call, because no limit can count calls it never sees. A cache hit costs nothing to
 serve, so it is reported through the ledger's admission-free cache-hit path instead, carrying its own
 identity — never spending a call-limit allowance a free hit did not need.
 
