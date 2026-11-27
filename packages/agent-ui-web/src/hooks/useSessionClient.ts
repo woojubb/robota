@@ -309,6 +309,11 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const activeToolsRef = useRef<IActiveTool[]>([]);
   // The running turn's text/tools in the order they happened — see `TTurnSegment` above.
   const turnSegmentsRef = useRef<TTurnSegment[]>([]);
+  // True from the first frame of a turn until it ends. A transcript snapshot taken mid-turn can
+  // already hold the turn's own rows, which the turn then appends again when it finishes.
+  const turnOpenRef = useRef(false);
+  // A rewritten history arrived mid-turn: the transcript is re-read once the turn has ended.
+  const rewrittenReadPendingRef = useRef(false);
   // A screen this surface's command asked for: it answers the command in place of the command's own
   // reply — with the "not available" line (`text`), or with nothing when the screen opened (null).
   const pendingIntentRef = useRef<{ name: string; text: string | null } | null>(null);
@@ -333,6 +338,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const finishTurn = useCallback(
     (toolStatus: (tool: IActiveTool) => IActiveTool['status']): void => {
       const segments = turnSegmentsRef.current;
+      turnOpenRef.current = false;
       turnSegmentsRef.current = [];
       streamingTextRef.current = '';
       setStreamingText('');
@@ -494,6 +500,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     );
   }, []);
 
+  // The transcript a rewritten history owes this surface, once no turn is running.
+  const readRewrittenTranscript = useCallback((): void => {
+    if (!rewrittenReadPendingRef.current) return;
+    rewrittenReadPendingRef.current = false;
+    send({ type: 'get-messages' });
+  }, [send]);
+
   const handleMessage = useCallback(
     (msg: TServerMessage): void => {
       // Touching the exhaustive registry here keeps every decoded variant tied to an
@@ -536,6 +549,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'user_message': {
+          turnOpenRef.current = true;
           setMessages((prev) => [
             ...prev,
             {
@@ -550,6 +564,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         case 'text_delta': {
           // The ref is the reply's source of truth, updated as each piece arrives: a `complete` in
           // the same batch reads it before React has run a state updater, and would lose the reply.
+          turnOpenRef.current = true;
           const next = streamingTextRef.current + msg.delta;
           streamingTextRef.current = next;
           setStreamingText(next);
@@ -558,11 +573,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'thinking': {
+          if (msg.isThinking) turnOpenRef.current = true;
           setIsThinking(msg.isThinking);
           break;
         }
         case 'tool_start': {
           const { state } = msg;
+          turnOpenRef.current = true;
           const tool: IActiveTool = { ...baseActiveToolFrom(state), status: 'running' };
           updateActiveTools((prev) => [...prev, tool]);
           turnSegmentsRef.current = pushToolStartSegment(turnSegmentsRef.current, tool);
@@ -709,6 +726,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           sessionStatusRef.current = null;
           setSessionStatus(null);
           clearCompactionNotices();
+          turnOpenRef.current = false;
+          rewrittenReadPendingRef.current = false;
           streamingTextRef.current = '';
           turnSegmentsRef.current = [];
           setStreamingText('');
@@ -733,6 +752,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         case 'history_cleared': {
           clearCompactionNotices();
           rejectPendingAppRequests('The session history was cleared.');
+          rewrittenReadPendingRef.current = false;
           streamingTextRef.current = '';
           turnSegmentsRef.current = [];
           setStreamingText('');
@@ -746,6 +766,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           const model = msg.model ?? sessionStatusRef.current?.model;
           send({ type: 'get-status' });
           finishTurn((tool) => (tool.status === 'running' ? 'error' : tool.status));
+          readRewrittenTranscript();
           setSessionNotices((previous) => [
             ...previous,
             {
@@ -857,6 +878,16 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'history_changed': {
+          // Text in the conversation was redacted in place. What this surface shows is replaced,
+          // never appended to: the status (the session's name can change) and the listing are
+          // re-read at once, the transcript at once too unless a turn is running, whose own rows a
+          // mid-turn snapshot would repeat; that turn keeps streaming and the read follows its end.
+          if (msg.rewritten === true) {
+            send({ type: 'get-status' });
+            requestSessions();
+            rewrittenReadPendingRef.current = true;
+            if (!turnOpenRef.current) readRewrittenTranscript();
+          }
           const compact = msg.compact;
           if (compact?.trigger === 'auto') {
             setSessionNotices((previous) => [
@@ -873,6 +904,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         case 'session_status': {
           sessionStatusRef.current = msg.status;
           setSessionStatus(msg.status);
+          // A rewritten history can change the name; it arrives here, not as a rename event.
+          if (msg.status.sessionName !== undefined) setSessionName(msg.status.sessionName);
           break;
         }
         case 'command_result': {
@@ -946,6 +979,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           // The turn changed this session's preview, message count and time in the list.
           requestSessions();
           finishTurn((tool) => (tool.status === 'running' ? 'done' : tool.status));
+          readRewrittenTranscript();
           break;
         }
       }
@@ -967,6 +1001,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       handleSettingsMessage,
       handleUsageMessage,
       markCurrent,
+      readRewrittenTranscript,
       openAgentSwitcher,
       openSettings,
       refreshSettings,
