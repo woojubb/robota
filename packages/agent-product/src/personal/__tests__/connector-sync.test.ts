@@ -161,6 +161,45 @@ describe('what a connector’s content becomes in the library', () => {
     expect((await wiki.read('trips'))!.claims.map((claim) => claim.text)).toEqual(['Pack a coat']);
   });
 
+  it('names the run a fact was read in', async () => {
+    const { book, wiki, mail } = await setup();
+    const tool = createConnectorKeepTool({ book, wiki });
+    const parameters = { connector: mail.id, page: 'Mina', claim: 'Mina proposed dinner' };
+    await tool.execute(parameters, {
+      toolName: 'ConnectorKeep',
+      parameters,
+      sessionId: 'run-7',
+    });
+    await keep(tool, { connector: mail.id, page: 'Mina', claim: 'Mina proposed lunch' });
+    const claims = (await wiki.read('mina'))!.claims;
+    expect(claims.map((claim) => claim.source.sessionId)).toEqual(['run-7', undefined]);
+  });
+
+  it('forgets everything a connector pulled in one call, handing it over once', async () => {
+    const book = new ConnectorBook({ store: createMemoryConnectorStore() });
+    const reached: number[] = [];
+    const wiki = new KnowledgeWiki({
+      store: createMemoryKnowledgeStore(),
+      reach: {
+        async reach(forgotten) {
+          reached.push(forgotten.length);
+          return { cleaned: 0, pending: 0, notReached: 0, sources: [] };
+        },
+      },
+    });
+    const mail = await book.create({
+      title: 'Work mail',
+      kind: 'mail',
+      protocol: 'mcp',
+      endpoint: 'https://mail.example/mcp',
+    });
+    const tool = createConnectorKeepTool({ book, wiki });
+    await keep(tool, { connector: mail.id, page: 'Mina', claim: 'Mina proposed dinner' });
+    await keep(tool, { connector: mail.id, page: 'Trips', claim: 'Pack a coat' });
+    expect(await forgetPulled(wiki, mail.id)).toBe(2);
+    expect(reached).toEqual([4]);
+  });
+
   it('does not take one connector’s id for another whose id starts the same way', () => {
     expect(connectorReference('connector-a')).toBe('connector:connector-a');
     expect(connectorReference('connector-a', ' two   words ')).toBe(

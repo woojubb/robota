@@ -64,11 +64,8 @@ export async function countPulled(wiki: KnowledgeWiki, connectorId: string): Pro
 
 /** Remove every claim pulled from this connector, and nothing the person or another source said. */
 export async function forgetPulled(wiki: KnowledgeWiki, connectorId: string): Promise<number> {
-  let forgotten = 0;
-  for (const { claimId } of await pulledClaims(wiki, connectorId)) {
-    forgotten += await wiki.forget({ claimId });
-  }
-  return forgotten;
+  const claimIds = (await pulledClaims(wiki, connectorId)).map((pulled) => pulled.claimId);
+  return claimIds.length === 0 ? 0 : wiki.forget({ claimIds });
 }
 
 function registerProfile(): void {
@@ -97,12 +94,14 @@ export function createConnectorKeepTool(options: {
       claim: z.string().min(1).describe('The fact, as one plain sentence.'),
       reference: z.string().optional().describe('A short reference to the item it came from.'),
     }),
-    async ({ connector, page, kind, claim, reference }): Promise<TUniversalValue> => {
+    async ({ connector, page, kind, claim, reference }, context): Promise<TUniversalValue> => {
       const known = await options.book.get(connector);
       if (known === undefined) return { kept: false, reason: `No connector ${connector}` };
       const source = {
         origin: originOfConnector(known.kind),
         reference: connectorReference(known.id, reference),
+        // The run the fact was read in, so a later forget can find what that run kept in its record.
+        ...(context?.sessionId !== undefined && { sessionId: context.sessionId }),
       };
       // The same fact from the same item is already there: keeping it again would only repeat it.
       const filed = (await options.wiki.read(pageIdFor(page)))?.claims ?? [];

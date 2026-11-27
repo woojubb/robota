@@ -5,18 +5,28 @@
 export { KnowledgeWiki, SensitiveContentRefusedError, pageIdFor } from './knowledge/wiki.js';
 export type {
   ILintReport,
+  IForgetResult,
   IKnowledgeWikiOptions,
   IRememberInput,
   IRememberResult,
   ISearchHit,
+  TForgetTarget,
 } from './knowledge/wiki.js';
 export { createFileKnowledgeStore } from './knowledge/file-store.js';
 export { createMemoryKnowledgeStore } from './knowledge/memory-store.js';
+export {
+  FORGOTTEN_MARKER,
+  createForgottenTextRedactor,
+  isSpecificText,
+} from './knowledge/redaction.js';
 export { renderPageForModel, renderPageMarkdown } from './knowledge/render.js';
 export { PAGE_KINDS } from './knowledge/types.js';
 export type {
   IClaim,
   IClaimSource,
+  IForgetReach,
+  IForgetReachReport,
+  IForgottenText,
   IKnowledgeStore,
   IWikiLogEntry,
   IWikiPage,

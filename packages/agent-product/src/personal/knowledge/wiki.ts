@@ -7,7 +7,8 @@
  *   pages first among equals: at a personal scale an index read beats an embedding store, and a
  *   ranking a person can follow beats one they cannot.
  * - **Forget** removes matching claims from every page that holds them and leaves only a content-free
- *   log line, so a forgotten claim is never recalled again.
+ *   log line, so a forgotten claim is never recalled again; what it removed is then handed to the
+ *   host, which can reach the copies it keeps.
  * - **Lint** reports contradictions, stale claims, orphan pages and unlinked mentions.
  */
 import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
@@ -18,6 +19,9 @@ import { oneLine, renderPageForModel } from './render.js';
 import type {
   IClaim,
   IClaimSource,
+  IForgetReach,
+  IForgetReachReport,
+  IForgottenText,
   IKnowledgeStore,
   IWikiLogEntry,
   IWikiPage,
@@ -70,6 +74,23 @@ export interface IKnowledgeWikiOptions {
   readonly now?: () => Date;
   /** Claims on time-sensitive pages older than this are stale. Default 180 days. */
   readonly staleAfterMs?: number;
+  /**
+   * Where what a forget removed is handed afterwards, so a host can reach the copies of it that it
+   * keeps (the conversations the wiki was filled from). Absent, a forget touches the wiki only.
+   */
+  readonly reach?: IForgetReach;
+}
+
+export type TForgetTarget =
+  { claimId: string } | { claimIds: readonly string[] } | { pageId: string } | { text: string };
+
+export interface IForgetResult {
+  /** How many claims were removed. */
+  readonly forgotten: number;
+  /** What the host's reach did about its copies; absent when no reach is configured. */
+  readonly conversations?: IForgetReachReport;
+  /** The reach threw: the forget still stands, and the host's copies may still hold the text. */
+  readonly reachFailed?: true;
 }
 
 const TIME_SENSITIVE: ReadonlySet<TPageKind> = new Set(['matter', 'preference', 'place']);
@@ -99,16 +120,28 @@ function terms(text: string): string[] {
     .filter((term) => term.length > 1);
 }
 
+function dedupe(texts: readonly IForgottenText[]): IForgottenText[] {
+  const seen = new Set<string>();
+  return texts.filter((entry) => {
+    const key = JSON.stringify([entry.kind, entry.sessionId ?? null, entry.text]);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export class KnowledgeWiki {
   private readonly store: IKnowledgeStore;
   private readonly now: () => Date;
   private readonly staleAfterMs: number;
+  private readonly reach: IForgetReach | undefined;
   private sequence = 0;
 
   constructor(options: IKnowledgeWikiOptions) {
     this.store = options.store;
     this.now = options.now ?? (() => new Date());
     this.staleAfterMs = options.staleAfterMs ?? DEFAULT_STALE_MS;
+    this.reach = options.reach;
   }
 
   private claimId(): string {
@@ -269,34 +302,53 @@ export class KnowledgeWiki {
   }
 
   /**
-   * Forget a claim by id, every claim on a page, or every current or retired claim containing
-   * `text`. Returns how many claims were removed. A page left with no claims is deleted, and with it
-   * every link to it and every log entry that named it, since a page's id is its title and can carry
-   * the fact itself.
+   * Forget a claim by id, several claims by id, every claim on a page, or every current or retired
+   * claim containing `text`. Returns how many claims were removed. A page left with no claims is
+   * deleted, and with it every link to it and every log entry that named it, since a page's id is its
+   * title and can carry the fact itself.
    */
-  async forget(
-    target: { claimId: string } | { pageId: string } | { text: string },
-  ): Promise<number> {
+  async forget(target: TForgetTarget): Promise<number> {
+    return (await this.forgetWithReport(target)).forgotten;
+  }
+
+  /**
+   * Forget as `forget` does, then hand what was removed (every statement, current or retired, with
+   * its conversation, and the titles of deleted pages) to the host's reach once the pages and the log
+   * no longer hold it. A reach that fails is reported and never undoes the forget.
+   */
+  async forgetWithReport(target: TForgetTarget): Promise<IForgetResult> {
     const at = this.now().toISOString();
+    const wanted = new Set('claimIds' in target ? target.claimIds : []);
     const forgottenClaims = new Set<string>();
     const deletedPages = new Set<string>();
+    const handed: IForgottenText[] = [];
     const pages = await this.store.listPages();
     for (const page of pages) {
       const keep = page.claims.filter((claim) => {
+        if ('claimIds' in target) return !wanted.has(claim.id);
         if ('claimId' in target) return claim.id !== target.claimId;
         if ('pageId' in target) return page.id !== target.pageId;
         return !claim.text.toLowerCase().includes(target.text.toLowerCase());
       });
       if (keep.length === page.claims.length) continue;
-      for (const claim of page.claims) if (!keep.includes(claim)) forgottenClaims.add(claim.id);
+      for (const claim of page.claims) {
+        if (keep.includes(claim)) continue;
+        forgottenClaims.add(claim.id);
+        handed.push({
+          text: claim.text,
+          kind: 'claim',
+          ...(claim.source.sessionId !== undefined && { sessionId: claim.source.sessionId }),
+        });
+      }
       if (keep.length === 0) {
         deletedPages.add(page.id);
+        handed.push({ text: page.title, kind: 'title' });
         await this.store.deletePage(page.id);
       } else {
         await this.store.putPage({ ...page, claims: keep, updatedAt: at });
       }
     }
-    if (forgottenClaims.size === 0) return 0;
+    if (forgottenClaims.size === 0) return { forgotten: 0 };
     if (deletedPages.size > 0) {
       for (const page of await this.store.listPages()) {
         const links = page.links.filter((link) => !deletedPages.has(link));
@@ -316,7 +368,13 @@ export class KnowledgeWiki {
       action: 'forget',
       summary: `${forgottenClaims.size} claim(s) forgotten`,
     });
-    return forgottenClaims.size;
+    const forgotten = forgottenClaims.size;
+    if (this.reach === undefined) return { forgotten };
+    try {
+      return { forgotten, conversations: await this.reach.reach(dedupe(handed)) };
+    } catch {
+      return { forgotten, reachFailed: true };
+    }
   }
 
   /** Link two existing pages, named by id or title; a link is always a page id, never free text. */
