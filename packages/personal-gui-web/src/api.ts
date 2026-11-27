@@ -280,6 +280,8 @@ export interface ITaskDefinitionView {
     readonly description: string;
   };
   readonly readiness: TTaskReadinessView;
+  /** Whether the agent has a way to start this task at all; a task that needs setup and is startable waits for it. */
+  readonly startable: boolean;
 }
 
 /** Where an offer's reason was read: a connected service, or a page of the person's library. */
@@ -348,24 +350,48 @@ export interface ITaskOfferDecisionView {
   readonly snoozedUntil?: string;
 }
 
+/** One access a task would run on, as the agent recorded it: plain words, never a credential. */
+export interface ITaskAccessView {
+  readonly capability: string;
+  readonly adapter: 'local-browser' | 'connector';
+  /** The connector's id; absent for the agent's own browser. */
+  readonly account?: string;
+  readonly tool?: string;
+  readonly effect: 'read-only' | 'draft' | 'approval-required-write';
+  /** What may be passed to it, in a line the person reads before starting. */
+  readonly argumentBoundary: string;
+}
+
 /** A request to start a task, kept by the agent before any goal exists. */
 export interface ITaskLaunchView {
   readonly id: string;
   readonly definitionId: string;
   readonly definitionRevision: number;
-  readonly status: 'reserved' | 'launched' | 'failed' | 'cancelled';
+  readonly status: 'setup' | 'review' | 'reserved' | 'launched' | 'failed' | 'cancelled';
   readonly goalId?: string;
+  /** While the request is in review: the access it would run on, which the person confirms by its digest. */
+  readonly proposed?: readonly ITaskAccessView[];
+  readonly reviewDigest?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
 
 /**
- * Where a launch stands: starting, running or waiting for the person while its goal is active, and then
+ * Where a launch stands: waiting for setup or for a look before it has a goal, starting, running or
+ * waiting for the person while its goal is active, and then
  * how the agent decided it ended from what it recorded. Only `verified` says the work was checked;
  * `unverified` says the run ended and nothing recorded confirms it.
  */
 export type TTaskProgress =
-  'starting' | 'running' | 'waiting' | 'verified' | 'unverified' | 'failed' | 'cancelled';
+  | 'setup'
+  | 'review'
+  | 'starting'
+  | 'running'
+  | 'waiting'
+  | 'verified'
+  | 'unverified'
+  | 'failed'
+  | 'cancelled';
 
 /** What the agent's own browser returned to the run: where it was asked to go, where it ended up, and a short excerpt. */
 export interface ITaskEvidenceView {
@@ -383,6 +409,8 @@ export interface ITaskEvidenceView {
 /** A launch with where it stands, as the agent reads it back. Every text in it is plain text. */
 export interface ITaskLaunchStatusView extends ITaskLaunchView {
   readonly progress: TTaskProgress;
+  /** While the request waits for setup: what is left to do. */
+  readonly steps?: readonly TTaskSetupStepView[];
   /** The agent's own words for why it stands there. */
   readonly reason: string;
   /** The run's report: the model's own account, never proof. */
@@ -391,10 +419,10 @@ export interface ITaskLaunchStatusView extends ITaskLaunchView {
   readonly decidedAt?: string;
 }
 
-/** What starting a task answers: the launch, and the goal made for it. */
+/** What starting a task answers: the launch, and the goal made for it; a request that waits has no goal yet. */
 export interface ITaskStartAnswer {
   readonly launch: ITaskLaunchView;
-  readonly goalId: string;
+  readonly goalId?: string;
 }
 
 /** The values the person gave a task, by the input's name. */
@@ -672,6 +700,12 @@ export interface IPersonalApi {
   taskLaunches(): Promise<readonly ITaskLaunchStatusView[]>;
   /** One launch with where it stands now. */
   taskLaunch(launchId: string): Promise<ITaskLaunchStatusView>;
+  /** Choose the account for a request that waits for setup, by the connector's id. */
+  chooseLaunchAccount(launchId: string, connectorId: string): Promise<ITaskLaunchStatusView>;
+  /** Start a request that waits for a look, on exactly the access it showed, named by its digest. */
+  confirmLaunch(launchId: string, reviewDigest: string): Promise<ITaskLaunchStatusView>;
+  /** Cancel a request that waits for setup or a look; it never starts. */
+  cancelLaunch(launchId: string): Promise<ITaskLaunchStatusView>;
   browser(): Promise<IBrowserWatchView>;
   browserScreenshot(): Promise<IBrowserScreenshotView | null>;
   stopBrowser(): Promise<unknown>;
@@ -886,6 +920,30 @@ export function createPersonalApi(
     taskLaunch: async (launchId) =>
       (await call<{ launch: ITaskLaunchStatusView }>('GET', `tasks/launches/${id(launchId)}`))
         .launch,
+    chooseLaunchAccount: async (launchId, connectorId) =>
+      (
+        await call<{ launch: ITaskLaunchStatusView }>(
+          'POST',
+          `tasks/launches/${id(launchId)}/account`,
+          { connectorId },
+        )
+      ).launch,
+    confirmLaunch: async (launchId, reviewDigest) =>
+      (
+        await call<{ launch: ITaskLaunchStatusView }>(
+          'POST',
+          `tasks/launches/${id(launchId)}/confirm`,
+          { reviewDigest },
+        )
+      ).launch,
+    cancelLaunch: async (launchId) =>
+      (
+        await call<{ launch: ITaskLaunchStatusView }>(
+          'POST',
+          `tasks/launches/${id(launchId)}/cancel`,
+          {},
+        )
+      ).launch,
     browser: () => call('GET', 'browser'),
     browserScreenshot: async () =>
       (await call<{ screenshot: IBrowserScreenshotView | null }>('GET', 'browser/screenshot'))

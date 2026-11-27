@@ -40,6 +40,7 @@ const pageCheck: ITaskDefinitionView = {
   effectCeiling: 'read-only',
   completionEvidence: { kind: 'source-readback', description: 'The passage is read back.' },
   readiness: { state: 'ready', accesses: ['https pages the person names'] },
+  startable: true,
 };
 
 const read: ITaskEvidenceView = {
