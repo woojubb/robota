@@ -720,8 +720,18 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
             step.type === 'choose-account' ? step.accounts.map((account) => account.id) : [],
           ),
         );
+        // A choice whose step has gone (the account signed out, say) is dropped, so the list stays within its bound.
+        const offeredNow = new Set(
+          open.readiness.state === 'needs-setup'
+            ? open.readiness.steps.flatMap((step) =>
+                step.type === 'choose-account' ? step.accounts.map((account) => account.id) : [],
+              )
+            : [],
+        );
         const chosen = [
-          ...(intent.chosenAccounts ?? []).filter((earlier) => !replaced.has(earlier)),
+          ...(intent.chosenAccounts ?? []).filter(
+            (earlier) => offeredNow.has(earlier) && !replaced.has(earlier),
+          ),
           connectorId,
         ];
         return viewIn(await store.advance(id, { status: 'setup', chosenAccounts: chosen }));
@@ -747,7 +757,8 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
             { launch: await describeWaiting(back) },
           );
         }
-        if (digestOf(plan.bindings) !== reviewDigest) {
+        // What is confirmed is what was shown: the digest must be the stored one and the current one.
+        if (digestOf(plan.bindings) !== reviewDigest || intent.reviewDigest !== reviewDigest) {
           const again = await toReview(intent, plan.bindings, plan.changed);
           throw new LaunchRefusedError(
             'conflict',

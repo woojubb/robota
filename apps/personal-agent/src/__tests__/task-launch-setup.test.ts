@@ -377,6 +377,51 @@ describe('a start that needs setup', () => {
     expect(done).toMatchObject({ status: 'launched', bindings: [bindingOf(WORK, mail.boundary)] });
   });
 
+  it('refuses a digest of current access the person was never shown', async () => {
+    const { world, mail } = setup({});
+    const { launch } = await world.launches.start(ask());
+    mail.accounts[WORK] = { title: 'Work mail', state: 'usable' };
+    const shown = await world.launches.get(launch.id);
+    mail.boundary = 'search words in the connected mailbox; nothing is sent or kept';
+    // Nothing has shown the person the reworded access, so confirming its digest is refused.
+    const unseen = digestOf([bindingOf(WORK, mail.boundary)]);
+    await expect(world.launches.confirm(launch.id, unseen)).rejects.toMatchObject({
+      kind: 'conflict',
+    });
+    expect(await world.goals.list()).toEqual([]);
+    // It is shown now, and what is shown can be confirmed.
+    const looked = await world.launches.get(launch.id);
+    expect(looked!.reviewDigest).toBe(unseen);
+    expect(looked!.reviewDigest).not.toBe(shown!.reviewDigest);
+    await world.launches.confirm(launch.id, unseen);
+    expect(await world.goals.list()).toHaveLength(1);
+  });
+
+  it('keeps the chosen accounts within their bound however many times accounts change while it waits', async () => {
+    const { world, mail } = setup({
+      [WORK]: { title: 'Work mail', state: 'usable' },
+      [HOME]: { title: 'Home mail', state: 'usable' },
+    });
+    const { launch } = await world.launches.start(ask());
+    // The access recorded at Start goes missing, so the request keeps asking for a look.
+    mail.accounts[WORK]!.state = 'revoked';
+    expect(await world.launches.get(launch.id)).toMatchObject({ status: 'review' });
+    for (let round = 0; round < 15; round += 1) {
+      const [p, q] = [`connector-r${round}a`, `connector-r${round}b`];
+      for (const entry of Object.values(mail.accounts)) entry.state = 'revoked';
+      mail.accounts[p] = { title: 'Mail', state: 'usable' };
+      mail.accounts[q] = { title: 'Mail', state: 'usable' };
+      expect(await world.launches.get(launch.id)).toMatchObject({ status: 'setup' });
+      const chosen = await world.launches.chooseAccount(launch.id, p);
+      expect(chosen.status).toBe('review');
+      expect(chosen.chosenAccounts!.length).toBeLessThanOrEqual(2);
+      // Every account signs out, so the request goes back to waiting.
+      for (const entry of Object.values(mail.accounts)) entry.state = 'revoked';
+      expect(await world.launches.get(launch.id)).toMatchObject({ status: 'setup' });
+    }
+    expect(await world.goals.list()).toEqual([]);
+  });
+
   it('ends, never to start later, when the task changed, left, can no longer run, or waited too long', async () => {
     const cases: readonly [string, (state: ISetup) => void, string][] = [
       [
