@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "retainedAttempts": 18,
+  "passedOutcomes": 15,
+  "measuredTasks": {
+    "bug-repair": 3,
+    "feature": 3,
+    "multi-file": 3,
+    "test-diagnosis": 3,
+    "navigation": 3
+  },
+  "ledgerDispatches": 69,
+  "settledReceipts": 68,
+  "unknownCostOrdinals": [
+    53
+  ],
+  "totalReservationsUsd": 8.625,
+  "fixtureFilesHashVerified": 38,
+  "currentScriptHashesVerified": true,
+  "credentialValueMatches": 0,
+  "artifactFilesScanned": 126,
+  "additionalProviderCalls": 0
+}

@@ -1,0 +1,8 @@
+{
+  "scriptSha256": "9ca4e0d7dfd2a23849f320f213fb1d234183926fac2aaf03a3aa00f5096c94c6",
+  "positiveAndNegativeCapacityControls": 13,
+  "passed": true,
+  "ledgerMutated": false,
+  "reservedUsdBeforeResume": 6.625,
+  "paidCalls": 0
+}

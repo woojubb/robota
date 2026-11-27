@@ -1,0 +1,12 @@
+{
+  "validLastReservationAccepted": true,
+  "wrongEndpointRejected": true,
+  "wrongModelRejected": true,
+  "imageInputRejected": true,
+  "exhaustedBudgetRejected": true,
+  "oversizeRejected": true,
+  "maxTokensForced": 8192,
+  "providerOnly": [
+    "fireworks"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "reviewer": "pr_review_reviewer",
+  "outcome": "approved",
+  "actionableFindings": 0,
+  "scope": "Completed experiment evidence, costs, failed attempts, summary/report, fixture and runner hashes, cleanup",
+  "observedAt": "2026-10-20T16:05:47.306962+00:00",
+  "providerCallsByReviewer": 0
+}

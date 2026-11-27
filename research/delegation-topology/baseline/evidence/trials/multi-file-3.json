@@ -1,0 +1,37 @@
+{
+  "task": "multi-file",
+  "trial": 3,
+  "passed": false,
+  "result": {
+    "completed": false,
+    "error": "Provider request failed or accounting became uncertain; no retry"
+  },
+  "verifier": {
+    "passed": false,
+    "exitCode": 1,
+    "diagnostic": "file:///work/[eval1]:1\nimport assert from 'node:assert/strict'; import fs from 'node:fs'; import {toCents,formatMoney} from '/work/src/units.mjs'; import {invoiceTotal as f} from '/work/src/invoice.mjs'; assert.equal(toCents(1.23),123); assert.equal(formatMoney(1250),'$12.50'); assert.equal(formatMoney(0),'$0.00'); assert.equal(f([{price:1.25,quantity:3},{price:2.5}]),625); assert.equal(f([]),0); assert.match(fs.readFileSync('/work/src/invoice.mjs','utf8'), /import[\\s\\S]*toCents/);\n                                                                                   ^^^^^^^^^^^\nSyntaxError: The requested module '/work/src/units.mjs' does not provide an export named 'formatMoney'\n    at ModuleJob._instantiate (node:internal/modules/esm/module_job:226:21)\n    at async ModuleJob.run (node:internal/modules/esm/module_job:335:5)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:282:26)\n    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:278:20)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)\n\nNode.js v22.23.3\n"
+  },
+  "protectedFilesUnchanged": true,
+  "elapsedMs": 10117.257041000015,
+  "requests": 1,
+  "candidate": {
+    "src/units.mjs": "export function toCents(amount) { return Math.round(amount * 100); }\n",
+    "src/invoice.mjs": "export function invoiceTotal(items) { return items.reduce((s, item) => s + item.price, 0); }\n"
+  },
+  "diagnostics": [],
+  "stopPaid": true,
+  "fixtureSnapshot": "fixtures/multi-file-3",
+  "fixtureManifest": [
+    {
+      "path": "src/invoice.mjs",
+      "sha256": "ff40ce2e7e11120b7812844923718ea226e94288e8ae6aed013f547eeeaad40d"
+    },
+    {
+      "path": "src/units.mjs",
+      "sha256": "fad6be79981105d57fead00fd51088a16116e7ad52580d022ca8b1e31c3eed07"
+    }
+  ],
+  "unexpectedFiles": [],
+  "accountingWaitMs": 0,
+  "activeRuntimeMs": 10117.257041000015
+}

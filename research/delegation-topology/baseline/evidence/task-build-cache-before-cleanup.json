@@ -1,0 +1,137 @@
+[
+  {
+    "CreatedAt": "2026-10-20 15:27:33.750394311 +0000 UTC",
+    "Description": "[2/5] WORKDIR /opt/robota",
+    "ID": "aioptk51qc5j3j8mlnhid2h70",
+    "LastUsedAt": "25 minutes ago",
+    "Mutable": false,
+    "Parents": [
+      "pycif3mfmqc2c3g3sh1eycb7y"
+    ],
+    "Reclaimable": true,
+    "Shared": true,
+    "Size": "12.4kB",
+    "Type": "regular",
+    "UsageCount": 6
+  },
+  {
+    "CreatedAt": "2026-10-20 15:31:17.713947203 +0000 UTC",
+    "Description": "[2/2] COPY worker.mts /opt/worker.mts",
+    "ID": "vrckf786as4c7h0i53nqufcr8",
+    "LastUsedAt": "25 minutes ago",
+    "Mutable": false,
+    "Parents": [
+      "mwymfh9d0wdk2e2j5pd6xdnw2"
+    ],
+    "Reclaimable": true,
+    "Shared": false,
+    "Size": "18.43kB",
+    "Type": "regular",
+    "UsageCount": 5
+  },
+  {
+    "CreatedAt": "2026-10-20 15:28:58.479516272 +0000 UTC",
+    "Description": "[5/5] COPY worker.mts /opt/worker.mts",
+    "ID": "mwymfh9d0wdk2e2j5pd6xdnw2",
+    "LastUsedAt": "25 minutes ago",
+    "Mutable": false,
+    "Parents": [
+      "p4cu448i2zqsqzi3lwr1ofmhe"
+    ],
+    "Reclaimable": true,
+    "Shared": false,
+    "Size": "18.44kB",
+    "Type": "regular",
+    "UsageCount": 6
+  },
+  {
+    "CreatedAt": "2026-10-20 15:32:07.682781298 +0000 UTC",
+    "Description": "[2/2] COPY worker.mts /opt/worker.mts",
+    "ID": "jfw68brt5ot432r1oq33g8ppy",
+    "LastUsedAt": "25 minutes ago",
+    "Mutable": false,
+    "Parents": [
+      "vrckf786as4c7h0i53nqufcr8"
+    ],
+    "Reclaimable": true,
+    "Shared": false,
+    "Size": "18.47kB",
+    "Type": "regular",
+    "UsageCount": 4
+  },
+  {
+    "CreatedAt": "2026-10-20 15:32:44.915866773 +0000 UTC",
+    "Description": "[2/2] COPY worker.mts /opt/worker.mts",
+    "ID": "fqkhmtput981mfpfdsszn66p3",
+    "LastUsedAt": "25 minutes ago",
+    "Mutable": false,
+    "Parents": [
+      "jfw68brt5ot432r1oq33g8ppy"
+    ],
+    "Reclaimable": true,
+    "Shared": false,
+    "Size": "18.47kB",
+    "Type": "regular",
+    "UsageCount": 3
+  },
+  {
+    "CreatedAt": "2026-10-20 15:38:24.482966199 +0000 UTC",
+    "Description": "[2/2] COPY worker.mts /opt/worker.mts",
+    "ID": "px81ec9b4wktdbb1b5k8601zq",
+    "LastUsedAt": "25 minutes ago",
+    "Mutable": false,
+    "Parents": [
+      "2owdvm9ne9x6t21e2zln9eh25"
+    ],
+    "Reclaimable": true,
+    "Shared": false,
+    "Size": "18.47kB",
+    "Type": "regular",
+    "UsageCount": 1
+  },
+  {
+    "CreatedAt": "2026-10-20 15:36:29.995383601 +0000 UTC",
+    "Description": "[2/2] COPY worker.mts /opt/worker.mts",
+    "ID": "2owdvm9ne9x6t21e2zln9eh25",
+    "LastUsedAt": "25 minutes ago",
+    "Mutable": false,
+    "Parents": [
+      "fqkhmtput981mfpfdsszn66p3"
+    ],
+    "Reclaimable": true,
+    "Shared": false,
+    "Size": "18.48kB",
+    "Type": "regular",
+    "UsageCount": 2
+  },
+  {
+    "CreatedAt": "2026-10-20 15:27:34.384417833 +0000 UTC",
+    "Description": "[3/5] COPY robota/ ./",
+    "ID": "odxv6y4u152esi8c1slqvhd4b",
+    "LastUsedAt": "25 minutes ago",
+    "Mutable": false,
+    "Parents": [
+      "aioptk51qc5j3j8mlnhid2h70"
+    ],
+    "Reclaimable": true,
+    "Shared": true,
+    "Size": "63.31MB",
+    "Type": "regular",
+    "UsageCount": 6
+  },
+  {
+    "CreatedAt": "2026-10-20 15:28:57.572154575 +0000 UTC",
+    "Description": "mount / from exec /bin/sh -c corepack enable && corepack prepare pnpm@8.15.4 --activate && pnpm install --filter @robota-sdk/agent-framework... --filter @robota-sdk/agent-provider-openai... --frozen-lockfile --ignore-scripts",
+    "ID": "p4cu448i2zqsqzi3lwr1ofmhe",
+    "LastUsedAt": "25 minutes ago",
+    "Mutable": false,
+    "Parents": [
+      "odxv6y4u152esi8c1slqvhd4b"
+    ],
+    "Reclaimable": true,
+    "Shared": false,
+    "Size": "2.945GB",
+    "Type": "regular",
+    "UsageCount": 6
+  }
+]

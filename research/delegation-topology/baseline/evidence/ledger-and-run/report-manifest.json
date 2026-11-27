@@ -1,0 +1,20 @@
+{
+  "artifactSha256": {
+    "README.md": "fa80852ae4113c949b15f017dc0f230a4675ad22b2a520ca0afe45855e831b16",
+    "summary.json": "25ee6f5997e6f2ff1ec3d32a0da0fbe18311ea1521c6d4522624406ad967a7f4",
+    "results.json": "d6a77f1f1670eec5dfff97ce795f2d9904e0d951505124a2cefc67fc2aaff6e6",
+    "ledger.json": "e28a49b8c9161555bd96681f3a00ef8dcbff438431d4583841205ffcc66b7248",
+    "run-manifest.json": "5e4ff8ae5766483bac4acec51fcd0b41123de71d1da3da7037784edeaed79ace",
+    "cleanup.json": "c171836747ed34ba4a3d0ea452900249304017b9174600843823ec81e748c1c8",
+    "evidence-audit.json": "be4f3cd7cc4e23d51b0dbe68bbf65299c1bb29cdf39c2195fab32202ca7d4adb",
+    "summarize.py": "c8b9a732d1c4541c1c7e64a397ae249a5bb8d10f8f336fa8f63fe3d2a8622b91",
+    "build.py": "a1b1640f4ae43da1644b02c6fe52cb8ca18c4559e521587c9627a14af9f3cb9f",
+    "report-controls.json": "4b6af4aafc33c0f9fd669911230db03751cee7d5d7e839f0b3da405e3c996d6a",
+    "review.json": "9477bbeab7fefad8b814ae6048cb772a1e18339a165265c0d7220843dae9df34",
+    "issue-comment.md": "597e4264f7f8f9830dac01c84ff1f0b79248d31f3da31016b743abcd12fb303c",
+    "issue-result.json": "9c55c4c77ed600da4d34a8440327d803b0fdeb488709061b3fca3da65d10d0cd",
+    "task-build-cache-before-cleanup.json": "0ac01c962cae47d0031dd68e0a91a8a79c22cbc18158ad33a41f984bc362a099"
+  },
+  "sourceCommit": "0f7d2147626674970290fe843c05a9e6e9e6ce05",
+  "measuredRunnerSha256": "9ca4e0d7dfd2a23849f320f213fb1d234183926fac2aaf03a3aa00f5096c94c6"
+}
