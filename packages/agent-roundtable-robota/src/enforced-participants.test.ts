@@ -108,6 +108,9 @@ function capturing(): { services: TurnServices; calls: ModelCallIntent[] } {
         calls.push(call);
       },
       recordUsage: async () => {},
+      admitToolEffect: async () => {
+        throw new Error('a tool effect must not be admitted here');
+      },
     },
   };
 }
