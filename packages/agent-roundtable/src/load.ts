@@ -2,6 +2,7 @@ import { Conversation } from './conversation';
 import { RoundtableError } from './errors';
 import { increments, roundRobin } from './policies';
 import { decodeConversation } from './state-codec';
+import { budgetOptions, normalizeBudget } from './usage-budget';
 import type {
   ContextPolicy,
   LoadRoundtableOptions,
@@ -49,6 +50,9 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
   else if (!options.registry.resolveContextPolicy)
     throw new RoundtableError('invalid-config', 'Context policy is not registered');
   samePricingVersion(definition.pricingVersion, options.pricing?.version ?? null);
+  // The saved budget is the authority; its configuration is refused here, before any registry call.
+  const budget = budgetOptions(definition.budget);
+  normalizeBudget(budget, options.pricing, options.estimator);
   if (
     !state.terminal &&
     (phase.kind === 'selecting' ||
@@ -161,6 +165,8 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
           : { maxModelCallsPerParticipant: definition.limits.maxModelCallsPerParticipant }),
       },
       ...(options.pricing ? { pricing: options.pricing } : {}),
+      ...(budget ? { budget } : {}),
+      ...(options.estimator ? { estimator: options.estimator } : {}),
       maxConcurrentParticipants: definition.maxConcurrentParticipants,
       recovery: definition.recovery,
       leaseMs: definition.leaseMs,

@@ -8,6 +8,7 @@ import type {
   Selection,
   ParticipantResponse,
   ResponseReceipt,
+  Money,
 } from './types';
 
 /** Only failure and semantic completion end a conversation; other run results leave it resumable. */
@@ -42,6 +43,8 @@ export interface ConversationState {
     contextPolicy: RuntimeReference;
     /** Null until a pricing policy is first configured; then immutable without explicit migration. */
     pricingVersion: string | null;
+    /** Immutable once saved: a loaded conversation keeps the ceiling it was created under. */
+    budget: { tokens: number | null; cost: Money | null; mode: 'strict' | 'estimated' } | null;
   };
   selectorCheckpoint: ParticipantCheckpoint | null;
   snapshot: ConversationSnapshot;
