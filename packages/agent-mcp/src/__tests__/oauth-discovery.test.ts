@@ -160,9 +160,10 @@ describe('OAuth discovery', () => {
     const SET_ASIDE_SERVER = 'https://set-aside-auth.example.test/';
 
     /** A first-party service: the endpoint's own document is right, the linked one names its parent. */
-    function publishedShape(
-      options: { pathDocument?: 'absent' | { resource: string } } = {},
-    ): { server: IFakeOAuthServer; requests: string[] } {
+    function publishedShape(options: { pathDocument?: 'absent' | { resource: string } } = {}): {
+      server: IFakeOAuthServer;
+      requests: string[];
+    } {
       const server = createFakeOAuthServer();
       const requests: string[] = [];
       const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -198,7 +199,9 @@ describe('OAuth discovery', () => {
       expect(info.issuer).toBe(AS_URL);
       expect(info.scope).toBe('files:read files:write');
       expect(requests.slice(0, 2)).toEqual([LINKED, PATH_DOCUMENT]);
-      expect(requests).not.toContain('https://mcp.example.test/.well-known/oauth-protected-resource');
+      expect(requests).not.toContain(
+        'https://mcp.example.test/.well-known/oauth-protected-resource',
+      );
     });
 
     it('takes nothing from the set-aside document', async () => {
@@ -221,7 +224,9 @@ describe('OAuth discovery', () => {
       expect(
         await reasonOf(discover(server, {}, { serverUrl: ENDPOINT, resourceMetadataUrl: LINKED })),
       ).toBe('resource-mismatch');
-      expect(requests).not.toContain('https://mcp.example.test/.well-known/oauth-protected-resource');
+      expect(requests).not.toContain(
+        'https://mcp.example.test/.well-known/oauth-protected-resource',
+      );
     });
 
     it('does not fetch the endpoint document twice when the challenge links it', async () => {

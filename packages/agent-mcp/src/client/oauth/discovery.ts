@@ -5,7 +5,8 @@
  *
  * Every link in the chain is checked against the one before it:
  * - the protected-resource metadata must describe this endpoint, or its origin when discovered at
- *   the origin, and a `resource_metadata` link from a 401 is followed only on the server's origin;
+ *   the origin; a `resource_metadata` link from a 401 is followed only on the server's origin, and
+ *   linked metadata that names another resource is set aside for the endpoint's own document;
  * - the authorization server metadata must name, as its `issuer`, the authorization server the
  *   resource pointed to (or that the definition configured);
  * - the server, the authorization server and its authorization, token and registration endpoints
@@ -99,7 +100,19 @@ async function fetchResourceMetadata(
   return parsed.data;
 }
 
-/** RFC 9728 §3: the path-specific well-known location first, then the origin's. */
+/** RFC 9728 §3: the endpoint's path-specific well-known location; none for a bare origin. */
+function pathSpecificMetadataUrl(resource: URL): URL | undefined {
+  const path = resource.pathname === '/' ? '' : resource.pathname;
+  if (path === '' && resource.search === '') return undefined;
+  return new URL(`/.well-known/oauth-protected-resource${path}${resource.search}`, resource);
+}
+
+/**
+ * RFC 9728 §3: the path-specific well-known location first, then the origin's. Metadata a 401
+ * links that names another resource must not be used (§3.3): the endpoint's own document is
+ * fetched instead and accepted only when it names the endpoint, and nothing is taken from the
+ * linked one.
+ */
 async function discoverResourceMetadata(
   resource: URL,
   input: IMCPOAuthDiscoveryInput,
@@ -111,21 +124,18 @@ async function discoverResourceMetadata(
     }
     const metadata = await fetchResourceMetadata(linked, input.fetch);
     if (metadata === undefined) throw new MCPOAuthError('discovery-failed');
-    return { metadata, originFallback: false };
+    if (sameUrl(metadata.resource, resource.href)) return { metadata, originFallback: false };
+    const own = pathSpecificMetadataUrl(resource);
+    if (own === undefined || own.href === linked.href) throw new MCPOAuthError('resource-mismatch');
+    const ownMetadata = await fetchResourceMetadata(own, input.fetch);
+    if (ownMetadata === undefined || !sameUrl(ownMetadata.resource, resource.href)) {
+      throw new MCPOAuthError('resource-mismatch');
+    }
+    return { metadata: ownMetadata, originFallback: false };
   }
-  const path = resource.pathname === '/' ? '' : resource.pathname;
+  const pathUrl = pathSpecificMetadataUrl(resource);
   const candidates = [
-    ...(path === '' && resource.search === ''
-      ? []
-      : [
-          {
-            url: new URL(
-              `/.well-known/oauth-protected-resource${path}${resource.search}`,
-              resource,
-            ),
-            originFallback: false,
-          },
-        ]),
+    ...(pathUrl === undefined ? [] : [{ url: pathUrl, originFallback: false }]),
     { url: new URL('/.well-known/oauth-protected-resource', resource), originFallback: true },
   ];
   for (const candidate of candidates) {
