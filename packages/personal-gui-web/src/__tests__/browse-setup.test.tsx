@@ -242,6 +242,7 @@ describe('Start on a task that needs setup', () => {
     const list = within(shown.getByRole('list', { name: 'Access to confirm' }));
     expect(list.getByText(ACCESS.argumentBoundary)).toBeTruthy();
     expect(list.getByText(/account connector-b/u)).toBeTruthy();
+    expect(list.getByText(/only reads/u)).toBeTruthy();
     fireEvent.click(shown.getByRole('button', { name: 'Start with this access' }));
     await later(0);
     expect(confirmLaunch).toHaveBeenCalledTimes(1);

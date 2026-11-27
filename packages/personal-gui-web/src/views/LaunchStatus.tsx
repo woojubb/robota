@@ -10,6 +10,12 @@ export const LAUNCH_REFRESH_MS = 3_000;
 /** How often a request that waits for the person is read again: it moves when setup is done, not when a run advances. */
 export const LAUNCH_WAITING_REFRESH_MS = 10_000;
 
+const EFFECT = {
+  'read-only': 'only reads',
+  draft: 'may prepare drafts',
+  'approval-required-write': 'changes need your approval',
+} as const;
+
 const WAITING_FOR_PERSON: ReadonlySet<TTaskProgress> = new Set(['setup', 'review']);
 const LIVE: ReadonlySet<TTaskProgress> = new Set([
   'setup',
@@ -344,6 +350,7 @@ function ReviewPanel({
               {access.account !== undefined && (
                 <span className="text-muted-foreground"> · account {access.account}</span>
               )}
+              <span className="text-muted-foreground"> · {EFFECT[access.effect]}</span>
             </li>
           ))}
         </ul>
