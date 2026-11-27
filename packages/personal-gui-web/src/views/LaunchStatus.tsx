@@ -1,15 +1,33 @@
 import { useEffect, useState } from 'react';
 
+import { SetupSteps, accountLabel } from './TaskReadiness.js';
 import { Button, errorText, when } from './ui.js';
 
 import type { IPersonalApi, ITaskLaunchStatusView, TTaskProgress } from '../api.js';
 
 /** How often a launch that is still going is read again; the page stops at the first state that is an end. */
 export const LAUNCH_REFRESH_MS = 3_000;
+/** How often a request that waits for the person is read again: it moves when setup is done, not when a run advances. */
+export const LAUNCH_WAITING_REFRESH_MS = 10_000;
 
-const LIVE: ReadonlySet<TTaskProgress> = new Set(['starting', 'running', 'waiting']);
+const EFFECT = {
+  'read-only': 'only reads',
+  draft: 'may prepare drafts',
+  'approval-required-write': 'changes need your approval',
+} as const;
+
+const WAITING_FOR_PERSON: ReadonlySet<TTaskProgress> = new Set(['setup', 'review']);
+const LIVE: ReadonlySet<TTaskProgress> = new Set([
+  'setup',
+  'review',
+  'starting',
+  'running',
+  'waiting',
+]);
 
 const LABEL: Readonly<Record<TTaskProgress, string>> = {
+  setup: 'Needs setup',
+  review: 'Needs your look',
   starting: 'Starting',
   running: 'Running',
   waiting: 'Waiting for you',
@@ -21,6 +39,8 @@ const LABEL: Readonly<Record<TTaskProgress, string>> = {
 
 /** A checked result looks different from an unchecked one, and neither is the colour of a state still going. */
 const TONE: Readonly<Record<TTaskProgress, string>> = {
+  setup: 'border-border text-foreground',
+  review: 'border-border text-foreground',
   starting: 'border-border text-muted-foreground',
   running: 'border-border text-muted-foreground',
   waiting: 'border-border text-foreground',
@@ -69,10 +89,36 @@ export function LaunchStatus({
 }): React.ReactElement {
   const [launch, setLaunch] = useState<ITaskLaunchStatusView | undefined>(initial);
   const [problem, setProblem] = useState<string | undefined>(undefined);
+  const [chosen, setChosen] = useState<string | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+
+  /**
+   * One of the person's own moves on a request that waits: the agent answers with the request as it
+   * stands, which replaces what is shown. A refusal is shown as the agent's words, and the request is
+   * read again, since a refusal means what the page showed is no longer how it stands.
+   */
+  const move = async (act: () => Promise<ITaskLaunchStatusView>): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      setLaunch(await act());
+      setProblem(undefined);
+    } catch (caught) {
+      setProblem(errorText(caught));
+      try {
+        setLaunch(await api.taskLaunch(launchId));
+      } catch {
+        // allow-fallback: the next read of the request shows how it stands; the refusal is already shown.
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     let current = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let waitingForPerson = initial !== undefined && WAITING_FOR_PERSON.has(initial.progress);
     const read = async (): Promise<void> => {
       let again = true;
       try {
@@ -81,11 +127,16 @@ export function LaunchStatus({
         setLaunch(next);
         setProblem(undefined);
         again = LIVE.has(next.progress);
+        waitingForPerson = WAITING_FOR_PERSON.has(next.progress);
       } catch (caught) {
         if (!current) return;
         setProblem(errorText(caught));
       }
-      if (again) timer = setTimeout(() => void read(), LAUNCH_REFRESH_MS);
+      if (again)
+        timer = setTimeout(
+          () => void read(),
+          waitingForPerson ? LAUNCH_WAITING_REFRESH_MS : LAUNCH_REFRESH_MS,
+        );
     };
     // A launch the page already knows to be over is not asked about again.
     if (initial === undefined || LIVE.has(initial.progress)) void read();
@@ -125,10 +176,28 @@ export function LaunchStatus({
         <span className="text-[12.5px] text-muted-foreground">
           {launch.decidedAt !== undefined
             ? `Decided ${when(launch.decidedAt)}`
-            : `Started ${when(launch.createdAt)}`}
+            : `${WAITING_FOR_PERSON.has(launch.progress) ? 'Asked' : 'Started'} ${when(launch.createdAt)}`}
         </span>
       </div>
       <p className="whitespace-pre-wrap text-[13.5px]">{launch.reason}</p>
+      {launch.progress === 'setup' && (
+        <SetupPanel
+          launch={launch}
+          chosen={chosen}
+          busy={busy}
+          onChoose={setChosen}
+          onUse={(connectorId) => void move(() => api.chooseLaunchAccount(launchId, connectorId))}
+          onCancel={() => void move(() => api.cancelLaunch(launchId))}
+        />
+      )}
+      {launch.progress === 'review' && launch.proposed !== undefined && (
+        <ReviewPanel
+          launch={launch}
+          busy={busy}
+          onStart={(digest) => void move(() => api.confirmLaunch(launchId, digest))}
+          onCancel={() => void move(() => api.cancelLaunch(launchId))}
+        />
+      )}
       {launch.report !== undefined && (
         <div>
           <h5 className="text-[13px] font-medium">
@@ -185,5 +254,119 @@ export function LaunchStatus({
           )}
       </div>
     </section>
+  );
+}
+
+/**
+ * A request waiting for setup: what is left to do, and, when the agent asks which account to use, the
+ * accounts it offers by the id each has, since two can share a title. The person's choice is sent as
+ * the connector's id. Cancelling is always there.
+ */
+function SetupPanel({
+  launch,
+  chosen,
+  busy,
+  onChoose,
+  onUse,
+  onCancel,
+}: {
+  readonly launch: ITaskLaunchStatusView;
+  readonly chosen: string | undefined;
+  readonly busy: boolean;
+  readonly onChoose: (connectorId: string) => void;
+  readonly onUse: (connectorId: string) => void;
+  readonly onCancel: () => void;
+}): React.ReactElement {
+  const steps = launch.steps ?? [];
+  const offered = steps.flatMap((step) => (step.type === 'choose-account' ? step.accounts : []));
+  // What the person picked counts only while the agent still offers it.
+  const picked = offered.some((account) => account.id === chosen) ? chosen : undefined;
+  return (
+    <div className="flex flex-col gap-2">
+      {steps.length > 0 && (
+        <div className="text-[13px]">
+          <p className="font-medium">Still to do:</p>
+          <SetupSteps steps={steps} label="Steps still to do" />
+        </div>
+      )}
+      {offered.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <div role="radiogroup" aria-label="Account for this task" className="flex flex-col gap-1">
+            {offered.map((account) => (
+              <label key={account.id} className="flex items-center gap-2 text-[13.5px]">
+                <input
+                  type="radio"
+                  name={`account-${launch.id}`}
+                  value={account.id}
+                  checked={picked === account.id}
+                  disabled={busy}
+                  onChange={() => onChoose(account.id)}
+                />
+                {accountLabel(account)}
+              </label>
+            ))}
+          </div>
+          <div>
+            <Button disabled={busy || picked === undefined} onClick={() => onUse(picked!)}>
+              Use this account
+            </Button>
+          </div>
+        </div>
+      )}
+      <div>
+        <Button disabled={busy} onClick={onCancel}>
+          Cancel request
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A request waiting for a look: the access it would now run on, in the agent's words, and the one
+ * button that starts it on exactly that. What is sent is the digest of what is shown, so access that
+ * changed after the page drew is refused and shown again instead of started.
+ */
+function ReviewPanel({
+  launch,
+  busy,
+  onStart,
+  onCancel,
+}: {
+  readonly launch: ITaskLaunchStatusView;
+  readonly busy: boolean;
+  readonly onStart: (reviewDigest: string) => void;
+  readonly onCancel: () => void;
+}): React.ReactElement {
+  const proposed = launch.proposed ?? [];
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-[13px]">
+        <p className="font-medium">This task would use:</p>
+        <ul aria-label="Access to confirm" className="list-disc pl-5">
+          {proposed.map((access) => (
+            <li key={`${access.capability}:${access.account ?? ''}:${access.tool ?? ''}`}>
+              <span>{access.argumentBoundary}</span>
+              {access.account !== undefined && (
+                <span className="text-muted-foreground"> · account {access.account}</span>
+              )}
+              <span className="text-muted-foreground"> · {EFFECT[access.effect]}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          tone="primary"
+          disabled={busy || launch.reviewDigest === undefined}
+          onClick={() => onStart(launch.reviewDigest!)}
+        >
+          Start with this access
+        </Button>
+        <Button disabled={busy} onClick={onCancel}>
+          Cancel request
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -110,11 +110,12 @@ function DefinitionCard({
             </dd>
           </div>
         </dl>
-        {definition.readiness.state === 'ready' && (
+        {definition.startable && definition.readiness.state !== 'unavailable' && (
           <TaskStart
             api={api}
             definition={definition}
             newKey={newKey}
+            needsSetup={definition.readiness.state === 'needs-setup'}
             onStarted={setStartedId}
             // A task that was shown as ready and is not is the one refusal that changes what the card says.
             onRefused={(status) => {
@@ -152,9 +153,10 @@ function byCategory(
 /**
  * Work the agent can take on, and what it suggests the person do. Each task shows the agent's own
  * word on whether it can run: ready with the access it would use, needing the setup steps named, or
- * unavailable with the reason. The page decides none of it. Only a task the agent calls ready has a
- * Start, and the agent judges it again when Start is pressed. A task that was started shows where it
- * stands, as the agent reports it. A suggestion shows why it was made and where that was read, and the
+ * unavailable with the reason. The page decides none of it. Only a task the agent can start and has not
+ * called unavailable has a Start, and the agent judges it again when Start is pressed. A task that was started shows where it
+ * stands, as the agent reports it. A task that needs setup and that the agent can start has a Start
+ * that keeps the request until setup is done. A suggestion shows why it was made and where that was read, and the
  * person decides: start it from its card, put it off, or set it aside.
  */
 export function BrowseView({

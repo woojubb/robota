@@ -198,7 +198,8 @@ The same owner-state and host contracts work in local and self-hosted modes.
 Build this in independently verifiable pieces: persist and browse definitions and offers; resolve
 readiness from verified bindings; start a one-shot Goal exactly once; preserve an intent through
 setup and restart; then add evidence-backed outcomes and personalized ranking. The Browse view can
-arrive before every connector family, but only ready definitions offer **Start**.
+arrive before every connector family, but only definitions the host can start, and has not
+called unavailable, offer **Start**; a definition that needs setup keeps the request until setup is done.
 
 Before calling the flow complete, verify these behaviors with real host boundaries:
 

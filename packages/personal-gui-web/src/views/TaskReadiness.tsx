@@ -19,20 +19,55 @@ const SERVICE = {
   other: 'a service',
 } as const;
 
+/** A connector as the person is shown it: the title they gave it, and the id that tells two of the same title apart. */
+export const accountLabel = (account: { readonly id: string; readonly title: string }): string =>
+  `${account.title} (${account.id})`;
+
+/** What identifies a step, so that two steps never share a key: by connector id, never by the words shown. */
+export function stepKey(step: TTaskSetupStepView): string {
+  switch (step.type) {
+    case 'connect':
+      return `connect:${step.kind}`;
+    case 'choose-account':
+      return `choose-account:${step.accounts.map((account) => account.id).join(',')}`;
+    case 'allow-tool':
+      return `allow-tool:${step.connectorId}:${step.tool}`;
+    case 'reconnect':
+      return `reconnect:${step.connectorId}`;
+  }
+}
+
 /** What the person does for one step, in plain words. The names in it are shown as the text they are. */
 function stepText(step: TTaskSetupStepView): string {
   switch (step.type) {
     case 'connect':
       return `Connect ${SERVICE[step.kind]}`;
     case 'choose-account':
-      return `Choose which account to use: ${step.accounts.map((account) => account.title).join(', ')}`;
+      return `Choose which account to use: ${step.accounts.map(accountLabel).join(', ')}`;
     case 'allow-tool':
-      return `Allow the tool ${step.tool} for ${step.connectorTitle}${
+      return `Allow the tool ${step.tool} for ${accountLabel({ id: step.connectorId, title: step.connectorTitle })}${
         step.decision === 'write' ? ' (each change still waits for your approval)' : ''
       }`;
     case 'reconnect':
-      return `Reconnect ${step.connectorTitle}`;
+      return `Reconnect ${accountLabel({ id: step.connectorId, title: step.connectorTitle })}`;
   }
+}
+
+/** The setup steps a task still needs, as a list. */
+export function SetupSteps({
+  steps,
+  label = 'Setup steps',
+}: {
+  readonly steps: readonly TTaskSetupStepView[];
+  readonly label?: string;
+}): React.ReactElement {
+  return (
+    <ul aria-label={label} className="list-disc pl-5">
+      {steps.map((step) => (
+        <li key={stepKey(step)}>{stepText(step)}</li>
+      ))}
+    </ul>
+  );
 }
 
 /**
@@ -51,11 +86,7 @@ export function Readiness({
       return (
         <div className="mt-1 text-[13px]">
           <p className="font-medium">To get this ready:</p>
-          <ul aria-label="Setup steps" className="list-disc pl-5">
-            {readiness.steps.map((step) => (
-              <li key={stepText(step)}>{stepText(step)}</li>
-            ))}
-          </ul>
+          <SetupSteps steps={readiness.steps} />
         </div>
       );
     case 'ready':

@@ -36,3 +36,4 @@ export {
 } from './checkpoint-codec';
 
 export { meterJournal } from './metering-journal';
+export type { RuntimeEnforcement, SelectorEnforcement } from './enforcement';

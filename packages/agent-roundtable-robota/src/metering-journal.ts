@@ -11,6 +11,9 @@ import type {
   UsageReport,
   UsageTokens,
 } from '@robota-sdk/agent-roundtable';
+import { requestBound } from './call-bound';
+import { normalizeEnforcement, type CallEnforcement, type RuntimeEnforcement } from './enforcement';
+import { RuntimeParticipantError } from './errors';
 
 /** The ledger only accepts non-negative integers; a fractional or non-finite count is dropped. */
 function roundedTokenCount(value: number | undefined): number | undefined {
@@ -45,11 +48,16 @@ function usageReport(
   outcome: UsageReport['outcome'],
   response: TUniversalMessage,
   identity?: { providerId: string; modelId: string },
+  attempts = 1,
 ): UsageReport {
   const verified = verifiedProviderCallUsage(response);
+  // One admission covers every attempt inside the call, and the usage a provider reports may
+  // describe only the last of them, so a multi-attempt call keeps its bound until the host reconciles.
   const provenance: UsageProvenance =
     verified.provenance === 'complete'
-      ? 'reported'
+      ? attempts > 1
+        ? 'partial'
+        : 'reported'
       : verified.provenance === 'partial'
         ? 'partial'
         : 'unknown';
@@ -80,12 +88,31 @@ async function meteredAppend(
   record: TExecutionJournalRecord,
   inner: { append(record: TExecutionJournalRecord): Promise<void> },
   services: TurnServices,
+  enforcement: CallEnforcement | undefined,
 ): Promise<void> {
+  if (enforcement && record.kind === 'managed-frame')
+    throw new RuntimeParticipantError(
+      'unbounded-call',
+      'An enforced runtime cannot take a managed frame: its calls are not bounded by a request',
+    );
+  if (
+    enforcement &&
+    record.kind === 'tool-effect-start' &&
+    !enforcement.freeTools.has(record.toolName)
+  )
+    throw new RuntimeParticipantError(
+      'unbounded-call',
+      `An enforced runtime must declare every tool free or paid: ${record.toolName}`,
+    );
   if (record.kind === 'model-request') {
+    // The bound is taken before the inner journal or admission, so a request whose bound cannot be
+    // established is refused before anything is recorded or sent.
+    const bound = enforcement ? requestBound(record, enforcement) : undefined;
     await services.admitModelCall({
       callId: record.callId,
       providerId: record.providerId,
       modelId: record.modelId,
+      ...(bound ? { bound } : {}),
     });
     await inner.append(record);
     return;
@@ -102,7 +129,15 @@ async function meteredAppend(
   }
   await inner.append(record);
   if (record.kind === 'model-response') {
-    await services.recordUsage(usageReport(record.callId, 'completed', record.response));
+    await services.recordUsage(
+      usageReport(
+        record.callId,
+        'completed',
+        record.response,
+        undefined,
+        enforcement?.providerAttempts,
+      ),
+    );
   } else if (record.kind === 'model-failure') {
     await services.recordUsage({
       callId: record.callId,
@@ -125,10 +160,19 @@ async function meteredAppend(
  * admission, since serving one from cache costs nothing. Every other record kind passes through to
  * `inner` untouched. For a `Session`-backed, checkpoint-resumable journal use
  * `meterRecoverableJournal` from `@robota-sdk/agent-roundtable-robota/session` instead.
+ *
+ * With `enforcement`, every `model-request` is admitted with a bound taken from the request itself
+ * and a request whose bound cannot be established is refused (`unbounded-call`) before anything
+ * is recorded; see `RuntimeEnforcement`.
  */
-export function meterJournal(inner: IExecutionJournal, services: TurnServices): IExecutionJournal {
+export function meterJournal(
+  inner: IExecutionJournal,
+  services: TurnServices,
+  enforcement?: RuntimeEnforcement,
+): IExecutionJournal {
+  const declared = enforcement && normalizeEnforcement(enforcement);
   return {
-    append: (record) => meteredAppend(record, inner, services),
+    append: (record) => meteredAppend(record, inner, services, declared),
   };
 }
 
@@ -140,9 +184,11 @@ export function meterJournal(inner: IExecutionJournal, services: TurnServices): 
 export function meterRecoverableJournal(
   inner: IRecoverableExecutionJournal,
   services: TurnServices,
+  enforcement?: RuntimeEnforcement,
 ): IRecoverableExecutionJournal {
+  const declared = enforcement && normalizeEnforcement(enforcement);
   return {
-    append: (record) => meteredAppend(record, inner, services),
+    append: (record) => meteredAppend(record, inner, services, declared),
     read: (executionId) => inner.read(executionId),
   };
 }

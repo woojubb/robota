@@ -44,6 +44,7 @@ const definition = (change: Partial<ITaskDefinitionView> = {}): ITaskDefinitionV
     description: 'Each message named in the summary is read back from the mailbox first.',
   },
   readiness: UNAVAILABLE,
+  startable: false,
   ...change,
 });
 
@@ -89,6 +90,7 @@ const DEFINITIONS: readonly ITaskDefinitionView[] = [
     expectedResult: 'A yes, no or not-stated answer with the supporting passage.',
     inputs: [],
     capabilities: ['web.read'],
+    startable: true,
     readiness: {
       state: 'ready',
       accesses: [
@@ -248,7 +250,7 @@ describe('the Browse view', () => {
         .map((item) => item.textContent),
     ).toEqual([
       'Connect a mail service',
-      'Allow the tool create_draft for Work mail (each change still waits for your approval)',
+      'Allow the tool create_draft for Work mail (connector-work-mail) (each change still waits for your approval)',
     ]);
     expect(reply.queryByRole('list', { name: 'Access' })).toBeNull();
     cleanup();
@@ -290,9 +292,9 @@ describe('the Browse view', () => {
     ).getAllByRole('listitem');
     expect(steps.map((item) => item.textContent)).toEqual([
       'Connect a calendar service',
-      'Choose which account to use: Work mail, Home mail',
-      'Allow the tool search_mail for Work mail',
-      'Reconnect Work mail',
+      'Choose which account to use: Work mail (connector-a), Home mail (connector-b)',
+      'Allow the tool search_mail for Work mail (connector-a)',
+      'Reconnect Work mail (connector-a)',
     ]);
   });
 
@@ -329,7 +331,7 @@ describe('the Browse view', () => {
       />,
     );
     const card = within(await cardOf('Catch up on a connected mailbox'));
-    expect(card.getByText(`Reconnect ${hostile}`)).toBeTruthy();
+    expect(card.getByText(`Reconnect ${hostile} (connector-a)`)).toBeTruthy();
     expect(container.querySelector('a, img, strong, b, em')).toBeNull();
   });
 

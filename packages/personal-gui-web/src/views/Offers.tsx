@@ -112,7 +112,11 @@ function OfferCard({
   const launchId = startedId ?? offer.launchId;
   const started = launchId !== undefined;
   const open = offer.decision === 'open' && !started;
-  const canStart = open && offer.readiness?.state === 'ready' && definition !== undefined;
+  const canStart =
+    open &&
+    offer.readiness !== undefined &&
+    offer.readiness.state !== 'unavailable' &&
+    definition?.startable === true;
   const evidence = offer.evidence;
   return (
     <li>
@@ -218,6 +222,7 @@ function OfferCard({
                   definition={definition}
                   newKey={newKey}
                   offerId={offer.id}
+                  needsSetup={offer.readiness?.state === 'needs-setup'}
                   {...(offer.prefilled !== undefined && { suggested: offer.prefilled })}
                   onStarted={(id) => {
                     setStartedId(id);
