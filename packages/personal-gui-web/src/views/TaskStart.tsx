@@ -17,6 +17,7 @@ export function newStartKey(): string {
 }
 
 const NOT_REACHED = 'Your agent could not be reached. Press Start to try again.';
+const WAITS = 'Start when set up';
 
 function initial(input: ITaskInputView, suggested: string | undefined): string {
   if (suggested !== undefined) return suggested;
@@ -38,8 +39,9 @@ type TPhase =
   | { readonly name: 'refused'; readonly message: string };
 
 /**
- * Starting a task the agent said is ready: the values it asks for, a Start, and what became of the
- * request. The page decides nothing about whether the task can run: the agent judges it again when
+ * Starting a task the agent can start: the values it asks for, a Start, and what became of the
+ * request. A task that still needs setup is kept as a waiting request instead, which the agent starts
+ * once setup is done. The page decides nothing about whether the task can run: the agent judges it again when
  * Start is pressed and says why not. Once the agent has started it, the card shows where it stands.
  * One key goes with a request for as long as the form is unchanged, and is kept when no answer came
  * back (so pressing Start again is the same request), and dropped when the agent answered with a
@@ -56,6 +58,7 @@ export function TaskStart({
   newKey,
   offerId,
   suggested,
+  needsSetup = false,
   onStarted,
   onRefused,
 }: {
@@ -66,6 +69,8 @@ export function TaskStart({
   readonly offerId?: string;
   /** The values the offer suggests, by the input's name. */
   readonly suggested?: Readonly<Record<string, string>>;
+  /** The task needs setting up first: pressing the button keeps the request, and it starts once setup is done. */
+  readonly needsSetup?: boolean;
   /** The agent started the task, or answered a repeat of the request with the launch it had made. */
   readonly onStarted: (launchId: string) => void;
   /** The agent answered with a refusal, whose status says which kind; what the card shows may be out of date. */
@@ -195,11 +200,11 @@ export function TaskStart({
       })}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" tone="primary" disabled={phase.name === 'sending'}>
-          Start
+          {needsSetup ? WAITS : 'Start'}
         </Button>
         {phase.name === 'sending' && (
           <p role="status" className="text-[13px] text-muted-foreground">
-            Starting…
+            {needsSetup ? 'Keeping your request…' : 'Starting…'}
           </p>
         )}
       </div>

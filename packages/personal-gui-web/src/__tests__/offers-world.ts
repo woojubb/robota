@@ -39,6 +39,7 @@ export const pageCheck = (change: Partial<ITaskDefinitionView> = {}): ITaskDefin
   effectCeiling: 'read-only',
   completionEvidence: { kind: 'source-readback', description: 'The passage is read back.' },
   readiness: READY,
+  startable: true,
   ...change,
 });
 

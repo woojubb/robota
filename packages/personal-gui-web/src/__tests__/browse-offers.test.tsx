@@ -194,6 +194,8 @@ describe('the Suggested for you group', () => {
             title: 'Draft a reply',
             inputs: [],
             readiness: { state: 'needs-setup', steps: [{ type: 'connect', kind: 'mail' }] },
+            // The agent has no way to start it yet, so its card offers nothing to press.
+            startable: false,
           }),
         ],
         offers: [
@@ -955,5 +957,49 @@ describe('what the page does with a list that cannot be read', () => {
       await screen.findByText('1 saved offer could not be read and is not shown.'),
     ).toBeTruthy();
     expect((await group()).getAllByRole('article')).toHaveLength(1);
+  });
+});
+
+describe('an offer for a task that needs setup', () => {
+  it('offers “Start when set up” when the agent can start the task, and keeps the request with the offer', async () => {
+    const waiting = { state: 'needs-setup', steps: [{ type: 'connect', kind: 'mail' }] } as const;
+    const world = offersWorld({
+      definitions: [
+        { ...mailbox(waiting), startable: true },
+        pageCheck({
+          id: 'draft-reply-to-message',
+          title: 'Draft a reply',
+          inputs: [],
+          readiness: waiting,
+          startable: false,
+        }),
+      ],
+      offers: [
+        offer({
+          id: 'o-startable',
+          definitionId: 'catch-up-on-mailbox',
+          definitionTitle: 'Catch up on a connected mailbox',
+          prefilled: {},
+          readiness: waiting,
+        }),
+        offer({
+          id: 'o-not-startable',
+          definitionId: 'draft-reply-to-message',
+          definitionTitle: 'Draft a reply',
+          prefilled: {},
+          readiness: waiting,
+          createdAt: '2026-11-25T08:00:00.000Z',
+        }),
+      ],
+    });
+    show(world);
+    const startable = await opened('Catch up on a connected mailbox');
+    const other = await opened('Draft a reply');
+    expect(other.queryByRole('button', { name: /^Start/u })).toBeNull();
+    expect(startable.queryByRole('button', { name: 'Start' })).toBeNull();
+    fireEvent.click(startable.getByRole('button', { name: 'Start when set up' }));
+    await waitFor(() => expect(world.startTask).toHaveBeenCalledTimes(1));
+    expect(world.startTask.mock.calls[0]![0]).toBe('catch-up-on-mailbox');
+    expect(world.startTask.mock.calls[0]![1]).toMatchObject({ offerId: 'o-startable' });
   });
 });

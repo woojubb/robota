@@ -35,6 +35,7 @@ const pageCheck = (change: Partial<ITaskDefinitionView> = {}): ITaskDefinitionVi
   effectCeiling: 'read-only',
   completionEvidence: { kind: 'source-readback', description: 'The passage is read back.' },
   readiness: READY,
+  startable: true,
   ...change,
 });
 
@@ -123,6 +124,7 @@ describe('Start on a Browse card', () => {
           title: 'Draft a reply',
           category: 'Mail',
           readiness: { state: 'needs-setup', steps: [{ type: 'connect', kind: 'mail' }] },
+          startable: false,
         }),
       ],
     });
