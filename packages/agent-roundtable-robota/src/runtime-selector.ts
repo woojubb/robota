@@ -12,6 +12,12 @@ import type {
   TurnSelector,
 } from '@robota-sdk/agent-roundtable';
 import { meterJournal } from './metering-journal';
+import {
+  assertCallsAreBounded,
+  normalizeEnforcement,
+  type RuntimeEnforcement,
+  type SelectorEnforcement,
+} from './enforcement';
 import { quoteContent } from './render';
 import { assertCallersAreMetered } from './unmetered-callers';
 import { RuntimeParticipantError, SelectorDecisionError } from './errors';
@@ -23,6 +29,11 @@ export interface RuntimeSelectorOptions {
   createAgent(): ConversationAgent | Promise<ConversationAgent>;
   /** Reject a `parallel` decision naming more participants than this. Unset = no limit. */
   maxParallel?: number;
+  /**
+   * Declares that the decision call can be bounded before dispatch (the decision tool is free).
+   * With it the selector declares `modelCalls: 'enforced'`; without it, `'metered'`.
+   */
+  enforcement?: SelectorEnforcement;
 }
 
 function discardingJournal(): IExecutionJournal {
@@ -143,11 +154,22 @@ function toSelection(
  * there is no retry.
  */
 export function runtimeSelector(options: RuntimeSelectorOptions): TurnSelector {
+  // Validated first, so a null or malformed declaration is refused rather than read as absent.
+  const given =
+    options.enforcement !== undefined
+      ? normalizeEnforcement(options.enforcement as RuntimeEnforcement)
+      : undefined;
+  const declared = given && {
+    providerAttempts: given.providerAttempts,
+    requestOverheadTokens: given.requestOverheadTokens,
+    freeTools: [DECISION_TOOL_NAME],
+  };
+  const enforcement = declared && normalizeEnforcement(declared);
   let agentPromise: Promise<ConversationAgent> | undefined;
   let deciding = false;
   return {
     reference: options.reference,
-    modelCalls: 'metered',
+    modelCalls: enforcement ? 'enforced' : 'metered',
     async select(context, { signal, services }) {
       // The reused agent's history and tools below are this one instance's private, mutable
       // state; a second select() overlapping the first — one instance shared by two
@@ -179,11 +201,20 @@ export function runtimeSelector(options: RuntimeSelectorOptions): TurnSelector {
             'invalid-decision',
             'The selector agent must carry no tools of its own',
           );
-        assertCallersAreMetered({ providers: agent.getConfig().aiProviders });
+        const config = agent.getConfig();
+        assertCallersAreMetered({ providers: config.aiProviders });
+        if (enforcement)
+          assertCallsAreBounded({
+            providers: config.aiProviders,
+            outputCap: config.defaultModel.maxTokens,
+            outputCapField: 'defaultModel.maxTokens',
+            toolNames: [],
+            enforcement,
+          });
         agent.clearHistory();
         await agent.updateTools([decisionTool(candidateIds)]);
         const before = agent.getHistory().length;
-        const meteredJournal = meterJournal(discardingJournal(), services);
+        const meteredJournal = meterJournal(discardingJournal(), services, declared);
         try {
           await agent.run(renderContext(context), {
             signal,
@@ -236,6 +267,7 @@ export function runtimeSelector(options: RuntimeSelectorOptions): TurnSelector {
 
 /** `RoundtableRegistry.resolveSelector` entry for `runtimeSelector`; the policy is stateless. */
 export function runtimeSelectorRegistration(options: RuntimeSelectorOptions): SelectorRegistration {
+  runtimeSelector(options);
   return {
     reference: options.reference,
     create: () => runtimeSelector(options),
