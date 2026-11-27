@@ -18,6 +18,7 @@ export const CONNECTOR_TOOL_NAMES = {
   read: 'ConnectorRead',
   act: 'ConnectorAct',
   keep: 'ConnectorKeep',
+  progress: 'ConnectorSyncProgress',
 } as const;
 
 /** What the model reads from one call, at most; a longer result is cut with a notice. */

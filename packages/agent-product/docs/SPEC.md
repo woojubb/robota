@@ -631,7 +631,10 @@ blocked is never called. A host can require admission at the external handoff; a
 instructions.
 
 A connector is kept current by a goal tied to it, not by a scheduler or per-service code of its own. Its
-run reads what is new through the reading tool and files durable facts through one tool that always
+run reads on through the reading tool, oldest first, from where the last confirmed run left off, and that
+point moves only by what a run confirms through a tool the host checks (a completed turn is not evidence of
+coverage), so a backlog larger than one run or an item that became visible late is read by a later run instead
+of skipped. It files durable facts through one tool that always
 records the connector as their origin, by kind, and names it in their reference, so what a sync kept is
 told from what the person said and can be counted and forgotten together with the connection. A
 filed fact is only ever added: content read from a service never rewrites or retires what the person
@@ -642,7 +645,7 @@ text, a sensible default for its kind until the person writes their own, and the
 looks at the service and keeps a case, with one question, on what fits them. They decide only what is asked
 about, so they add no tool and no permission, and nothing the run reads can change them: only the person does,
 and a secret value written into them is refused, judged by the value and not by the words a policy is written in; the same value check is exported for a host that keeps plain-word text of its own, such as the reason of a task offer. Everything the run reads is content written by others, so the
-run is given only the tools to read, look in the library, file, keep a case and propose a task offer, never a
+run is given only the tools to read, look in the library, file, keep a case, propose a task offer and confirm how far it read, never a
 list of what is withheld that a tool added later would escape: it cannot write to the service, reach the web or files, drive
 the browser, or rewrite the library. Turning a sync off, or disconnecting, takes the access away first and
 then ends a run in progress rather than being refused by it. A run that is reachable, had no failed read,
