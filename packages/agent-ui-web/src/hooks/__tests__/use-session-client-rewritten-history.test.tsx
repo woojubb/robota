@@ -160,21 +160,46 @@ describe('a rewritten history', () => {
     expect(count('get-messages')).toBe(reads + 1);
   });
 
-  it('forgets an open turn and a waiting read when the connection drops', () => {
-    const { deliver, count, connection } = setup();
+  it('keeps a waiting read across a drop, so a resumed turn’s replayed end makes it', () => {
+    const { deliver, count, connection, contents } = setup();
+    deliver(snapshot(['user', 'the vault code is 4471']));
     deliver({ type: 'user_message', content: 'work' });
     deliver({ type: 'history_changed', rewritten: true });
     const reads = count('get-messages');
-    // The turn ends while the page is away; the reconnect reads the transcript itself.
+    // A resuming client replays only the frames it missed, and never reads the transcript itself.
     connection('disconnected');
     connection('connected');
+    expect(count('get-messages')).toBe(reads);
+    deliver({ type: 'text_delta', delta: 'Done.' });
+    deliver(done());
+    expect(count('get-messages')).toBe(reads + 1);
+    deliver(
+      snapshot(
+        ['user', `the vault code is ${FORGOTTEN}`],
+        ['user', 'work'],
+        ['assistant', 'Done.'],
+      ),
+    );
+    expect(contents()).toEqual([`the vault code is ${FORGOTTEN}`, 'work', 'Done.']);
+  });
+
+  it('re-reads an idle rewrite at once after a reconnect that read the transcript itself', () => {
+    const { deliver, count, connection, contents } = setup();
+    deliver({ type: 'user_message', content: 'work' });
     deliver({ type: 'history_changed', rewritten: true });
-    expect(count('get-messages')).toBeGreaterThan(reads);
-    const afterIdle = count('get-messages');
-    // The old waiting read is gone: a later turn's end adds none.
+    const reads = count('get-messages');
+    // The turn ends while the page is away; the reconnect reads the whole transcript.
+    connection('disconnected');
+    connection('connected');
+    deliver(snapshot(['user', 'work'], ['assistant', 'Done.']));
+    deliver({ type: 'history_changed', rewritten: true });
+    expect(count('get-messages')).toBe(reads + 1);
+    deliver(snapshot(['user', 'work'], ['assistant', 'Done.']));
+    expect(contents()).toEqual(['work', 'Done.']);
+    // The wait was settled by that read: a later turn's end adds none.
     deliver({ type: 'user_message', content: 'next' });
     deliver(done());
-    expect(count('get-messages')).toBe(afterIdle);
+    expect(count('get-messages')).toBe(reads + 1);
   });
 
   it('reads after an interrupted turn and drops the wait when the session changes', () => {

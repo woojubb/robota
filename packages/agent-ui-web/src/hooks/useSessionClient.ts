@@ -1037,10 +1037,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       if (next !== 'connected') {
         roleRef.current = null;
         setRole(null);
-        // A turn that ends while disconnected sends no end frame here; the reconnect reads the
-        // whole transcript, which also covers a read that was waiting for that turn.
+        // A turn that ends while disconnected may send no end frame here. A waiting read stays: a
+        // client that resumes replays the turn's end, which makes it; one that reads the whole
+        // transcript on reconnect costs at most one more replacing read.
         turnOpenRef.current = false;
-        rewrittenReadPendingRef.current = false;
       }
       // A reply lost with the connection never arrives; the views waiting on one learn that now.
       if (next !== 'connected') {
