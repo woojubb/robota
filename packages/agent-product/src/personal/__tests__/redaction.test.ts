@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { FORGOTTEN_MARKER, createForgottenTextRedactor, isSpecificText } from '../index.js';
 
+/** Text spelled by code point, so these cases stay in English source. */
+const spell = (...codes: number[]): string => String.fromCodePoint(...codes);
+
 describe('finding forgotten text', () => {
   const redact = createForgottenTextRedactor(['Mina is allergic to peanuts']);
 
@@ -50,6 +53,69 @@ describe('finding forgotten text', () => {
   it('is the identity when there is nothing to find', () => {
     expect(createForgottenTextRedactor([])('anything')).toBe('anything');
     expect(createForgottenTextRedactor(['  '])('anything')).toBe('anything');
+  });
+
+  it('finds a Japanese or Chinese statement directly next to other characters', () => {
+    const statement = spell(
+      0x30df,
+      0x30ca,
+      0x306f,
+      0x30d4,
+      0x30fc,
+      0x30ca,
+      0x30c3,
+      0x30c4,
+      0x30a2,
+      0x30ec,
+      0x30eb,
+      0x30ae,
+      0x30fc,
+      0x3067,
+      0x3059,
+    );
+    const before = spell(0x5f7c, 0x5973, 0x306f);
+    const japanese = createForgottenTextRedactor([statement]);
+    expect(japanese(`${before}${statement}${spell(0x3002)}`)).toBe(
+      `${before}${FORGOTTEN_MARKER}${spell(0x3002)}`,
+    );
+    expect(japanese(`${statement}${spell(0x306d)}`)).toBe(`${FORGOTTEN_MARKER}${spell(0x306d)}`);
+    const chinese = spell(0x7c73, 0x5a1c, 0x5bf9, 0x82b1, 0x751f, 0x8fc7, 0x654f);
+    const said = spell(0x5979, 0x8bf4);
+    expect(createForgottenTextRedactor([chinese])(`${said}${chinese}${spell(0x3002)}`)).toBe(
+      `${said}${FORGOTTEN_MARKER}${spell(0x3002)}`,
+    );
+  });
+
+  it('finds a Korean statement with an ending or particle attached, and leaves that ending', () => {
+    const statement = spell(
+      0xbbf8,
+      0xb098,
+      0xb294,
+      0x20,
+      0xb545,
+      0xcf69,
+      0x20,
+      0xc54c,
+      0xb808,
+      0xb974,
+      0xae30,
+      0xac00,
+      0x20,
+      0xc788,
+      0xb2e4,
+    );
+    const korean = createForgottenTextRedactor([statement]);
+    const ending = spell(0xace0, 0x20, 0xd588, 0xb2e4);
+    expect(korean(`${statement}${ending}`)).toBe(`${FORGOTTEN_MARKER}${ending}`);
+    const quoted = [spell(0x300c), spell(0x300d)] as const;
+    expect(korean(`${quoted[0]}${statement}${quoted[1]}`)).toBe(
+      `${quoted[0]}${FORGOTTEN_MARKER}${quoted[1]}`,
+    );
+    const particle = spell(0xb294, 0x20, 0xb9d0);
+    const subject = spell(0xadf8, 0xb294, 0x20);
+    expect(korean(`${subject}${statement}${particle}`)).toBe(
+      `${subject}${FORGOTTEN_MARKER}${particle}`,
+    );
   });
 
   it('matches letters outside ASCII as letters', () => {

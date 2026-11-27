@@ -121,7 +121,7 @@ export function createWikiTools(wiki: KnowledgeWiki): FunctionTool[] {
   );
   const forget = createZodFunctionTool(
     WIKI_TOOL_NAMES.forget,
-    'Forget a fact when the person asks you to. Prefer the claim id shown by WikiSearch; give text only when you have no id. It is removed from every page and from the saved conversations that held it, and never recalled again. The result holds counts only: never repeat the forgotten fact in your answer.',
+    'Forget a fact when the person asks you to. Prefer the claim id shown by WikiSearch; give text only when you have no id. It is removed from every page and never recalled again. When the saved conversations that held it were reached, the result counts them. The result holds counts only: never repeat the forgotten fact in your answer.',
     z.object({
       claimId: z.string().min(1).optional().describe('The claim id to forget.'),
       text: z.string().min(2).optional().describe('Forget every claim containing this text.'),

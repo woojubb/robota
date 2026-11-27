@@ -27,6 +27,21 @@ function escapeRegExp(value: string): string {
 
 const WORD_CHARACTER = /[\p{L}\p{N}]/u;
 
+/**
+ * Scripts where letters glued to a statement do not make it part of a different word: they are
+ * written without word spaces (Han, kana, Thai, Lao, Khmer, Myanmar), or attach endings and
+ * particles to the last word (Hangul: a statement ending in a verb is quoted back with a quotative
+ * ending attached, and a name takes a topic particle). A boundary there would leave word-for-word copies in place, so an
+ * edge in these scripts matches the literal span whatever its neighbour is. The extra matching this
+ * allows is bounded by `isSpecificText`: a short statement is only searched in its own conversation.
+ */
+const NO_EDGE_BOUNDARY =
+  /[\p{scx=Han}\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Hangul}\p{scx=Thai}\p{scx=Lao}\p{scx=Khmer}\p{scx=Myanmar}]/u;
+
+function needsBoundary(edge: string): boolean {
+  return WORD_CHARACTER.test(edge) && !NO_EDGE_BOUNDARY.test(edge);
+}
+
 /** One alternative: the words joined by any whitespace, bounded so it never cuts into a longer word. */
 function alternative(text: string): string | undefined {
   const words = text
@@ -37,8 +52,10 @@ function alternative(text: string): string | undefined {
   const body = words.map(escapeRegExp).join('\\s+');
   const first = words[0]!;
   const last = words[words.length - 1]!;
-  const before = WORD_CHARACTER.test(first[0]!) ? '(?<![\\p{L}\\p{N}])' : '';
-  const after = WORD_CHARACTER.test(last[last.length - 1]!) ? '(?![\\p{L}\\p{N}])' : '';
+  const firstCharacter = Array.from(first)[0]!;
+  const lastCharacter = Array.from(last).at(-1)!;
+  const before = needsBoundary(firstCharacter) ? '(?<![\\p{L}\\p{N}])' : '';
+  const after = needsBoundary(lastCharacter) ? '(?![\\p{L}\\p{N}])' : '';
   return `${before}${body}${after}`;
 }
 
