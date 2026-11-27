@@ -597,6 +597,33 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       } else await finishConnection(id, transition, status);
       return ok({ status });
     }
+    if (action === 'token') {
+      const body = record(request.body);
+      const token = tokenOf(body);
+      if (token === undefined) throw new ConnectorRefusedError('Type the new token');
+      const current = await book.existing(id);
+      if ((current.auth ?? 'oauth') !== 'token')
+        throw new ConnectorRefusedError('This service does not sign in with a token');
+      // A token only stands in for one that is held: before that, the person connects.
+      const held = await registry.status(id);
+      if (held.state === 'not-connected' || held.state === 'failed') {
+        return { status: 409, body: { error: 'Connect this service first' } };
+      }
+      // Case choices are closed only once the new token is certain to take effect: a refused
+      // replacement leaves the person's choices alone, since the connection did not change.
+      let transition: ReturnType<ICaseActionScope['beginDisconnect']> | undefined;
+      const outcome = await registry.replaceToken(id, token, {
+        beforeSwap: () => {
+          transition = caseActions.beginDisconnect(id);
+        },
+      });
+      if (!outcome.replaced) {
+        return ok({ replaced: false, reason: outcome.reason, status: outcome.status });
+      }
+      // On failure, leave the transition in place, as for a sign-in: the credential did change.
+      await finishConnection(id, transition!, outcome.status);
+      return ok({ replaced: true, status: outcome.status });
+    }
     if (action === 'disconnect') return leave(id, request.body, () => disconnect(id));
     if (action === 'remove') {
       // Taking the access away must not depend on acquiring the settings lock.

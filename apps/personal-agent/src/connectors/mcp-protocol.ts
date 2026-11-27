@@ -32,6 +32,8 @@ import {
   createNodeOAuthNetwork,
 } from '@robota-sdk/agent-mcp/node';
 
+import { ConnectorRefusedError } from '@robota-sdk/agent-product/personal';
+
 import type {
   IMCPBoundAuthenticator,
   IMCPClientAuthenticator,
@@ -49,6 +51,8 @@ import type {
   IConnectorStatus,
   IConnectorToolInfo,
   IDisconnectOutcome,
+  IReplaceTokenHooks,
+  IReplaceTokenOutcome,
   TConnectorAuth,
   TRevocation,
 } from '@robota-sdk/agent-product/personal';
@@ -262,17 +266,18 @@ export function createMcpConnectorProtocol(
     await supervisor?.shutdown().catch(() => undefined);
   };
 
-  const connectionOf = async (connector: IConnector): Promise<MCPConnectionSupervisor> => {
-    const runtime = runtimeOf(connector);
-    if (runtime.supervisor !== undefined) return runtime.supervisor;
+  /** A connection to the service that signs its requests with this authentication, not yet kept anywhere. */
+  const openSupervisor = async (
+    connector: IConnector,
+    authentication: IMCPBoundAuthenticator | undefined,
+  ): Promise<MCPConnectionSupervisor> => {
     const adapter = createStreamableHttpAdapter({ egress });
-    const authentication = authenticationOf(connector, runtime);
     const admission = await adapter.admit({
       url: connector.endpoint,
       ...(authentication !== undefined && { authenticationRequired: true, authentication }),
     });
     if (!admission.ok) throw new Error(`The endpoint was refused (${admission.reason})`);
-    const supervisor = new MCPConnectionSupervisor({
+    return new MCPConnectionSupervisor({
       serverId: connector.id,
       openSession: (signal) =>
         openMcpSession({
@@ -284,9 +289,23 @@ export function createMcpConnectorProtocol(
         }),
       timeouts,
     });
+  };
+
+  /** The connection the connector is used through: opened when first needed and kept. */
+  const connectionOf = async (connector: IConnector): Promise<MCPConnectionSupervisor> => {
+    const runtime = runtimeOf(connector);
+    if (runtime.supervisor !== undefined) return runtime.supervisor;
+    const supervisor = await openSupervisor(connector, authenticationOf(connector, runtime));
     runtime.supervisor = supervisor;
     return supervisor;
   };
+
+  /** Why a connection failed, as the fixed word the page shows. */
+  const failureOf = (error: unknown): 'rejected' | 'unreachable' =>
+    error instanceof MCPAuthenticationError ||
+    (error as { classification?: string }).classification === 'auth'
+      ? 'rejected'
+      : 'unreachable';
 
   /** The scopes the service says it granted, kept only when they are plain scope words. */
   const grantedScope = async (connector: IConnector): Promise<string | undefined> => {
@@ -330,18 +349,63 @@ export function createMcpConnectorProtocol(
         else tokens.set(connector.id, previous);
         await stopConnection(runtime);
         runtime.needsSignIn = previous !== undefined && wasStale;
-        runtime.failure =
-          error instanceof MCPAuthenticationError ||
-          (error as { classification?: string }).classification === 'auth'
-            ? 'rejected'
-            : 'unreachable';
+        runtime.failure = failureOf(error);
         return { state: 'failed', reason: runtime.failure };
       }
     });
 
-  return {
+  /**
+   * Try a typed token apart from the one in use, and put it in its place only when the service
+   * accepts it. The candidate is held by a temporary connection of its own, which a refusal never
+   * reports as the connector's failure and never marks for sign-in, and which is shut down whatever
+   * the answer; the token file, the connection in use and the status stay as they were until the
+   * moment of the swap.
+   */
+  const replaceToken = (
+    connector: IConnector,
+    token: string,
+    hooks: IReplaceTokenHooks,
+  ): Promise<IReplaceTokenOutcome> =>
+    exclusively(connector.id, async () => {
+      if (authOf(connector) !== 'token') {
+        throw new ConnectorRefusedError('This service does not sign in with a token');
+      }
+      if (!tokens.has(connector.id)) throw new ConnectorRefusedError('Connect this service first');
+      const runtime = runtimeOf(connector);
+      let probe: MCPConnectionSupervisor | undefined;
+      let failure: 'rejected' | 'unreachable' | undefined;
+      try {
+        probe = await openSupervisor(connector, {
+          serverId: connector.id,
+          securityIdentity: identity(connector),
+          authenticator: {
+            authorize: async () => tokenHeaders(connector, token),
+            onRejected: async () => 'fail',
+          },
+        });
+        await probe.discover();
+      } catch (error) {
+        failure = failureOf(error);
+      } finally {
+        await probe?.shutdown().catch(() => undefined);
+      }
+      if (failure !== undefined) {
+        return { replaced: false, reason: failure, status: await protocol.status(connector) };
+      }
+      // The caller closes what a swap changes first; if it cannot, nothing is swapped.
+      hooks.beforeSwap();
+      tokens.set(connector.id, token);
+      await stopConnection(runtime);
+      runtime.failure = undefined;
+      runtime.needsSignIn = false;
+      return { replaced: true, status: { state: 'connected' } };
+    });
+
+  const protocol: IConnectorProtocol = {
     id: 'mcp',
     admitsToolDispatch: true,
+
+    replaceToken,
 
     async status(connector): Promise<IConnectorStatus> {
       const runtime = runtimes.get(connector.id);
@@ -523,4 +587,5 @@ export function createMcpConnectorProtocol(
       runtimes.clear();
     },
   };
+  return protocol;
 }

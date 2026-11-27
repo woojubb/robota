@@ -444,6 +444,14 @@ export interface IConnectorToolView {
   readonly hints?: { readonly readOnly?: boolean; readonly destructive?: boolean };
 }
 
+/** What came of replacing a connector's token. */
+export interface IReplaceTokenAnswer {
+  readonly replaced: boolean;
+  /** When it was not replaced: the service refused the token, or could not be reached. */
+  readonly reason?: 'rejected' | 'unreachable';
+  readonly status: IConnectorStatusView;
+}
+
 export interface IConnectorStatusView {
   readonly state: TConnectorState;
   /** Why a sign-in failed, as a fixed word. */
@@ -738,6 +746,12 @@ export interface IPersonalApi {
     id: string,
     input: { origin?: string; clientSecret?: string; token?: string },
   ): Promise<{ status: IConnectorStatusView }>;
+  /**
+   * Replace the token a connected service is using with a new one, without disconnecting. The agent
+   * tries the new token apart from the one in use and swaps only when the service accepts it; the
+   * answer says which, and why not.
+   */
+  replaceConnectorToken(id: string, token: string): Promise<IReplaceTokenAnswer>;
   disconnectConnector(id: string, forgetPulled?: boolean): Promise<IDisconnectAnswer>;
   removeConnector(id: string, forgetPulled?: boolean): Promise<IDisconnectAnswer>;
   /** How many library claims came from this connector. */
@@ -926,6 +940,8 @@ export function createPersonalApi(
         ...(clientSecret !== undefined && clientSecret !== '' && { clientSecret }),
         ...(token !== undefined && token !== '' && { token }),
       }),
+    replaceConnectorToken: (connectorId, token) =>
+      call('POST', `connectors/${id(connectorId)}/token`, { token }),
     disconnectConnector: (connectorId, forgetPulled = false) =>
       call('POST', `connectors/${id(connectorId)}/disconnect`, { forgetPulled }),
     removeConnector: (connectorId, forgetPulled = false) =>

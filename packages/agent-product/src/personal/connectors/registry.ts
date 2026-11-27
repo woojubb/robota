@@ -16,6 +16,8 @@ import type {
   IConnectorStatus,
   IConnectorToolInfo,
   IDisconnectOutcome,
+  IReplaceTokenHooks,
+  IReplaceTokenOutcome,
   ISignInContext,
   TToolAccess,
   TToolDecision,
@@ -160,6 +162,31 @@ export class ConnectorRegistry {
     }
     this.cache.delete(id);
     return this.protocolOf(connector).signIn(connector, context);
+  }
+
+  /**
+   * Replace the token a `token` connector holds with a new one, keeping the connection. Only the
+   * registry is asked, so a connector that does not sign in with a token, or a protocol that cannot
+   * try a token apart from the one in use, is refused here and nowhere else.
+   */
+  async replaceToken(
+    id: string,
+    token: string,
+    hooks: IReplaceTokenHooks,
+  ): Promise<IReplaceTokenOutcome> {
+    const connector = await this.book.existing(id);
+    if ((connector.auth ?? 'oauth') !== 'token') {
+      throw new ConnectorRefusedError('This service does not sign in with a token');
+    }
+    const protocol = this.protocolOf(connector);
+    if (protocol.replaceToken === undefined) {
+      throw new ConnectorRefusedError(
+        'This service cannot replace its token without disconnecting',
+      );
+    }
+    const outcome = await protocol.replaceToken(connector, token, hooks);
+    if (outcome.replaced) this.cache.delete(id);
+    return outcome;
   }
 
   async disconnect(id: string): Promise<IDisconnectOutcome> {

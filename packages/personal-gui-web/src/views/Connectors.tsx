@@ -260,7 +260,8 @@ function CaseActions({
       <h3 className="text-[13px] font-semibold">Case requests</h3>
       <p className="text-[12px] text-muted-foreground">
         A case you connect to this service can request these tools after your next answer. You must
-        approve each action separately. Reconnecting clears these choices; select them again after sign-in.
+        approve each action separately. Reconnecting clears these choices; select them again after
+        sign-in.
       </p>
       {!ready && connector.caseActionChangePending !== true && (
         <p className="mt-1 text-[12.5px] text-destructive">
@@ -478,6 +479,7 @@ function ConnectorCard({
   connector,
   onConnect,
   onDisconnect,
+  onReplaceToken,
   onRemove,
   onDecide,
   onSync,
@@ -495,6 +497,8 @@ function ConnectorCard({
   readonly connector: IConnectorView;
   readonly onConnect: (typed?: { clientSecret?: string; token?: string }) => void;
   readonly onDisconnect: (forgetPulled: boolean) => void;
+  /** Try a new token in place of the one in use; the page keeps nothing of it. */
+  readonly onReplaceToken: (token: string) => void;
   readonly onRemove: (forgetPulled: boolean) => void;
   readonly onDecide: (tool: string, decision: TToolAccess | null) => void;
   readonly onSync: (everyMinutes: number | null) => void;
@@ -520,6 +524,13 @@ function ConnectorCard({
     setTyped('');
     if (value === '') onConnect();
     else onConnect(auth === 'token' ? { token: value } : { clientSecret: value });
+  };
+  // A new token typed over the one in use: held here until the request goes, then cleared.
+  const [replacement, setReplacement] = useState('');
+  const replace = (): void => {
+    const value = replacement;
+    setReplacement('');
+    onReplaceToken(value);
   };
   const idle =
     status.state !== 'connected' && status.state !== 'connecting' && status.state !== 'checking';
@@ -683,6 +694,29 @@ function ConnectorCard({
             ? 'It is sent as a bearer token.'
             : `It is sent in the ${connector.tokenHeader} header.`}
         </p>
+      )}
+      {status.state === 'connected' && auth === 'token' && (
+        <section aria-label="Replace token" className="mt-3 border-t border-border pt-2">
+          <h3 className="text-[13px] font-semibold">Replace the token</h3>
+          <p className="text-[12px] text-muted-foreground">
+            Paste a new token. Your agent tries it first and uses it only if the service accepts it;
+            until then it keeps using the token it has, and nothing is disconnected.
+          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              type="password"
+              autoComplete="new-password"
+              aria-label={`New token for ${connector.title}`}
+              placeholder="New token"
+              className={`${inputClass} w-56`}
+              value={replacement}
+              onChange={(event) => setReplacement(event.target.value)}
+            />
+            <Button onClick={replace} disabled={replacement.trim() === ''}>
+              Replace token
+            </Button>
+          </div>
+        </section>
       )}
       <div className="mt-3 flex items-center gap-2">
         {asksClientSecret && (
@@ -1723,6 +1757,35 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
                             item.id === connector.id
                               ? { ...item, status: { state: 'not-connected' }, tools: undefined }
                               : item,
+                          ),
+                        },
+                  );
+              }, connector.id)
+            }
+            onReplaceToken={(token) =>
+              void run(async (current) => {
+                setMessage(undefined);
+                const answer = await api.replaceConnectorToken(connector.id, token);
+                if (answer.replaced) {
+                  setMessage(
+                    'The new token works and is now used. Choose again which tools case requests may use.',
+                  );
+                } else {
+                  setRefusal(
+                    answer.reason === 'unreachable'
+                      ? 'Your agent could not reach the service to try the new token; it still uses the token it had.'
+                      : 'The service refused the new token. Your agent still uses the token it had.',
+                  );
+                }
+                // A refused replacement leaves the card as it was: the old token still works.
+                if (answer.replaced && current())
+                  setListing((listing) =>
+                    listing === undefined
+                      ? listing
+                      : {
+                          ...listing,
+                          connectors: listing.connectors.map((item) =>
+                            item.id === connector.id ? { ...item, status: answer.status } : item,
                           ),
                         },
                   );
