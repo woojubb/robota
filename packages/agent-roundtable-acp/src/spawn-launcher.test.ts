@@ -155,11 +155,14 @@ describe('a turn through a spawned agent', () => {
     };
     expect(seen.marker).toBe('marker-value');
     expect(seen.names).not.toContain(PARENT_ONLY_NAME);
-    expect(seen.names).not.toContain('PATH');
-    // macOS adds one text-encoding variable to every process; nothing else may appear.
-    expect(seen.names.filter((name) => name !== '__CF_USER_TEXT_ENCODING')).toEqual(
-      ['EXTRA', MARKER_NAME].sort(),
-    );
+    if (process.platform !== 'win32') {
+      expect(seen.names).not.toContain('PATH');
+      // macOS adds one text-encoding variable to every process; nothing else may appear. Windows
+      // adds its own system variables to every process, so only the absence above holds there.
+      expect(seen.names.filter((name) => name !== '__CF_USER_TEXT_ENCODING')).toEqual(
+        ['EXTRA', MARKER_NAME].sort(),
+      );
+    }
   });
 });
 
@@ -252,7 +255,8 @@ describe('closing the connection', () => {
       const pid = pidOf(await watcher.when('pid:'));
       await lease.release();
 
-      expect(watcher.lines).toContain('sigterm');
+      // Written when the request arrived, before the kill; it reaches us through the pipe.
+      await watcher.when('sigterm');
       expect(alive(pid)).toBe(false);
     },
   );
@@ -327,6 +331,7 @@ describe('a host abort on a running turn', () => {
     const watcher = stderrWatcher();
     const lease = await openLease(['--hang', '--grandchild'], {
       launcher: launcherFor(['--hang', '--grandchild'], { onStderr: watcher.onStderr }),
+      cancelGraceMs: 300,
     });
     const childPid = pidOf(await watcher.when('pid:'));
     const grandchildPid = pidOf(await watcher.when('grandchild:'));
@@ -339,11 +344,12 @@ describe('a host abort on a running turn', () => {
     controller.abort(reason);
 
     expect(await turn).toEqual({ rejected: reason });
-    // The agent was asked to cancel and ignored it; the grace passes and the tree is killed.
-    await lease.release();
-    expect(watcher.lines).toContain('cancel');
-    expect(alive(childPid)).toBe(false);
+    // The agent is asked to cancel and ignores it; with no further call from the host the grace
+    // passes and the whole tree is killed.
+    await watcher.when('cancel');
+    await gone(childPid);
     await gone(grandchildPid);
+    await lease.release();
   });
 });
 
