@@ -47,7 +47,9 @@ import {
 import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playwright-browser.js';
 import { createApprovalRegistry } from './approvals.js';
 import { createApprovalCancellations } from './approval-cancellations.js';
+import { createCaseReactions } from './case-reactions.js';
 import { createCaseTurns } from './case-turns.js';
+import type { ICaseReactions } from './case-reactions.js';
 import type { ICaseTurns } from './case-turns.js';
 import { createCaseAnswerOutbox } from './case-answer-outbox.js';
 import { callCaseConnector, captureCaseAction, createCaseAction } from './case-action.js';
@@ -114,6 +116,8 @@ export interface IPersonalCapabilities {
    * the agent only suggests how urgent a question is, and can neither read nor change the limits.
    */
   readonly delivery: QuestionDelivery;
+  /** How the questions were answered, by kind of service; a record, never a setting. */
+  readonly reactions: ICaseReactions;
   /**
    * The address the person gave to be notified at. Only their own request, through the API, sets or
    * clears it; it is never reachable by a tool, a mail or the agent, and is never shown again.
@@ -408,6 +412,13 @@ export function createPersonalCapabilities(
     feed: goals,
     ...(options.deliveryClock !== undefined && { now: options.deliveryClock }),
   });
+  // What kind of service each question came from and whether it was answered: counts and times only.
+  const reactions = createCaseReactions({
+    directory: join(options.stateDir, 'case-reactions'),
+    kindOf: async (id) => (await connectorBook.get(id))?.kind,
+    card: (feedItemId) => goals.feedItem(feedItemId),
+    ...(options.deliveryClock !== undefined && { now: options.deliveryClock }),
+  });
   const caseStore = createFileCaseStore(join(options.stateDir, 'cases'));
   // Case writes must not resurrect a closed case even when connector settings are unavailable.
   const caseWrites = createCaseActionScope(join(options.stateDir, 'cases'));
@@ -470,7 +481,10 @@ export function createPersonalCapabilities(
       },
     }),
     // Not waited for, and it cannot fail the ask: the question is in the feed already.
-    onAsked: (event) => delivery.onAsked(event),
+    onAsked: (event) => {
+      void reactions.asked(event).catch(() => undefined);
+      return delivery.onAsked(event);
+    },
   });
   if (
     cases.supportsSharedWriteLock !== true ||
@@ -666,6 +680,7 @@ export function createPersonalCapabilities(
     goals,
     cases,
     delivery,
+    reactions,
     notificationAddress,
     notifications,
     ideas,
@@ -684,6 +699,7 @@ export function createPersonalCapabilities(
         cases,
         caseBindings,
         delivery,
+        reactions,
         notificationAddress,
         notifications,
         push: createPushApi({ vapid: pushVapid, subscriptions: pushSubscriptions }),
@@ -869,6 +885,7 @@ export function createPersonalCapabilities(
       if (deliveryTickMs > 0) {
         const tick = (): void => {
           void delivery.tick().catch(() => undefined);
+          void reactions.reconcile().catch(() => undefined);
         };
         tick();
         deliveryTimer = setInterval(tick, deliveryTickMs);
