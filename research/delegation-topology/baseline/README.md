@@ -47,4 +47,4 @@ Hashes of the runner and worker match the values pinned when the baseline closed
 
 ## Scrubs
 
-Host-specific text was replaced in four scripts: two absolute host paths in each runner revision (source checkout and credential env file) and one tracker reference in the summary script. `sha256BeforeScrub` in `MANIFEST.json` is the hash of the original bytes, which is what the pins refer to. The scripts therefore need those two paths supplied before they can run again.
+Four scripts were scrubbed: two absolute host paths in each runner revision (source checkout and credential env file), one tracker reference in the summary script, and vendor and model names in prose (a runner docstring and comment, and the report text the summary script generates). Model ids, endpoints, package names and provider-name comparisons that the scripts act on are configuration and were kept. `sha256BeforeScrub` in `MANIFEST.json` is the hash of the original bytes, which is what the pins refer to. The scripts therefore need those two paths supplied before they can run again.

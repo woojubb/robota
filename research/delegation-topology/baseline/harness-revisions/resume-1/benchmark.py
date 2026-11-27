@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Owner-authorized US$10 DeepSeek baseline through the actual Robota headless runtime."""
+"""Owner-authorized US$10 single-agent baseline through the actual Robota headless runtime."""
 import argparse
 import hashlib
 import json
@@ -126,7 +126,7 @@ def validate_request(message, dispatches):
 
 
 def existing_key():
-    # Read only the explicitly approved Gateway credential; never copy it into the container or report.
+    # Read only the explicitly approved gateway credential; never copy it into the container or report.
     env = Path('<credential-env-file>')
     for line in env.read_text().splitlines():
         if line.startswith('AI_GATEWAY_API_KEY='):

@@ -1,6 +1,6 @@
 {
   "copiedFileCount": 96,
-  "copiedBytes": 707240,
+  "copiedBytes": 707284,
   "files": [
     {
       "path": "evidence/cleanup.json",
@@ -389,8 +389,8 @@
     },
     {
       "path": "harness/benchmark.py",
-      "sha256": "d31575a6ca0403f69b6b2b7494870bfac45ae2d7fd73b674cf2e58ceaff59186",
-      "bytes": 25002,
+      "sha256": "edb4fe35c5eebb644edfc5b805d8d9362319fffc73988583cf118e7134f1b383",
+      "bytes": 25006,
       "sha256BeforeScrub": "9ca4e0d7dfd2a23849f320f213fb1d234183926fac2aaf03a3aa00f5096c94c6",
       "scrubbed": true
     },
@@ -401,8 +401,8 @@
     },
     {
       "path": "harness/summarize.py",
-      "sha256": "10f30be48c574fd57a89d3fec23a824681b56c3f0c30a22afe4af6f7008650c6",
-      "bytes": 13978,
+      "sha256": "fb077163ddf1f52140ec75978817951f21401b10c40cea7cbdefd00f5894737f",
+      "bytes": 14010,
       "sha256BeforeScrub": "c8b9a732d1c4541c1c7e64a397ae249a5bb8d10f8f336fa8f63fe3d2a8622b91",
       "scrubbed": true
     },
@@ -423,8 +423,8 @@
     },
     {
       "path": "harness-revisions/resume-1/benchmark.py",
-      "sha256": "bb5ddd745dd7b4ee12d74ad1b516c380a7811abd4f8bcf6a77ff7eef57e57802",
-      "bytes": 22772,
+      "sha256": "b9821d1f283f67eef22aa7950f7b1dff6d0c59603050327e1fc98ddfb82e30ab",
+      "bytes": 22776,
       "sha256BeforeScrub": "5ca0d1aefd3cfd68aaae632f26d0dee428c12299ded5207fee8cf31a81f5c0ac",
       "scrubbed": true
     },
@@ -460,8 +460,8 @@
     },
     {
       "path": "harness-revisions/resume-2/benchmark.py",
-      "sha256": "51c6e841b5e521620835719d4b2787d6c237aeb5be7e1f3c9b937f46f5b381c7",
-      "bytes": 23901,
+      "sha256": "e925f1d6ddbc42846799a63b8c9722b7d2a8e03ec5bec03571b6a0d1ca71872b",
+      "bytes": 23905,
       "sha256BeforeScrub": "699378eaa14bf45c5f7da609337d69cfec86b412745a32d96a128650d9a8915e",
       "scrubbed": true
     },
@@ -711,11 +711,7 @@
         "match": true
       }
     ],
-    "pinnedItemsNotCopied": [
-      "README.md",
-      "issue-comment.md",
-      "issue-result.json"
-    ],
+    "pinnedItemsNotCopied": ["README.md", "issue-comment.md", "issue-result.json"],
     "copiedFilesWithoutAnyPin": [
       "evidence/controls/capacity-controls.json",
       "evidence/controls/offline-controls.json",
@@ -802,12 +798,10 @@
     "fixtureSnapshots": {
       "filesCheckedAgainstResultsManifests": 38,
       "allMatch": true,
-      "copiedFixtureFilesWithoutRecordedHash": [
-        "fixtures/bug-repair-0/src/cart.mjs"
-      ]
+      "copiedFixtureFilesWithoutRecordedHash": ["fixtures/bug-repair-0/src/cart.mjs"]
     }
   },
-  "scrubbedFiles": "Four copied scripts had host-specific text replaced; sha256BeforeScrub is the hash of the original bytes (the pinned values match those). Replaced: two absolute host paths in each runner revision (source checkout, credential env file) and one tracker reference in the summary script.",
+  "scrubbedFiles": "Four copied scripts were scrubbed; sha256BeforeScrub is the hash of the original bytes (the pinned values match those). Replaced: two absolute host paths in each runner revision (source checkout, credential env file); one tracker reference in the summary script; vendor and model names in prose (a runner docstring and comment in each runner revision, the generated-report text in the summary script). Model ids, endpoints, package names, provider-name comparisons and error-message matches that the scripts act on are configuration and were kept.",
   "excludedCategories": [
     "model wire transcripts (hashes and sizes listed above)",
     "credit and balance snapshots",
