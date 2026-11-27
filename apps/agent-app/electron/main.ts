@@ -34,7 +34,6 @@ import { openSecretWindow } from './secret-window.js';
 
 import {
   appendOutputTail,
-  buildContentSecurityPolicy,
   buildDaemonStartSpawn,
   buildPickedFiles,
   chooseInitialWorkspace,
@@ -50,6 +49,7 @@ import {
   rememberRecentFolder,
   resolveOpenPathTarget,
   resolveSidecarCommand,
+  selectRendererResponsePolicy,
   windowTitle,
   type IPickedFile,
   type ITrustQuestion,
@@ -430,14 +430,17 @@ const daemon = createDaemonAttachment(startDaemon);
  * or to nothing, when there is no daemon and the page only shows why. The port is read per response, so a
  * reload after a restart picks up the new daemon's port.
  */
-function installCsp(): void {
+function installCsp(sandboxPath: string): void {
   session.defaultSession.webRequest.onHeadersReceived((details, cb) => {
     cb({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [
-          buildContentSecurityPolicy(conversationMode === 'plain' ? daemon.port() : undefined),
-        ],
+        ...selectRendererResponsePolicy({
+          url: details.url,
+          resourceType: details.resourceType,
+          sandboxPath,
+          port: conversationMode === 'plain' ? daemon.port() : undefined,
+        }),
       },
     });
   });
@@ -941,7 +944,7 @@ async function createWindow(): Promise<void> {
     }
   }
   refreshMenu();
-  installCsp();
+  installCsp(join(__dirname, '../renderer/app-sandbox.html'));
   await win.loadFile(join(__dirname, '../renderer/index.html'));
 }
 

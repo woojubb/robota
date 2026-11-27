@@ -25,7 +25,10 @@ web app (`@robota-sdk/agent-gui-web`), which it reaches only through that packag
   close or quit. It runs on macOS only; elsewhere the window refuses and points to the secure CLI.
 - The renderer is hardened: context isolation, no Node integration, sandboxed, loads only local
   content, a CSP restricted to `self` plus the loopback WebSocket origin, and navigation/new-window
-  lockdown — so the nonce-holding renderer cannot carry the session to an external origin.
+  lockdown — so the nonce-holding renderer cannot carry the session to an external origin. The only page
+  the renderer may frame is its own bundled app sandbox page, which keeps its own policy (no network
+  connections, only its own inline script) instead of the renderer's. The sandbox runs an app only where
+  the engine enforces native network isolation; elsewhere the view says why and the text result stays.
 - The packaged app can be neither borrowed to run another program's code nor driven from outside: no Node
   entry point, app code only from its asar (integrity-checked on macOS and Windows; on Linux the AppImage or deb
   install is not writable by the user, which is what keeps the asar unaltered), and no remote debugging (no fuse
