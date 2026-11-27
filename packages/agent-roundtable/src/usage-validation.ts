@@ -6,6 +6,8 @@ import { integer, text } from './state-codec-values';
  * These are shared so the two cannot drift apart.
  */
 export const USAGE_OUTCOMES = ['completed', 'failed', 'cancelled', 'cache-hit'] as const;
+/** A stored record may also carry the one outcome only recovery writes; a report never can. */
+export const STORED_USAGE_OUTCOMES = [...USAGE_OUTCOMES, 'not-dispatched'] as const;
 export const USAGE_PROVENANCES = ['reported', 'partial', 'estimated', 'unknown'] as const;
 export const USAGE_TOKEN_KEYS = [
   'input',

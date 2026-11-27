@@ -44,7 +44,9 @@ can restore, and may therefore retain the abandoned attempt. Only a turn stored 
 process saw settle, requires reconciliation before the conversation continues. Cancellation does not
 establish that an external effect never happened, nor that a model call cost nothing: a call never fully
 reported keeps its bound counted until the host reconciles it, since a refund on a guess would let a
-budget be overspent. Reporting an effect of an abandoned attempt remains the runtime's responsibility. A group commits only when every member has prepared; failure or
+budget be overspent. Of the calls never fully reported, only one that recovery proved never dispatched
+is refunded, and it still counts against call limits; recovery settles each reserved call once, for its
+own principal and attempt, and an answer naming a call already settled is refused. Reporting an effect of an abandoned attempt remains the runtime's responsibility. A group commits only when every member has prepared; failure or
 cancellation never publishes provisional output as a completed contribution. Session release belongs to
 the factory, so borrowed resources remain under their owner's control.
 

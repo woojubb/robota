@@ -41,6 +41,12 @@ export interface ToolEffectIntent {
 
 export type UsageOutcome = 'completed' | 'failed' | 'cancelled' | 'cache-hit';
 
+/**
+ * What a settled record stores. 'not-dispatched' is written only by recovery, once it has proven the
+ * call never reached the provider: it charges nothing, yet the call still counts against call limits.
+ */
+export type StoredUsageOutcome = UsageOutcome | 'not-dispatched';
+
 /** How trustworthy the reported counts are; only 'reported' comes straight from the provider. */
 export type UsageProvenance = 'reported' | 'partial' | 'estimated' | 'unknown';
 
@@ -149,7 +155,20 @@ interface UsageRecordIdentity extends ModelCallIntent {
  */
 export type UsageRecord =
   | (UsageRecordIdentity & { status: 'reserved' })
-  | (UsageRecordIdentity & { status: 'settled' } & Omit<UsageReport, 'callId'>);
+  | (UsageRecordIdentity & { status: 'settled' } & Omit<UsageReport, 'callId' | 'outcome'> & {
+        outcome: StoredUsageOutcome;
+      });
+
+/**
+ * What recovery answered for one reserved call of an interrupted attempt. 'not-dispatched' proves the
+ * call never reached the provider, so its reservation is refunded exactly; 'settled' carries the
+ * journal's final report, which is settled like any report; 'uncertain' keeps the bound counted until
+ * the host reconciles it. Applying one is host-only and never reachable through `TurnServices`.
+ */
+export type CallSettlement =
+  | { kind: 'not-dispatched'; callId: string }
+  | { kind: 'settled'; callId: string; report: UsageReport }
+  | { kind: 'uncertain'; callId: string };
 
 /**
  * Bound by the core to one principal (a participant or the selector) and, for a participant, one
@@ -201,6 +220,8 @@ export interface UsageSummary {
   cost: Money[];
   /** Tool effects, counted apart from the model calls above. */
   toolEffects: number;
+  /** Model calls recovery proved never dispatched; they cost nothing but are inside the counters above. */
+  notDispatchedCalls: number;
 }
 
 /** Aggregates a ledger slice for display; callers filter records (by run, participant, ...) first. */
@@ -218,6 +239,7 @@ export function summarizeUsage(records: readonly UsageRecord[]): UsageSummary {
   let unknownCalls = 0;
   let totalCalls = 0;
   let toolEffects = 0;
+  let notDispatchedCalls = 0;
   for (const record of records) {
     const model = record.kind === 'model';
     if (model) totalCalls++;
@@ -227,6 +249,7 @@ export function summarizeUsage(records: readonly UsageRecord[]): UsageSummary {
       continue;
     }
     if (model) settledCalls++;
+    if (model && record.outcome === 'not-dispatched') notDispatchedCalls++;
     if (model && record.provenance === 'unknown') unknownCalls++;
     if (record.tokens) {
       for (const key of Object.keys(tokens) as (keyof UsageTokens)[]) {
@@ -250,5 +273,6 @@ export function summarizeUsage(records: readonly UsageRecord[]): UsageSummary {
       minorUnits: minorUnits.toString(),
     })),
     toolEffects,
+    notDispatchedCalls,
   };
 }

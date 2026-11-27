@@ -36,6 +36,8 @@ export type {
   PricePolicy,
   ToolEffectIntent,
   TurnServices,
+  CallSettlement,
+  StoredUsageOutcome,
   UsageAmount,
   UsageCallKind,
   UsageBudget,

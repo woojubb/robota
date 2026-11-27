@@ -43,6 +43,8 @@ export type {
   TurnSelector,
   ToolEffectIntent,
   TurnServices,
+  CallSettlement,
+  StoredUsageOutcome,
   UsageAmount,
   UsageCallKind,
   UsageBudget,
