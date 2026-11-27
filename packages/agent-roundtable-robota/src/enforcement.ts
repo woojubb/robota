@@ -14,6 +14,11 @@ export interface RuntimeEnforcement {
   requestOverheadTokens: number;
   /** Tools whose effects spend no model tokens. A tool in no list is refused. */
   freeTools?: readonly string[];
+  /**
+   * Tools whose effects may spend money or model tokens, each with the most tokens one effect may
+   * consume (0 for a tool that only spends money). A tool in no list is refused.
+   */
+  paidTools?: Readonly<Record<string, { tokens: number }>>;
 }
 
 /** The selector's one decision tool is free by construction, so only the call bounds are declared. */
@@ -27,6 +32,8 @@ export interface CallEnforcement {
   providerAttempts: number;
   requestOverheadTokens: number;
   freeTools: ReadonlySet<string>;
+  /** Paid tool name to the most tokens one effect may consume. */
+  paidTools: ReadonlyMap<string, number>;
 }
 
 function invalid(message: string): never {
@@ -37,7 +44,7 @@ function invalid(message: string): never {
 export function normalizeEnforcement(value: RuntimeEnforcement): CallEnforcement {
   if (typeof value !== 'object' || value === null)
     invalid('enforcement must be an object with providerAttempts and requestOverheadTokens');
-  const { providerAttempts, requestOverheadTokens, freeTools } = value;
+  const { providerAttempts, requestOverheadTokens, freeTools, paidTools } = value;
   if (!Number.isSafeInteger(providerAttempts) || providerAttempts < 1)
     invalid('enforcement.providerAttempts must be a positive safe integer');
   if (!Number.isSafeInteger(requestOverheadTokens) || requestOverheadTokens < 0)
@@ -52,7 +59,25 @@ export function normalizeEnforcement(value: RuntimeEnforcement): CallEnforcement
       names.add(name);
     }
   }
-  return { providerAttempts, requestOverheadTokens, freeTools: names };
+  const paid = new Map<string, number>();
+  if (paidTools !== undefined) {
+    if (typeof paidTools !== 'object' || paidTools === null || Array.isArray(paidTools))
+      invalid('enforcement.paidTools must map tool names to their token bounds');
+    for (const [name, declaration] of Object.entries(paidTools)) {
+      if (name.length === 0) invalid('enforcement.paidTools must hold non-empty tool names');
+      const tokens = (declaration as { tokens?: unknown } | null)?.tokens;
+      if (typeof tokens !== 'number' || !Number.isSafeInteger(tokens) || tokens < 0)
+        invalid(`enforcement.paidTools.${name}.tokens must be a non-negative safe integer`);
+      if (names.has(name)) invalid(`enforcement declares a tool both free and paid: ${name}`);
+      paid.set(name, tokens);
+    }
+  }
+  return { providerAttempts, requestOverheadTokens, freeTools: names, paidTools: paid };
+}
+
+/** Whether the host declared this tool free or paid. */
+export function isDeclaredTool(enforcement: CallEnforcement, name: string): boolean {
+  return enforcement.freeTools.has(name) || enforcement.paidTools.has(name);
 }
 
 /** What the adapter can see of a runtime when its lease opens. */
@@ -96,7 +121,7 @@ export function assertCallsAreBounded(surface: EnforceableSurface): void {
     unbounded(
       'An enforced runtime cannot use provider-hosted web tools: their usage is not bounded by the request',
     );
-  const undeclared = surface.toolNames.find((name) => !surface.enforcement.freeTools.has(name));
+  const undeclared = surface.toolNames.find((name) => !isDeclaredTool(surface.enforcement, name));
   if (undeclared !== undefined)
     unbounded(`An enforced runtime must declare every tool free or paid: ${undeclared}`);
 }
