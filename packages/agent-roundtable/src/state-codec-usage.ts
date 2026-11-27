@@ -54,7 +54,8 @@ export function validateUsageState(
       requireState(text(price.version));
       requireState(price.cost === null || validUsageCost(price.cost));
       // Under a cost budget every stored price is one the budget can add.
-      if (currency !== null && price.cost !== null) requireState(validBudgetCost(price.cost, currency));
+      if (currency !== null && price.cost !== null)
+        requireState(validBudgetCost(price.cost, currency));
     }
     requireState(entry.bound === undefined || validModelCallBound(entry.bound));
     // Only admission under a budget reserves anything, so no budget means nothing to set aside or settle.
@@ -69,7 +70,9 @@ export function validateUsageState(
     }
     requireState(
       entry.reconciled === null ||
-        (budget !== null && entry.admitted === true && validUsageAmount(entry.reconciled, currency)),
+        (budget !== null &&
+          entry.admitted === true &&
+          validUsageAmount(entry.reconciled, currency)),
     );
     requireState(entry.status === 'reserved' || entry.status === 'settled');
     // Only a settled cache hit can exist without an admission; every other record reserved one.

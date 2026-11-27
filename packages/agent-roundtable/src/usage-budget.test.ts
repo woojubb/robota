@@ -38,7 +38,10 @@ function reserved(overrides: Partial<UsageRecord> = {}): UsageRecord {
   } as UsageRecord;
 }
 
-function settled(report: Record<string, unknown>, overrides: Partial<UsageRecord> = {}): UsageRecord {
+function settled(
+  report: Record<string, unknown>,
+  overrides: Partial<UsageRecord> = {},
+): UsageRecord {
   return reserved({
     status: 'settled',
     outcome: 'completed',
@@ -54,7 +57,11 @@ function settled(report: Record<string, unknown>, overrides: Partial<UsageRecord
 describe('what a record counts against a budget', () => {
   it.each([
     ['a record that is only reserved', reserved(), { tokens: 50n, cost: 500n }],
-    ['a completed call whose final report shows its usage', settled({}), { tokens: 15n, cost: 30n }],
+    [
+      'a completed call whose final report shows its usage',
+      settled({}),
+      { tokens: 15n, cost: 30n },
+    ],
     [
       'a completed call that used more than its bound',
       settled({ tokens: { input: 90, output: 60 }, price: { version: 'v1', cost: usd('900') } }),
@@ -94,7 +101,11 @@ describe('what a record counts against a budget', () => {
     ],
     [
       'a partial report that shows more than the bound',
-      settled({ provenance: 'partial', tokens: { input: 40, output: 30 }, price: { version: 'v1', cost: usd('800') } }),
+      settled({
+        provenance: 'partial',
+        tokens: { input: 40, output: 30 },
+        price: { version: 'v1', cost: usd('800') },
+      }),
       { tokens: 70n, cost: 800n },
     ],
     [
@@ -122,10 +133,7 @@ describe('what a record counts against a budget', () => {
     ],
     [
       'a cache hit that never needed admission and is priced',
-      settled(
-        { outcome: 'cache-hit', tokens: undefined },
-        { admitted: false, reservation: null },
-      ),
+      settled({ outcome: 'cache-hit', tokens: undefined }, { admitted: false, reservation: null }),
       { tokens: 0n, cost: 30n },
     ],
   ])('%s', (_label, record, expected) => {
@@ -145,7 +153,9 @@ describe('what a record counts against a budget', () => {
   });
 
   it('keeps the bound when the price is in another currency than the budget', () => {
-    const foreign = settled({ price: { version: 'v1', cost: { currency: 'EUR', minorUnits: '1' } } });
+    const foreign = settled({
+      price: { version: 'v1', cost: { currency: 'EUR', minorUnits: '1' } },
+    });
     expect(recordCharge(foreign, costBudget)).toEqual({ tokens: 50n, cost: 500n });
   });
 

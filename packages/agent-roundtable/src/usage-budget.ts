@@ -50,10 +50,7 @@ export function normalizeBudget(
   if (mode !== 'strict' && mode !== 'estimated') invalid('A budget mode is strict or estimated');
   if (budget.tokens === undefined && budget.cost === undefined)
     invalid('A budget requires a token amount, a cost amount or both');
-  if (
-    budget.tokens !== undefined &&
-    (!Number.isSafeInteger(budget.tokens) || budget.tokens <= 0)
-  )
+  if (budget.tokens !== undefined && (!Number.isSafeInteger(budget.tokens) || budget.tokens <= 0))
     invalid('A token budget must be a positive safe integer');
   if (
     budget.cost !== undefined &&
@@ -144,8 +141,7 @@ export function recordCharge(record: UsageRecord, budget: StoredBudget): BudgetC
     const priced = record.price?.cost;
     return {
       tokens: 0n,
-      cost:
-        budget.cost !== null && priced?.currency === budget.cost.currency ? minor(priced) : 0n,
+      cost: budget.cost !== null && priced?.currency === budget.cost.currency ? minor(priced) : 0n,
     };
   }
   return retainedBound(record, budget);
@@ -177,19 +173,20 @@ function synchronous<T>(value: T, what: string): T {
   return value;
 }
 
-function priceBound(
-  value: Money | null,
-  budget: StoredBudget,
-  what: string,
-): Money | null {
+function priceBound(value: Money | null, budget: StoredBudget, what: string): Money | null {
   if (value === null) return null;
   if (!validBudgetCost(value, budget.cost?.currency))
     invalid(`${what} must be a non-negative amount in the budget currency`);
   return value;
 }
 
-function runEstimator(estimator: UsageEstimator | undefined, call: ModelCallIntent, budget: StoredBudget): UsageEstimate {
-  if (typeof estimator?.estimate !== 'function') invalid('An estimated budget requires an estimator');
+function runEstimator(
+  estimator: UsageEstimator | undefined,
+  call: ModelCallIntent,
+  budget: StoredBudget,
+): UsageEstimate {
+  if (typeof estimator?.estimate !== 'function')
+    invalid('An estimated budget requires an estimator');
   const estimate = synchronous(estimator.estimate({ ...call }), 'The estimator');
   if (estimate === null || typeof estimate !== 'object' || Array.isArray(estimate))
     invalid('The estimator must return an estimate object');
@@ -215,9 +212,11 @@ export function resolveReservation(
   const estimated = (): UsageEstimate => (estimate ??= runEstimator(estimator, call, budget));
   let bound: ModelCallBound | undefined = call.bound;
   if (bound === undefined) {
-    if (budget.mode !== 'estimated') invalid('A strict budget requires every call to declare its bound');
+    if (budget.mode !== 'estimated')
+      invalid('A strict budget requires every call to declare its bound');
     bound = estimated().bound;
-    if (bound === undefined) invalid('The estimator returned no bound for a call that declared none');
+    if (bound === undefined)
+      invalid('The estimator returned no bound for a call that declared none');
     provenance = 'estimated';
   }
   let cost: Money | null = null;
@@ -286,20 +285,30 @@ function planReconciliation(
   const usage = state.snapshot.usage;
   const index = usage.findIndex((record) => record.callId === input.callId);
   const record = usage[index];
-  if (!record) throw new RoundtableError('conflict', 'Reconcile names a call that is not in the ledger');
+  if (!record)
+    throw new RoundtableError('conflict', 'Reconcile names a call that is not in the ledger');
   if (!record.admitted)
-    throw new RoundtableError('conflict', 'A call that was never admitted has nothing to reconcile');
+    throw new RoundtableError(
+      'conflict',
+      'A call that was never admitted has nothing to reconcile',
+    );
   if (record.reconciled) {
     if (sameAmount(record.reconciled, amount)) return null;
     throw new RoundtableError('conflict', 'Call was already reconciled to different amounts');
   }
   if (knownUsage(record, budget))
-    throw new RoundtableError('conflict', 'A call whose usage is fully reported needs no reconcile');
+    throw new RoundtableError(
+      'conflict',
+      'A call whose usage is fully reported needs no reconcile',
+    );
   return { index, amount };
 }
 
 /** Whether a reconcile would change nothing; throws exactly when `reconcileModelCall` would. */
-export function reconciliationIsNoop(state: ConversationState, input: UsageReconciliation): boolean {
+export function reconciliationIsNoop(
+  state: ConversationState,
+  input: UsageReconciliation,
+): boolean {
   return planReconciliation(state, input) === null;
 }
 

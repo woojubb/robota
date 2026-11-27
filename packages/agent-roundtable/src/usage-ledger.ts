@@ -78,7 +78,10 @@ export function reserveModelCall(
     if (!sameIdentity(existing, ctx, call))
       throw new RoundtableError('conflict', 'Model call id was already used by another call');
     if (canonicalJson(existing.bound ?? null) !== canonicalJson(call.bound ?? null))
-      throw new RoundtableError('conflict', 'Model call id was already admitted with another bound');
+      throw new RoundtableError(
+        'conflict',
+        'Model call id was already admitted with another bound',
+      );
     return;
   }
   const limits = state.definition.limits;
@@ -108,9 +111,7 @@ export function reserveModelCall(
   }
   const budget = state.definition.budget;
   const reservation =
-    budget === null
-      ? null
-      : resolveReservation(call, budget, policies.pricing, policies.estimator);
+    budget === null ? null : resolveReservation(call, budget, policies.pricing, policies.estimator);
   if (budget !== null && reservation !== null) admitUnderBudget(usage, budget, reservation);
   const record: UsageRecord = {
     callId: call.callId,
