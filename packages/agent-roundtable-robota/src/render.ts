@@ -3,9 +3,11 @@ import type { ParticipantTurn } from '@robota-sdk/agent-roundtable';
 /**
  * Turns one turn's shared increment into text a Session/ConversationAgent run() input can carry.
  *
- * The result carries only `turn.context.messages` — the core already excludes the participant's
- * own prior output and anything already delivered to it (`conversation.ts`), so a renderer never
- * needs to filter those out itself. `firstTurn` decides whether the turn's `purpose` is included;
+ * The result carries only `turn.context.messages` and the optional `turn.context.summary` — the
+ * core's context policy already excludes the participant's own prior output and anything already
+ * delivered to it, so a renderer never needs to filter those out itself. A summary stands in for
+ * messages the policy consumed without delivering, so dropping it would silently lose that text.
+ * `firstTurn` decides whether the turn's `purpose` is included;
  * a host renderer that never repeats the purpose keeps the private history free of repetition.
  */
 export type TurnRenderer = (turn: ParticipantTurn, state: { firstTurn: boolean }) => string;
@@ -38,15 +40,18 @@ const NO_NEW_MESSAGES_NOTICE =
  * Default {@link TurnRenderer}. Each shared message becomes a `### From <participantId>` header
  * followed by its content, blockquoted line by line — so content that itself contains a line
  * shaped like `### From <id>` or `[id]:` is never mistaken for a real header, because a forged
- * one is always prefixed by `> ` and a real one never is. The turn's `purpose`, when present, is
+ * one is always prefixed by `> ` and a real one never is. A summary gets its own header and the
+ * same quoting, ahead of the messages it precedes. The turn's `purpose`, when present, is
  * emitted once as a leading line and only on the first turn. A turn with nothing to say — no
- * purpose yet and no shared messages, e.g. a first turn with no purpose or a lone participant
- * whose peers all yielded — renders a neutral notice instead of an empty string, which several
- * providers (Anthropic among them) reject as an empty user message.
+ * purpose yet, no summary and no shared messages, e.g. a first turn with no purpose or a lone
+ * participant whose peers all yielded — renders a neutral notice instead of an empty string,
+ * which several providers reject as an empty user message.
  */
 export const renderSharedIncrement: TurnRenderer = (turn, state) => {
   const parts: string[] = [];
   if (state.firstTurn && turn.purpose) parts.push(`Purpose: ${turn.purpose}`);
+  if (turn.context.summary !== undefined)
+    parts.push(`### Summary of earlier messages\n${quoteContent(turn.context.summary)}`);
   for (const message of turn.context.messages) {
     parts.push(`### From ${message.participantId}\n${quoteContent(message.content)}`);
   }

@@ -9,10 +9,12 @@ restoration for every product that wants an agent runtime-backed participant or 
 
 ## Contract
 
-Only a turn's shared increment — the messages a participant has not already consumed — becomes that
-runtime's next input; a participant's own private history, and everything a tool produced along the
-way, never leaves the runtime except as the turn's final text. A message's own content cannot be read
-back as a new header or a new turn boundary: whatever a peer wrote stays data, quoted, never authority.
+Only a turn's shared increment — the messages a participant has not already consumed, as the
+roundtable's context policy offered them, with the summary that stands in for any it consumed instead
+— becomes that runtime's next input; a participant's own private history, and everything a tool
+produced along the way, never leaves the runtime except as the turn's final text. A message's own
+content cannot be read back as a new header or a new turn boundary: whatever a peer wrote stays data,
+quoted, never authority, and a summary a host built from it stays data too.
 A conversation's purpose is announced to a runtime once, on the turn that opens it, never repeated.
 
 Every provider call a wrapped runtime makes is admitted and reported through that turn's own bound
