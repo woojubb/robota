@@ -153,6 +153,106 @@ describe('OAuth discovery', () => {
     },
   );
 
+  describe('a challenge that links metadata for another resource', () => {
+    const ENDPOINT = 'https://mcp.example.test/mcp/v1';
+    const PATH_DOCUMENT = 'https://mcp.example.test/.well-known/oauth-protected-resource/mcp/v1';
+    const LINKED = 'https://mcp.example.test/.well-known/oauth-protected-resource/list_labels';
+    const SET_ASIDE_SERVER = 'https://set-aside-auth.example.test/';
+
+    /** A first-party service: the endpoint's own document is right, the linked one names its parent. */
+    function publishedShape(options: { pathDocument?: 'absent' | { resource: string } } = {}): {
+      server: IFakeOAuthServer;
+      requests: string[];
+    } {
+      const server = createFakeOAuthServer();
+      const requests: string[] = [];
+      const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(input instanceof Request ? input.url : input);
+        requests.push(url.href);
+        if (url.href === LINKED) {
+          return Response.json({
+            resource: 'https://mcp.example.test/mcp',
+            authorization_servers: [SET_ASIDE_SERVER],
+            scopes_supported: ['labels:read'],
+          });
+        }
+        if (url.href === PATH_DOCUMENT) {
+          if (options.pathDocument === 'absent') return new Response(null, { status: 404 });
+          return Response.json({
+            resource: options.pathDocument?.resource ?? ENDPOINT,
+            authorization_servers: [AS_URL],
+            scopes_supported: ['files:read', 'files:write'],
+          });
+        }
+        if (url.pathname.startsWith('/.well-known/oauth-protected-resource')) {
+          return new Response(null, { status: 404 });
+        }
+        return server.fetch(input, init);
+      }) as typeof globalThis.fetch;
+      return { server: { ...server, fetch }, requests };
+    }
+
+    it("uses the endpoint's own document and never the origin's", async () => {
+      const { server, requests } = publishedShape();
+      const info = await discover(server, {}, { serverUrl: ENDPOINT, resourceMetadataUrl: LINKED });
+      expect(info.resource).toBe(ENDPOINT);
+      expect(info.issuer).toBe(AS_URL);
+      expect(info.scope).toBe('files:read files:write');
+      expect(requests.slice(0, 2)).toEqual([LINKED, PATH_DOCUMENT]);
+      expect(requests).not.toContain(
+        'https://mcp.example.test/.well-known/oauth-protected-resource',
+      );
+    });
+
+    it('takes nothing from the set-aside document', async () => {
+      const { server, requests } = publishedShape();
+      const info = await discover(
+        server,
+        {},
+        { serverUrl: ENDPOINT, resourceMetadataUrl: LINKED, challengeScope: 'from-header' },
+      );
+      expect(info.scope).toBe('from-header');
+      expect(requests.some((url) => url.startsWith(SET_ASIDE_SERVER))).toBe(false);
+      expect(requests.some((url) => url.includes('set-aside-auth'))).toBe(false);
+    });
+
+    it.each([
+      ['is missing', { pathDocument: 'absent' }],
+      ['names another resource', { pathDocument: { resource: 'https://mcp.example.test/mcp' } }],
+    ] as const)('still refuses when the endpoint document %s', async (_label, options) => {
+      const { server, requests } = publishedShape(options);
+      expect(
+        await reasonOf(discover(server, {}, { serverUrl: ENDPOINT, resourceMetadataUrl: LINKED })),
+      ).toBe('resource-mismatch');
+      expect(requests).not.toContain(
+        'https://mcp.example.test/.well-known/oauth-protected-resource',
+      );
+    });
+
+    it('does not fetch the endpoint document twice when the challenge links it', async () => {
+      const { server, requests } = publishedShape();
+      const info = await discover(
+        server,
+        {},
+        { serverUrl: ENDPOINT, resourceMetadataUrl: PATH_DOCUMENT },
+      );
+      expect(info.resource).toBe(ENDPOINT);
+      expect(requests.filter((url) => url === PATH_DOCUMENT)).toHaveLength(1);
+    });
+
+    it('refuses a linked document naming another resource when it is the endpoint document', async () => {
+      const { server, requests } = publishedShape({
+        pathDocument: { resource: 'https://mcp.example.test/mcp' },
+      });
+      expect(
+        await reasonOf(
+          discover(server, {}, { serverUrl: ENDPOINT, resourceMetadataUrl: PATH_DOCUMENT }),
+        ),
+      ).toBe('resource-mismatch');
+      expect(requests.filter((url) => url === PATH_DOCUMENT)).toHaveLength(1);
+    });
+  });
+
   it('refuses authorization server metadata naming another issuer', async () => {
     const server = createFakeOAuthServer();
     server.overrides.issuer = 'https://evil.example.test/';

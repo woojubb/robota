@@ -346,6 +346,35 @@ describe('OAuth authenticator', () => {
     expect(server.tokenCalls()).toBe(0);
   });
 
+  it('keeps the sign-in when a challenge links metadata for another resource', async () => {
+    const server = createFakeOAuthServer();
+    server.validRefreshTokens.add('rt-initial');
+    const linked = 'https://mcp.example.test/.well-known/oauth-protected-resource/list_labels';
+    const fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (String(input) === linked) {
+        return Response.json({
+          resource: 'https://mcp.example.test',
+          authorization_servers: ['https://other-auth.example.test/'],
+        });
+      }
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const { store, authenticator, notices } = setup({ ...server, fetch });
+    await store.set(KEY, credential());
+    const authorization = await authorize(authenticator);
+    expect(
+      await authenticator.onRejected({
+        status: 401,
+        authorization,
+        wwwAuthenticate: `Bearer resource_metadata="${linked}"`,
+      }),
+    ).toBe('retry');
+    expect(await authorize(authenticator)).toEqual({ Authorization: 'Bearer at-1' });
+    expect(server.tokenCalls('refresh_token')).toBe(1);
+    await expect(store.get(KEY)).resolves.toMatchObject({ resource: MCP_URL });
+    expect(notices).toEqual([]);
+  });
+
   it('forces a new sign-in when rediscovery finds another authorization server', async () => {
     const server = createFakeOAuthServer();
     server.validRefreshTokens.add('rt-initial');
