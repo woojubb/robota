@@ -2393,6 +2393,143 @@ describe('a service that signs in with a token, or not at all', () => {
     expect(tokenFiles(w).map((file) => file.text)).toEqual([expect.stringContaining(TOKEN)]);
   });
 
+  describe('replacing the token in use', () => {
+    const REPLACEMENT = 'replacement-token-for-standin-02';
+
+    /** A connected token service with sync on and one case-request tool the person allowed. */
+    async function inUse() {
+      const { w, tokened } = await tokenWorld();
+      const id = await w.add('Tokened', 'notes', TOKEN_HOST, { auth: 'token' });
+      expect((await w.call('POST', ['connectors', id, 'connect'], { token: TOKEN })).status).toBe(
+        200,
+      );
+      expect((await w.call('POST', ['connectors', id, 'sync'], { everyMinutes: 60 })).status).toBe(
+        200,
+      );
+      const revision = (await w.call('GET', ['connectors', id])).body.connector.caseActionRevision;
+      expect(
+        (
+          await w.call('POST', ['connectors', id, 'case-actions'], {
+            tool: 'create_note',
+            allowed: true,
+            revision,
+          })
+        ).status,
+      ).toBe(200);
+      return { w, tokened, id };
+    }
+
+    const view = async (w: IWorld, id: string) =>
+      (await w.call('GET', ['connectors', id])).body.connector;
+
+    /** What the model gets from one read, so the next request to the service is made. */
+    async function readOnce(w: IWorld, id: string): Promise<void> {
+      w.harness.model.script(
+        { tool: 'ConnectorRead', args: { connector: id, tool: 'search_notes' } },
+        { text: 'Done.' },
+      );
+      await w.harness.submitAnswering('find notes', () => true);
+    }
+
+    it('takes a token the service accepts without disconnecting, and has reads use it', async () => {
+      const { w, tokened, id } = await inUse();
+      const goalBefore = (await view(w, id)).sync.goalId;
+      tokened.rotateToken(REPLACEMENT);
+
+      const answer = await w.call('POST', ['connectors', id, 'token'], { token: REPLACEMENT });
+      expect(answer.status).toBe(200);
+      expect(answer.body).toEqual({ replaced: true, status: { state: 'connected' } });
+
+      // The new token is the one held, the old one is gone, and nothing was asked to revoke.
+      expect(tokenFiles(w).map((file) => file.text)).toEqual([
+        expect.stringContaining(REPLACEMENT),
+      ]);
+      expect(tokenFiles(w)[0]!.text).not.toContain(TOKEN);
+      expect(w.auth.revoked).toEqual([]);
+      const after = await view(w, id);
+      expect(after.status.state).toBe('connected');
+      // The sync goal is the one it was; the person's case choices start again, as after any reconnect.
+      expect(after.sync.goalId).toBe(goalBefore);
+      expect(after.caseActionTools).toEqual([]);
+      // The next read is signed with the new token and works.
+      const refusalsBefore = tokened.refusals();
+      await readOnce(w, id);
+      expect(tokened.authorizations.at(-1)).toBe(`Bearer ${REPLACEMENT}`);
+      expect(tokened.refusals()).toBe(refusalsBefore);
+      expect(JSON.stringify(answer.body)).not.toContain(REPLACEMENT);
+    });
+
+    it('keeps the working token, the status and the case choices when the service refuses the new one', async () => {
+      const { w, tokened, id } = await inUse();
+      const held = tokenFiles(w).map((file) => file.text);
+
+      const answer = await w.call('POST', ['connectors', id, 'token'], { token: 'a-wrong-token' });
+      expect(answer.status).toBe(200);
+      expect(answer.body).toEqual({
+        replaced: false,
+        reason: 'rejected',
+        status: { state: 'connected' },
+      });
+      expect(tokenFiles(w).map((file) => file.text)).toEqual(held);
+      const after = await view(w, id);
+      expect(after.status).toEqual({ state: 'connected' });
+      expect(after.caseActionTools).toEqual(['create_note']);
+
+      // The candidate was sent only while it was being tried: the next read carries the old token.
+      expect(tokened.authorizations).toContain('Bearer a-wrong-token');
+      const sent = tokened.authorizations.length;
+      await readOnce(w, id);
+      const later = tokened.authorizations.slice(sent);
+      expect(later.length).toBeGreaterThan(0);
+      expect(later.every((header) => header === `Bearer ${TOKEN}`)).toBe(true);
+      // A refusal is not a failure of the connector: it never asks the person to sign in.
+      expect((await view(w, id)).status.state).toBe('connected');
+    });
+
+    it('keeps the token and says so when the service cannot be reached', async () => {
+      const { w, tokened, id } = await inUse();
+      const held = tokenFiles(w).map((file) => file.text);
+      await tokened.close();
+
+      const answer = await w.call('POST', ['connectors', id, 'token'], { token: REPLACEMENT });
+      expect(answer.status).toBe(200);
+      expect(answer.body).toEqual({
+        replaced: false,
+        reason: 'unreachable',
+        status: { state: 'connected' },
+      });
+      expect(tokenFiles(w).map((file) => file.text)).toEqual(held);
+      expect(await w.harness.capabilities.connectors.status(id)).toEqual({ state: 'connected' });
+    });
+
+    it('does not replace a token the agent does not hold, one that is not a token, or a malformed one', async () => {
+      const { w, tokened } = await tokenWorld();
+      const unconnected = await w.add('Tokened', 'notes', TOKEN_HOST, { auth: 'token' });
+      const none = await w.call('POST', ['connectors', unconnected, 'token'], {
+        token: REPLACEMENT,
+      });
+      expect(none.status).toBe(409);
+      expect(tokenFiles(w)).toEqual([]);
+
+      const oauth = await w.add('Notes', 'notes', NOTES_HOST);
+      expect(
+        (await w.call('POST', ['connectors', oauth, 'token'], { token: REPLACEMENT })).status,
+      ).toBe(400);
+
+      await w.call('POST', ['connectors', unconnected, 'connect'], { token: TOKEN });
+      for (const bad of ['two words', '', undefined]) {
+        const refused = await w.call('POST', ['connectors', unconnected, 'token'], {
+          ...(bad !== undefined && { token: bad }),
+        });
+        expect(refused.status).toBe(400);
+      }
+      expect(
+        (await w.call('POST', ['connectors', unconnected, 'token'], 'x' as never)).status,
+      ).toBe(400);
+      expect(tokened.authorizations.every((header) => header === `Bearer ${TOKEN}`)).toBe(true);
+    });
+  });
+
   it('asks for a new token when the service stops honouring the one it has', async () => {
     const { w, tokened } = await tokenWorld();
     const id = await w.add('Tokened', 'notes', TOKEN_HOST, { auth: 'token' });

@@ -532,6 +532,96 @@ describe('the connector registry', () => {
     expect(protocol.events).toContain(`signIn ${connector.id}`);
   });
 
+  describe('replacing a token', () => {
+    const hooks = () => {
+      const swaps: string[] = [];
+      return { swaps, hooks: { beforeSwap: () => void swaps.push('swap') } };
+    };
+
+    it('asks the connector’s own protocol and hands it the hook, and forgets the tools it listed once a token took its place', async () => {
+      const { registry, protocol, book } = await setup();
+      const service = await book.create({
+        title: 'Tracker',
+        kind: 'notes',
+        protocol: 'fake',
+        endpoint: ENDPOINT,
+        auth: 'token',
+      });
+      const received: unknown[] = [];
+      protocol.replaceToken = async (connector, token, given) => {
+        received.push([connector.id, token]);
+        given.beforeSwap();
+        return { replaced: true, status: { state: 'connected' } };
+      };
+      await registry.describe(service.id);
+      protocol.events.length = 0;
+      const { swaps, hooks: given } = hooks();
+      expect(await registry.replaceToken(service.id, 'next-token', given)).toEqual({
+        replaced: true,
+        status: { state: 'connected' },
+      });
+      expect(received).toEqual([[service.id, 'next-token']]);
+      expect(swaps).toEqual(['swap']);
+      await registry.describe(service.id);
+      expect(protocol.events).toContain('tools');
+    });
+
+    it('passes a refusal on untouched', async () => {
+      const { registry, protocol, book } = await setup();
+      const service = await book.create({
+        title: 'Tracker',
+        kind: 'notes',
+        protocol: 'fake',
+        endpoint: ENDPOINT,
+        auth: 'token',
+      });
+      protocol.replaceToken = async () => ({
+        replaced: false,
+        reason: 'rejected',
+        status: { state: 'connected' },
+      });
+      const { swaps, hooks: given } = hooks();
+      expect(await registry.replaceToken(service.id, 'next-token', given)).toEqual({
+        replaced: false,
+        reason: 'rejected',
+        status: { state: 'connected' },
+      });
+      expect(swaps).toEqual([]);
+    });
+
+    it('is the one door: a service that does not sign in with a token, and a protocol that cannot, are refused', async () => {
+      const { registry, protocol, book, connector } = await setup();
+      const { hooks: given } = hooks();
+      protocol.replaceToken = async () => {
+        throw new Error('must not be reached');
+      };
+      await expect(registry.replaceToken(connector.id, 'next-token', given)).rejects.toThrow(
+        /does not sign in with a token/u,
+      );
+      const open = await book.create({
+        title: 'Open',
+        kind: 'notes',
+        protocol: 'fake',
+        endpoint: ENDPOINT,
+        auth: 'none',
+      });
+      await expect(registry.replaceToken(open.id, 'next-token', given)).rejects.toThrow(
+        ConnectorRefusedError,
+      );
+      protocol.replaceToken = undefined;
+      const service = await book.create({
+        title: 'Tracker',
+        kind: 'notes',
+        protocol: 'fake',
+        endpoint: ENDPOINT,
+        auth: 'token',
+      });
+      await expect(registry.replaceToken(service.id, 'next-token', given)).rejects.toThrow(
+        /cannot replace its token/u,
+      );
+    });
+  });
+
   it('refuses a connector whose protocol this agent has no adapter for', async () => {
     const book = new ConnectorBook({ store: createMemoryConnectorStore() });
     const registry = new ConnectorRegistry({ book, protocols: [] });

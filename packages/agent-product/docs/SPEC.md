@@ -615,7 +615,9 @@ is signed in to is the person's choice: the service's own sign-in page (the defa
 pastes, or none at all. A token, and a client secret for a service that gives a client the person registered
 one, are typed at sign-in, held for that sign-in alone and kept only with the credential the host stores
 owner-only; no record, answer or log carries them, and a record names at most the header a token goes in,
-never one the connection itself uses. A catalog entry is a suggestion for the add form, accepted
+never one the connection itself uses. A token the person replaces is tried apart from the token in use and
+takes its place only when the service accepts it; a refusal or an unreachable service leaves the token, the
+connection and its status as they were. A catalog entry is a suggestion for the add form, accepted
 only if the connector it stands for could be created. It comes from the owner's file or from the
 public registry, where a remote is offered only when pasting one token can sign in to it (its address
 has no variable and it needs at most one secret header). Only the owner's file may name a client the

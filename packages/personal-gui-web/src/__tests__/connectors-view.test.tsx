@@ -1530,6 +1530,75 @@ describe('the Connectors tab', () => {
     expect(screen.getByRole('button', { name: 'Connect again' })).toBeTruthy();
   });
 
+  describe('replacing the token of a connected service', () => {
+    const connected: IConnectorView = { ...NOTES, auth: 'token' };
+
+    it('offers a password field and a button that waits for something to send, only on a connected token card', async () => {
+      render(<ConnectorsView api={fakeApi([connected])} />);
+      const field = (await screen.findByLabelText('New token for Notes')) as HTMLInputElement;
+      expect(field.type).toBe('password');
+      const button = screen.getByRole('button', { name: 'Replace token' }) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+      fireEvent.change(field, { target: { value: 'next-token' } });
+      expect(button.disabled).toBe(false);
+      // It sits beside Disconnect, not instead of it.
+      expect(screen.getByRole('button', { name: 'Disconnect' })).toBeTruthy();
+      cleanup();
+
+      render(<ConnectorsView api={fakeApi([NOTES])} />);
+      await screen.findByText('Connected');
+      expect(screen.queryByLabelText('New token for Notes')).toBeNull();
+      cleanup();
+
+      const waiting: IConnectorView = {
+        ...connected,
+        status: { state: 'not-connected' },
+        tools: undefined,
+      };
+      render(<ConnectorsView api={fakeApi([waiting])} />);
+      await screen.findByLabelText('Token for Notes');
+      expect(screen.queryByLabelText('New token for Notes')).toBeNull();
+    });
+
+    it('says the service refused the new token and that the old one is still used, and never shows the card as failed', async () => {
+      const replace = vi.fn(async () => ({
+        replaced: false,
+        reason: 'rejected' as const,
+        status: { state: 'connected' as const },
+      }));
+      render(<ConnectorsView api={fakeApi([connected], { replaceConnectorToken: replace })} />);
+      fireEvent.change(await screen.findByLabelText('New token for Notes'), {
+        target: { value: 'wrong-token' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Replace token' }));
+      await screen.findByText(
+        'The service refused the new token (rejected). Your agent still uses the token it had.',
+      );
+      expect(replace).toHaveBeenCalledWith(NOTES.id, 'wrong-token');
+      expect(screen.getByText('Connected')).toBeTruthy();
+      expect(screen.queryByText(/Could not connect/u)).toBeNull();
+      // The tools and the way to disconnect are still there.
+      expect(screen.getByRole('button', { name: 'Disconnect' })).toBeTruthy();
+    });
+
+    it('says the new token is used and that case choices are to be made again, and clears what was typed', async () => {
+      const replace = vi.fn(async () => ({
+        replaced: true,
+        status: { state: 'connected' as const },
+      }));
+      render(<ConnectorsView api={fakeApi([connected], { replaceConnectorToken: replace })} />);
+      const field = (await screen.findByLabelText('New token for Notes')) as HTMLInputElement;
+      fireEvent.change(field, { target: { value: 'next-token' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Replace token' }));
+      await screen.findByText(
+        'The new token works and is now used. Choose again which tools case requests may use.',
+      );
+      expect(field.value).toBe('');
+      expect(document.body.textContent).not.toContain('next-token');
+      expect(replace).toHaveBeenCalledWith(NOTES.id, 'next-token');
+    });
+  });
+
   it('shows a service that needs no sign-in with its tools, and nothing to connect or disconnect', async () => {
     const open: IConnectorView = { ...NOTES, auth: 'none', status: { state: 'connected' } };
     render(<ConnectorsView api={fakeApi([open])} />);
@@ -2301,6 +2370,7 @@ describe('the connector calls of the API client', () => {
     await api.connectorCatalog('mail & notes');
     await api.connectConnector('connector-a', { origin: 'https://agent.example' });
     await api.connectConnector('connector-a', { token: 'typed-token' });
+    await api.replaceConnectorToken('connector-a', 'next-token');
     await api.disconnectConnector('connector-a', true);
     await api.removeConnector('connector-a');
     await api.connectorPulled('connector-a');
@@ -2312,6 +2382,7 @@ describe('the connector calls of the API client', () => {
       'GET api/connectors/catalog?query=mail%20%26%20notes',
       'POST api/connectors/connector-a/connect',
       'POST api/connectors/connector-a/connect',
+      'POST api/connectors/connector-a/token',
       'POST api/connectors/connector-a/disconnect',
       'POST api/connectors/connector-a/remove',
       'GET api/connectors/connector-a/pulled',
@@ -2322,15 +2393,16 @@ describe('the connector calls of the API client', () => {
     expect(calls[2]!.init?.body).toBe(JSON.stringify({ origin: 'https://agent.example' }));
     // A token sign-in never comes back to this page, so it carries no origin.
     expect(calls[3]!.init?.body).toBe(JSON.stringify({ token: 'typed-token' }));
-    expect(calls[4]!.init?.body).toBe(JSON.stringify({ forgetPulled: true }));
-    expect(calls[5]!.init?.body).toBe(JSON.stringify({ forgetPulled: false }));
-    expect(calls[7]!.init?.body).toBe(JSON.stringify({ everyMinutes: 60 }));
+    expect(calls[4]!.init?.body).toBe(JSON.stringify({ token: 'next-token' }));
+    expect(calls[5]!.init?.body).toBe(JSON.stringify({ forgetPulled: true }));
+    expect(calls[6]!.init?.body).toBe(JSON.stringify({ forgetPulled: false }));
+    expect(calls[8]!.init?.body).toBe(JSON.stringify({ everyMinutes: 60 }));
     // The words go as a write the server accepts: the write header and JSON.
-    expect(calls[8]!.init?.body).toBe(JSON.stringify({ text: 'Only my landlord.' }));
-    expect(calls[8]!.init?.headers).toEqual({
+    expect(calls[9]!.init?.body).toBe(JSON.stringify({ text: 'Only my landlord.' }));
+    expect(calls[9]!.init?.headers).toEqual({
       'content-type': 'application/json',
       [API_WRITE_HEADER]: '1',
     });
-    expect(calls[9]!.init?.body).toBe(JSON.stringify({ decision: null }));
+    expect(calls[10]!.init?.body).toBe(JSON.stringify({ decision: null }));
   });
 });
