@@ -194,4 +194,93 @@ describe('killProcessTree', () => {
     expect(order).toContain('exit');
     expect(child.exitCode !== null || child.signalCode !== null).toBe(true);
   });
+
+  describe.skipIf(!isPosix)('process-group members that outlive the direct child', () => {
+    const IGNORE_TERM = "process.on('SIGTERM', () => {});";
+
+    /**
+     * Spawns a detached leader that starts a grandchild in its own group and then runs
+     * `leaderTail`. The grandchild reports its pid on the shared stdout once its own setup has
+     * run, so no signal can reach it before its signal handling is installed.
+     */
+    async function spawnGroup(
+      grandchildSource: string,
+      leaderTail: string,
+    ): Promise<{ child: ChildProcess; grandchildPid: number }> {
+      const leader = [
+        "const { spawn } = require('node:child_process');",
+        `const g = spawn(process.execPath, ['-e', ${JSON.stringify(`${grandchildSource}; process.stdout.write('ready ' + process.pid + '\\n');`)}], { stdio: ['ignore', 'inherit', 'ignore'] });`,
+        'g.unref();',
+        leaderTail,
+      ].join('\n');
+      const child = track(spawn(process.execPath, ['-e', leader], { detached: true }));
+      const grandchildPid = await new Promise<number>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('leader never reported')), 10_000);
+        child.stdout?.on('data', (chunk: Buffer) => {
+          const match = /ready (\d+)/.exec(chunk.toString('utf8'));
+          if (match) {
+            clearTimeout(timer);
+            resolve(Number(match[1]));
+          }
+        });
+      });
+      return { child, grandchildPid };
+    }
+
+    const exitedOf = (child: ChildProcess): Promise<void> =>
+      new Promise<void>((resolve) => {
+        if (child.exitCode !== null || child.signalCode !== null) resolve();
+        else child.once('exit', () => resolve());
+      });
+
+    const expectGone = (pid: number): Promise<void> =>
+      vi.waitFor(() => expect(() => process.kill(pid, 0)).toThrow(), {
+        timeout: 5000,
+        interval: 50,
+      });
+
+    it('ends a grandchild that remains after the child exited before the call', async () => {
+      const { child, grandchildPid } = await spawnGroup('setInterval(() => {}, 1000)', '');
+      await exitedOf(child);
+      expect(() => process.kill(grandchildPid, 0)).not.toThrow();
+
+      await killProcessTree(child, { graceMs: 1000, processGroup: true });
+
+      await expectGone(grandchildPid);
+    });
+
+    it('kills a SIGTERM-ignoring grandchild left behind by an exited child', async () => {
+      const { child, grandchildPid } = await spawnGroup(
+        `${IGNORE_TERM} setInterval(() => {}, 1000)`,
+        '',
+      );
+      await exitedOf(child);
+
+      await killProcessTree(child, { graceMs: 300, processGroup: true });
+
+      await expectGone(grandchildPid);
+    });
+
+    it('ends a grandchild that ignores SIGTERM when the child exits during the grace', async () => {
+      // The child obeys SIGTERM a moment later, so it is gone well before the grace ends while the
+      // grandchild keeps ignoring the request; only the escalation can end it.
+      const { child, grandchildPid } = await spawnGroup(
+        `${IGNORE_TERM} setInterval(() => {}, 1000)`,
+        "process.on('SIGTERM', () => setTimeout(() => process.exit(0), 50)); setInterval(() => {}, 1000);",
+      );
+      const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+
+      await killProcessTree(child, { graceMs: 500, processGroup: true });
+
+      await exited;
+      await expectGone(grandchildPid);
+    });
+
+    it('resolves quietly when the group never existed', async () => {
+      const child = track(spawn('true', [], { detached: false }));
+      await new Promise<void>((resolve) => child.on('exit', () => resolve()));
+
+      await expect(killProcessTree(child, { processGroup: true })).resolves.toBeUndefined();
+    });
+  });
 });
