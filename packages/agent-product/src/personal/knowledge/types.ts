@@ -86,3 +86,34 @@ export interface IKnowledgeStore {
   /** Rewrite the log keeping only the entries `keep` accepts: how forget reaches the log. */
   rewriteLog(keep: (entry: IWikiLogEntry) => boolean): Promise<void>;
 }
+
+/** A piece of text a forget removed from the wiki: what a host must look for in its own copies. */
+export interface IForgottenText {
+  /** The statement of a removed claim, or the title of a page the forget deleted. */
+  readonly text: string;
+  /** A claim statement is a fact; a title is the name of a deleted page, mostly ordinary words. */
+  readonly kind: 'claim' | 'title';
+  /** The conversation a removed claim was learned in, when it recorded one. */
+  readonly sessionId?: string;
+}
+
+/** What a host managed to do about the copies of forgotten text it keeps. */
+export interface IForgetReachReport {
+  /** Records rewritten so they no longer hold the text. */
+  readonly cleaned: number;
+  /** Records that will be cleaned later, for example when a running turn ends. */
+  readonly pending: number;
+  /** Records that hold the text and could not be reached (held by another writer, unreadable). */
+  readonly notReached: number;
+  /** Names of the conversations the removed claims were learned in, for the answer to the person. */
+  readonly sources: readonly string[];
+}
+
+/**
+ * What a host supplies so a forget reaches the copies the wiki does not own: the conversations the
+ * wiki was filled from. The wiki calls it after its own pages and log are clean; it never holds the
+ * conversations itself.
+ */
+export interface IForgetReach {
+  reach(forgotten: readonly IForgottenText[]): Promise<IForgetReachReport>;
+}

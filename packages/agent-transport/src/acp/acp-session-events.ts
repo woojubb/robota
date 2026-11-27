@@ -51,6 +51,7 @@ export const ACP_SESSION_EVENT_POLICY = {
   ui_intent: 'ignore',
   session_renamed: 'ignore',
   history_cleared: 'ignore',
+  history_rewritten: 'ignore',
   session_switched: 'ignore',
   status_changed: 'ignore',
 } as const satisfies Record<TInteractiveEventName, TAcpEventPolicy>;

@@ -36,6 +36,9 @@ export const TUI_SESSION_EVENT_CLASSIFICATION = {
   ui_intent: 'react-side-effect',
   session_renamed: 'react-side-effect',
   history_cleared: 'channel',
+  // The CLI never rewrites its own conversation, and the remote terminal UI already reloads its
+  // transcript on `history_changed`, which is how a rewrite reaches it.
+  history_rewritten: 'non-surface',
   // A host's session slot emits it on a switch; the TUI switches by remounting its own
   // channel onto the next session, so it never follows a slot.
   session_switched: 'non-surface',

@@ -13,8 +13,6 @@ import type { AcpConnection, AcpLauncher } from './launcher';
 const DEFAULT_KILL_GRACE_MS = 2_000;
 /** A stderr line longer than this is delivered in pieces, so one unterminated flood stays bounded. */
 const MAX_STDERR_LINE_CHARS = 16_384;
-/** How long to wait for a killed group to disappear from the process table. */
-const KILL_SETTLE_MS = 2_000;
 
 export interface SpawnAcpAgentOptions {
   /** The program to run: an absolute path, or a name found on the `PATH` of `env`. */
@@ -103,50 +101,6 @@ function drainLines(stream: Readable, onLine: ((line: string) => void) | undefin
   stream.on('error', () => {});
 }
 
-/** Whether any process of the group is left. A live group's id cannot belong to anything else. */
-function groupExists(pgid: number): boolean {
-  try {
-    process.kill(-pgid, 0);
-    return true;
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === 'EPERM';
-  }
-}
-
-function signalGroup(pgid: number, signal: NodeJS.Signals): void {
-  try {
-    process.kill(-pgid, signal);
-  } catch {
-    // allow-fallback: the group emptied between the check and the signal, which is the goal
-  }
-}
-
-/** Resolves once `done()` holds or `ms` have passed, checking on a short interval. */
-function waitUntil(done: () => boolean, ms: number): Promise<void> {
-  return new Promise<void>((resolve) => {
-    const deadline = Date.now() + ms;
-    const check = (): void => {
-      if (done() || Date.now() >= deadline) resolve();
-      else setTimeout(check, 10);
-    };
-    check();
-  });
-}
-
-/**
- * Ends whatever of the agent's process group is left after its leader is gone or has been asked to
- * exit: a helper outlives its parent, or ignores the request. Asks the group to exit, waits up to
- * `graceMs`, then kills it. Where there are no process groups, the tree kill alone applies.
- */
-async function endRemainingGroup(pid: number | undefined, graceMs: number): Promise<void> {
-  if (process.platform === 'win32' || pid === undefined || !groupExists(pid)) return;
-  signalGroup(pid, 'SIGTERM');
-  await waitUntil(() => !groupExists(pid), graceMs);
-  if (!groupExists(pid)) return;
-  signalGroup(pid, 'SIGKILL');
-  await waitUntil(() => !groupExists(pid), KILL_SETTLE_MS);
-}
-
 function started(child: ChildProcess): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     child.once('spawn', resolve);
@@ -198,7 +152,7 @@ export function spawnAcpAgent(options: SpawnAcpAgentOptions): AcpLauncher {
       // holders are gone it ends by itself, after everything the agent wrote has been read.
       let remaining: Promise<void> | undefined;
       const endRemaining = (): Promise<void> =>
-        (remaining ??= endRemainingGroup(child.pid, killGraceMs));
+        (remaining ??= killProcessTree(child, { graceMs: killGraceMs, processGroup: true }));
       child.once('exit', () => void endRemaining());
 
       let closing: Promise<void> | undefined;
@@ -209,8 +163,7 @@ export function spawnAcpAgent(options: SpawnAcpAgentOptions): AcpLauncher {
           (closing ??= (async () => {
             child.stdin.end();
             await killProcessTree(child, { graceMs: killGraceMs, processGroup: true });
-            // The tree kill stops at the leader: helpers that outlived it or ignored the request
-            // are ended here.
+            // The exit-time step ends the group a leader left behind; wait for the same work.
             await endRemaining();
           })()),
       };

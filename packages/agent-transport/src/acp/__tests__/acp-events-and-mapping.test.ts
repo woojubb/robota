@@ -13,7 +13,7 @@ import type { TInteractiveEventName } from '@robota-sdk/agent-interface/session'
 describe('session event policy', () => {
   it('decides every session event, so a new one cannot be silently dropped', () => {
     expectTypeOf<keyof typeof ACP_SESSION_EVENT_POLICY>().toEqualTypeOf<TInteractiveEventName>();
-    expect(Object.keys(ACP_SESSION_EVENT_POLICY)).toHaveLength(29);
+    expect(Object.keys(ACP_SESSION_EVENT_POLICY)).toHaveLength(30);
   });
 
   it('subscribes exactly the streamed and permission events', () => {

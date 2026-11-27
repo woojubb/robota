@@ -73,6 +73,19 @@ describe('protocol session-event delivery policy', () => {
     ]);
   });
 
+  it('forwards a rewritten history as a history change that says it was rewritten', () => {
+    const session = createSession();
+    const sent: TServerMessage[] = [];
+    createSessionMessageHandler({
+      session,
+      deliver: createOutboundDelivery((message) => sent.push(message), vi.fn()),
+    });
+
+    session.emitForTest('history_rewritten', undefined);
+
+    expect(sent).toEqual([{ type: 'history_changed', rewritten: true }]);
+  });
+
   it('isolates a carrier send failure and reports its owning session event', () => {
     const session = createSession();
     const failures: Array<{ message: string; event: string }> = [];

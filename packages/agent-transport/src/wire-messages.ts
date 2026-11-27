@@ -289,6 +289,8 @@ export type TServerMessage =
         beforeUsedPercentage: number;
         afterUsedPercentage: number;
       };
+      /** Text was redacted in place; every message is still there, so the client re-reads them. */
+      rewritten?: boolean;
     }
   // Where the turn now starting came from (the user, a wake-up, a peer, an external event).
   | { type: 'turn_source'; source: TTurnSource }
