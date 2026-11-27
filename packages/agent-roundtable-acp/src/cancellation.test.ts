@@ -173,6 +173,7 @@ describe('cancellation on a host abort', () => {
     await started.promise;
     controller.abort(new Error('the host stopped this run'));
     await turn;
+    await fake.whenNotified('session/cancel');
     // No timer is advanced: a host that releases gets the connection ended at once.
     await lease.release();
     expect(fake.closes()).toBe(1);
@@ -273,6 +274,69 @@ describe('cancellation on a host abort', () => {
       kind: 'yield',
     });
     await lease.release();
+  });
+});
+
+describe('an agent that stops reading its input', () => {
+  /** A launcher whose writes to the agent stall for good once `stall()` is called. */
+  function stallable() {
+    const started = deferred();
+    const fake = createFakeAgent({
+      prompt: async () => {
+        started.resolve();
+        return never();
+      },
+    });
+    let stalled = false;
+    const launcher = {
+      async launch(context: { conversationId: string; participantId: string }) {
+        const inner = await fake.launcher.launch(context);
+        const writer = inner.toAgent.getWriter();
+        return {
+          toAgent: new WritableStream<Uint8Array>({
+            write: (chunk) => (stalled ? never() : writer.write(chunk)),
+          }),
+          fromAgent: inner.fromAgent,
+          close: inner.close,
+        };
+      },
+    };
+    return { fake, launcher, started, stall: () => (stalled = true) };
+  }
+
+  it('ends the connection after the grace period although the cancel was never written', async () => {
+    const { fake, launcher, started, stall } = stallable();
+    const lease = await openLease(fake, { launcher, cancelGraceMs: 50 });
+    const controller = new AbortController();
+    const turn = settled(
+      lease.session.runTurn(turnOf(), executionOptions({ signal: controller.signal })),
+    );
+    await started.promise;
+    stall();
+    controller.abort(new Error('the host stopped this run'));
+    await turn;
+    await vi.advanceTimersByTimeAsync(49);
+    expect(fake.closes()).toBe(0);
+    await vi.advanceTimersByTimeAsync(1);
+    await fake.whenClosed();
+    expect(fake.closes()).toBe(1);
+    await lease.release();
+  });
+
+  it('lets release return and end the connection while the cancel is still stalled', async () => {
+    const { fake, launcher, started, stall } = stallable();
+    const lease = await openLease(fake, { launcher });
+    const controller = new AbortController();
+    const turn = settled(
+      lease.session.runTurn(turnOf(), executionOptions({ signal: controller.signal })),
+    );
+    await started.promise;
+    stall();
+    controller.abort(new Error('the host stopped this run'));
+    await turn;
+    // No timer is advanced: release alone must end the wait.
+    await lease.release();
+    expect(fake.closes()).toBe(1);
   });
 });
 

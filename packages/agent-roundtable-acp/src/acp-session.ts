@@ -257,14 +257,15 @@ async function startSession(
         }
       }
       endTurn(turn);
-      await cancelSent;
       if (!turn.responded) {
+        // The grace period starts now and covers the cancel write too: an agent that has stopped
+        // reading its input never accepts it, and the connection must still end.
         let timer: ReturnType<typeof setTimeout> | undefined;
         const grace = new Promise<void>((resolve) => {
           timer = setTimeout(resolve, settings.cancelGraceMs);
         });
         // A host that releases the session wants the connection ended now.
-        await Promise.race([turn.promptSettled, grace, releasing]);
+        await Promise.race([Promise.all([cancelSent, turn.promptSettled]), grace, releasing]);
         clearTimeout(timer);
       }
       await close().catch(() => {});
