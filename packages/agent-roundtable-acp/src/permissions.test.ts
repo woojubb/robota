@@ -63,7 +63,7 @@ describe('approver mapping', () => {
 
   it('accepts an answer that arrives later', async () => {
     const answer = await askedWith([allowOnce, rejectOnce], {
-      decide: async () => {
+      decide: async (): Promise<'allow'> => {
         await flush();
         return 'allow';
       },

@@ -62,7 +62,8 @@ function boundedOption(name: string, value: number | undefined, fallback: number
  * The agent keeps its own memory and tools: only the public-message increment of each turn goes
  * out, as one text prompt, and only the text it says in reply comes back. The factory declares that
  * it makes no metered model calls, offers no checkpoint and no wait continuation, so a roundtable
- * holding it cannot be loaded back after a turn and never parks a request for it.
+ * holding it cannot be loaded back after a turn and never parks a request for it. The agent's
+ * permission requests go to the optional approver and are refused without one.
  */
 export function acpParticipant(options: AcpParticipantOptions): AgentParticipant {
   const startupTimeoutMs = boundedOption(
