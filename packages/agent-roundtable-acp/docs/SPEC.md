@@ -37,7 +37,8 @@ when the turn ends is cancelled, and a late answer is ignored. What the agent ca
 set by how it is started and configured, which is the host's decision and outside this package.
 
 The participant declares that it makes no metered model calls, offers no checkpoint and no wait
-continuation. A roundtable's model-call limits therefore never bound it, and a conversation holding
+continuation. A roundtable's model-call limits and budgets therefore never bound what the agent
+spends; only the turn and time limits and the agent's own configuration do. A conversation holding
 it cannot be loaded back once it has taken a turn: the agent's memory lives in another process that
 this package cannot snapshot, and rebuilding it from the public transcript would silently give a
 different agent. Nothing is ever parked for it.
@@ -45,9 +46,10 @@ different agent. Nothing is ever parked for it.
 The session core starts no process. Whatever yields the byte streams to an agent, and ends them,
 sits behind a port, and a session's connection lives and ends with its lease. One launcher for that
 port ships with the package: it starts the agent as a child process, gives it exactly the
-environment the host names and nothing inherited, and ends the whole tree it started when the
-connection closes or the agent exits, including helpers that outlive it or ignore the request. An agent that cannot be started fails the open with a typed error. Opening is
-bounded by the adapter's own startup limit because the roundtable gives opening no cancellation.
+environment the host names and nothing inherited, and, where the platform has process groups, ends
+the whole tree it started when the connection closes or the agent exits, including helpers that
+outlive it or ignore the request. An agent that cannot be started fails the open with a typed error.
+Opening is bounded by the adapter's own startup limit because the roundtable gives opening no cancellation.
 
 It speaks version 1 of the protocol only and uses only its stable parts. An agent that answers with
 another version is refused, not downgraded.

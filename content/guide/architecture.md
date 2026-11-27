@@ -134,6 +134,9 @@ subagent job ports.
 `agent-roundtable-robota` runs a `Session` or a `ConversationAgent` as a participant, or as the
 selector of the next speaker, in an `agent-roundtable` conversation.
 
+`agent-roundtable-acp` seats an Agent Client Protocol agent, reached over the standard input and output
+of a child process, as a participant in the same conversation.
+
 ### Assembly — `agent-framework`
 
 `agent-framework` puts the lower layers together into a ready-to-use session. Its entry points are
