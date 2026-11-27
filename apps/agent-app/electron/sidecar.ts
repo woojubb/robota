@@ -8,6 +8,7 @@
  */
 
 import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { IEmbeddedProductIdentity } from '@robota-sdk/product-config';
 
 /** Inputs for resolving the sidecar command — injected (not read from electron) so this stays unit-testable. */
@@ -371,12 +372,53 @@ export function createDaemonAttachment(run: () => Promise<TDaemonStart>): IDaemo
 
 /**
  * The renderer's CSP: its only reachable socket is the daemon's loopback port — or nothing, when there is
- * no daemon and the page only shows why.
+ * no daemon and the page only shows why. It may frame only its own origin (the bundled app sandbox page).
  */
 export function buildContentSecurityPolicy(port: number | undefined): string {
   const connectSrc = port === undefined ? `'none'` : `ws://127.0.0.1:${port}`;
   return (
     `default-src 'self'; connect-src ${connectSrc}; img-src 'self' data:; ` +
-    `style-src 'self' 'unsafe-inline'; script-src 'self'`
+    `style-src 'self' 'unsafe-inline'; script-src 'self'; frame-src 'self'`
   );
+}
+
+/**
+ * The policy of the bundled app sandbox page: no network connection, no nested frame, only its own inline
+ * script. It is the policy the page declares in its own meta tag, delivered as a header so the renderer's
+ * stricter script policy is never applied to it.
+ */
+export function buildAppSandboxContentSecurityPolicy(): string {
+  return (
+    `default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; ` +
+    `media-src data:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; ` +
+    `base-uri 'none'; form-action 'none'`
+  );
+}
+
+/**
+ * The security headers for one renderer response. Only the bundled app sandbox page, loaded as a frame,
+ * gets its own policy (plus an empty connection allowlist); every other response gets the renderer's.
+ */
+export function selectRendererResponsePolicy(request: {
+  readonly url: string;
+  readonly resourceType: string;
+  readonly sandboxPath: string;
+  readonly port: number | undefined;
+}): Record<string, string[]> {
+  if (request.resourceType === 'subFrame' && isSandboxPage(request.url, request.sandboxPath)) {
+    return {
+      'Content-Security-Policy': [buildAppSandboxContentSecurityPolicy()],
+      'Connection-Allowlist': ['()'],
+    };
+  }
+  return { 'Content-Security-Policy': [buildContentSecurityPolicy(request.port)] };
+}
+
+/** Whether the URL is exactly the sandbox page file: its decoded path, ignoring query and fragment. */
+function isSandboxPage(url: string, sandboxPath: string): boolean {
+  try {
+    return fileURLToPath(url) === sandboxPath;
+  } catch {
+    return false;
+  }
 }

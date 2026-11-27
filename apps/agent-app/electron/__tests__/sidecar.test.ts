@@ -1,4 +1,7 @@
-import { sep } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, sep } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { describe, it, expect } from 'vitest';
 import { embeddedProductIdentity, resolveProductConfig } from '@robota-sdk/product-config';
@@ -6,6 +9,7 @@ import { desktopProductEnvironment } from './product-environment.js';
 
 import {
   appendOutputTail,
+  buildAppSandboxContentSecurityPolicy,
   buildContentSecurityPolicy,
   buildDaemonStartSpawn,
   buildPickedFiles,
@@ -23,6 +27,7 @@ import {
   rememberRecentFolder,
   resolveOpenPathTarget,
   resolveSidecarCommand,
+  selectRendererResponsePolicy,
   windowTitle,
   type TDaemonStart,
 } from '../sidecar.js';
@@ -356,6 +361,71 @@ describe('buildContentSecurityPolicy', () => {
 
   it('lets the page reach nothing when there is no daemon', () => {
     expect(buildContentSecurityPolicy(undefined)).toContain("connect-src 'none';");
+  });
+
+  it('frames only its own origin and keeps running only its own scripts', () => {
+    for (const port of [4321, undefined]) {
+      const policy = buildContentSecurityPolicy(port);
+      expect(policy).toContain("frame-src 'self'");
+      expect(policy).toContain("script-src 'self'");
+    }
+  });
+});
+
+describe('the app sandbox page policy', () => {
+  const pagePolicy = () => {
+    const html = readFileSync(
+      join(__dirname, '../../../../packages/agent-gui-web/public/app-sandbox.html'),
+      'utf8',
+    );
+    return /http-equiv="Content-Security-Policy"\s+content="([^"]+)"/u.exec(html)?.[1];
+  };
+
+  it('equals the policy the page declares itself: no connection, only its inline script, no frame', () => {
+    const policy = buildAppSandboxContentSecurityPolicy();
+    expect(policy).toBe(pagePolicy());
+    expect(policy).toContain("connect-src 'none'");
+    expect(policy).toContain("script-src 'unsafe-inline'");
+    expect(policy).toContain("frame-src 'none'");
+  });
+});
+
+describe('selectRendererResponsePolicy', () => {
+  const sandboxPath = join(tmpdir(), 'Cedar Agent', 'Résumé app', 'renderer', 'app-sandbox.html');
+  const sandboxUrl = pathToFileURL(sandboxPath).href;
+  const hostPolicy = { 'Content-Security-Policy': [buildContentSecurityPolicy(4321)] };
+  const select = (url: string, resourceType = 'subFrame') =>
+    selectRendererResponsePolicy({ url, resourceType, sandboxPath, port: 4321 });
+
+  it.each([
+    ['the exact page', sandboxUrl],
+    ['the page with a query and fragment', `${sandboxUrl}?q=1#h`],
+    ['a packaged path with spaces and non-ASCII characters, percent-encoded', sandboxUrl],
+  ])('gives %s its own policy and an empty connection allowlist', (_name, url) => {
+    expect(sandboxUrl).toContain('%20');
+    expect(select(url)).toEqual({
+      'Content-Security-Policy': [buildAppSandboxContentSecurityPolicy()],
+      'Connection-Allowlist': ['()'],
+    });
+  });
+
+  it.each([
+    ['the page loaded as the main frame', sandboxUrl, 'mainFrame'],
+    ['the renderer page', pathToFileURL(join(dirname(sandboxPath), 'index.html')).href, 'subFrame'],
+    [
+      'the same name in assets',
+      pathToFileURL(join(dirname(sandboxPath), 'assets', 'app-sandbox.html')).href,
+      'subFrame',
+    ],
+    [
+      'the same name in another folder',
+      pathToFileURL(join(tmpdir(), 'app-sandbox.html')).href,
+      'subFrame',
+    ],
+    ['a backup copy', `${sandboxUrl}.bak`, 'subFrame'],
+    ['a loopback http page', 'http://127.0.0.1:4321/app-sandbox.html', 'subFrame'],
+  ])('gives %s the renderer policy only', (_name, url, resourceType) => {
+    expect(select(url, resourceType)).toEqual(hostPolicy);
   });
 });
 
