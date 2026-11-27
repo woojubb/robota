@@ -186,7 +186,9 @@ sorted, compact JSON).
   filesystem and read-only tree mount, no network, all capabilities dropped, non-root, memory, CPU and process
   limits; the runner adds the timeout and removes the container. Golden tests pin the arguments.
 - **Trusted local runner.** `runTrustedControl` runs only the exact broken and solved controls on the host. It
-  builds the tree itself from the frozen data and accepts no directory, so model-written code never reaches it.
+  refuses any task whose canonical serialization differs from the frozen entry with the same id, builds the tree
+  itself from the frozen data, accepts no directory, and runs with a minimal environment (`PATH` and a temporary
+  `HOME`), so model-written code never reaches it.
 - **Scoring.** `scoreTrial` is pure: a trial passes only if it completed, was not interrupted, used tools, the
   verifier exited 0, and nothing protected was changed and nothing unexpected or escaping was added.
 

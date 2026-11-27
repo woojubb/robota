@@ -26,6 +26,7 @@ export function scoreTrial(report: ITrialReport, observation: ICodingObservation
   if (!report.completed) failures.push('not-completed');
   if (report.interrupted) failures.push('interrupted');
   if (report.toolCalls < 1) failures.push('no-tools-used');
+  if (observation.timedOut) failures.push('verifier-timed-out');
   if (observation.exitCode !== 0) failures.push('verifier-failed');
   if (!observation.protectedFilesUnchanged) failures.push('protected-files-changed');
   if (!observation.noUnexpectedFiles) failures.push('unexpected-files');

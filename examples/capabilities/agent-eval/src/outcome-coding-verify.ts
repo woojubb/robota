@@ -13,10 +13,19 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
-import { taskFiles, type ICodingTaskDefinition } from './outcome-coding-tasks.js';
+import {
+  CODING_TASKS,
+  serializeCodingTasks,
+  taskFiles,
+  type ICodingTask,
+  type ICodingTaskDefinition,
+} from './outcome-coding-tasks.js';
 
 /** Where the verifier sees the tree it checks; its programs read this fixed path. */
 export const VERIFIER_MOUNT = '/work';
+
+/** Mode every protected file is created with and must still have after the trial. */
+export const PROTECTED_FILE_MODE = '0644';
 
 export interface IManifestEntry {
   readonly path: string;
@@ -120,6 +129,7 @@ export function materializeTask(
   for (const [path, content] of Object.entries(taskFiles(task, kind))) {
     const target = join(root, path);
     mkdirSync(dirname(target), { recursive: true, mode: 0o755 });
+    chmodSync(dirname(target), 0o755);
     writeFileSync(target, content, { mode: 0o644 });
     chmodSync(target, 0o644);
   }
@@ -134,8 +144,12 @@ function walk(root: string, directory: string, found: string[]): void {
     const absolute = join(directory, entry);
     const stat = lstatSync(absolute);
     const relativePath = relative(root, absolute).split(sep).join('/');
-    if (stat.isDirectory()) walk(root, absolute, found);
-    else found.push(relativePath);
+    if (stat.isDirectory()) {
+      const before = found.length;
+      walk(root, absolute, found);
+      // A directory that holds nothing is itself an entry the task never created.
+      if (found.length === before) found.push(`${relativePath}/`);
+    } else found.push(relativePath);
   }
 }
 
@@ -155,10 +169,16 @@ export function observeTree(
   const escapes: string[] = [];
   const regular: string[] = [];
   const manifest: IManifestEntry[] = [];
+  const emptyDirectories: string[] = [];
   for (const path of entries) {
+    if (path.endsWith('/')) {
+      emptyDirectories.push(path);
+      continue;
+    }
     const absolute = join(rootPath, path);
     const stat = lstatSync(absolute);
-    const inside = !relative(rootPath, absolute).startsWith('..');
+    const rel = relative(rootPath, absolute);
+    const inside = rel !== '..' && !rel.startsWith(`..${sep}`);
     if (!stat.isFile() || !inside) {
       escapes.push(path);
       continue;
@@ -172,12 +192,12 @@ export function observeTree(
   }
 
   const known = new Set([...Object.keys(task.files), ...task.allowed]);
-  const unexpectedFiles = regular.filter((path) => !known.has(path));
+  const unexpectedFiles = [...regular.filter((path) => !known.has(path)), ...emptyDirectories];
   const protectedPaths = Object.keys(task.files).filter((path) => !task.allowed.includes(path));
   const changedProtectedFiles = protectedPaths.filter((path) => {
     const entry = manifest.find((candidate) => candidate.path === path);
     const original = sha256(Buffer.from(task.files[path] ?? '', 'utf8'));
-    return entry === undefined || entry.sha256 !== original;
+    return entry === undefined || entry.sha256 !== original || entry.mode !== PROTECTED_FILE_MODE;
   });
   // A protected path that was replaced by a symlink is reported as changed as well.
   for (const path of escapes) {
@@ -213,17 +233,20 @@ export function readObservation(path: string): ICodingObservation {
 }
 
 /**
- * Trusted local runner for the exact broken and solved controls only. It builds the tree itself
- * from the frozen task data and never accepts a directory, so model-written code cannot reach it.
+ * Trusted local runner for the exact broken and solved controls only. It refuses any task that
+ * differs from the frozen definition, builds the tree itself and never accepts a directory, and
+ * runs with a minimal environment (PATH and a temporary HOME), so model-written code cannot reach it.
  * The verifier program reads the tree at its fixed mount path, which is substituted with the
  * temporary directory for this host run.
  */
 export function runTrustedControl(
-  task: ICodingTaskDefinition,
+  candidate: ICodingTask,
   kind: 'broken' | 'solved',
   timeoutMs = DEFAULT_VERIFIER_LIMITS.timeoutMs,
 ): ICodingObservation {
+  const task = requireFrozenTask(candidate);
   const root = mkdtempSync(join(tmpdir(), 'coding-control-'));
+  const home = mkdtempSync(join(tmpdir(), 'coding-control-home-'));
   try {
     materializeTask(task, root, kind);
     const code = task.verifier.replaceAll(`${VERIFIER_MOUNT}/`, `${root}/`);
@@ -231,6 +254,7 @@ export function runTrustedControl(
       cwd: root,
       timeout: timeoutMs,
       encoding: 'utf8',
+      env: { PATH: process.env.PATH ?? '', HOME: home },
     });
     return observeTree(task, root, {
       exitCode: result.status,
@@ -239,7 +263,23 @@ export function runTrustedControl(
     });
   } finally {
     rmSync(root, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
   }
+}
+
+/**
+ * Returns the frozen task with the candidate's id, refusing a candidate whose canonical
+ * serialization differs from it in any field. Only frozen data can reach the host runner.
+ */
+export function requireFrozenTask(candidate: ICodingTask): ICodingTask {
+  const frozen = CODING_TASKS.find((task) => task.id === candidate.id);
+  if (
+    frozen === undefined ||
+    serializeCodingTasks([candidate]) !== serializeCodingTasks([frozen])
+  ) {
+    throw new Error(`Refusing to run a task that is not the frozen definition: ${candidate.id}`);
+  }
+  return frozen;
 }
 
 /**
@@ -270,7 +310,7 @@ export async function runContainerVerifier(
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
-      spawnSync('docker', ['rm', '-f', name], { stdio: 'ignore' });
+      spawnSync('docker', ['rm', '-f', name], { stdio: 'ignore', timeout: 10_000 });
       child.kill('SIGKILL');
     }, limits.timeoutMs);
     child.on('close', (code) => {

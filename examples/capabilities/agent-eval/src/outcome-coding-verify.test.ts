@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -10,6 +10,7 @@ import {
   materializeTask,
   observeTree,
   readObservation,
+  requireFrozenTask,
   runTrustedControl,
   writeObservationOnce,
 } from './outcome-coding-verify.js';
@@ -76,6 +77,42 @@ test('an observation file can be written once and a second write is refused', ()
     } finally {
       rmSync(store, { recursive: true, force: true });
     }
+  });
+});
+
+test('the trusted runner refuses any definition that differs from the frozen one', () => {
+  const frozen = task('feature');
+  const changed = [
+    { ...frozen, verifier: "process.stdout.write('x'); process.exit(0);" },
+    { ...frozen, solved: { 'src/labels.mjs': 'export const slugify = () => 1;\n' } },
+    { ...frozen, files: { ...frozen.files, extra: 'x' } },
+    { ...frozen, prompt: 'other' },
+    { ...frozen, id: 'unknown-task' },
+  ];
+  for (const candidate of changed) {
+    assert.throws(() => runTrustedControl(candidate, 'solved'), /not the frozen definition/);
+    assert.throws(() => requireFrozenTask(candidate), /not the frozen definition/);
+  }
+  assert.equal(requireFrozenTask({ ...frozen }), frozen);
+});
+
+test('a protected file with a changed mode is reported', () => {
+  withTree('test-diagnosis', 'solved', (root) => {
+    chmodSync(join(root, 'tests/range.test.mjs'), 0o755);
+    const observation = observeTree(task('test-diagnosis'), root, { exitCode: 0 });
+    assert.deepEqual(observation.changedProtectedFiles, ['tests/range.test.mjs']);
+    assert.equal(observation.protectedFilesUnchanged, false);
+  });
+});
+
+test('an empty directory is an unexpected entry and a root entry named like a parent is not an escape', () => {
+  withTree('bug-repair', 'solved', (root) => {
+    mkdirSync(join(root, 'empty/nested'), { recursive: true });
+    writeFileSync(join(root, '..foo'), 'x');
+    const observation = observeTree(task('bug-repair'), root, { exitCode: 0 });
+    assert.deepEqual([...observation.unexpectedFiles].sort(), ['..foo', 'empty/nested/']);
+    assert.equal(observation.noUnexpectedFiles, false);
+    assert.equal(observation.noEscapes, true);
   });
 });
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -25,6 +25,7 @@ test(
       for (const kind of ['broken', 'solved'] as const) {
         const root = mkdtempSync(join(base, '.coding-docker-'));
         try {
+          chmodSync(root, 0o755);
           materializeTask(definition, root, kind);
           const observation = await runContainerVerifier(definition, root, { image });
           assert.equal(observation.timedOut, false, `${definition.id} ${kind} timed out`);
