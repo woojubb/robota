@@ -12,6 +12,7 @@ export interface IHostedOrganizationModelOptions {
   readonly reservation: IOrganizationUnits;
   readonly maxInputBytes: number;
   readonly maxOutputTokens: number;
+  /** Whole micros per token, at least one: a smaller price is expressed by rounding up, which only overstates spend. */
   readonly costMicrosPerToken: number;
   /** Declare only an upstream contract actually supported by the owner-selected provider. */
   readonly providerIdempotency: boolean;
@@ -27,7 +28,7 @@ export function createHostedOrganizationModelAction(options: IHostedOrganization
     typeof options.apiKey !== 'string' || /[\r\n]/u.test(options.apiKey) || options.apiKey.length === 0 ||
     !Number.isSafeInteger(options.maxInputBytes) || options.maxInputBytes < 1 || options.maxInputBytes > 4 * 1024 * 1024 ||
     !Number.isSafeInteger(options.maxOutputTokens) || options.maxOutputTokens < 1 ||
-    !Number.isSafeInteger(options.costMicrosPerToken) || options.costMicrosPerToken < 0 ||
+    !Number.isSafeInteger(options.costMicrosPerToken) || options.costMicrosPerToken < 1 ||
     typeof options.countInputTokens !== 'function')
     throw new OrganizationRefused('invalid-schema');
   const reservation = Object.freeze({ ...options.reservation });
