@@ -66,6 +66,9 @@ export const forbiddenServices: TurnServices = {
   recordUsage: async () => {
     throw new Error('an ACP participant must not record usage');
   },
+  admitToolEffect: async () => {
+    throw new Error('an ACP participant must not admit a tool effect');
+  },
 };
 
 export function executionOptions(

@@ -55,7 +55,11 @@ afterEach(() => {
 });
 
 function noServices(): TurnServices {
-  return { admitModelCall: async () => {}, recordUsage: async () => {} };
+  return {
+    admitModelCall: async () => {},
+    recordUsage: async () => {},
+    admitToolEffect: async () => {},
+  };
 }
 
 function limitedServices(maxCalls: number): TurnServices & { calls: ModelCallIntent[] } {
@@ -67,6 +71,7 @@ function limitedServices(maxCalls: number): TurnServices & { calls: ModelCallInt
       calls.push(call);
     },
     recordUsage: async () => {},
+    admitToolEffect: async () => {},
   };
 }
 
