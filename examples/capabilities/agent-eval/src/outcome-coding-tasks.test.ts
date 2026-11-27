@@ -44,3 +44,19 @@ test('tasks keep their order, ids and protected files', () => {
     ],
   );
 });
+
+test('the frozen tasks cannot be changed at runtime', () => {
+  const mutable = CODING_TASKS as unknown as Array<Record<string, any>>;
+  const first = mutable[0];
+  assert.ok(first);
+  const before = serializeCodingTasks();
+  assert.throws(() => (mutable[0] = { ...first }), TypeError);
+  assert.throws(() => mutable.push({}), TypeError);
+  assert.throws(() => (first.prompt = 'other'), TypeError);
+  assert.throws(() => (first.verifier = 'process.exit(0)'), TypeError);
+  assert.throws(() => (first.files['extra'] = 'x'), TypeError);
+  assert.throws(() => (first.solved['answer.json'] = 'x'), TypeError);
+  assert.throws(() => first.allowed.push('x'), TypeError);
+  assert.throws(() => first.protectedFiles.push('x'), TypeError);
+  assert.equal(serializeCodingTasks(), before);
+});

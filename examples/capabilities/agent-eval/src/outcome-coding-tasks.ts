@@ -112,12 +112,20 @@ const DEFINITIONS: readonly ICodingTaskDefinition[] = [
   },
 ];
 
-export const CODING_TASKS: readonly ICodingTask[] = DEFINITIONS.map((definition) => ({
-  ...definition,
-  protectedFiles: Object.keys(definition.files).filter(
-    (path) => !definition.allowed.includes(path),
+/** Deep-frozen so a caller cannot alter a task and still pass for the frozen definition. */
+export const CODING_TASKS: readonly ICodingTask[] = Object.freeze(
+  DEFINITIONS.map((definition) =>
+    Object.freeze({
+      ...definition,
+      files: Object.freeze({ ...definition.files }),
+      solved: Object.freeze({ ...definition.solved }),
+      allowed: Object.freeze([...definition.allowed]),
+      protectedFiles: Object.freeze(
+        Object.keys(definition.files).filter((path) => !definition.allowed.includes(path)),
+      ),
+    }),
   ),
-}));
+);
 
 /** The tree a trial starts from (`broken`) or the exact solved control. */
 export function taskFiles(
