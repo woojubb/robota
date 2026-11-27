@@ -1772,7 +1772,9 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
                   );
                 } else {
                   setRefusal(
-                    `The service refused the new token (${answer.reason ?? 'rejected'}). Your agent still uses the token it had.`,
+                    answer.reason === 'unreachable'
+                      ? 'Your agent could not reach the service to try the new token; it still uses the token it had.'
+                      : 'The service refused the new token. Your agent still uses the token it had.',
                   );
                 }
                 // A refused replacement leaves the card as it was: the old token still works.

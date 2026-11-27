@@ -104,7 +104,7 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         await replace.click();
         await page.waitForFunction(
           bodyIncludes,
-          'The service refused the new token (rejected). Your agent still uses the token it had.',
+          'The service refused the new token. Your agent still uses the token it had.',
           { timeout: 10_000 },
         );
         expect(await field.inputValue()).toBe('');

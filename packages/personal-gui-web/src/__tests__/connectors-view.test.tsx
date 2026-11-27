@@ -1572,13 +1572,31 @@ describe('the Connectors tab', () => {
       });
       fireEvent.click(screen.getByRole('button', { name: 'Replace token' }));
       await screen.findByText(
-        'The service refused the new token (rejected). Your agent still uses the token it had.',
+        'The service refused the new token. Your agent still uses the token it had.',
       );
       expect(replace).toHaveBeenCalledWith(NOTES.id, 'wrong-token');
       expect(screen.getByText('Connected')).toBeTruthy();
       expect(screen.queryByText(/Could not connect/u)).toBeNull();
       // The tools and the way to disconnect are still there.
       expect(screen.getByRole('button', { name: 'Disconnect' })).toBeTruthy();
+    });
+
+    it('does not say the service refused the token when it could not be reached', async () => {
+      const replace = vi.fn(async () => ({
+        replaced: false,
+        reason: 'unreachable' as const,
+        status: { state: 'connected' as const },
+      }));
+      render(<ConnectorsView api={fakeApi([connected], { replaceConnectorToken: replace })} />);
+      fireEvent.change(await screen.findByLabelText('New token for Notes'), {
+        target: { value: 'maybe-valid-token' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Replace token' }));
+      await screen.findByText(
+        'Your agent could not reach the service to try the new token; it still uses the token it had.',
+      );
+      expect(screen.queryByText(/refused the new token/u)).toBeNull();
+      expect(screen.getByText('Connected')).toBeTruthy();
     });
 
     it('says the new token is used and that case choices are to be made again, and clears what was typed', async () => {
