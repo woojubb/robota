@@ -239,6 +239,8 @@ export type {
   IConnectorToolHints,
   IConnectorToolInfo,
   IDisconnectOutcome,
+  IReplaceTokenHooks,
+  IReplaceTokenOutcome,
   ISignInContext,
   TConnectorAuth,
   TConnectorDispatchAdmission,

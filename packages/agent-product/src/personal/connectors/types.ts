@@ -154,6 +154,26 @@ export type TConnectorDispatchAdmission = (
   request: IConnectorDispatchRequest,
 ) => Promise<{ readonly response: Promise<unknown> }>;
 
+/** What came of trying to put a typed token in place of the one in use. */
+export type IReplaceTokenOutcome =
+  | { readonly replaced: true; readonly status: IConnectorStatus }
+  | {
+      readonly replaced: false;
+      /** Why the new token was not taken: the service refused it, or could not be reached. */
+      readonly reason: 'rejected' | 'unreachable';
+      /** What the connection stands at: unchanged by the attempt. */
+      readonly status: IConnectorStatus;
+    };
+
+/** What the caller does at the moment a replacement is certain to take effect. */
+export interface IReplaceTokenHooks {
+  /**
+   * Called once the service accepted the candidate and before it takes the old token's place. If it
+   * throws, nothing is swapped.
+   */
+  beforeSwap(): void;
+}
+
 /**
  * One protocol's way to reach a service. The composition root supplies it, because reaching a
  * service needs a host (network, files, a browser sign-in), and the pack stays neutral.
@@ -170,6 +190,17 @@ export interface IConnectorProtocol {
   signIn(connector: IConnector, context: ISignInContext): Promise<IConnectorStatus>;
   /** Delete the credential first, then ask the service to revoke it. */
   signOut(connector: IConnector): Promise<IDisconnectOutcome>;
+  /**
+   * Replace the token in use with a new one the person typed, without disconnecting. The new token is
+   * tried apart from the one in use and takes its place only when the service accepts it; a refusal or an
+   * unreachable service leaves the token, the connection and its status as they were. A protocol that
+   * cannot do this leaves it out.
+   */
+  replaceToken?(
+    connector: IConnector,
+    token: string,
+    hooks: IReplaceTokenHooks,
+  ): Promise<IReplaceTokenOutcome>;
   tools(connector: IConnector): Promise<readonly IConnectorToolInfo[]>;
   call(
     connector: IConnector,
