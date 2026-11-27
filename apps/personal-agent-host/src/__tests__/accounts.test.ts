@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { SecretStore } from '../accounts/secrets.js';
+import { SecretStore } from '../accounts/secret-store.js';
 import { AccountStore } from '../accounts/store.js';
 import type { IAccountRecord } from '../accounts/types.js';
 import { hostnameFor, validateAccountId, validateProvider } from '../accounts/validate.js';

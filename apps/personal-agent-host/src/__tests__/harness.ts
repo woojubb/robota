@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { AccountStore } from '../accounts/store.js';
-import { SecretStore } from '../accounts/secrets.js';
+import { SecretStore } from '../accounts/secret-store.js';
 import { AuditLog, type IAuditEntry } from '../audit.js';
 import { type IHostConfig, loadConfig } from '../config.js';
 import { ControlPlane, type IAddAccountInput } from '../control-plane.js';

@@ -1,5 +1,5 @@
 import type { AccountStore } from './accounts/store.js';
-import type { SecretStore } from './accounts/secrets.js';
+import type { SecretStore } from './accounts/secret-store.js';
 import type { AuditLog, AuditResult } from './audit.js';
 import type { IHostConfig } from './config.js';
 import { errorMessage, scrub } from './errors.js';

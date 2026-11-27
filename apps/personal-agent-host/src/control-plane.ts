@@ -1,4 +1,4 @@
-import type { SecretStore } from './accounts/secrets.js';
+import type { SecretStore } from './accounts/secret-store.js';
 import type { AccountStore } from './accounts/store.js';
 import type { IAccountRecord, KeySource } from './accounts/types.js';
 import {
