@@ -349,6 +349,14 @@ describe('participant declaration', () => {
     ['a fractional startup timeout', { startupTimeoutMs: 1.5 }],
     ['a startup timeout no timer honors', { startupTimeoutMs: 2 ** 31 }],
     ['a startup timeout that is not a number', { startupTimeoutMs: Number.NaN }],
+    ['a zero cancel grace', { cancelGraceMs: 0 }],
+    ['a fractional cancel grace', { cancelGraceMs: 1.5 }],
+    ['a cancel grace no timer honors', { cancelGraceMs: 2 ** 31 }],
+    ['a cancel grace that is not a number', { cancelGraceMs: Number.NaN }],
+    ['a zero reply bound', { maxReplyChars: 0 }],
+    ['a fractional reply bound', { maxReplyChars: 1.5 }],
+    ['a reply bound beyond the safe range', { maxReplyChars: 2 ** 31 }],
+    ['a reply bound that is not a number', { maxReplyChars: Number.NaN }],
   ])('refuses %s', (_label, overrides) => {
     expect(() =>
       acpParticipant({
