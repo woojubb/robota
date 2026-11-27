@@ -119,10 +119,12 @@ same escalation pattern independently rather than sharing the implementation.
 
 ### Contract
 
-`killProcessTree(child, options)` returns a promise that resolves once the process has actually
-exited, following this escalation:
+`killProcessTree(child, options)` returns a promise that resolves once the process, and with
+`processGroup` on POSIX every member of its group including those that outlive it or ignore the
+first signal, has actually exited or been force-killed, following this escalation:
 
-1. Already-exited processes resolve immediately without signalling.
+1. An already-exited process is not signalled again; with `processGroup` on POSIX its remaining
+   group members are still ended, otherwise the promise resolves immediately.
 2. An optional pre-kill hook runs first (e.g. a graceful IPC `cancel` message before any signal);
    if it throws or rejects, that is swallowed and escalation still proceeds.
 3. The initial signal (default `SIGTERM`) is sent to the whole process group on POSIX, requiring

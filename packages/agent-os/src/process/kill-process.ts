@@ -12,9 +12,12 @@ export interface IKillProcessOptions {
   /** Initial signal to send. Defaults to `SIGTERM`. */
   signal?: NodeJS.Signals;
   /**
-   * Kill the child's whole process group, not just the direct child. Requires the caller to
-   * have spawned the child with `detached: true` on POSIX (so it is a group leader). Without
-   * this a shell child's grandchildren survive the SIGTERM (the grandchild-survival regression).
+   * Kill the child's whole process group, not just the direct child, and keep ending the group
+   * after the direct child is gone: members that outlive it or ignore the signal are signalled
+   * and, once the grace passes, killed. Pass it only when the child was spawned with
+   * `detached: true` on POSIX, so its pid is its own group id; a child that shares its parent's
+   * group has no group of its own to end. Without this a shell child's grandchildren survive the
+   * SIGTERM (the grandchild-survival regression). No effect on Windows.
    */
   processGroup?: boolean;
   /**
@@ -62,13 +65,69 @@ function forceKill(child: ChildProcess, processGroup: boolean): void {
   signalChild(child, 'SIGKILL', processGroup);
 }
 
+/** Settle window (ms) after the group SIGKILL for the kernel to remove the members. */
+const GROUP_SETTLE_MS = 1000;
+const POLL_MS = 10;
+
+/** Whether the process group still has a member. ESRCH means empty; EPERM means one exists. */
+function groupExists(pgid: number): boolean {
+  try {
+    process.kill(-pgid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== 'ESRCH';
+  }
+}
+
+function signalGroup(pgid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(-pgid, signal);
+  } catch {
+    // allow-fallback: the group emptied between the probe and the signal (ESRCH), or a member is not ours to signal (EPERM); either way polling decides
+  }
+}
+
+/**
+ * Resolves once `done()` holds or `ms` have passed, polling on a short interval. These timers
+ * deliberately keep the event loop alive while group members remain (bounded by the grace plus the
+ * settle), unlike the unref'd grace timer.
+ */
+function waitUntil(done: () => boolean, ms: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const deadline = Date.now() + ms;
+    const check = (): void => {
+      if (done() || Date.now() >= deadline) resolve();
+      else setTimeout(check, POLL_MS);
+    };
+    check();
+  });
+}
+
+/**
+ * Ends what is left of the group once its leader is gone: signal it, wait until `deadline`, then
+ * SIGKILL and wait briefly for it to empty. Never rejects; does nothing where there are no groups.
+ */
+async function endRemainingGroup(
+  pgid: number | undefined,
+  signal: NodeJS.Signals,
+  deadline: number,
+): Promise<void> {
+  if (isWindows || pgid === undefined || !groupExists(pgid)) return;
+  signalGroup(pgid, signal);
+  await waitUntil(() => !groupExists(pgid), Math.max(0, deadline - Date.now()));
+  if (!groupExists(pgid)) return;
+  signalGroup(pgid, 'SIGKILL');
+  await waitUntil(() => !groupExists(pgid), GROUP_SETTLE_MS);
+}
+
 /**
  * Terminate a spawned `ChildProcess` and its descendants, escalating SIGTERM → grace → SIGKILL,
  * and resolve only once the process has actually exited (SPEC § Termination contract).
  *
  * Settling on the real `exit` event — never synchronously, never on the misleading `child.killed`
  * flag — lets a caller safely run follow-up cleanup (temp-dir removal, worktree teardown) knowing
- * the tree is gone.
+ * the tree is gone. With `processGroup` it also resolves only once the group is empty, or the
+ * bounded settle after the group SIGKILL has passed, even when the direct child exited first.
  *
  * @throws if the child was never spawned (no `pid` and no exit state) — a programming error.
  */
@@ -80,7 +139,12 @@ export async function killProcessTree(
   const signal = options.signal ?? 'SIGTERM';
   const processGroup = options.processGroup ?? false;
 
-  if (hasExited(child)) return;
+  // Counted from the first signal, so a slow pre-kill step does not eat the group's grace.
+  let deadline = Date.now() + graceMs;
+  const endGroup = (): Promise<void> =>
+    processGroup ? endRemainingGroup(child.pid, signal, deadline) : Promise.resolve();
+
+  if (hasExited(child)) return endGroup();
   if (typeof child.pid !== 'number') {
     throw new Error('killProcessTree was called with a child that never spawned: it has no pid.');
   }
@@ -91,10 +155,14 @@ export async function killProcessTree(
     } catch {
       // allow-fallback: preKill is a best-effort graceful step (e.g. IPC cancel); escalation still runs
     }
-    if (hasExited(child)) return;
+    if (hasExited(child)) {
+      deadline = Date.now() + graceMs;
+      return endGroup();
+    }
+    deadline = Date.now() + graceMs;
   }
 
-  return new Promise<void>((resolve) => {
+  await new Promise<void>((resolve) => {
     let graceTimer: ReturnType<typeof setTimeout> | undefined;
 
     const onExit = (): void => {
@@ -122,4 +190,5 @@ export async function killProcessTree(
     // Do not keep the event loop alive solely for the grace timer.
     graceTimer.unref?.();
   });
+  await endGroup();
 }
