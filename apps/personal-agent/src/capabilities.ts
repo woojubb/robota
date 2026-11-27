@@ -41,6 +41,7 @@ import {
   createFileWebhookStore,
   createGoalTools,
   createIdeaTools,
+  createSyncProgressTool,
   createWikiTools,
 } from '@robota-sdk/agent-product/personal';
 
@@ -66,6 +67,7 @@ import { CONSENT_CALLBACK_PATH, createConsentBroker } from './connectors/consent
 import { createConnectorCatalog } from './connectors/catalog.js';
 import { createConnectorsApi } from './connectors/connectors-api.js';
 import { createMcpConnectorProtocol } from './connectors/mcp-protocol.js';
+import { createFileSyncProgress } from './connectors/sync-progress.js';
 import { createSyncRuns } from './connectors/sync-runs.js';
 import { createCaseConnectorBindings } from './case-connector-binding.js';
 import type { IApprovalRegistry } from './approvals.js';
@@ -306,14 +308,20 @@ export function createPersonalCapabilities(
   const browser = watchedBrowser.port;
   let runner: IGoalRunner | undefined;
   // A goal cannot be removed while it runs: turning a sync off first ends the run in progress.
-  const connectorSync = new ConnectorSync(goals, async (goalId) => {
-    runner?.interrupt(goalId);
-    // A run that does not end on being interrupted must not hold up taking the access away.
-    await Promise.race([
-      runner?.settled(goalId),
-      new Promise<void>((resolve) => setTimeout(resolve, HALT_WAIT_MS).unref()),
-    ]);
-  });
+  const syncProgress = createFileSyncProgress(join(options.stateDir, 'connector-sync'));
+  const connectorSync = new ConnectorSync(
+    goals,
+    async (goalId) => {
+      runner?.interrupt(goalId);
+      // A run that does not end on being interrupted must not hold up taking the access away.
+      await Promise.race([
+        runner?.settled(goalId),
+        new Promise<void>((resolve) => setTimeout(resolve, HALT_WAIT_MS).unref()),
+      ]);
+    },
+    // What a sync confirmed it read goes with the sync, on turning it off and on removing the connector.
+    (connectorId) => syncProgress.forget(connectorId),
+  );
   let guiOrigins: readonly string[] = [];
   let channelTurns: IChannelTurns | undefined;
   const cancellations = supportsDurableApprovals
@@ -557,6 +565,7 @@ export function createPersonalCapabilities(
     goals,
     wiki,
     cases,
+    progress: syncProgress,
     offers,
   });
   const connectorTools = createConnectorTools(connectors);
@@ -665,6 +674,13 @@ export function createPersonalCapabilities(
       ...createIdeaTools(ideas),
       ...connectorTools,
       createConnectorKeepTool({ book: connectorBook, wiki }),
+      // Only a sync run reports how far it read: its own tool, bound to the run, stands in for this one.
+      createSyncProgressTool({
+        record: async () => ({
+          recorded: false,
+          reason: 'Only a connector sync run can report how far it read.',
+        }),
+      }),
     ],
     instructions: [
       PERSONAL_INSTRUCTIONS,
@@ -871,7 +887,7 @@ export function createPersonalCapabilities(
             ? launches.shape(goal, run)
             : goal.caseId !== undefined
               ? caseTurns.shape(goal, run)
-              : syncRuns.shape(goal),
+              : syncRuns.shape(goal, run),
         // A sync that is reachable, read cleanly and added nothing has nothing to tell the person; a case
         // turn that left a note, a question or its closing on the case has told them already.
         quiet: (goal) => (goal.caseId !== undefined ? caseTurns.quiet(goal) : syncRuns.quiet(goal)),
