@@ -316,6 +316,7 @@ export async function executeRound(
     fullContext.executionJournal
       ? { journal: fullContext.executionJournal, parentCallId: providerCallId }
       : undefined,
+    fullContext.sessionId,
   );
 
   if (applyToolOutcome(toolOutcome, roundState, logger)) return true;

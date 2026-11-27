@@ -94,6 +94,7 @@ export async function executeAndRecordToolCalls(
   maxSameToolInputs?: number,
   traceContext?: IRunTraceContext,
   journalContext?: IToolBatchJournalContext,
+  sessionId?: string,
 ): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
   let assistantToolCalls = inputToolCalls;
@@ -207,6 +208,8 @@ export async function executeAndRecordToolCalls(
     requests: toolRequests,
     ...policy,
     signal,
+    // The run's session, not the conversation id the agent mints for itself.
+    ...(sessionId !== undefined ? { sessionId } : {}),
   };
   toolContext.lifecycle = toolExecutionLifecycle({
     plugins: deps.plugins,

@@ -250,6 +250,7 @@ function createExecutionContext(
   request: IToolExecutionRequest,
   signal?: AbortSignal,
   parentContext?: IToolExecutionContext,
+  sessionId?: string,
 ): IToolExecutionContext {
   const required = requireExecutionRequestFields(request);
   // Minted per body, never taken from the vendor's tool call ID, which may repeat and is not hex.
@@ -263,6 +264,7 @@ function createExecutionContext(
     : undefined;
   return {
     ...parentContext,
+    ...(parentContext?.sessionId === undefined && sessionId !== undefined ? { sessionId } : {}),
     toolName: request.toolName,
     parameters: request.parameters,
     ...(signal ? { signal } : {}),
@@ -562,7 +564,12 @@ async function executeRequest(
     if (context.signal?.aborted) result = createInterruptedResult(request);
     else {
       const executionContext = {
-        ...createExecutionContext(request, context.signal, context.parentContext),
+        ...createExecutionContext(
+          request,
+          context.signal,
+          context.parentContext,
+          context.sessionId,
+        ),
         ...(journal?.continuation ? { continuation: journal.continuation(index) } : {}),
         ...(journal?.beforeEffect
           ? {
