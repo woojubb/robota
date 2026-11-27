@@ -41,6 +41,7 @@ import type {
   TPageKind,
 } from '@robota-sdk/agent-product/personal';
 import type { IWatchedBrowser } from './browser/watched-browser.js';
+import type { ICaseReactions } from './case-reactions.js';
 import type { ILayoutBook } from './layout.js';
 import type { ISideChatBook } from './side-chats.js';
 import type { IGoalRunner } from './goal-runner.js';
@@ -58,6 +59,8 @@ export interface IPersonalApiOptions {
   readonly caseBindings: ICaseConnectorBindings;
   /** The person's delivery limits: only their own request, through the routes here, reads or changes them. */
   readonly delivery: QuestionDelivery;
+  /** How the questions were answered, by kind of service; read only. */
+  readonly reactions: ICaseReactions;
   /** The person's notification address: the page sets, clears and tests it, and never reads it back. */
   readonly notificationAddress: NotificationAddress;
   /** What the open page fetches to show the person; fetching it is what shows a page is open. */
@@ -416,6 +419,9 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
     }
     if (area === 'cases' && collection === undefined && method === 'GET') {
       return ok({ cases: await cases.list() });
+    }
+    if (area === 'cases' && collection === 'reactions' && id === undefined && method === 'GET') {
+      return ok({ reactions: await options.reactions.summary() });
     }
     if (area === 'cases' && collection !== undefined && id === undefined && method === 'GET') {
       const found = await cases.get(collection);
