@@ -1,0 +1,26 @@
+{
+  "name": "robota-personal-agent-host",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Control plane that hosts many isolated personal-agent accounts on one server, one unit per account",
+  "type": "module",
+  "bin": {
+    "personal-agent-host": "./bin/personal-agent-host.mjs"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsgo --noEmit",
+    "lint": "eslint src/ --ext .ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.21",
+    "tsdown": "^0.22.14",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.12"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial"
+}
