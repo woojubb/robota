@@ -169,3 +169,39 @@ This is one deterministic trial per invocation with no paid model requests. It d
 model reliability, native provider wire conversion, rendered app UI, journal restoration,
 conflicting browser sessions or oversized images. Queue, permission and separate transport/tool timings
 remain unmeasured rather than being reported as zero.
+
+## Coding-task baseline fixtures
+
+`src/outcome-coding-*.ts` hold five small synthetic repository tasks (navigation, bug repair, feature,
+multi-file change, test diagnosis) as data: prompt, initial file tree, protected files, a solved control and
+an independent verifier program the model never sees. The contents are ported unchanged from a pinned
+single-agent baseline and frozen by a SHA-256 over a canonical serialization (tasks in order, object keys
+sorted, compact JSON).
+
+- **Verifier observation.** One plain JSON record per finished tree: verifier exit code, protected files
+  unchanged, no unexpected files, no symlinks or paths escaping the root, and a manifest of path, SHA-256 and
+  mode. The tree is walked without following links. An observation file is written once; a second write to the
+  same path fails.
+- **Container.** `buildVerifierContainerArgs` returns the `docker run` arguments as pure data: read-only root
+  filesystem and read-only tree mount, no network, all capabilities dropped, non-root, memory, CPU and process
+  limits; the runner adds the timeout and removes the container. Golden tests pin the arguments.
+- **Trusted local runner.** `runTrustedControl` runs only the exact broken and solved controls on the host. It
+  refuses any task whose canonical serialization differs from the frozen entry with the same id, builds the tree
+  itself from the frozen data, accepts no directory, and runs with a minimal environment (`PATH` and a temporary
+  `HOME`), so model-written code never reaches it.
+- **Scoring.** `scoreTrial` is pure: a trial passes only if it completed, was not interrupted, used tools, the
+  verifier exited 0, and nothing protected was changed and nothing unexpected or escaping was added.
+
+The default `test` script covers all of this without Docker. To run the controls in the locked-down container
+(needs a local daemon and an image that already has Node):
+
+```bash
+ROBOTA_EVAL_DOCKER=1 ROBOTA_EVAL_DOCKER_IMAGE=node:22 \
+  pnpm --filter robota-capability-agent-eval exec node --import tsx --test src/outcome-coding-docker.test.ts
+```
+
+`ROBOTA_EVAL_DOCKER_TMP` selects a host directory the daemon can mount (default: the home directory).
+
+To change a task on purpose, edit `src/outcome-coding-tasks.ts`, print the new digest with
+`createHash('sha256').update(serializeCodingTasks()).digest('hex')`, and replace the constant in
+`src/outcome-coding-tasks.test.ts` in the same change, stating why the frozen baseline moved.

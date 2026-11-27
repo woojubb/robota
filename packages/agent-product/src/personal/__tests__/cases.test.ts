@@ -26,6 +26,9 @@ import type { TToolParameters } from '@robota-sdk/agent-core';
 
 import type { ICaseBookOptions, ICaseStore, IGoalStore } from '../index.js';
 
+/** Tests that fill a file store to its bounds make many synced writes; Windows runners are slow at them. */
+const SLOW_FILE_SYSTEM_TIMEOUT_MS = 60_000;
+
 const dirs: string[] = [];
 afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
@@ -246,34 +249,39 @@ describe.each([
     expect((await book.open({ ...SIGN_IN, source: 'mail:21' })).existing).toBe(false);
   });
 
-  it('keeps a bounded number of notes and of events, and always leaves room for the answer and the close', async () => {
-    const { book } = makeWorld();
-    const { case: opened } = await book.open(SIGN_IN);
-    for (let index = 1; index < 30; index += 1) await book.note(opened.id, `Note ${index}`);
-    await expect(book.note(opened.id, 'One more')).rejects.toThrow(/holds 30 notes/u);
+  // Filling a case to its bounds is over a hundred synced writes; slow file systems need room.
+  it(
+    'keeps a bounded number of notes and of events, and always leaves room for the answer and the close',
+    async () => {
+      const { book } = makeWorld();
+      const { case: opened } = await book.open(SIGN_IN);
+      for (let index = 1; index < 30; index += 1) await book.note(opened.id, `Note ${index}`);
+      await expect(book.note(opened.id, 'One more')).rejects.toThrow(/holds 30 notes/u);
 
-    const other = (await book.open({ ...SIGN_IN, source: 'mail:other' })).case;
-    let rounds = 0;
-    for (;;) {
-      try {
-        const { item } = await book.ask(other.id, {
-          question: `Round ${rounds}?`,
-          options: ['Ok'],
-        });
-        await book.answer(item.id, { choice: 'Ok' });
-        rounds += 1;
-      } catch (error) {
-        expect((error as Error).message).toMatch(/grown as far as it can/u);
-        break;
+      const other = (await book.open({ ...SIGN_IN, source: 'mail:other' })).case;
+      let rounds = 0;
+      for (;;) {
+        try {
+          const { item } = await book.ask(other.id, {
+            question: `Round ${rounds}?`,
+            options: ['Ok'],
+          });
+          await book.answer(item.id, { choice: 'Ok' });
+          rounds += 1;
+        } catch (error) {
+          expect((error as Error).message).toMatch(/grown as far as it can/u);
+          break;
+        }
       }
-    }
-    expect(rounds).toBeGreaterThan(10);
-    const full = (await book.get(other.id))!;
-    expect(full.history.length).toBeLessThan(100);
-    const closed = await book.close(other.id, 'Settled.');
-    expect(closed.history.at(-1)).toEqual(expect.objectContaining({ kind: 'closed' }));
-    expect(closed.history.length).toBeLessThanOrEqual(100);
-  });
+      expect(rounds).toBeGreaterThan(10);
+      const full = (await book.get(other.id))!;
+      expect(full.history.length).toBeLessThan(100);
+      const closed = await book.close(other.id, 'Settled.');
+      expect(closed.history.at(-1)).toEqual(expect.objectContaining({ kind: 'closed' }));
+      expect(closed.history.length).toBeLessThanOrEqual(100);
+    },
+    SLOW_FILE_SYSTEM_TIMEOUT_MS,
+  );
 
   it('asks one question at a time, shows it in the feed with the notes as its evidence, and records it as asked', async () => {
     const { book, goals } = makeWorld();
@@ -836,24 +844,29 @@ describe('cases in an owner-only file', () => {
     expect(await store.get('__proto__')).toBeUndefined();
   });
 
-  it('never drops a question that waits in the feed, however many reports follow it', async () => {
-    const feed = createFileGoalStore(directory());
-    const { book } = world(createMemoryCaseStore(), feed);
-    const { case: opened } = await book.open(SIGN_IN);
-    const { item } = await book.ask(opened.id, { question: 'Sure?', options: ['Yes'] });
-    for (let index = 0; index < 505; index += 1) {
-      await feed.putFeedItem({
-        id: `feed-report${index}`,
-        at: new Date(Date.UTC(2027, 0, 1, 0, 0, index)).toISOString(),
-        kind: 'report',
-        title: 'Report',
-        body: 'Nothing new.',
-        dismissed: false,
-      });
-    }
-    expect((await feed.getFeedItem(item.id))?.question?.state).toBe('open');
-    expect(await feed.listFeed(1_000)).toHaveLength(500);
-  });
+  // Over five hundred synced writes; slow file systems need room.
+  it(
+    'never drops a question that waits in the feed, however many reports follow it',
+    async () => {
+      const feed = createFileGoalStore(directory());
+      const { book } = world(createMemoryCaseStore(), feed);
+      const { case: opened } = await book.open(SIGN_IN);
+      const { item } = await book.ask(opened.id, { question: 'Sure?', options: ['Yes'] });
+      for (let index = 0; index < 505; index += 1) {
+        await feed.putFeedItem({
+          id: `feed-report${index}`,
+          at: new Date(Date.UTC(2027, 0, 1, 0, 0, index)).toISOString(),
+          kind: 'report',
+          title: 'Report',
+          body: 'Nothing new.',
+          dismissed: false,
+        });
+      }
+      expect((await feed.getFeedItem(item.id))?.question?.state).toBe('open');
+      expect(await feed.listFeed(1_000)).toHaveLength(500);
+    },
+    SLOW_FILE_SYSTEM_TIMEOUT_MS,
+  );
 });
 
 describe('case tools', () => {
