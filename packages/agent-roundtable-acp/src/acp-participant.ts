@@ -3,6 +3,7 @@ import { isAbsolute } from 'node:path';
 import type { AgentParticipant, RuntimeReference } from '@robota-sdk/agent-roundtable';
 
 import { openAcpSession } from './acp-session';
+import { boundedOption } from './bounded-option';
 import { AcpParticipantError } from './errors';
 import type { AcpLauncher } from './launcher';
 import type { AcpPermissionApprover } from './permission';
@@ -12,8 +13,6 @@ import type { TurnRenderer } from './render';
 const DEFAULT_STARTUP_TIMEOUT_MS = 30_000;
 const DEFAULT_CANCEL_GRACE_MS = 5_000;
 const DEFAULT_MAX_REPLY_CHARS = 100_000;
-/** The longest delay a timer honors; a larger one fires at once. */
-const MAX_TIMER_MS = 2_147_483_647;
 
 export interface AcpParticipantOptions {
   id: string;
@@ -42,18 +41,6 @@ export interface AcpParticipantOptions {
    * the session ends. Defaults to 100000.
    */
   maxReplyChars?: number;
-}
-
-/** A positive integer a timer or a bound can honor; anything else is a configuration mistake. */
-function boundedOption(name: string, value: number | undefined, fallback: number): number {
-  const chosen = value ?? fallback;
-  if (!Number.isSafeInteger(chosen) || chosen < 1 || chosen > MAX_TIMER_MS) {
-    throw new AcpParticipantError(
-      'invalid-options',
-      `${name} must be an integer from 1 to ${MAX_TIMER_MS}`,
-    );
-  }
-  return chosen;
 }
 
 /**
