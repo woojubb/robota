@@ -1,13 +1,26 @@
 import type { JsonValue } from './json-value';
 
-/** Whether a participant factory or selector can be attributed model calls at all. */
-export type ModelCallCapability = 'none' | 'metered';
+/**
+ * Whether a participant factory or selector can be attributed model calls at all. 'enforced' also
+ * declares every call's bound before it is dispatched, which a budget needs to admit the call.
+ */
+export type ModelCallCapability = 'none' | 'metered' | 'enforced';
 
-/** Identifies one outbound provider call, before its outcome is known. */
+/** The most one call can consume: its whole input and the largest output it may produce. */
+export interface ModelCallBound {
+  inputTokens: number;
+  maxOutputTokens: number;
+}
+
+/**
+ * Identifies one outbound provider call, before its outcome is known. A bound is part of the call's
+ * identity when admission is retried, and a strict budget refuses a call that declares none.
+ */
 export interface ModelCallIntent {
   callId: string;
   providerId: string;
   modelId: string;
+  bound?: ModelCallBound;
 }
 
 export type UsageOutcome = 'completed' | 'failed' | 'cancelled' | 'cache-hit';
@@ -50,6 +63,44 @@ export interface Money {
 
 export type UsagePrincipal = { kind: 'participant' | 'selector'; id: string };
 
+/** What a budget counts: tokens are `input + output` (cache and reasoning are parts of those). */
+export interface UsageAmount {
+  tokens: number;
+  cost: Money | null;
+}
+
+/** The amount admission set aside for a call, and whether the call or an estimator supplied it. */
+export interface UsageReservation extends UsageAmount {
+  provenance: 'declared' | 'estimated';
+}
+
+/**
+ * A ceiling over a conversation's whole ledger. A 'strict' budget admits only calls that declare their
+ * bound; an 'estimated' one lets an estimator supply a bound the call did not declare.
+ */
+export interface UsageBudget {
+  tokens?: number;
+  cost?: Money;
+  mode?: 'strict' | 'estimated';
+}
+
+export interface UsageEstimate {
+  bound?: ModelCallBound;
+  cost?: Money;
+}
+
+/** Synchronous, run once per admission inside the serialized state update, like `PricePolicy.cost`. */
+export interface UsageEstimator {
+  estimate(call: ModelCallIntent): UsageEstimate;
+}
+
+/** What the host settles a call's usage at when its own report never arrived or was not trustworthy. */
+export interface UsageReconciliation {
+  callId: string;
+  tokens: number;
+  cost?: Money;
+}
+
 interface UsageRecordIdentity extends ModelCallIntent {
   conversationId: string;
   runId: string;
@@ -66,12 +117,17 @@ interface UsageRecordIdentity extends ModelCallIntent {
    * calls excludes a record with this false.
    */
   admitted: boolean;
+  /** Set aside by admission under a budget; null with no budget, and for an admission-free cache hit. */
+  reservation: UsageReservation | null;
+  /** Set only by the host: the amount a call whose usage was never fully reported counts for. */
+  reconciled: UsageAmount | null;
 }
 
 /**
  * A ledger entry for one model call. 'reserved' means admission succeeded but no report has
- * settled it yet; 'settled' carries the outcome. Reservations are never removed or refunded, so a
- * call that never settles still counts against every limit it was admitted under.
+ * settled it yet; 'settled' carries the outcome. Records are never removed, so a call that never
+ * settles still counts against every call limit it was admitted under. Under a budget a record counts
+ * at its reserved bound until a report that fully shows its usage, or a host reconcile, replaces it.
  */
 export type UsageRecord =
   | (UsageRecordIdentity & { status: 'reserved' })
@@ -84,12 +140,14 @@ export type UsageRecord =
  */
 export interface TurnServices {
   /**
-   * Awaited before dispatching the call; idempotent when retried with the same callId. A rejection
-   * because a limit was reached also stops the run, the same way cancellation does.
+   * Awaited before dispatching the call; idempotent when retried with the same callId and bound. A
+   * rejection because a call limit or the budget was reached also stops the run, the same way
+   * cancellation does.
    */
   admitModelCall(call: ModelCallIntent): Promise<void>;
   /**
-   * Reports a call's outcome. An identical report is a no-op; a report is replaceable until final.
+   * Reports a call's outcome. An identical report is a no-op; a report is replaceable until final,
+   * and a call the host reconciled accepts no new report.
    * Settles even after the run that admitted the call was cancelled or limited, as long as this
    * process still holds the conversation; only admitting a new call is refused once a run has stopped.
    */
@@ -100,6 +158,11 @@ export interface TurnServices {
 export interface PricePolicy {
   version: string;
   cost(record: UsageRecord): Money | null;
+  /**
+   * The most a call can cost given its declared bound, or null when it cannot be priced. Synchronous,
+   * and required by a strict cost budget, which sets that amount aside before the call is dispatched.
+   */
+  bound?(call: ModelCallIntent & { bound: ModelCallBound }): Money | null;
 }
 
 export interface UsageSummary {

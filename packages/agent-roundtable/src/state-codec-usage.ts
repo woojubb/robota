@@ -1,7 +1,11 @@
 import { requireState, record, list, text, integer, unique } from './state-codec-values';
+import type { StoredBudget } from './usage-budget';
 import {
   USAGE_OUTCOMES,
   USAGE_PROVENANCES,
+  validBudgetCost,
+  validModelCallBound,
+  validUsageAmount,
   validUsageCost,
   validUsageTokens,
 } from './usage-validation';
@@ -13,7 +17,9 @@ export function validateUsageState(
   byTurn: Set<string>,
   conversationId: string,
   revision: number,
+  budget: StoredBudget | null,
 ): void {
+  const currency = budget?.cost?.currency ?? null;
   const records = list(usage).map(record);
   unique(records.map((entry) => entry.callId));
   for (const entry of records) {
@@ -47,7 +53,24 @@ export function validateUsageState(
       const price = record(entry.price);
       requireState(text(price.version));
       requireState(price.cost === null || validUsageCost(price.cost));
+      // Under a cost budget every stored price is one the budget can add.
+      if (currency !== null && price.cost !== null) requireState(validBudgetCost(price.cost, currency));
     }
+    requireState(entry.bound === undefined || validModelCallBound(entry.bound));
+    // Only admission under a budget reserves anything, so no budget means nothing to set aside or settle.
+    requireState(Object.hasOwn(entry, 'reservation') && Object.hasOwn(entry, 'reconciled'));
+    requireState((entry.reservation !== null) === (budget !== null && entry.admitted === true));
+    if (entry.reservation !== null) {
+      const { provenance, ...amount } = record(entry.reservation);
+      requireState(
+        (provenance === 'declared' || provenance === 'estimated') &&
+          validUsageAmount(amount, currency),
+      );
+    }
+    requireState(
+      entry.reconciled === null ||
+        (budget !== null && entry.admitted === true && validUsageAmount(entry.reconciled, currency)),
+    );
     requireState(entry.status === 'reserved' || entry.status === 'settled');
     // Only a settled cache hit can exist without an admission; every other record reserved one.
     requireState(entry.admitted || (entry.status === 'settled' && entry.outcome === 'cache-hit'));

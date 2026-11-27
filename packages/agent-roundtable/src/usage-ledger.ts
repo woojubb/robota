@@ -1,8 +1,11 @@
 import { RoundtableError } from './errors';
 import { canonicalJson } from './json';
+import { admitUnderBudget, budgetExhausted, resolveReservation } from './usage-budget';
 import {
   USAGE_OUTCOMES,
   USAGE_PROVENANCES,
+  validBudgetCost,
+  validModelCallBound,
   validUsageCost,
   validUsageTokens,
 } from './usage-validation';
@@ -12,6 +15,7 @@ import type {
   ModelCallIntent,
   PricePolicy,
   TurnServices,
+  UsageEstimator,
   UsagePrincipal,
   UsageRecord,
   UsageReport,
@@ -49,22 +53,32 @@ function sameIdentity(record: UsageRecord, ctx: UsageContext, call: ModelCallInt
 
 /**
  * Pure mutator run inside `persistence.update`, so concurrent admissions from parallel members are
- * serialized by the same lock that already orders every other state change. Idempotent per callId:
- * re-admitting a call already reserved or settled is a no-op rather than a second reservation.
+ * serialized by the same lock that already orders every other state change. Idempotent per callId and
+ * bound: re-admitting a call already reserved or settled is a no-op rather than a second reservation,
+ * and a changed bound conflicts. Under a budget the call is admitted only while the bound it declares
+ * fits beside everything already spent or reserved.
  */
 export function reserveModelCall(
   state: ConversationState,
   revision: number,
   ctx: UsageContext,
   call: ModelCallIntent,
+  policies: { pricing?: PricePolicy; estimator?: UsageEstimator } = {},
 ): void {
   if (!text(call.callId) || !text(call.providerId) || !text(call.modelId))
     throw new RoundtableError('invalid-config', 'Model call identity is invalid');
+  if (call.bound !== undefined && !validModelCallBound(call.bound))
+    throw new RoundtableError(
+      'invalid-config',
+      'A model call bound needs non-negative integer input and maximum output tokens',
+    );
   const usage = state.snapshot.usage;
   const existing = usage.find((record) => record.callId === call.callId);
   if (existing) {
     if (!sameIdentity(existing, ctx, call))
       throw new RoundtableError('conflict', 'Model call id was already used by another call');
+    if (canonicalJson(existing.bound ?? null) !== canonicalJson(call.bound ?? null))
+      throw new RoundtableError('conflict', 'Model call id was already admitted with another bound');
     return;
   }
   const limits = state.definition.limits;
@@ -92,10 +106,17 @@ export function reserveModelCall(
         'Model-call limit for this participant was reached',
       );
   }
+  const budget = state.definition.budget;
+  const reservation =
+    budget === null
+      ? null
+      : resolveReservation(call, budget, policies.pricing, policies.estimator);
+  if (budget !== null && reservation !== null) admitUnderBudget(usage, budget, reservation);
   const record: UsageRecord = {
     callId: call.callId,
     providerId: call.providerId,
     modelId: call.modelId,
+    ...(call.bound === undefined ? {} : { bound: { ...call.bound } }),
     conversationId: ctx.conversationId,
     runId: ctx.runId,
     principal: ctx.principal,
@@ -106,6 +127,8 @@ export function reserveModelCall(
     revision,
     price: null,
     admitted: true,
+    reservation,
+    reconciled: null,
   };
   usage.push(record);
 }
@@ -167,8 +190,10 @@ export function settleUsage(
       existing.principal.id !== ctx.principal.id
     )
       throw new RoundtableError('conflict', 'Usage report does not belong to this principal');
+    if (existing.status === 'settled' && sameReport(existing, report)) return;
+    if (existing.reconciled)
+      throw new RoundtableError('conflict', 'A reconciled call accepts no further usage report');
     if (existing.status === 'settled') {
-      if (sameReport(existing, report)) return;
       if (existing.final)
         throw new RoundtableError('conflict', 'A final usage report cannot be replaced');
       if (!existing.admitted && report.outcome !== 'cache-hit')
@@ -200,6 +225,7 @@ export function settleUsage(
     callId: base.callId,
     providerId: base.providerId,
     modelId: base.modelId,
+    ...(existing?.bound === undefined ? {} : { bound: existing.bound }),
     conversationId: base.conversationId,
     runId: base.runId,
     principal: base.principal,
@@ -210,6 +236,9 @@ export function settleUsage(
     revision,
     price: null,
     admitted: base.admitted,
+    // The reservation is kept as admitted: what the record counts is decided from it and the report.
+    reservation: existing?.reservation ?? null,
+    reconciled: existing?.reconciled ?? null,
     outcome: report.outcome,
     provenance: report.provenance,
     final: report.final,
@@ -222,16 +251,18 @@ export function settleUsage(
       'invalid-config',
       'Pricing policy returned a cost whose amount is not an integer string',
     );
+  const budget = state.definition.budget;
+  if (budget?.cost && cost !== null && !validBudgetCost(cost, budget.cost.currency))
+    throw new RoundtableError(
+      'invalid-config',
+      'A cost budget requires a non-negative price in the budget currency',
+    );
   settled.price = pricing ? { version: pricing.version, cost } : null;
   if (index === -1) usage.push(settled);
   else usage[index] = settled;
 }
 
-/**
- * Whether a limit leaves these principals fewer calls than one each. Work that could not admit its
- * first call is refused before it starts, and a group is refused whole because it commits only whole.
- */
-export function modelCallsSpent(
+function callCountSpent(
   state: ConversationState,
   runId: string,
   principals: readonly UsagePrincipal[],
@@ -239,7 +270,6 @@ export function modelCallsSpent(
   const { limits } = state.definition;
   const usage = state.snapshot.usage.filter((record) => record.admitted);
   const needed = principals.length;
-  if (needed === 0) return false;
   const runUsed = usage.filter((record) => record.runId === runId).length;
   if (limits.maxModelCallsPerRun !== null && limits.maxModelCallsPerRun - runUsed < needed)
     return true;
@@ -263,29 +293,66 @@ export function modelCallsSpent(
 }
 
 /**
- * Any model-call limit or pricing policy requires every agent factory and the selector to declare a
- * capability, so that a participant nobody metered cannot silently be governed by a limit it never
- * agreed to observe.
+ * Which limit, if any, leaves these principals no room to start. Work that could not admit its first
+ * call is refused before it starts, and a group is refused whole because it commits only whole. A call
+ * count limit is reported first; a budget refuses once any of its amounts is fully spent. Principals
+ * that make no model calls are never refused.
+ */
+export function spentLimit(
+  state: ConversationState,
+  runId: string,
+  principals: readonly UsagePrincipal[],
+): 'model-calls' | 'budget' | null {
+  if (principals.length === 0) return null;
+  if (callCountSpent(state, runId, principals)) return 'model-calls';
+  const { budget } = state.definition;
+  return budget !== null && budgetExhausted(state.snapshot.usage, budget) ? 'budget' : null;
+}
+
+/** Whether a declared capability means the caller's calls are admitted and reported. */
+export function meters(capability: ModelCallCapability | undefined): boolean {
+  return capability === 'metered' || capability === 'enforced';
+}
+
+/**
+ * Any model-call limit, pricing policy or budget requires every agent factory and the selector to
+ * declare a capability, so that a participant nobody metered cannot silently be governed by a limit it
+ * never agreed to observe. A budget goes further: only a caller that makes no calls or declares each
+ * call's bound before dispatch can be held to it, so a merely metered one is refused.
  */
 export function requireModelCallCapabilities(options: {
   participants: readonly ParticipantDefinition[];
   selector: TurnSelector;
   governed: boolean;
+  budgeted: boolean;
 }): void {
   if (!options.governed) return;
   const missing = (capability: ModelCallCapability | undefined): boolean =>
     capability === undefined;
+  const unbounded = (capability: ModelCallCapability | undefined): boolean =>
+    options.budgeted && capability !== 'none' && capability !== 'enforced';
   if (missing(options.selector.modelCalls))
     throw new RoundtableError(
       'invalid-config',
-      'Model-call limits or pricing require the selector to declare modelCalls',
+      'Model-call limits, pricing or a budget require the selector to declare modelCalls',
+    );
+  if (unbounded(options.selector.modelCalls))
+    throw new RoundtableError(
+      'invalid-config',
+      'A budget requires the selector to declare modelCalls as none or enforced',
     );
   for (const participant of options.participants) {
     if (participant.kind !== 'agent') continue;
-    if (missing((participant as AgentParticipant).factory.modelCalls))
+    const { modelCalls } = (participant as AgentParticipant).factory;
+    if (missing(modelCalls))
       throw new RoundtableError(
         'invalid-config',
-        `Model-call limits or pricing require every agent factory to declare modelCalls: ${participant.id}`,
+        `Model-call limits, pricing or a budget require every agent factory to declare modelCalls: ${participant.id}`,
+      );
+    if (unbounded(modelCalls))
+      throw new RoundtableError(
+        'invalid-config',
+        `A budget requires every agent factory to declare modelCalls as none or enforced: ${participant.id}`,
       );
   }
 }
@@ -304,20 +371,23 @@ export function createTurnServices(options: {
   signal: AbortSignal;
   ctx: UsageContext;
   /** Stops the run before the rejection reaches the caller, so the attempt is treated as stopped. */
-  onLimit: () => void;
+  onLimit: (reason: 'model-calls' | 'budget') => void;
   pricing?: PricePolicy;
+  estimator?: UsageEstimator;
 }): TurnServices {
-  const { persistence, emit, signal, ctx, onLimit, pricing } = options;
+  const { persistence, emit, signal, ctx, onLimit, pricing, estimator } = options;
   return {
     async admitModelCall(call: ModelCallIntent): Promise<void> {
       signal.throwIfAborted();
       try {
         await persistence.update((draft, revision) => {
-          reserveModelCall(draft, revision, ctx, call);
+          reserveModelCall(draft, revision, ctx, call, { pricing, estimator });
         });
       } catch (error) {
         // A reached limit ends the run like a time limit rather than failing the conversation.
-        if (error instanceof RoundtableError && error.code === 'model-call-limit') onLimit();
+        if (error instanceof RoundtableError && error.code === 'model-call-limit')
+          onLimit('model-calls');
+        if (error instanceof RoundtableError && error.code === 'budget-limit') onLimit('budget');
         throw error;
       }
       const record = persistence.snapshot().snapshot.usage.find((r) => r.callId === call.callId);

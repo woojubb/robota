@@ -12,6 +12,8 @@ import {
 } from './state-codec-values';
 import { validateRequestState } from './state-codec-requests';
 import { validateUsageState } from './state-codec-usage';
+import type { StoredBudget } from './usage-budget';
+import { validUsageCost } from './usage-validation';
 import { assertJsonValue, canonicalJson } from './json';
 import type { ConversationEnvelope } from './store-types';
 
@@ -49,6 +51,20 @@ export function decodeConversation(
   if (definition.selector !== null) reference(definition.selector);
   reference(definition.contextPolicy);
   requireState(definition.pricingVersion === null || text(definition.pricingVersion));
+  // A budget is a required field, null without one; a cost amount needs the pricing it is counted by.
+  if (definition.budget !== null) {
+    const budget = record(definition.budget);
+    requireState(
+      Object.keys(budget).length === 3 &&
+        (budget.tokens === null || integer(budget.tokens, 1)) &&
+        (budget.cost === null ||
+          (validUsageCost(budget.cost) &&
+            BigInt(record(budget.cost).minorUnits as string) > 0n &&
+            definition.pricingVersion !== null)) &&
+        (budget.tokens !== null || budget.cost !== null) &&
+        (budget.mode === 'strict' || budget.mode === 'estimated'),
+    );
+  }
   checkpoint(state.selectorCheckpoint);
 
   const participants = list(state.participants).map(record);
@@ -238,6 +254,13 @@ export function decodeConversation(
       byTurn.add(`${turn.turnId}:${turn.groupId}:${member.participantId}`);
     }
   }
-  validateUsageState(snapshot.usage, byId, byTurn, conversationId, envelope.revision);
+  validateUsageState(
+    snapshot.usage,
+    byId,
+    byTurn,
+    conversationId,
+    envelope.revision,
+    definition.budget as StoredBudget | null,
+  );
   return structuredClone(state) as unknown as ConversationState;
 }

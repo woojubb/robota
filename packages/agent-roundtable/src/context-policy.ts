@@ -1,6 +1,7 @@
 import { errorMessage, RoundtableError } from './errors';
 import { canonicalJson } from './json';
 import { increments } from './policies';
+import { isThenable } from './usage-validation';
 import type { ContextAssembly, ContextPolicy, ParticipantTurn, SharedMessage } from './types';
 
 /** A summary stands in for consumed messages, so it is bounded rather than a second transcript. */
@@ -8,19 +9,6 @@ export const maxSummaryLength = 32_768;
 
 function invalid(message: string): never {
   throw new RoundtableError('invalid-context', message);
-}
-
-/** Whether a result is a promise-like value; a hostile `then` accessor counts as not being one. */
-function isThenable(value: unknown): boolean {
-  try {
-    return (
-      (typeof value === 'object' || typeof value === 'function') &&
-      value !== null &&
-      typeof (value as { then?: unknown }).then === 'function'
-    );
-  } catch {
-    return false;
-  }
 }
 
 function sameContent(a: unknown, b: unknown): boolean {
