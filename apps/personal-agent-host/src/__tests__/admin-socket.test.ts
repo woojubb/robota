@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { createServer } from 'node:http';
-import { lstat, mkdir, stat, utimes, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, stat, utimes, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -137,7 +137,8 @@ describe('admin socket', () => {
   it('refuses a socket directory that other users can enter', async () => {
     const dir = await tempDir();
     const { dir: runDir } = adminPaths(hostEnv(dir));
-    await mkdir(runDir, { recursive: true, mode: 0o755 });
+    await mkdir(runDir, { recursive: true });
+    await chmod(runDir, 0o755);
     const error = await rejection(startHost({ dir }));
     expect(error.message).toContain('accessible to other users');
   });
