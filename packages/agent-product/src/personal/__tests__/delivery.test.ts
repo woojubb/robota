@@ -866,6 +866,29 @@ describe('offers the person chose to receive', () => {
     );
   });
 
+  it('points an offers-only digest at the offers as a group, and at one offer alone', async () => {
+    const only = sink('only');
+    const { delivery, clock } = world({
+      sinks: [only],
+      start: at(23),
+      stillOffered: () => true,
+    });
+    await delivery.onOffer(offer('o1', 'mail:a'));
+    await delivery.onOffer(offer('o2', 'mail:b'));
+    clock.now = at(8, 0, 17);
+    await delivery.tick();
+    expect(only.received[0]?.text).toBe(
+      '2 suggestions are ready to look at:\n- Offer o1\n- Offer o2\nOpen your Feed to look at them.',
+    );
+    clock.now = at(23, 0, 17);
+    await delivery.onOffer(offer('o3', 'mail:c'));
+    clock.now = at(8, 0, 18);
+    await delivery.tick();
+    expect(only.received[1]?.text).toBe(
+      '1 suggestion is ready to look at:\n- Offer o3\nOpen your Feed to look at it.',
+    );
+  });
+
   it('sends an offer as one plain line with its title and nothing from the source', async () => {
     const only = sink('only');
     const { delivery } = world({ sinks: [only] });

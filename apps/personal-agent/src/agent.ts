@@ -44,7 +44,11 @@ export const PERSONAL_WITHHELD_TOOLS = [
  * is neither, a channel turn) is denied them, since they read untrusted mail and pages with no bound of
  * their own on what they propose.
  */
-export const PERSONAL_RUN_ONLY_TOOLS = [OFFER_TOOL_NAMES.propose] as const;
+export const PERSONAL_RUN_ONLY_TOOLS = [
+  OFFER_TOOL_NAMES.propose,
+  // The base copy only refuses; a sync run has its own, bound to the run, which reports how far it read.
+  CONNECTOR_TOOL_NAMES.progress,
+] as const;
 
 export interface IPersonalAgentOptions {
   readonly stateDir: string;
