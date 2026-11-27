@@ -19,6 +19,7 @@ import type {
   TurnServices,
 } from '@robota-sdk/agent-roundtable';
 import { runtimeParticipant } from './runtime-participant';
+import { runtimeSelector } from './runtime-selector';
 
 afterEach(() => {
   clearRegisteredToolProfiles();
@@ -595,5 +596,42 @@ describe('runtimeParticipant provider ownership', () => {
     } finally {
       await lease.release();
     }
+  });
+});
+
+describe('a roundtable budget refuses callers that only meter their calls', () => {
+  const unused = () => {
+    throw new Error('not used in this test');
+  };
+  const metered = runtimeParticipant({
+    id: 'p',
+    runtime: { id: 'fixture/agent', version: '1' },
+    createAgent: unused,
+  });
+
+  it('refuses a runtimeParticipant at construction, since it cannot declare a bound before dispatch', () => {
+    expect(() =>
+      createRoundtable({
+        conversationId: 'budget-participant',
+        participants: [metered],
+        limits: { maxTurnsPerRun: 1 },
+        budget: { tokens: 1000 },
+      }),
+    ).toThrow(expect.objectContaining({ code: 'invalid-config' }));
+  });
+
+  it('refuses a runtimeSelector at construction for the same reason', () => {
+    expect(() =>
+      createRoundtable({
+        conversationId: 'budget-selector',
+        participants: [{ kind: 'external', id: 'person' }],
+        selector: runtimeSelector({
+          reference: { id: 'fixture/selector', version: '1' },
+          createAgent: unused,
+        }),
+        limits: { maxTurnsPerRun: 1 },
+        budget: { tokens: 1000 },
+      }),
+    ).toThrow(expect.objectContaining({ code: 'invalid-config' }));
   });
 });

@@ -61,9 +61,10 @@ This package supplies no concrete provider, transport, or command surface, and d
 runtime's model, tools or permission policy — those remain the host's `createSessionOptions` /
 `createAgent` closures. It does not recover a runtime that a process crash interrupted mid-turn, or
 reconcile an external effect a cancelled attempt may have already started; those stay the deferred
-concerns `agent-roundtable` itself declines to solve. It enforces no monetary or token budget beyond
-admitting and reporting what a runtime already reports, and it does not implement Session's own
-`input` or `reconciliation` waits, or a durable, cross-process resumable selector.
+concerns `agent-roundtable` itself declines to solve. Its callers are metered, not enforced: they admit
+and report what a runtime already reports but cannot declare a call's bound before dispatch, so a
+conversation with a budget refuses them rather than count them unbounded. It does not implement
+Session's own `input` or `reconciliation` waits, or a durable, cross-process resumable selector.
 
 ## Design decisions
 

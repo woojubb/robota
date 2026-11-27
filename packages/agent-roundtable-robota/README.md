@@ -41,8 +41,8 @@ permissions, hooks and persistence. On Node.js the package requires 22.12 or lat
 
 | Kind                                                                              | Wait continuation                                               | Checkpoint             | Model calls                                            |
 | --------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------- | ------------------------------------------------------ |
-| `sessionParticipant`                                                              | Yes — a tool call awaiting approval (`robota-session/approval`) | `robota-session/1`     | Metered (`'metered'`)                                  |
-| `runtimeParticipant`                                                              | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`)                                  |
+| `sessionParticipant`                                                              | Yes — a tool call awaiting approval (`robota-session/approval`) | `robota-session/1`     | Metered (`'metered'`); a budget refuses it             |
+| `runtimeParticipant`                                                              | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`); a budget refuses it             |
 | Custom (write your own `AgentParticipant` against `@robota-sdk/agent-roundtable`) | Whatever you implement                                          | Whatever you implement | Declare `factory.modelCalls` yourself (see note below) |
 
 A custom participant needs neither this package nor agent runtime at all — `@robota-sdk/agent-roundtable`'s
@@ -55,6 +55,13 @@ no model-call limit and no pricing policy. As soon as either is configured, `cre
 requires every agent factory and the selector to declare `modelCalls` explicitly — `'none'` included —
 and throws `RoundtableError('invalid-config', ...)` for any factory that leaves it undeclared, so a
 participant nobody metered can never end up silently governed by a limit it never agreed to observe.
+
+A roundtable `budget` is stricter: it admits only callers that declare `'none'` or `'enforced'` (each
+call's bound passed to `admitModelCall` before it is dispatched). `sessionParticipant`,
+`runtimeParticipant` and `runtimeSelector` declare `'metered'`, because they report what a runtime
+already reports and cannot declare a bound beforehand, so `createRoundtable` and `loadRoundtable`
+refuse a budgeted conversation that uses them with `RoundtableError('invalid-config', ...)`. Use
+them with the call-count limits and pricing, or write a custom participant that declares bounds.
 
 ## Quick start
 
