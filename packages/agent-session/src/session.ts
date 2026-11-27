@@ -341,7 +341,6 @@ export class Session extends SessionBase {
       const runOptions = trackedJournal
         ? { ...options, executionJournal: trackedJournal }
         : options;
-      if (managedProvider) this.managedContinuation.begin(managedProvider);
       const response = await executeRun(
         message,
         rawInput,
@@ -351,6 +350,7 @@ export class Session extends SessionBase {
         managed
           ? {
               binding: fence!.binding,
+              beforeNativeInput: () => this.managedContinuation.begin(managedProvider!),
               assertActive: () => {
                 if (!this.turnClaim.holds(controller) || signal.aborted)
                   throw new ExecutionRecoveryError(

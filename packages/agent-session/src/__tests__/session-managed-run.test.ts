@@ -46,6 +46,9 @@ function fixture(
       | 'hookTypeExecutors'
       | 'permissionMode'
       | 'onTextDelta'
+      | 'contextMaxTokens'
+      | 'autoCompactThreshold'
+      | 'permissionClassifier'
     >
   > = {},
   continuation?: IManagedRunProvider['continuation'],
@@ -847,5 +850,59 @@ describe('managed continuation binding', () => {
       f.session.runRecoverable('third', { executionJournal: f.journal }),
     ).rejects.toMatchObject({ message: ended });
     expect(f.provider.run).toHaveBeenCalledOnce();
+  });
+});
+
+describe('refusals before native input', () => {
+  it('keeps the connection after automatic compaction is refused', async () => {
+    const seen: IManagedTurnInput[] = [];
+    const f = fixture(
+      async (input) => {
+        seen.push(input);
+        return finalFrame(`auto-compact-final-${seen.length}`, `answer-${seen.length}`);
+      },
+      { checkpointHistory: () => {}, contextMaxTokens: 600, autoCompactThreshold: 0.5 },
+      'live-process',
+    );
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    await expect(
+      f.session.runRecoverable('long '.repeat(400), { executionJournal: f.journal }),
+    ).rejects.toMatchObject({
+      code: 'MANAGED_RUN_UNAVAILABLE',
+      message: 'Managed execution is not available for provider managed-fixture',
+    });
+    expect(seen).toHaveLength(1);
+    await f.session.runRecoverable('third', { executionJournal: f.journal });
+    expect(seen[1].binding).toMatchObject({
+      connectionId: seen[0].binding.connectionId,
+      revision: 1,
+    });
+  });
+
+  it('keeps the connection after auto permission mode is refused', async () => {
+    const seen: IManagedTurnInput[] = [];
+    const f = fixture(
+      async (input) => {
+        seen.push(input);
+        return finalFrame(`auto-mode-final-${seen.length}`, `answer-${seen.length}`);
+      },
+      { checkpointHistory: () => {}, permissionClassifier: { classify: vi.fn() } as never },
+      'live-process',
+    );
+    await f.session.runRecoverable('first', { executionJournal: f.journal });
+    f.session.setPermissionMode('auto');
+    await expect(
+      f.session.runRecoverable('second', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+      message: 'Managed execution requires an isolated model-helper route',
+    });
+    f.session.setPermissionMode('default');
+    await f.session.runRecoverable('third', { executionJournal: f.journal });
+    expect(seen).toHaveLength(2);
+    expect(seen[1].binding).toMatchObject({
+      connectionId: seen[0].binding.connectionId,
+      revision: 1,
+    });
   });
 });

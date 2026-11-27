@@ -343,6 +343,7 @@ export async function executeManagedRun(input: {
         { messages: store.getMessages() },
         logger,
       );
+      context.managedTurn!.beforeNativeInput();
       result = await provider.run(providerInput, {
         signal,
         emit,

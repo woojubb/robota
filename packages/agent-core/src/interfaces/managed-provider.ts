@@ -74,6 +74,8 @@ export interface IManagedTurnHost {
 export interface IManagedTurnAdmission {
   readonly binding: IManagedConnectionBinding;
   assertActive(): void;
+  /** Called once, immediately before native input is handed to the provider; refusals before it leave a connection intact. */
+  beforeNativeInput(): void;
   /** Refuse a fork, compaction or changed tool projection before native input. */
   assertHistory(messages: readonly TUniversalMessage[]): void;
 }

@@ -563,6 +563,7 @@ describe('managed continuation identity', () => {
               frameIds: [],
             },
             assertActive: () => {},
+            beforeNativeInput: () => {},
             assertHistory: () => {},
           },
         },
