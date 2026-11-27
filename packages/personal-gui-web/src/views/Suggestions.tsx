@@ -42,18 +42,21 @@ const listOf = (text: string): string[] =>
 export function SuggestionsSection({ api }: { readonly api: IPersonalApi }): React.ReactElement {
   const ids = useId();
   const [form, setForm] = useState<IForm | undefined>(undefined);
+  /** What the agent last said, which each save is measured against. */
+  const [loaded, setLoaded] = useState<IOfferPreferencesView | undefined>(undefined);
   const [issue, setIssue] = useState<string | undefined>(undefined);
   const [message, setMessage] = useState<{ text: string; error: boolean } | undefined>(undefined);
   useEffect(() => {
     api.offerPreferences().then(
-      (loaded) => {
-        setForm(formOf(loaded.preferences));
-        setIssue(loaded.issue);
+      (answer) => {
+        setLoaded(answer.preferences);
+        setForm(formOf(answer.preferences));
+        setIssue(answer.issue);
       },
       (caught: unknown) => setMessage({ text: errorText(caught), error: true }),
     );
   }, [api]);
-  if (form === undefined)
+  if (form === undefined || loaded === undefined)
     return (
       <section aria-label="Suggestions" className="flex flex-col gap-1 text-[13px]">
         <h2 className="text-[15px] font-semibold">Suggestions</h2>
@@ -72,14 +75,22 @@ export function SuggestionsSection({ api }: { readonly api: IPersonalApi }): Rea
       className="flex flex-col gap-3"
       onSubmit={async (event) => {
         event.preventDefault();
+        // Only what the person changed is sent: a list is replaced whole, so sending one they did
+        // not touch would undo a mute another page made since this form was read.
+        const change: Partial<Record<keyof IForm, unknown>> = {};
+        if (form.enabled !== loaded.enabled) change['enabled'] = form.enabled;
+        if (form.delivery !== loaded.delivery) change['delivery'] = form.delivery;
+        for (const key of ['topics', 'mutedTopics', 'mutedSources'] as const) {
+          const typed = listOf(form[key]);
+          if (typed.join('\n') !== loaded[key].join('\n')) change[key] = typed;
+        }
+        if (Object.keys(change).length === 0) {
+          setMessage({ text: 'Nothing changed.', error: false });
+          return;
+        }
         try {
-          const saved = await api.changeOfferPreferences({
-            enabled: form.enabled,
-            delivery: form.delivery,
-            topics: listOf(form.topics),
-            mutedTopics: listOf(form.mutedTopics),
-            mutedSources: listOf(form.mutedSources),
-          });
+          const saved = await api.changeOfferPreferences(change as Partial<IOfferPreferencesView>);
+          setLoaded(saved.preferences);
           setForm(formOf(saved.preferences));
           setIssue(saved.issue);
           setMessage({ text: 'Saved.', error: false });

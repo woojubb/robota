@@ -54,6 +54,29 @@ describe('the Suggestions settings', () => {
     expect((screen.getByLabelText('Muted topics') as HTMLInputElement).value).toBe('');
   });
 
+  it('sends only what was changed, so a mute made elsewhere since the form loaded is not undone', async () => {
+    const world = offersWorld();
+    render(<SuggestionsSection api={world.api} />);
+    await form();
+    // Another page mutes a topic after this form was read.
+    await world.changeOfferPreferences({ mutedTopics: ['research'] });
+    world.changeOfferPreferences.mockClear();
+
+    fireEvent.change(screen.getByLabelText('How you are told'), { target: { value: 'notify' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save suggestions' }));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Saved.'));
+    expect(world.changeOfferPreferences).toHaveBeenCalledTimes(1);
+    expect(world.changeOfferPreferences).toHaveBeenCalledWith({ delivery: 'notify' });
+    // The form now shows what the agent holds, the other page's mute included.
+    expect((screen.getByLabelText('Muted topics') as HTMLInputElement).value).toBe('research');
+
+    // Saving again with nothing changed sends nothing and says so.
+    world.changeOfferPreferences.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Save suggestions' }));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Nothing changed.'));
+    expect(world.changeOfferPreferences).not.toHaveBeenCalled();
+  });
+
   it('offers exactly the three ways of being told', async () => {
     render(<SuggestionsSection api={offersWorld().api} />);
     await form();
