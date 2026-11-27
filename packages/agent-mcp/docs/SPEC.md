@@ -78,8 +78,9 @@ authoritative, so each guarantee below is stated, and held, once.
   protocol owns, and is obtained once per connection and once more after the server refuses them —
   however many requests were refused together.
 - **OAuth trusts only what it has checked**: discovery follows no link it has not checked against
-  the one before it — resource metadata must describe this endpoint or its origin when discovered
-  at the origin, the authorization server's
+  the one before it — resource metadata must describe this endpoint, or its origin when discovered
+  at the origin, and metadata a challenge links that names another resource is set aside for the
+  endpoint's own document, never adopted; the authorization server's
   metadata must name the issuer it was fetched for, every endpoint is `https` and PKCE `S256` is
   advertised — because the SDK's discovery guesses when a link is missing. A POST never follows a
   redirect, since its body is a code, a token or a secret, and a sign-in's redirect — caught on
