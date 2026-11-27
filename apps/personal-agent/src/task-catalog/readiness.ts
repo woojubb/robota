@@ -72,7 +72,32 @@ const issuedFor = (capability: string, context: IReadinessContext): TBindingSour
     (binding) => isIssuedBinding(binding) && binding.capability === capability,
   );
 
-function judge(capability: string, ceiling: TEffectCeiling, context: IReadinessContext): TVerdict {
+/**
+ * The accounts the person chose, by connector id. When more than one account can serve a capability and
+ * exactly one of them was chosen, that one serves it (and a binding with no account still does). A
+ * choice that names none of them, or several, settles nothing, so a chosen account that can no longer
+ * be used makes the person choose again.
+ */
+export type TAccountChoice = readonly string[];
+
+/** The usable bindings of one capability once the choice is applied. */
+function chosenAmong(usable: readonly TBindingSource[], choice?: TAccountChoice): TBindingSource[] {
+  const accounts = [
+    ...new Set(
+      usable.flatMap((binding) => (binding.account === undefined ? [] : [binding.account])),
+    ),
+  ];
+  const chosen = accounts.filter((id) => choice?.includes(id) === true);
+  if (accounts.length <= 1 || chosen.length !== 1) return [...usable];
+  return usable.filter((binding) => binding.account === undefined || binding.account === chosen[0]);
+}
+
+function judge(
+  capability: string,
+  ceiling: TEffectCeiling,
+  context: IReadinessContext,
+  choice?: TAccountChoice,
+): TVerdict {
   const bound = issuedFor(capability, context);
   const held = context.blockers.filter((blocker) => blocker.capability === capability);
   if (bound.length === 0 && held.length === 0)
@@ -89,9 +114,10 @@ function judge(capability: string, ceiling: TEffectCeiling, context: IReadinessC
     };
   }
   if (usable.length > 0) {
+    const kept = chosenAmong(usable, choice);
     const accounts = [
       ...new Set(
-        usable.flatMap((binding) => (binding.account === undefined ? [] : [binding.account])),
+        kept.flatMap((binding) => (binding.account === undefined ? [] : [binding.account])),
       ),
     ].sort();
     if (accounts.length > 1) {
@@ -106,7 +132,7 @@ function judge(capability: string, ceiling: TEffectCeiling, context: IReadinessC
         },
       };
     }
-    return { kind: 'ready', access: usable[0]!.argumentBoundary };
+    return { kind: 'ready', access: kept[0]!.argumentBoundary };
   }
   const steps = waiting
     .flatMap((blocker) => (blocker.outcome === 'needs-setup' ? [blocker.step] : []))
@@ -122,9 +148,13 @@ function judge(capability: string, ceiling: TEffectCeiling, context: IReadinessC
  * The definition's readiness from the context. With several problems, unavailable comes before needs
  * setup, and among unavailable ones the first capability in the definition's order is the one named.
  */
-export function readinessOf(definition: ITaskDefinition, context: IReadinessContext): TReadiness {
+export function readinessOf(
+  definition: ITaskDefinition,
+  context: IReadinessContext,
+  choice?: TAccountChoice,
+): TReadiness {
   const verdicts = definition.capabilities.map((capability) =>
-    judge(capability, definition.effectCeiling, context),
+    judge(capability, definition.effectCeiling, context, choice),
   );
   const unavailable = verdicts.find(
     (verdict): verdict is Extract<TVerdict, { kind: 'unavailable' }> =>
@@ -151,10 +181,14 @@ export function readinessOf(definition: ITaskDefinition, context: IReadinessCont
 export function usableBindingsOf(
   definition: ITaskDefinition,
   context: IReadinessContext,
+  choice?: TAccountChoice,
 ): readonly TBindingSource[] {
   return definition.capabilities.flatMap((capability) =>
-    issuedFor(capability, context).filter(
-      (binding) => !effectExceeds(binding.effect, definition.effectCeiling),
+    chosenAmong(
+      issuedFor(capability, context).filter(
+        (binding) => !effectExceeds(binding.effect, definition.effectCeiling),
+      ),
+      choice,
     ),
   );
 }

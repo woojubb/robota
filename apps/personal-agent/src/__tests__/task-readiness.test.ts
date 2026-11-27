@@ -24,7 +24,11 @@ import {
 import { BUILT_IN_DEFINITIONS } from '../task-catalog/built-in.js';
 import { createTaskCatalog } from '../task-catalog/catalog.js';
 import { TaskCatalogRefusedError } from '../task-catalog/fields.js';
-import { readinessOf, mergeReadinessContexts } from '../task-catalog/readiness.js';
+import {
+  readinessOf,
+  mergeReadinessContexts,
+  usableBindingsOf,
+} from '../task-catalog/readiness.js';
 import { createReadinessContextSource } from '../task-catalog/readiness-context.js';
 import { createMemoryTaskCatalogStore } from '../task-catalog/store.js';
 
@@ -376,6 +380,65 @@ describe('readiness of a task', () => {
     expect(readinessOf(CATCH_UP, one).state).toBe('ready');
   });
 
+  it('uses the account the person chose, by connector id, even when two share a title', () => {
+    const two = connected(SEARCH).with(
+      view({ id: 'connector-b', title: 'Mail' }),
+      view({ id: 'connector-a', title: 'Mail' }),
+    );
+    expect(readinessOf(CATCH_UP, two, ['connector-b'])).toEqual({
+      state: 'ready',
+      accesses: [SEARCH_BOUNDARY],
+    });
+    expect(
+      usableBindingsOf(CATCH_UP, two, ['connector-b']).map((binding) => binding.account),
+    ).toEqual(['connector-b']);
+    // Without a choice both stay, and a choice that names neither or both settles nothing.
+    expect(usableBindingsOf(CATCH_UP, two).map((binding) => binding.account)).toEqual([
+      'connector-b',
+      'connector-a',
+    ]);
+    for (const choice of [['connector-c'], ['connector-a', 'connector-b'], []])
+      expect(readinessOf(CATCH_UP, two, choice).state, choice.join()).toBe('needs-setup');
+  });
+
+  it('keeps asking when the chosen account can no longer serve it', () => {
+    const three = (state: TConnectorState) =>
+      connected(SEARCH).with(
+        view({ id: 'connector-a' }),
+        view({ id: 'connector-b', state }),
+        view({ id: 'connector-c' }),
+      );
+    expect(readinessOf(CATCH_UP, three('connected'), ['connector-b']).state).toBe('ready');
+    const asked = readinessOf(CATCH_UP, three('needs-sign-in'), ['connector-b']);
+    expect(asked).toMatchObject({
+      state: 'needs-setup',
+      steps: [
+        {
+          type: 'choose-account',
+          accounts: [{ id: 'connector-a' }, { id: 'connector-c' }],
+        },
+      ],
+    });
+    expect(
+      usableBindingsOf(CATCH_UP, three('needs-sign-in'), ['connector-b']).map(
+        (binding) => binding.account,
+      ),
+    ).toEqual(['connector-a', 'connector-c']);
+  });
+
+  it('keeps a binding with no account whatever was chosen', () => {
+    const context = mergeReadinessContexts(
+      connected(SEARCH).with(view({ id: 'connector-a' }), view({ id: 'connector-b' })),
+      localBrowserBindings({ browserAvailable: () => true }),
+    );
+    const both: ITaskDefinition = { ...CATCH_UP, capabilities: ['mail.search', 'web.read'] };
+    expect(
+      usableBindingsOf(both, context, ['connector-a']).map(
+        (binding) => binding.account ?? binding.capability,
+      ),
+    ).toEqual(['connector-a', 'web.read']);
+  });
+
   it('asks the person to allow the exact tool when they blocked it, or when a write has no decision of theirs', () => {
     const blocked = [tool({ name: 'search_mail', access: 'blocked', decision: 'blocked' })];
     expect(readinessOf(CATCH_UP, connected(SEARCH).with(view({ tools: blocked })))).toEqual({
@@ -510,7 +573,7 @@ describe('readiness of a task', () => {
     } finally {
       for (const spy of spies) spy.mockRestore();
     }
-    expect(readinessOf.length).toBe(2);
+    expect(readinessOf.length).toBe(3);
   });
 });
 

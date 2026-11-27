@@ -55,7 +55,7 @@ function disk() {
 
 async function started(world: TWorld) {
   const answer = await world.launches.start(request());
-  return { launchId: answer.launch.id, goalId: answer.goalId };
+  return { launchId: answer.launch.id, goalId: answer.goalId! };
 }
 
 describe('where a launch stands while its goal has more to do', () => {
@@ -167,7 +167,7 @@ describe('the outcome of a goal that ended', () => {
   it('is failed for a run that errored, and cancelled for one that was stopped', async () => {
     const failed = startWorld();
     const first = await started(failed);
-    await runLaunchedGoal(failed, first.goalId, {
+    await runLaunchedGoal(failed, first.goalId!, {
       outcome: 'failed',
       report: 'The run failed: the provider could not be reached',
       reads: [receipt()],
@@ -179,7 +179,7 @@ describe('the outcome of a goal that ended', () => {
     });
     const stopped = startWorld();
     const second = await started(stopped);
-    await runLaunchedGoal(stopped, second.goalId, {
+    await runLaunchedGoal(stopped, second.goalId!, {
       outcome: 'interrupted',
       report: 'The run was stopped.',
     });
@@ -375,12 +375,12 @@ describe('a restart between the steps', () => {
     const state = disk();
     const first = state.boot();
     const ended = await started(first);
-    await runLaunchedGoal(first, ended.goalId, { outcome: 'done', report: REPORT });
+    await runLaunchedGoal(first, ended.goalId!, { outcome: 'done', report: REPORT });
     const second = state.boot();
     const live = await second.launches.start(
       request({ key: 'key-00000002', inputs: { page: PAGE, question: 'Is it open on Sundays?' } }),
     );
-    await second.goals.startRun(live.goalId);
+    await second.goals.startRun(live.goalId!);
     await second.launches.recover();
     expect((await second.store.get(ended.launchId))?.outcome?.state).toBe('unverified');
     expect((await second.store.get(live.launch.id))?.outcome).toBeUndefined();

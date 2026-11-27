@@ -15,7 +15,7 @@ import {
   shaped,
   singleLine,
 } from '../fields.js';
-import { checkBindingSpec } from '../bindings.js';
+import { CONNECTOR_ID, checkBindingSpec } from '../bindings.js';
 import { DEFINITION_LIMITS, INPUT_NAME, SLUG } from '../validate-definition.js';
 import { parseOutcome } from './outcome.js';
 import { isPageRefusal, parseRunReceipt } from './receipts.js';
@@ -41,6 +41,8 @@ export const LAUNCH_LIMITS = {
   receipts: 50,
   /** The refusals it keeps beside them, in a room of their own so that reads cannot crowd them out. */
   refusals: 10,
+  /** The connectors a request names or has chosen. */
+  accounts: 10,
   /** The whole request body, as JSON. */
   body: 8192,
 } as const;
@@ -161,6 +163,16 @@ function parseReceipts(raw: unknown): TKeptReceipt[] {
   return receipts;
 }
 
+/** A short list of connector ids, in the order kept, with none twice. */
+function parseAccounts(raw: unknown, field: string): string[] {
+  const ids = listOf(raw, field, 0, LAUNCH_LIMITS.accounts).map((entry) =>
+    shaped(entry, `${field} entry`, CONNECTOR_ID, 80),
+  );
+  if (new Set(ids).size !== ids.length)
+    throw new TaskCatalogRefusedError(`${field} names a connector twice`);
+  return ids;
+}
+
 const INTENT_KEYS = [
   'id',
   'idempotencyKey',
@@ -172,6 +184,12 @@ const INTENT_KEYS = [
   'bindings',
   'origin',
   'status',
+  'namedAccounts',
+  'chosenAccounts',
+  'authorityChanged',
+  'proposed',
+  'reviewDigest',
+  'reservedAt',
   'goalId',
   'failure',
   'receipts',
@@ -187,6 +205,17 @@ export function parseIntent(raw: unknown): ILaunchIntent {
   const origin = parseOrigin(intent['origin']);
   const status: TLaunchStatus = oneOf(intent['status'], 'status', LAUNCH_STATUSES);
   const launched = status === 'launched';
+  const reviewing = status === 'review';
+  if ((intent['proposed'] !== undefined) !== reviewing)
+    throw new TaskCatalogRefusedError('proposed belongs to a launch in review, and only to one');
+  if ((intent['reviewDigest'] !== undefined) !== reviewing)
+    throw new TaskCatalogRefusedError(
+      'reviewDigest belongs to a launch in review, and only to one',
+    );
+  if (intent['authorityChanged'] !== undefined && intent['authorityChanged'] !== true)
+    throw new TaskCatalogRefusedError('authorityChanged is true when present');
+  // A request waiting for setup may hold no access yet; one that reserved or made a goal holds some.
+  const accessMin = status === 'reserved' || launched ? 1 : 0;
   if ((intent['goalId'] !== undefined) !== launched)
     throw new TaskCatalogRefusedError('goalId belongs to a launched launch, and only to one');
   if ((intent['failure'] !== undefined) !== (status === 'failed'))
@@ -209,9 +238,25 @@ export function parseIntent(raw: unknown): ILaunchIntent {
     definitionRevision: positiveInteger(intent['definitionRevision'], 'definitionRevision'),
     definitionDigest: shaped(intent['definitionDigest'], 'definitionDigest', HEX_DIGEST, 64),
     inputs: parseInputs(intent['inputs']),
-    bindings: listOf(intent['bindings'], 'bindings', 1, LAUNCH_LIMITS.bindings).map(parseBinding),
+    bindings: listOf(intent['bindings'], 'bindings', accessMin, LAUNCH_LIMITS.bindings).map(
+      parseBinding,
+    ),
     origin,
     status,
+    ...(intent['namedAccounts'] !== undefined && {
+      namedAccounts: parseAccounts(intent['namedAccounts'], 'namedAccounts'),
+    }),
+    ...(intent['chosenAccounts'] !== undefined && {
+      chosenAccounts: parseAccounts(intent['chosenAccounts'], 'chosenAccounts'),
+    }),
+    ...(intent['authorityChanged'] === true && { authorityChanged: true as const }),
+    ...(reviewing && {
+      proposed: listOf(intent['proposed'], 'proposed', 0, LAUNCH_LIMITS.bindings).map(parseBinding),
+      reviewDigest: shaped(intent['reviewDigest'], 'reviewDigest', HEX_DIGEST, 64),
+    }),
+    ...(intent['reservedAt'] !== undefined && {
+      reservedAt: isoTime(intent['reservedAt'], 'reservedAt'),
+    }),
     ...(launched && { goalId: shaped(intent['goalId'], 'goalId', GOAL_ID, 80) }),
     ...(status === 'failed' && { failure: parseFailure(intent['failure']) }),
     ...(intent['receipts'] !== undefined && { receipts: parseReceipts(intent['receipts']) }),

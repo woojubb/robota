@@ -48,9 +48,9 @@ describe('the definitions the person can browse', () => {
       { state: 'unavailable', reason: 'no verified binding for web.read yet' },
     ]);
     // Everything the person reads on a card is the definition itself.
-    expect(listing.map(({ readiness: _readiness, ...definition }) => definition)).toEqual(
-      BUILT_IN_DEFINITIONS,
-    );
+    expect(
+      listing.map(({ readiness: _readiness, startable: _startable, ...definition }) => definition),
+    ).toEqual(BUILT_IN_DEFINITIONS);
   });
 
   it('add the ones the person installed, newest revision only, and never replace a built-in one', async () => {

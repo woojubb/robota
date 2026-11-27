@@ -8,7 +8,7 @@ import { vi } from 'vitest';
 import { localBrowserBindings } from '../task-catalog/binding-providers.js';
 import { createTaskCatalog } from '../task-catalog/catalog.js';
 import { createLaunchCoordinator } from '../task-catalog/launch/coordinator.js';
-import { LAUNCH_RECIPES } from '../task-catalog/launch/recipes.js';
+import { LAUNCH_RECIPES, canStart } from '../task-catalog/launch/recipes.js';
 import { createMemoryLaunchStore } from '../task-catalog/launch/store.js';
 import { createMemoryTaskCatalogStore } from '../task-catalog/store.js';
 
@@ -26,7 +26,7 @@ import type { ITaskCatalog } from '../task-catalog/catalog.js';
 import type { IReadinessContext } from '../task-catalog/readiness.js';
 import type { ILaunchCoordinator, ILaunchOffers } from '../task-catalog/launch/coordinator.js';
 import type { IEvidenceRule } from '../task-catalog/launch/evidence-rules.js';
-import type { ILaunchRecipe } from '../task-catalog/launch/recipes.js';
+import type { ILaunchRecipe, TCapabilityTools } from '../task-catalog/launch/recipes.js';
 import type { ILaunchStore } from '../task-catalog/launch/store.js';
 import type {
   IEvidenceReceipt,
@@ -102,6 +102,8 @@ export interface IWorldOptions {
   readonly goalStore?: IGoalStore;
   readonly launchStore?: ILaunchStore;
   readonly browser?: { current: TBrowser };
+  /** What the host knows instead of the browser's state: a test of connector setup supplies its own. */
+  readonly readiness?: () => Promise<IReadinessContext>;
   readonly builtIn?: readonly ITaskDefinition[];
   readonly recipes?: readonly ILaunchRecipe[];
   readonly rules?: readonly IEvidenceRule[];
@@ -112,6 +114,8 @@ export interface IWorldOptions {
   readonly pageHosts?: readonly string[];
   readonly clock?: { now: Date };
   readonly resumeWithinMs?: number;
+  readonly setupWithinMs?: number;
+  readonly capabilityTools?: TCapabilityTools;
   /** A process that dies after goal creation or before it: nothing more is kept once these are on. */
   readonly dying?: { goal?: 'before' | 'after'; recording?: boolean };
   /** A goal store that will not remove a goal, as one that has just started would not. */
@@ -141,7 +145,9 @@ export function startWorld(options: IWorldOptions = {}): IWorld {
   const launchStore = options.launchStore ?? createMemoryLaunchStore({ now: () => clock.now });
   const catalog = createTaskCatalog({
     store: createMemoryTaskCatalogStore(),
-    readiness: async () => browserContext(browser.current),
+    readiness: options.readiness ?? (async () => browserContext(browser.current)),
+    startable: (definition) =>
+      canStart(options.recipes ?? LAUNCH_RECIPES, definition, options.capabilityTools),
     ...(options.builtIn !== undefined && { builtIn: options.builtIn }),
   });
   const behavior: { goal?: 'before' | 'after'; recording: boolean } = {
@@ -183,6 +189,8 @@ export function startWorld(options: IWorldOptions = {}): IWorld {
     now: () => clock.now,
     onGoalReady,
     ...(options.resumeWithinMs !== undefined && { resumeWithinMs: options.resumeWithinMs }),
+    ...(options.setupWithinMs !== undefined && { setupWithinMs: options.setupWithinMs }),
+    ...(options.capabilityTools !== undefined && { capabilityTools: options.capabilityTools }),
   });
   return {
     goals,

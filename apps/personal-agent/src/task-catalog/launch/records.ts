@@ -7,20 +7,51 @@ import { TaskCatalogRefusedError } from '../fields.js';
 import { isPageRefusal, sameRefusal } from './receipts.js';
 import { LAUNCH_LIMITS, parseIntent } from './validate.js';
 
-import type { ILaunchFailure, ILaunchIntent, ILaunchOutcome, TBrowserReceipt } from './types.js';
+import type {
+  ILaunchBinding,
+  ILaunchFailure,
+  ILaunchIntent,
+  ILaunchOutcome,
+  TBrowserReceipt,
+} from './types.js';
 
 export const MAX_LAUNCHES = 200;
 
-/** Where a reserved intent can go: it is the only status that is not an end. */
+/**
+ * Where an unfinished intent can go. A request that waits (`setup`, `review`) or is reserved moves
+ * with what it should now hold: the choices made, whether its access changed, the access to look at,
+ * and, once reserved, the access it will run on and when it was reserved.
+ */
 export type TLaunchChange =
   | { readonly status: 'launched'; readonly goalId: string }
   | { readonly status: 'failed'; readonly failure: ILaunchFailure }
-  | { readonly status: 'cancelled' };
+  | { readonly status: 'cancelled' }
+  | ({ readonly status: 'setup' | 'review' | 'reserved' } & ILaunchWaiting);
 
-const unfinished = (intent: ILaunchIntent): boolean => intent.status === 'reserved';
+/** What a request that waits may change as it moves; what is left out stays as it was. */
+export interface ILaunchWaiting {
+  readonly chosenAccounts?: readonly string[];
+  /** Sets the sticky flag; there is no way to clear it. */
+  readonly authorityChanged?: true;
+  /** For `review`: the access to look at and its digest. */
+  readonly proposed?: readonly ILaunchBinding[];
+  readonly reviewDigest?: string;
+  /** For `reserved`: the access it will run on and when it was reserved. */
+  readonly bindings?: readonly ILaunchBinding[];
+  readonly reservedAt?: string;
+}
+
+/** Where each status may go; a request that made a goal or ended goes nowhere. */
+const MOVES: Readonly<Record<string, readonly string[]>> = {
+  setup: ['setup', 'review', 'reserved', 'failed', 'cancelled'],
+  review: ['review', 'setup', 'reserved', 'failed', 'cancelled'],
+  reserved: ['launched', 'failed', 'cancelled'],
+};
+
+const unfinished = (intent: ILaunchIntent): boolean => intent.status in MOVES;
 
 /**
- * Keep a new intent, which is always reserved. At the bound the oldest finished ones go first, and a
+ * Keep a new intent, which is reserved to make its goal or waiting for setup. At the bound the oldest finished ones go first, and a
  * launch still waiting is never dropped: with nothing finished to drop, the new one is refused.
  */
 export function reserveInto(
@@ -28,8 +59,10 @@ export function reserveInto(
   intent: ILaunchIntent,
 ): readonly ILaunchIntent[] {
   const fresh = parseIntent(intent);
-  if (fresh.status !== 'reserved')
-    throw new TaskCatalogRefusedError('A launch is kept as reserved before it is anything else');
+  if (fresh.status !== 'reserved' && fresh.status !== 'setup')
+    throw new TaskCatalogRefusedError(
+      'A launch is kept as reserved or waiting for setup before it is anything else',
+    );
   if (intents.some((entry) => entry.id === fresh.id))
     throw new TaskCatalogRefusedError('Another launch already has this id');
   if (intents.some((entry) => entry.idempotencyKey === fresh.idempotencyKey))
@@ -46,8 +79,9 @@ export function reserveInto(
 }
 
 /**
- * Move a reserved intent to where it ended. The same ending again is the intent as it is, so a retry
- * after a write whose answer was lost changes nothing; any other change to an ended intent is refused.
+ * Move an unfinished intent along its allowed moves. The same ending again is the intent as it is, so
+ * a retry after a write whose answer was lost changes nothing; any other change to an ended intent, or
+ * a move the intent's status does not allow, is refused.
  */
 export function advanceIn(
   intents: readonly ILaunchIntent[],
@@ -64,10 +98,27 @@ export function advanceIn(
     if (same) return { intents, stored: kept };
     throw new TaskCatalogRefusedError(`This launch already ended as ${kept.status}`);
   }
-  const { status: _status, goalId: _goalId, failure: _failure, ...rest } = kept;
+  if (!MOVES[kept.status]!.includes(change.status))
+    throw new TaskCatalogRefusedError(
+      `A launch that is ${kept.status} cannot become ${change.status}`,
+    );
+  const {
+    status: _status,
+    goalId: _goalId,
+    failure: _failure,
+    proposed: _proposed,
+    reviewDigest: _reviewDigest,
+    ...rest
+  } = kept;
+  const waiting =
+    change.status === 'setup' || change.status === 'review' || change.status === 'reserved';
   const stored = parseIntent({
     ...rest,
     ...change,
+    // Once the access changed it stays changed, whatever a later move says.
+    ...((kept.authorityChanged === true || (waiting && change.authorityChanged === true)) && {
+      authorityChanged: true,
+    }),
     updatedAt: at < kept.createdAt ? kept.createdAt : at,
   });
   return { intents: intents.map((entry) => (entry === kept ? stored : entry)), stored };
