@@ -124,7 +124,11 @@ export class CompactionOrchestrator {
     // returned a summary for an already-cancelled turn — and the caller replaces the conversation
     // with whatever this returns, so a cancel could still clear it and inject an empty summary.
     signal?.throwIfAborted();
-    if (isManagedRunProvider(provider)) throw new ManagedRunUnavailableError(provider.name);
+    if (isManagedRunProvider(provider))
+      throw new ManagedRunUnavailableError(
+        provider.name,
+        'compaction would replace the conversation with a summary and end native continuation; start a new session instead',
+      );
     // This used to `return ''`, contradicting the contract two lines of docblock above it
     // ("always a non-empty string") — and the caller wrote that empty string over the conversation as
     // a summary. Deciding that an empty conversation is a no-op is the CALLER's judgement, made

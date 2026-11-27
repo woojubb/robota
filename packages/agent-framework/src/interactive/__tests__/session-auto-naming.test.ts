@@ -7,10 +7,10 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
-import { SessionAutoNaming } from '../session-auto-naming.js';
+import { SessionAutoNaming, UNNAMED_MANAGED_NOTICE } from '../session-auto-naming.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, TExecutionProvider } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSessionEvents,
   TInteractiveEventName,
@@ -174,6 +174,38 @@ describe('InteractiveSession auto-naming', () => {
   });
 });
 
+describe('InteractiveSession auto-naming under a managed provider', () => {
+  it('says once that the session stays unnamed when no helper is configured', async () => {
+    const managedProvider = {
+      kind: 'managed-run',
+      name: 'managed',
+      version: 'test',
+      validateConfig: () => true,
+      run: vi.fn(),
+    };
+    const session = new InteractiveSession({
+      host: testHost,
+      session: {
+        ...runtimeSession(fakeProvider('unused')),
+        getExecutionProvider: () => managedProvider,
+        getHelperProvider: () => undefined,
+      } as never,
+      cwd: '/tmp',
+      autoName: true,
+    });
+
+    await runTurn(session, 'First');
+    await runTurn(session, 'Second');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const notices = session
+      .getFullHistory()
+      .filter((entry) => JSON.stringify(entry.data).includes(UNNAMED_MANAGED_NOTICE));
+    expect(notices).toHaveLength(1);
+    expect(session.getName()).toBeUndefined();
+  });
+});
+
 describe('SessionAutoNaming', () => {
   function bus(): {
     on: <E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]) => void;
@@ -202,6 +234,8 @@ describe('SessionAutoNaming', () => {
       },
       emitRenamed: () => {},
       getProvider: () => provider,
+      getHelperProvider: () => undefined,
+      notify: () => {},
     });
 
     events.emit('user_message', '[remote-control] queued input from remote:1 was cancelled.');
@@ -232,6 +266,8 @@ describe('SessionAutoNaming', () => {
       },
       emitRenamed: renamed,
       getProvider: () => provider,
+      getHelperProvider: () => undefined,
+      notify: () => {},
     });
     return { events, name: () => name, renamed };
   }
@@ -303,5 +339,53 @@ describe('SessionAutoNaming', () => {
 
     await vi.waitFor(() => expect(name()).toBe('first-title'));
     expect(provider.chat).toHaveBeenCalledTimes(1);
+  });
+
+  describe('under a managed provider', () => {
+    const managedProvider = {
+      kind: 'managed-run',
+      name: 'managed',
+      version: 'test',
+      validateConfig: () => true,
+      run: vi.fn(),
+    } as unknown as TExecutionProvider;
+
+    function managedNaming(helper: IAIProvider | undefined) {
+      const events = bus();
+      const notify = vi.fn();
+      let name: string | undefined;
+      new SessionAutoNaming({
+        on: events.on,
+        getName: () => name,
+        setName: (next) => {
+          name = next;
+        },
+        emitRenamed: () => {},
+        getProvider: () => managedProvider,
+        getHelperProvider: () => helper,
+        notify,
+      });
+      return { events, notify, name: () => name };
+    }
+
+    it('names the session with the explicit helper', async () => {
+      const helper = fakeProvider('helper-title');
+      const { events, notify, name } = managedNaming(helper);
+      turn(events, 'Hello', 'complete');
+      await vi.waitFor(() => expect(name()).toBe('helper-title'));
+      expect(helper.chat).toHaveBeenCalledTimes(1);
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    it('stays unnamed with exactly one notice across turns when there is no helper', async () => {
+      const { events, notify, name } = managedNaming(undefined);
+      turn(events, 'First', 'complete');
+      turn(events, 'Second', 'complete');
+      turn(events, 'Third', 'complete');
+      await settle();
+      expect(name()).toBeUndefined();
+      expect(notify).toHaveBeenCalledTimes(1);
+      expect(notify.mock.calls[0]?.[0]).toContain('helperProvider');
+    });
   });
 });

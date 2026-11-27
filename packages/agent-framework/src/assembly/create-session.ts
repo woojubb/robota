@@ -3,7 +3,13 @@
  * tools, and provider.
  */
 
-import { applyPresetToolLists, randomId } from '@robota-sdk/agent-core';
+import {
+  applyPresetToolLists,
+  isManagedRunProvider,
+  ManagedHelperProviderError,
+  ManagedRunUnavailableError,
+  randomId,
+} from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import { hostSessionPorts } from './host-session-ports.js';
@@ -35,7 +41,7 @@ import type {
 } from './create-session-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IHookDefinitionSource } from '../config/config-merge.js';
-import type { THooksConfig, TGuardrail } from '@robota-sdk/agent-core';
+import type { IAIProvider, THooksConfig, TGuardrail } from '@robota-sdk/agent-core';
 
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session-types.js';
 
@@ -102,6 +108,17 @@ export async function createSession(
     );
   }
   const provider = options.provider;
+  const helperProvider = options.helperProvider;
+  if (helperProvider !== undefined && isManagedRunProvider(helperProvider)) {
+    throw new ManagedHelperProviderError((helperProvider as { name: string }).name);
+  }
+  const managed = isManagedRunProvider(provider);
+  if (managed && (options.enableAgentRuntime || options.enableParallelSubagents)) {
+    throw new ManagedRunUnavailableError(
+      provider.name,
+      'subagents run model requests and cannot be served by a managed provider',
+    );
+  }
   const { cwd } = options;
   const sessionId = options.sessionId ?? createSessionId();
   const skillCommandSource = new SkillCommandSource(
@@ -125,10 +142,9 @@ export async function createSession(
     modelInvocableCommandDescriptors,
     options.commandSemanticRoles?.skillActivation ?? '',
   )
-    ? mergeSkillCommands(
-        skillCommandSource.getCommands(),
-        options.pluginSkills ?? [],
-      ).filter((skill) => skill.disableModelInvocation !== true)
+    ? mergeSkillCommands(skillCommandSource.getCommands(), options.pluginSkills ?? []).filter(
+        (skill) => skill.disableModelInvocation !== true,
+      )
     : [];
 
   let assembledSession: Session | undefined;
@@ -169,7 +185,8 @@ export async function createSession(
     options,
     sessionId,
     cwd,
-    provider,
+    // A managed provider with the agent runtime on was refused above; otherwise none is read.
+    provider as IAIProvider,
     tools,
     hookTypeExecutors,
   );
@@ -185,18 +202,19 @@ export async function createSession(
   // Replaces the selected entries in the session-local `tools` array in place.
   buildToolCallHandoff(options, backgroundTaskManager, sessionId, cwd, tools);
 
-  const { finalSystemMessage, systemPromptManifest, rebuildSystemMessage } = buildSessionSystemPrompt(
-    options,
-    cwd,
-    modelInvocableCommandDescriptors,
-    modelCommandToolProjection,
-    backgroundProcessToolDeps,
-    modelVisibleSkills,
-    agentDefinitions,
-    // The assembled set, so the prompt can name what is deferred (and therefore
-    // searchable). Passed here rather than recomputed: this is the list the session actually holds.
-    tools,
-  );
+  const { finalSystemMessage, systemPromptManifest, rebuildSystemMessage } =
+    buildSessionSystemPrompt(
+      options,
+      cwd,
+      modelInvocableCommandDescriptors,
+      modelCommandToolProjection,
+      backgroundProcessToolDeps,
+      modelVisibleSkills,
+      agentDefinitions,
+      // The assembled set, so the prompt can name what is deferred (and therefore
+      // searchable). Passed here rather than recomputed: this is the list the session actually holds.
+      tools,
+    );
 
   // Commands with requiresPermission: false are auto-approved — no prompt needed.
   const commandAutoAllow = modelCommandToolProjection
@@ -233,6 +251,12 @@ export async function createSession(
       }
     : undefined;
 
+  const classifierProvider: IAIProvider | undefined = managed
+    ? provider.isolatesHelperRequests === true
+      ? helperProvider
+      : undefined
+    : provider;
+
   const SessionWithAutoCompact = Session as TSessionConstructorWithAutoCompact;
   const session = new SessionWithAutoCompact({
     pathProtection: options.pathProtection,
@@ -255,7 +279,13 @@ export async function createSession(
     permissionMode: options.permissionMode,
     defaultTrustLevel: options.config.defaultTrustLevel,
     model: options.model ?? options.config.provider.model,
-    providerTimeout: options.config.provider.timeout ?? DEFAULT_PROVIDER_IDLE_TIMEOUT_MS,
+    // A managed run refuses any provider timeout, so none is set for it, not even the default.
+    ...(managed
+      ? {}
+      : {
+          providerTimeout: options.config.provider.timeout ?? DEFAULT_PROVIDER_IDLE_TIMEOUT_MS,
+        }),
+    ...(helperProvider !== undefined ? { helperProvider } : {}),
     maxTurns: options.maxTurns,
     sessionStore: options.sessionStore,
     checkpointHistory: options.checkpointHistory,
@@ -266,15 +296,19 @@ export async function createSession(
     ...(options.sandboxClient?.autoApproves !== undefined
       ? { commandSandbox: sandboxApprovalFor(options.sandboxClient) }
       : {}),
-    // `auto` mode asks the session's own model; an organization can turn the mode off.
-    ...(options.disableAutoMode === true
+    // `auto` mode asks the session's own model; an organization can turn the mode off. Under a
+    // managed provider only the explicit helper may judge, and only when the provider declares its
+    // helper requests isolated; otherwise no classifier exists and `auto` is refused, never
+    // answered by a provider chosen for the user.
+    ...(options.disableAutoMode === true || classifierProvider === undefined
       ? {}
       : {
-          permissionClassifier: createModelPermissionClassifier(provider, {
+          permissionClassifier: createModelPermissionClassifier(classifierProvider, {
             cwd,
             model: options.model ?? options.config.provider.model,
             readGitRemotes: options.host.readGitRemotes,
           }),
+          ...(managed ? { permissionClassifierFromHelper: true } : {}),
         }),
     // Model-invoked tools solicit structured answers through this port.
     ...(options.ask ? { ask: options.ask } : {}),

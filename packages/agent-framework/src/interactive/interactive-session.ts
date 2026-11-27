@@ -637,6 +637,9 @@ export class InteractiveSession
         setName: (name) => this.setName(name),
         emitRenamed: (name) => this.emit('session_renamed', { name }),
         getProvider: () => this.session?.getExecutionProvider?.() ?? this.session?.getProvider(),
+        getHelperProvider: () => this.session?.getHelperProvider?.(),
+        notify: (message) =>
+          this.histTracker.append(messageToHistoryEntry(createSystemMessage(message))),
       });
     }
 

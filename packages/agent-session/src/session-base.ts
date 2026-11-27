@@ -1,5 +1,6 @@
 import { requireExecutionRoot } from './execution-root.js';
 import { ManagedContinuation } from './managed-continuation.js';
+import { MANAGED_AUTO_REFUSAL } from './managed-helper.js';
 import { SessionBusyError, TurnClaim } from './turn-claim.js';
 import { isManagedRunProvider, ManagedRunUnavailableError } from '@robota-sdk/agent-core';
 
@@ -33,6 +34,8 @@ export abstract class SessionBase {
   protected abstract parallelSubagentsEnabled: boolean;
   protected abstract readonly sessionId: string;
   protected abstract readonly aiProvider: TExecutionProvider;
+  protected helperProvider: IAIProvider | undefined;
+  protected permissionClassifierFromHelper = false;
   protected abstract readonly toolSchemas: IToolSchema[];
   protected abstract model: string;
   protected abstract systemMessage: string;
@@ -272,9 +275,29 @@ export abstract class SessionBase {
 
   /** `auto` mode hands decisions to a classifier, so a session without one cannot enter it. */
   protected requireClassifierFor(mode: TPermissionMode): void {
-    if (mode === 'auto' && !this.permissionEnforcer.hasPermissionClassifier()) {
+    if (mode !== 'auto') return;
+    if (isManagedRunProvider(this.aiProvider) && !this.managedAutoAllowed()) {
+      throw new Error(MANAGED_AUTO_REFUSAL);
+    }
+    if (!this.permissionEnforcer.hasPermissionClassifier()) {
       throw new Error('Auto mode is unavailable: this session has no permission classifier.');
     }
+  }
+
+  /** The classifier was built only from the explicit helper and the managed provider isolates it. */
+  protected managedAutoAllowed(): boolean {
+    const provider = this.aiProvider;
+    return (
+      isManagedRunProvider(provider) &&
+      provider.isolatesHelperRequests === true &&
+      this.permissionClassifierFromHelper &&
+      this.permissionEnforcer.hasPermissionClassifier()
+    );
+  }
+
+  /** The explicit model-step provider for the host's side requests, if one was configured. */
+  getHelperProvider(): IAIProvider | undefined {
+    return this.helperProvider;
   }
 
   /**
