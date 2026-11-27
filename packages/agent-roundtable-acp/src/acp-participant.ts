@@ -5,10 +5,13 @@ import type { AgentParticipant, RuntimeReference } from '@robota-sdk/agent-round
 import { openAcpSession } from './acp-session';
 import { AcpParticipantError } from './errors';
 import type { AcpLauncher } from './launcher';
+import type { AcpPermissionApprover } from './permission';
 import { renderSharedIncrement } from './render';
 import type { TurnRenderer } from './render';
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 30_000;
+const DEFAULT_CANCEL_GRACE_MS = 5_000;
+const DEFAULT_MAX_REPLY_CHARS = 100_000;
 /** The longest delay a timer honors; a larger one fires at once. */
 const MAX_TIMER_MS = 2_147_483_647;
 
@@ -24,6 +27,33 @@ export interface AcpParticipantOptions {
   render?: TurnRenderer;
   /** Bound on launching the agent and completing its handshake, in milliseconds. Defaults to 30000. */
   startupTimeoutMs?: number;
+  /**
+   * Decides the agent's permission requests. Without one every request is refused: only a host
+   * that gives an approver lets an agent's tool call proceed, and only once per call.
+   */
+  approver?: AcpPermissionApprover;
+  /**
+   * How long an aborted turn waits, in milliseconds, for the agent to acknowledge the cancellation
+   * before the connection is ended. Defaults to 5000. The session ends either way.
+   */
+  cancelGraceMs?: number;
+  /**
+   * The most characters one turn's reply may have. Past it the turn fails with `reply-too-long` and
+   * the session ends. Defaults to 100000.
+   */
+  maxReplyChars?: number;
+}
+
+/** A positive integer a timer or a bound can honor; anything else is a configuration mistake. */
+function boundedOption(name: string, value: number | undefined, fallback: number): number {
+  const chosen = value ?? fallback;
+  if (!Number.isSafeInteger(chosen) || chosen < 1 || chosen > MAX_TIMER_MS) {
+    throw new AcpParticipantError(
+      'invalid-options',
+      `${name} must be an integer from 1 to ${MAX_TIMER_MS}`,
+    );
+  }
+  return chosen;
 }
 
 /**
@@ -35,17 +65,21 @@ export interface AcpParticipantOptions {
  * holding it cannot be loaded back after a turn and never parks a request for it.
  */
 export function acpParticipant(options: AcpParticipantOptions): AgentParticipant {
-  const startupTimeoutMs = options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS;
-  if (
-    !Number.isSafeInteger(startupTimeoutMs) ||
-    startupTimeoutMs < 1 ||
-    startupTimeoutMs > MAX_TIMER_MS
-  ) {
-    throw new AcpParticipantError(
-      'invalid-options',
-      `startupTimeoutMs must be an integer from 1 to ${MAX_TIMER_MS}`,
-    );
-  }
+  const startupTimeoutMs = boundedOption(
+    'startupTimeoutMs',
+    options.startupTimeoutMs,
+    DEFAULT_STARTUP_TIMEOUT_MS,
+  );
+  const cancelGraceMs = boundedOption(
+    'cancelGraceMs',
+    options.cancelGraceMs,
+    DEFAULT_CANCEL_GRACE_MS,
+  );
+  const maxReplyChars = boundedOption(
+    'maxReplyChars',
+    options.maxReplyChars,
+    DEFAULT_MAX_REPLY_CHARS,
+  );
   if (!isAbsolute(options.cwd)) {
     throw new AcpParticipantError('invalid-options', 'cwd must be an absolute path');
   }
@@ -54,6 +88,9 @@ export function acpParticipant(options: AcpParticipantOptions): AgentParticipant
     launcher: options.launcher,
     render: options.render ?? renderSharedIncrement,
     startupTimeoutMs,
+    ...(options.approver !== undefined ? { approver: options.approver } : {}),
+    cancelGraceMs,
+    maxReplyChars,
   };
   return {
     kind: 'agent',
