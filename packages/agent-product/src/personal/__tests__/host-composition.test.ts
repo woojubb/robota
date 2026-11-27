@@ -7,14 +7,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   BROWSER_TOOL_NAMES,
-  CaseBook,
   GOAL_TOOL_NAMES,
   GoalBook,
   KnowledgeWiki,
   WIKI_TOOL_NAMES,
   createBrowserTools,
   createGoalTools,
-  createMemoryCaseStore,
   createMemoryGoalStore,
   createMemoryKnowledgeStore,
   createWikiTools,
@@ -68,8 +66,6 @@ describe('a host made only of in-memory adapters', () => {
   it('runs the product steps behind a host made only of in-memory adapters', async () => {
     const wiki = new KnowledgeWiki({ store: createMemoryKnowledgeStore() });
     const goals = new GoalBook({ store: createMemoryGoalStore() });
-    // The case book takes the same feed; it is part of the composition even when this run opens none.
-    const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
     const browser = memoryBrowser();
     const tools = new Map(
       [...createWikiTools(wiki), ...createGoalTools(goals), ...createBrowserTools(browser)].map(
@@ -89,7 +85,14 @@ describe('a host made only of in-memory adapters', () => {
       name: string,
       args: Record<string, string | number | boolean>,
     ): Promise<string> => {
-      expect(evaluatePermission(name, args, 'default', {})).toBe('approve');
+      // The app runs turns in `acceptEdits`; a held submission still needs a person in every mode that
+      // would let an ordinary edit through, while clicking inside the browser does not.
+      for (const mode of ['acceptEdits', 'auto', 'bypassPermissions'] as const) {
+        expect(evaluatePermission(name, args, mode, { allow: [name] }), mode).toBe('approve');
+        expect(evaluatePermission(BROWSER_TOOL_NAMES.click, { mark: 1 }, mode, {}), mode).toBe(
+          'auto',
+        );
+      }
       const card = await goals.post({
         kind: 'approval',
         title: name,
@@ -142,7 +145,6 @@ describe('a host made only of in-memory adapters', () => {
     await decide(secondCard, false);
     expect(browser.sent).toEqual(['buy-1 POST https://shop.example/buy-1']);
     expect((await goals.feedItem(secondCard))?.approval?.state).toBe('denied');
-    expect(await cases.list()).toEqual([]);
 
     // Nothing reached the disk of the machine the test ran on.
     expect(readdirSync(home)).toEqual([]);
