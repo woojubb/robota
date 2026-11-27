@@ -10,7 +10,7 @@
 //   --stderr-flood <n>     write about n bytes to standard error before answering a prompt
 //
 // Progress is reported on standard error, one line each, so a test can wait on an event instead of
-// a delay: `ready`, `pid:<n>`, `grandchild:<n>`, `prompt`, `sigterm`.
+// a delay: `ready`, `pid:<n>`, `grandchild:<n>`, `prompt`, `sigterm`, `cancel`, `flood-done`.
 import { spawn } from 'node:child_process';
 import { Readable, Writable } from 'node:stream';
 
@@ -73,7 +73,10 @@ const app = agent({ name: 'stdio-fixture-agent' })
       process.exit(3);
     }
     const bytes = Number(valueOf('stderr-flood') ?? 0);
-    if (bytes > 0) await flood(bytes);
+    if (bytes > 0) {
+      await flood(bytes);
+      note('flood-done');
+    }
     await say(replyText());
     return { stopReason: 'end_turn' };
   })

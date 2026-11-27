@@ -175,6 +175,7 @@ describe('standard error', () => {
     await lease.session.runTurn(turnOf(), executionOptions());
     await lease.release();
 
+    await watcher.when('prompt');
     expect(watcher.lines).toEqual(expect.arrayContaining(['ready', 'prompt']));
     expect(watcher.lines.every((line) => !line.includes('\n'))).toBe(true);
   });
@@ -188,7 +189,11 @@ describe('standard error', () => {
     await lease.release();
 
     expect(outcome).toEqual({ kind: 'speak', content: 'fixture reply' });
-    expect(watcher.lines.filter((line) => line.startsWith('xxx')).length).toBeGreaterThan(2_900);
+    // Standard error and the reply travel on different pipes, so wait for the last line reported.
+    await watcher.when('flood-done');
+    expect(watcher.lines.filter((line) => line.startsWith('xxx'))).toHaveLength(
+      Math.ceil(3_000_000 / 1_024),
+    );
   });
 
   it('is drained and discarded when no listener is given', async () => {
