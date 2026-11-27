@@ -84,7 +84,10 @@ does not own session lifecycle, conversation history, or agent runtime state.
   replacement — says so: retrying while attempts continue, and once they give up, either the
   host-supplied reconnect action or how to reopen the page.
 - A session-rename or history-clear broadcast from any other surface is folded into this reducer's
-  state, so co-driving surfaces stay in sync.
+  state, so co-driving surfaces stay in sync. A history rewritten in place (text redacted) makes
+  the surface replace what it shows, never append: it re-reads the status (the name can change)
+  and the transcript, and waits for a running turn to end before reading the transcript, because
+  a snapshot taken mid-turn would repeat rows the turn appends itself.
 - The personal usage dashboard is opt-in per surface (browser/remote consumers stay opted out by
   default) and correlates its own requests, keeping latest-request-wins semantics on responses.
 - A background-activity entry opens a detail sheet (status, what it was asked, its paginated

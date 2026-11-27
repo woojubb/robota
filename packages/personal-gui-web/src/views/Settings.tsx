@@ -4,6 +4,7 @@ import { BrowserNotifications } from './BrowserNotifications.js';
 import { NotificationAddress } from './NotificationAddress.js';
 import { NotificationsSection } from './Notifications.js';
 import { PushNotifications } from './PushNotifications.js';
+import { SuggestionsSection } from './Suggestions.js';
 import { Button, Notice, ViewFrame, errorText, inputClass } from './ui.js';
 
 import type { IPersonalApi, IProviderSettings, ISettings } from '../api.js';
@@ -110,6 +111,7 @@ export function SettingsView({ api }: { readonly api: IPersonalApi }): React.Rea
           </div>
         </form>
         <NotificationsSection api={api} />
+        <SuggestionsSection api={api} />
         <NotificationAddress api={api} />
         <BrowserNotifications />
         <PushNotifications api={api} />

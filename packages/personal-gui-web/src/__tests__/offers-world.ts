@@ -5,8 +5,11 @@
  */
 import { vi } from 'vitest';
 
+import { sourceKey, topicKey } from '../views/offer-mute.js';
+
 import type { Mock } from 'vitest';
 import type {
+  IOfferPreferencesView,
   IPersonalApi,
   ITaskDefinitionView,
   ITaskLaunchStatusView,
@@ -16,6 +19,14 @@ import type {
   ITaskStartAnswer,
   TTaskOfferDecisionRequest,
 } from '../api.js';
+
+export const DEFAULT_PREFERENCES: IOfferPreferencesView = {
+  enabled: true,
+  delivery: 'feed',
+  topics: [],
+  mutedTopics: [],
+  mutedSources: [],
+};
 
 export const PAGE = 'https://example.com/pricing';
 export const QUESTION = 'Does the page say shipping is free?';
@@ -93,6 +104,8 @@ export interface IOffersWorld {
   readonly taskOffers: Mock<IPersonalApi['taskOffers']>;
   readonly taskOffer: Mock<IPersonalApi['taskOffer']>;
   readonly decideTaskOffer: Mock<IPersonalApi['decideTaskOffer']>;
+  readonly offerPreferences: Mock<IPersonalApi['offerPreferences']>;
+  readonly changeOfferPreferences: Mock<IPersonalApi['changeOfferPreferences']>;
   readonly startTask: Mock<TStart>;
   /** The keys the page made for its requests, in order. */
   readonly keys: string[];
@@ -114,18 +127,41 @@ export function offersWorld(
     start?: TStart;
     /** Makes a read of the list fail, by the number of the read (1 is the first). */
     failRead?: (read: number) => Error | undefined;
+    /** What the person chose about suggestions when the test starts. */
+    preferences?: IOfferPreferencesView;
+    /** Makes every change of the preferences fail the way the agent's refusal does. */
+    refusePreferences?: Error;
   } = {},
 ): IOffersWorld {
   const records = new Map((options.offers ?? []).map((entry) => [entry.id, entry]));
   let reads = 0;
+  let preferences: IOfferPreferencesView = options.preferences ?? DEFAULT_PREFERENCES;
+  const definitions = (): readonly ITaskDefinitionView[] => options.definitions ?? [pageCheck()];
+  // The agent lists no offer that the person's preferences hold back.
+  const wanted = (entry: ITaskOfferView): boolean => {
+    if (!preferences.enabled) return false;
+    const category = definitions().find((found) => found.id === entry.definitionId)?.category;
+    if (category !== undefined && preferences.mutedTopics.includes(topicKey(category)))
+      return false;
+    const source = sourceKey(entry);
+    return source === undefined || !preferences.mutedSources.includes(source);
+  };
   const listing = (): ITaskOffersView => ({
     offers: [...records.values()]
+      .filter((entry) => wanted(entry))
       .filter((entry) => entry.decision === 'open' || entry.decision === 'accepted')
       .map((entry) => (entry.decision === 'open' ? entry : withoutReadiness(entry))),
     setAside: [...records.values()]
+      .filter((entry) => wanted(entry))
       .filter((entry) => entry.decision === 'dismissed' || entry.decision === 'snoozed')
       .map(withoutReadiness),
     issues: [],
+  });
+  const offerPreferences = vi.fn<IPersonalApi['offerPreferences']>(async () => ({ preferences }));
+  const changeOfferPreferences = vi.fn<IPersonalApi['changeOfferPreferences']>(async (change) => {
+    if (options.refusePreferences !== undefined) throw options.refusePreferences;
+    preferences = { ...preferences, ...change };
+    return { preferences };
   });
   const taskOffers = vi.fn<IPersonalApi['taskOffers']>(async () => {
     reads += 1;
@@ -169,7 +205,9 @@ export function offersWorld(
     return keys.at(-1)!;
   };
   const api = {
-    taskDefinitions: async () => options.definitions ?? [pageCheck()],
+    taskDefinitions: async () => definitions(),
+    offerPreferences,
+    changeOfferPreferences,
     taskOffers,
     taskOffer,
     decideTaskOffer,
@@ -177,5 +215,16 @@ export function offersWorld(
     taskLaunch: async () => STARTING,
     startTask,
   } as unknown as IPersonalApi;
-  return { api, taskOffers, taskOffer, decideTaskOffer, startTask, keys, newKey, records };
+  return {
+    api,
+    taskOffers,
+    taskOffer,
+    decideTaskOffer,
+    offerPreferences,
+    changeOfferPreferences,
+    startTask,
+    keys,
+    newKey,
+    records,
+  };
 }
