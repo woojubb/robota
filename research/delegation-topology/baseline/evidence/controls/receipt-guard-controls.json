@@ -1,0 +1,8 @@
+{
+  "validFireworksAccepted": true,
+  "missingUsageRejected": true,
+  "unknownProviderRejected": true,
+  "mismatchedProviderRejected": true,
+  "excessOutputRejected": true,
+  "nonfiniteUsageRejected": true
+}

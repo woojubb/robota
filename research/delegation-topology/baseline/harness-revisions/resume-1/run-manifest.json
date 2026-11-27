@@ -1,0 +1,24 @@
+{
+  "sourceCommit": "0f7d2147626674970290fe843c05a9e6e9e6ce05",
+  "scriptSha256": {
+    "benchmark.py": "5ca0d1aefd3cfd68aaae632f26d0dee428c12299ded5207fee8cf31a81f5c0ac",
+    "worker.mts": "d541fa5e32a0b376c094d7afb63f3e67c31637356debfe83683f7aa1674f2d6d",
+    "tasks.py": "91566437a48a6cd15f9355f457a090ecc5987e1c3db9d8d28d570e6b33be8514",
+    "Dockerfile": "7b15bb19b9f9c9085a174e6046d9115de5ffe6e46e501780c73d92e635c7f310"
+  },
+  "dockerImage": "sha256:593070fd7733db83f7c49b0db54a747c1a4ad60dcff0359f727b970b27c429f2",
+  "resume": true,
+  "priorDispatchCount": 1,
+  "activeDeadlineSeconds": 90,
+  "hardDeadlineSeconds": 360,
+  "receiptPollSeconds": 30,
+  "initialHarnessRevision": {
+    "benchmarkSha256": "89f1fabf57b454f1290b25d04fa1a0b46f541f99a1a0e2ccb620fba9d45ebd8f",
+    "workerSha256": "e3313414664810d2125b7d4ad691a4027a1a99f50a793d8265b9ba8049081661",
+    "imageId": "sha256:0571062a4305a2141275584f636029a238aa494643042c76c7c30c68896d9dc7",
+    "trial": "navigation-1",
+    "receiptPollingSeconds": 3,
+    "deadlineSeconds": 90,
+    "outcome": "stopped before forwarding model reply; exact charge later reconciled"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceCommit": "0f7d2147626674970290fe843c05a9e6e9e6ce05",
+  "scriptSha256": {
+    "benchmark.py": "699378eaa14bf45c5f7da609337d69cfec86b412745a32d96a128650d9a8915e",
+    "worker.mts": "d541fa5e32a0b376c094d7afb63f3e67c31637356debfe83683f7aa1674f2d6d",
+    "tasks.py": "91566437a48a6cd15f9355f457a090ecc5987e1c3db9d8d28d570e6b33be8514",
+    "Dockerfile": "7b15bb19b9f9c9085a174e6046d9115de5ffe6e46e501780c73d92e635c7f310"
+  },
+  "dockerImage": "sha256:593070fd7733db83f7c49b0db54a747c1a4ad60dcff0359f727b970b27c429f2",
+  "resume": true,
+  "priorDispatchCount": 44,
+  "activeDeadlineSeconds": 90,
+  "hardDeadlineSeconds": 360,
+  "receiptPollSeconds": 30
+}

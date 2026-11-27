@@ -1,0 +1,65 @@
+{
+  "task": "feature",
+  "trial": 2,
+  "passed": true,
+  "result": {
+    "kind": "result",
+    "completed": true,
+    "interrupted": false,
+    "response": "Implemented `slugify` in `/work/src/labels.mjs`:\n\n```js\nexport function slugify(value) {\n  return String(value)\n    .toLowerCase()\n    .replace(/[^a-z0-9]+/g, '-')\n    .replace(/^-+|-+$/g, '');\n}\n```\n\n- Coerces input via `String(value)`, lowercases it.\n- Collapses each run of non-ASCII-alphanumeric characters into a single hyphen.\n- Trims leading/trailing hyphens, so whitespace-only (or symbol-only) input yields `\"\"`.\n- Export name unchanged.",
+    "tools": [
+      {
+        "name": "Read",
+        "args": "{\"filePath\": \"/work/src/labels.mjs\"}"
+      },
+      {
+        "name": "Glob",
+        "args": "{\"pattern\": \"**/*.mjs\"}"
+      },
+      {
+        "name": "Glob",
+        "args": "{\"pattern\": \"**/*\"}"
+      },
+      {
+        "name": "Write",
+        "args": "{\"filePath\": \"/work/src/labels.mjs\", \"content\": \"export function slugify(value) {\\n  return String(value)\\n    .toLowerCase()\\n    .replace(/[^a-z0-9]+/g, '-')\\n    .replace(/^-+|-+$/g, '');\\n}\\n\"}"
+      }
+    ],
+    "usage": {
+      "kind": "exact",
+      "scope": "turn",
+      "promptTokens": 7146,
+      "completionTokens": 728,
+      "totalTokens": 7874,
+      "contextUsedTokens": 2211,
+      "contextMaxTokens": 200000,
+      "contextUsedPercentage": 1.11,
+      "costStatus": "estimated",
+      "costUsd": 0.00120428
+    },
+    "elapsedMs": 56892.289957
+  },
+  "verifier": {
+    "passed": true,
+    "exitCode": 0,
+    "diagnostic": ""
+  },
+  "protectedFilesUnchanged": true,
+  "elapsedMs": 58226.90024999997,
+  "requests": 4,
+  "candidate": {
+    "src/labels.mjs": "export function slugify(value) {\n  return String(value)\n    .toLowerCase()\n    .replace(/[^a-z0-9]+/g, '-')\n    .replace(/^-+|-+$/g, '');\n}\n"
+  },
+  "diagnostics": [],
+  "stopPaid": false,
+  "fixtureSnapshot": "fixtures/feature-2",
+  "fixtureManifest": [
+    {
+      "path": "src/labels.mjs",
+      "sha256": "6dfec7598789c8644576abfe89d13face65c2de8818349801490c09c356f3fe7"
+    }
+  ],
+  "unexpectedFiles": [],
+  "accountingWaitMs": 48407.49850100002,
+  "activeRuntimeMs": 8484.791455999984
+}

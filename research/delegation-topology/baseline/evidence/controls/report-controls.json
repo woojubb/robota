@@ -1,0 +1,14 @@
+{
+  "scriptSha256": "c8b9a732d1c4541c1c7e64a397ae249a5bb8d10f8f336fa8f63fe3d2a8622b91",
+  "syntheticFailureControls": [
+    {
+      "case": "nullable-infrastructure-failure-without-recovery",
+      "passed": true
+    },
+    {
+      "case": "nullable-infrastructure-failures-with-recovery",
+      "passed": true
+    }
+  ],
+  "providerCalls": 0
+}

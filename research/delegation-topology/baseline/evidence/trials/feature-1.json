@@ -1,0 +1,65 @@
+{
+  "task": "feature",
+  "trial": 1,
+  "passed": true,
+  "result": {
+    "kind": "result",
+    "completed": true,
+    "interrupted": false,
+    "response": "Implemented `slugify` in `/work/src/labels.mjs` (keeping the existing exported name):\n\n- Coerces input with `String(value)` and lowercases it.\n- Collapses each run of non-ASCII-alphanumeric characters (`/[^a-z0-9]+/g`) into a single hyphen.\n- Strips leading/trailing hyphens, so whitespace-only input returns `\"\"`.",
+    "tools": [
+      {
+        "name": "Read",
+        "args": "{\"filePath\": \"/work/src/labels.mjs\"}"
+      },
+      {
+        "name": "Glob",
+        "args": "{\"pattern\": \"**/*.mjs\"}"
+      },
+      {
+        "name": "Glob",
+        "args": "{\"pattern\": \"**/*\"}"
+      },
+      {
+        "name": "Write",
+        "args": "{\"filePath\": \"/work/src/labels.mjs\", \"content\": \"/**\\n * Convert a value into a URL-friendly slug.\\n *\\n * The value is coerced to a string and lowercased, every run of characters\\n * that are not ASCII letters or digits is collapsed into a single hyphen, and\\n * any leading/trailing hyphens are removed. Whitespace-only input therefore\\n * yields an empty string.\\n *\\n * @param {unknown} value Value to slugify.\\n * @returns {string} The slug.\\n */\\nexport function slugify(value) {\\n  return String(value)\\n    .toLowerCase()\\n    .replace(/[^a-z0-9]+/g, '-')\\n    .replace(/^-+|-+$/g, '');\\n}\\n\"}"
+      }
+    ],
+    "usage": {
+      "kind": "exact",
+      "scope": "turn",
+      "promptTokens": 7243,
+      "completionTokens": 770,
+      "totalTokens": 8013,
+      "contextUsedTokens": 2206,
+      "contextMaxTokens": 200000,
+      "contextUsedPercentage": 1.1,
+      "costStatus": "estimated",
+      "costUsd": 0.0012296200000000003
+    },
+    "elapsedMs": 60208.28562
+  },
+  "verifier": {
+    "passed": true,
+    "exitCode": 0,
+    "diagnostic": ""
+  },
+  "protectedFilesUnchanged": true,
+  "elapsedMs": 61738.777875,
+  "requests": 4,
+  "candidate": {
+    "src/labels.mjs": "/**\n * Convert a value into a URL-friendly slug.\n *\n * The value is coerced to a string and lowercased, every run of characters\n * that are not ASCII letters or digits is collapsed into a single hyphen, and\n * any leading/trailing hyphens are removed. Whitespace-only input therefore\n * yields an empty string.\n *\n * @param {unknown} value Value to slugify.\n * @returns {string} The slug.\n */\nexport function slugify(value) {\n  return String(value)\n    .toLowerCase()\n    .replace(/[^a-z0-9]+/g, '-')\n    .replace(/^-+|-+$/g, '');\n}\n"
+  },
+  "diagnostics": [],
+  "stopPaid": false,
+  "fixtureSnapshot": "fixtures/feature-1",
+  "fixtureManifest": [
+    {
+      "path": "src/labels.mjs",
+      "sha256": "ccf96d7ced119fa32c8cfb636b582ec006dd5251dd612fb3f1ab52a53aa7b763"
+    }
+  ],
+  "unexpectedFiles": [],
+  "accountingWaitMs": 52462.047833,
+  "activeRuntimeMs": 7746.2377870000055
+}

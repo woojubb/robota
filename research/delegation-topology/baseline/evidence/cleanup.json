@@ -1,0 +1,83 @@
+{
+  "observedAt": "2026-10-20T16:04:15.001240+00:00",
+  "experimentContainersRemaining": 0,
+  "temporaryFixtureDirectoryRemoved": true,
+  "temporaryWorktreeRemoved": true,
+  "temporaryLocalBranchRemoved": true,
+  "imageTagRemoved": "robota-deepseek-benchmark:20261021",
+  "imageRemovalOutput": "Untagged: robota-deepseek-benchmark:20261021\nDeleted: sha256:593070fd7733db83f7c49b0db54a747c1a4ad60dcff0359f727b970b27c429f2",
+  "specificTaskBuildCachePrunes": [
+    {
+      "id": "px81ec9b4wktdbb1b5k8601zq",
+      "description": "[2/2] COPY worker.mts /opt/worker.mts",
+      "output": "ID\t\t\t\t\t\tRECLAIMABLE\tSIZE\t\tLAST ACCESSED\npx81ec9b4wktdbb1b5k8601zq               \ttrue \t\t18.47kB   \t25 minutes ago\nTotal:\t18.47kB"
+    },
+    {
+      "id": "2owdvm9ne9x6t21e2zln9eh25",
+      "description": "[2/2] COPY worker.mts /opt/worker.mts",
+      "output": "ID\t\t\t\t\t\tRECLAIMABLE\tSIZE\t\tLAST ACCESSED\n2owdvm9ne9x6t21e2zln9eh25               \ttrue \t\t18.48kB   \t25 minutes ago\nTotal:\t18.48kB"
+    },
+    {
+      "id": "fqkhmtput981mfpfdsszn66p3",
+      "description": "[2/2] COPY worker.mts /opt/worker.mts",
+      "output": "ID\t\t\t\t\t\tRECLAIMABLE\tSIZE\t\tLAST ACCESSED\nfqkhmtput981mfpfdsszn66p3               \ttrue \t\t18.47kB   \t25 minutes ago\nTotal:\t18.47kB"
+    },
+    {
+      "id": "jfw68brt5ot432r1oq33g8ppy",
+      "description": "[2/2] COPY worker.mts /opt/worker.mts",
+      "output": "ID\t\t\t\t\t\tRECLAIMABLE\tSIZE\t\tLAST ACCESSED\njfw68brt5ot432r1oq33g8ppy               \ttrue \t\t18.47kB   \t25 minutes ago\nTotal:\t18.47kB"
+    },
+    {
+      "id": "vrckf786as4c7h0i53nqufcr8",
+      "description": "[2/2] COPY worker.mts /opt/worker.mts",
+      "output": "ID\t\t\t\t\t\tRECLAIMABLE\tSIZE\t\tLAST ACCESSED\nvrckf786as4c7h0i53nqufcr8               \ttrue \t\t18.43kB   \t25 minutes ago\nTotal:\t18.43kB"
+    },
+    {
+      "id": "mwymfh9d0wdk2e2j5pd6xdnw2",
+      "description": "[5/5] COPY worker.mts /opt/worker.mts",
+      "output": "ID\t\t\t\t\t\tRECLAIMABLE\tSIZE\t\tLAST ACCESSED\nmwymfh9d0wdk2e2j5pd6xdnw2               \ttrue \t\t18.44kB   \t25 minutes ago\nTotal:\t18.44kB"
+    },
+    {
+      "id": "p4cu448i2zqsqzi3lwr1ofmhe",
+      "description": "mount / from exec /bin/sh -c corepack enable && corepack prepare pnpm@8.15.4 --activate && pnpm install --filter @robota-sdk/agent-framework... --filter @robota-sdk/agent-provider-openai... --frozen-lockfile --ignore-scripts",
+      "output": "ID\t\t\t\t\t\tRECLAIMABLE\tSIZE\t\tLAST ACCESSED\np4cu448i2zqsqzi3lwr1ofmhe               \ttrue \t\t2.945GB   \t25 minutes ago\nTotal:\t2.945GB"
+    },
+    {
+      "id": "odxv6y4u152esi8c1slqvhd4b",
+      "description": "[3/5] COPY robota/ ./",
+      "output": "Total:\t0B"
+    },
+    {
+      "id": "aioptk51qc5j3j8mlnhid2h70",
+      "description": "[2/5] WORKDIR /opt/robota",
+      "output": "Total:\t0B"
+    }
+  ],
+  "selectedCacheRecordsRemaining": [
+    "aioptk51qc5j3j8mlnhid2h70",
+    "odxv6y4u152esi8c1slqvhd4b"
+  ],
+  "unrelatedImageIdsPreserved": 9,
+  "unrelatedImagesVerifiedPresent": true,
+  "globalCacheOrVolumePrunePerformed": false,
+  "primaryHead": "0f7d2147626674970290fe843c05a9e6e9e6ce05",
+  "primaryTrackedDeletedFiles": 455,
+  "primaryUntrackedEntries": 81,
+  "productSourceEditedByExperiment": false,
+  "remoteBranchOrPullRequestCreated": false,
+  "remainingSelectedCacheDetails": [
+    {
+      "ID": "aioptk51qc5j3j8mlnhid2h70",
+      "Description": "[2/5] WORKDIR /opt/robota",
+      "Shared": true,
+      "Size": "12.4kB"
+    },
+    {
+      "ID": "odxv6y4u152esi8c1slqvhd4b",
+      "Description": "[3/5] COPY robota/ ./",
+      "Shared": true,
+      "Size": "63.31MB"
+    }
+  ],
+  "remainingSelectedCacheReason": "Exact-ID prunes did not reclaim these shared BuildKit records; unrelated images and global cache were preserved."
+}
