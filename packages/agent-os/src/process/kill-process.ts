@@ -87,7 +87,11 @@ function signalGroup(pgid: number, signal: NodeJS.Signals): void {
   }
 }
 
-/** Resolves once `done()` holds or `ms` have passed, polling on a short interval. */
+/**
+ * Resolves once `done()` holds or `ms` have passed, polling on a short interval. These timers
+ * deliberately keep the event loop alive while group members remain (bounded by the grace plus the
+ * settle), unlike the unref'd grace timer.
+ */
 function waitUntil(done: () => boolean, ms: number): Promise<void> {
   return new Promise<void>((resolve) => {
     const deadline = Date.now() + ms;
