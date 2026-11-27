@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FunctionTool } from '@robota-sdk/agent-core';
+import { FunctionTool, ManagedHelperProviderError } from '@robota-sdk/agent-core';
 import type {
+  IAIProvider,
   IManagedRunProvider,
   IManagedTurnHost,
   TExecutionJournalRecord,
@@ -12,6 +13,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import { Session } from '../session.js';
 import { SessionBusyError } from '../turn-claim.js';
+import { MANAGED_AUTO_REFUSAL } from '../managed-helper.js';
 import type { ISessionOptions } from '../session-types.js';
 
 const sessions: Session[] = [];
@@ -49,9 +51,12 @@ function fixture(
       | 'contextMaxTokens'
       | 'autoCompactThreshold'
       | 'permissionClassifier'
+      | 'permissionClassifierFromHelper'
+      | 'helperProvider'
     >
   > = {},
   continuation?: IManagedRunProvider['continuation'],
+  isolatesHelperRequests?: true,
 ) {
   const records: TExecutionJournalRecord[] = [];
   const journal = {
@@ -69,6 +74,7 @@ function fixture(
     name: 'managed-fixture',
     version: 'fixture',
     ...(continuation ? { continuation } : {}),
+    ...(isolatesHelperRequests ? { isolatesHelperRequests } : {}),
     validateConfig: () => true,
     run: vi.fn(run),
   };
@@ -743,7 +749,9 @@ describe('managed continuation binding', () => {
     await f.session.runRecoverable('first', { executionJournal: f.journal });
     await expect(f.session.compact()).rejects.toMatchObject({
       code: 'MANAGED_RUN_UNAVAILABLE',
-      message: 'Managed execution is not available for provider managed-fixture',
+      message: expect.stringContaining(
+        'Managed execution is not available for provider managed-fixture: compaction would replace',
+      ),
     });
     await f.session.runRecoverable('second', { executionJournal: f.journal });
     expect(seen[1].binding).toMatchObject({
@@ -869,7 +877,9 @@ describe('refusals before native input', () => {
       f.session.runRecoverable('long '.repeat(400), { executionJournal: f.journal }),
     ).rejects.toMatchObject({
       code: 'MANAGED_RUN_UNAVAILABLE',
-      message: 'Managed execution is not available for provider managed-fixture',
+      message: expect.stringContaining(
+        'Managed execution is not available for provider managed-fixture: compaction would replace',
+      ),
     });
     expect(seen).toHaveLength(1);
     await f.session.runRecoverable('third', { executionJournal: f.journal });
@@ -890,19 +900,93 @@ describe('refusals before native input', () => {
       'live-process',
     );
     await f.session.runRecoverable('first', { executionJournal: f.journal });
-    f.session.setPermissionMode('auto');
-    await expect(
-      f.session.runRecoverable('second', { executionJournal: f.journal }),
-    ).rejects.toMatchObject({
-      code: 'EXECUTION_RECOVERY_REQUIRED',
-      message: 'Managed execution requires an isolated model-helper route',
-    });
-    f.session.setPermissionMode('default');
+    expect(() => f.session.setPermissionMode('auto')).toThrow(MANAGED_AUTO_REFUSAL);
     await f.session.runRecoverable('third', { executionJournal: f.journal });
     expect(seen).toHaveLength(2);
     expect(seen[1].binding).toMatchObject({
       connectionId: seen[0].binding.connectionId,
       revision: 1,
     });
+  });
+});
+
+describe('managed helper isolation', () => {
+  const modelStepHelper = (): IAIProvider =>
+    ({ name: 'helper', version: 'h', chat: vi.fn(), validateConfig: () => true }) as never;
+
+  it('refuses a managed provider as the helper with a typed error', () => {
+    const managedHelper = { kind: 'managed-run', name: 'other-managed' } as never;
+    expect(() =>
+      fixture(async () => finalFrame('x', 'y'), { helperProvider: managedHelper }),
+    ).toThrow(ManagedHelperProviderError);
+  });
+
+  it('exposes the explicit helper and never invents one', () => {
+    const helper = modelStepHelper();
+    expect(
+      fixture(async () => finalFrame('x', 'y'), {
+        helperProvider: helper,
+      }).session.getHelperProvider(),
+    ).toBe(helper);
+    expect(fixture(async () => finalFrame('x', 'y')).session.getHelperProvider()).toBeUndefined();
+  });
+
+  it('refuses auto without an isolated classifier and says what to configure', () => {
+    const classifier = { classify: vi.fn() } as never;
+    const notDeclared = fixture(async () => finalFrame('x', 'y'), {
+      permissionClassifier: classifier,
+      permissionClassifierFromHelper: true,
+    });
+    expect(() => notDeclared.session.setPermissionMode('auto')).toThrow(/helperProvider/);
+    const notFromHelper = fixture(
+      async () => finalFrame('x', 'y'),
+      { permissionClassifier: classifier },
+      undefined,
+      true,
+    );
+    expect(() => notFromHelper.session.setPermissionMode('auto')).toThrow(/isolatesHelperRequests/);
+    const noClassifier = fixture(async () => finalFrame('x', 'y'), {}, undefined, true);
+    expect(() => noClassifier.session.setPermissionMode('auto')).toThrow(MANAGED_AUTO_REFUSAL);
+  });
+
+  it('judges tool calls with the isolated classifier in auto mode', async () => {
+    const classify = vi.fn(async () => ({ decision: 'allow' as const, reason: 'safe' }));
+    const f = fixture(
+      async (_input, host) => {
+        await host.execute(frame('auto-frame', [['auto-call', 1]]));
+        return finalFrame('auto-final', 'done');
+      },
+      {
+        permissions: { allow: [], deny: [], ask: [] },
+        permissionClassifier: { classify } as never,
+        permissionClassifierFromHelper: true,
+      },
+      undefined,
+      true,
+    );
+    f.session.setPermissionMode('auto');
+    await expect(f.session.runRecoverable('go', { executionJournal: f.journal })).resolves.toEqual({
+      status: 'completed',
+      response: 'done',
+    });
+    expect(classify).toHaveBeenCalledTimes(1);
+    expect(f.effect).toHaveBeenCalledOnce();
+  });
+
+  it('still refuses model-backed hooks under an isolated classifier', async () => {
+    const f = fixture(
+      async () => finalFrame('x', 'y'),
+      {
+        permissionClassifier: { classify: vi.fn() } as never,
+        permissionClassifierFromHelper: true,
+        hooks: { PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'p' }] }] } as never,
+      },
+      undefined,
+      true,
+    );
+    await expect(
+      f.session.runRecoverable('go', { executionJournal: f.journal }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+    expect(f.provider.run).not.toHaveBeenCalled();
   });
 });

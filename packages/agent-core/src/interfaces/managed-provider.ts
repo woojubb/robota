@@ -87,6 +87,12 @@ export interface IManagedRunProvider {
   readonly version: string;
   /** Opts in to continuing committed turns on one live process; without it only a fresh conversation runs. */
   readonly continuation?: 'live-process';
+  /**
+   * Declares that the native process never carries, observes or alters the host's separate
+   * helper requests (permission classification, naming): they run on an explicit model-step
+   * helper provider with its own credentials and context. Without it `auto` mode stays refused.
+   */
+  readonly isolatesHelperRequests?: true;
   run(input: IManagedTurnInput, host: IManagedTurnHost): Promise<TManagedTurnResult>;
   validateConfig(): boolean;
   dispose?(): Promise<void>;
@@ -107,9 +113,23 @@ export type TExecutionProvider = IAIProvider | TDiscriminatedExecutionProvider;
 export class ManagedRunUnavailableError extends Error {
   readonly code = 'MANAGED_RUN_UNAVAILABLE';
 
-  constructor(provider: string) {
-    super(`Managed execution is not available for provider ${provider}`);
+  constructor(provider: string, reason?: string) {
+    super(
+      `Managed execution is not available for provider ${provider}${reason ? `: ${reason}` : ''}`,
+    );
     this.name = 'ManagedRunUnavailableError';
+  }
+}
+
+/** A helper request provider must be a model-step provider; a managed one cannot answer chat. */
+export class ManagedHelperProviderError extends Error {
+  readonly code = 'MANAGED_HELPER_PROVIDER_INVALID';
+
+  constructor(provider: string) {
+    super(
+      `helperProvider must be a model-step provider; managed provider ${provider} cannot serve helper requests`,
+    );
+    this.name = 'ManagedHelperProviderError';
   }
 }
 

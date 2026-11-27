@@ -100,7 +100,11 @@ export type {
   TDiscriminatedExecutionProvider,
   TExecutionProvider,
 } from './managed-provider';
-export { isManagedRunProvider, ManagedRunUnavailableError } from './managed-provider';
+export {
+  isManagedRunProvider,
+  ManagedHelperProviderError,
+  ManagedRunUnavailableError,
+} from './managed-provider';
 export { isModelEffort, MODEL_EFFORT_VALUES } from './provider';
 export type {
   IOutboundTraceContext,

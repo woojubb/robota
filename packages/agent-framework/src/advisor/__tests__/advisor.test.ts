@@ -750,7 +750,7 @@ describe('Advisor tool in assembled sessions', () => {
       parentConfig: base.config,
       parentContext: base.context,
       parentTools,
-      provider: base.provider!,
+      provider: base.provider as IAIProvider,
       terminal,
       cwd: process.cwd(),
       permissionMode: 'bypassPermissions',

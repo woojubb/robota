@@ -25,6 +25,7 @@ import type {
   IContextWindowState,
   IToolWithEventService,
   IHookTypeExecutor,
+  TExecutionProvider,
   TGuardrail,
   TPermissionMode,
   TModelEffortSelection,
@@ -64,7 +65,7 @@ export type TSessionResponseFormat = IResponseFormatConfig;
  * `agent-command` reads it and depends on this package rather than on agent-session.
  */
 export type TAutoCompactThreshold = TSessionAutoCompactThreshold;
-export type TSessionOptionsWithAutoCompact = ISessionOptions & {
+export type TSessionOptionsWithAutoCompact = ISessionOptions<TExecutionProvider> & {
   autoCompactThreshold?: TAutoCompactThreshold;
 };
 export type TSessionConstructorWithAutoCompact = new (
@@ -116,8 +117,18 @@ export interface ICreateSessionOptions {
    * same records. Absent ⇒ a fork job cannot restore its record and fails, stated as such.
    */
   resumeSessionStore?: IInteractiveSessionStore;
-  /** Inject a pre-constructed AI provider (used by tests to avoid real API calls) */
-  provider?: IAIProvider;
+  /**
+   * Inject a pre-constructed provider (used by tests to avoid real API calls). A managed execution
+   * provider is accepted; the session then omits the provider timeout, refuses subagents, and
+   * runs side requests only on `helperProvider`.
+   */
+  provider?: TExecutionProvider;
+  /**
+   * Explicit model-step provider for side requests (permission classification, naming) when
+   * `provider` is managed. It is never inferred from environment variables or defaults, and a
+   * managed provider is refused here.
+   */
+  helperProvider?: IAIProvider;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
   permissionHandler?: TPermissionHandler;
   /** Host-authorized persistence for a project permission approved by the user. */

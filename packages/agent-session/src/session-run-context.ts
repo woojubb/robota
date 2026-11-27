@@ -27,6 +27,8 @@ export interface IRunContext {
   transcriptPath?: string;
   agent: ConversationAgent;
   aiProvider: TExecutionProvider;
+  /** Under a managed provider: `auto` has a classifier built only from the explicit helper. */
+  managedAutoAllowed?: boolean;
   contextTracker: ContextWindowTracker;
   hooks: Record<string, unknown> | undefined;
   hookTypeExecutors: readonly IHookTypeExecutor[];
