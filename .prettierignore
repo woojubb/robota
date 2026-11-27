@@ -24,3 +24,6 @@ coverage/
 # Package CHANGELOGs keep __PRODUCT_*__ placeholders the product generator replaces; prettier
 # would turn them into bold text.
 **/CHANGELOG.md
+
+# Pinned historical evidence: file hashes are recorded in its MANIFEST.json, so formatting must not touch it.
+/research/delegation-topology/baseline/

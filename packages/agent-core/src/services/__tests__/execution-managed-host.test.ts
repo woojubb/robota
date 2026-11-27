@@ -7,7 +7,9 @@ import type {
   TManagedToolBatch,
   TManagedTurnResult,
 } from '../../interfaces/managed-provider';
+import type { TUniversalMessage } from '../../interfaces/messages';
 import type { IToolSchema } from '../../interfaces/tool-schema';
+import { assertManagedRunPreflight } from '../execution-managed-run';
 import { ConversationStore } from '../../managers/conversation-store';
 import { Tools } from '../../managers/tool-manager';
 import { SilentLogger } from '../../utils/logger';
@@ -36,7 +38,12 @@ function frame(id: string, calls: Array<[string, number]>): TManagedToolBatch {
   };
 }
 
-function fixture(options?: { maxRounds?: number; maxSameToolInputs?: number }) {
+function fixture(options?: {
+  maxRounds?: number;
+  maxSameToolInputs?: number;
+  earlier?: TUniversalMessage[];
+  earlierFrameIds?: string[];
+}) {
   const records: TExecutionJournalRecord[] = [];
   const journal = {
     append: vi.fn(async (record: TExecutionJournalRecord) => {
@@ -68,6 +75,7 @@ function fixture(options?: { maxRounds?: number; maxSameToolInputs?: number }) {
     timestamp: new Date('2026-01-01T00:00:00.000Z'),
     state: 'complete',
   });
+  for (const message of options?.earlier ?? []) store.addMessage(message);
   const effects = vi.fn(async (value: number) => `effect:${value}`);
   const tools = new Tools({ resolveToolSearchMode: () => 'off' });
   tools.addTool(schema, async (parameters, context) => {
@@ -91,6 +99,7 @@ function fixture(options?: { maxRounds?: number; maxSameToolInputs?: number }) {
     },
     config,
     tools: [schema],
+    earlierFrameIds: options?.earlierFrameIds,
     state: {
       toolsExecuted: [],
       toolCallOutcomes: [],
@@ -145,7 +154,20 @@ describe('managed host tool boundary', () => {
       },
     };
     const result = await provider.run(
-      { messages: [], tools: [schema], model: 'managed-model', options: {} },
+      {
+        messages: [],
+        tools: [schema],
+        model: 'managed-model',
+        options: {},
+        binding: {
+          version: 1,
+          sessionId: 'session',
+          connectionId: 'connection',
+          revision: 0,
+          actionFrontier: [],
+          frameIds: [],
+        },
+      },
       { signal: f.controller.signal, emit: async () => {}, execute: f.execute },
     );
     expect(result.content).toBe('done');
@@ -420,7 +442,20 @@ describe('managed host tool boundary', () => {
       },
     };
     const reported = await provider.run(
-      { messages: [], tools: [schema], model: 'managed-model', options: {} },
+      {
+        messages: [],
+        tools: [schema],
+        model: 'managed-model',
+        options: {},
+        binding: {
+          version: 1,
+          sessionId: 'session',
+          connectionId: 'connection',
+          revision: 0,
+          actionFrontier: [],
+          frameIds: [],
+        },
+      },
       { signal: f.controller.signal, emit: async () => {}, execute: f.execute },
     );
     expect(reported.content).toBe('done');
@@ -465,5 +500,78 @@ describe('managed host tool boundary', () => {
     cancelled.controller.abort();
     await expect(cancelled.execute(frame('frame-two', [['call-two', 2]]))).rejects.toBeDefined();
     expect(cancelled.effects).toHaveBeenCalledOnce();
+  });
+});
+
+describe('managed continuation identity', () => {
+  const earlier: TUniversalMessage[] = [
+    frame('earlier-frame', [['earlier-call', 1]]),
+    {
+      id: 'earlier-result',
+      role: 'tool',
+      content: 'effect:1',
+      toolCallId: 'earlier-call',
+      timestamp: new Date('2026-01-01T00:00:02.000Z'),
+      state: 'complete',
+    },
+  ];
+
+  it('refuses a frame that reuses an earlier turn frame identity before any effect', async () => {
+    const f = fixture({ earlier });
+    await expect(f.execute(frame('earlier-frame', [['new-call', 2]]))).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+      message: 'Managed continuation frame reused an earlier turn frame identity',
+    });
+    expect(f.effects).not.toHaveBeenCalled();
+    expect(f.records).toHaveLength(0);
+  });
+
+  it('refuses a frame identity the connection committed in an earlier turn', async () => {
+    const f = fixture({ earlierFrameIds: ['bound-frame'] });
+    await expect(f.execute(frame('bound-frame', [['new-call', 2]]))).rejects.toMatchObject({
+      message: 'Managed continuation frame reused an earlier turn frame identity',
+    });
+    expect(f.effects).not.toHaveBeenCalled();
+  });
+
+  it('refuses a frame that reuses an earlier turn native call identity before any effect', async () => {
+    const f = fixture({ earlier });
+    await expect(f.execute(frame('new-frame', [['earlier-call', 2]]))).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_CONFLICT',
+      message: 'Managed continuation frame reused an earlier turn native call identity',
+    });
+    expect(f.effects).not.toHaveBeenCalled();
+    expect(f.records).toHaveLength(0);
+  });
+
+  it('refuses a binding that belongs to a different Session', () => {
+    const controller = new AbortController();
+    const config = { defaultModel: { provider: 'p', model: 'm' } } as TAgentExecutionConfig;
+    const run = (bindingSessionId: string) =>
+      assertManagedRunPreflight(
+        [],
+        {
+          sessionId: 'session',
+          signal: controller.signal,
+          managedTurn: {
+            binding: {
+              version: 1,
+              sessionId: bindingSessionId,
+              connectionId: 'connection',
+              revision: 0,
+              actionFrontier: [],
+              frameIds: [],
+            },
+            assertActive: () => {},
+            beforeNativeInput: () => {},
+            assertHistory: () => {},
+          },
+        },
+        config,
+      );
+    expect(() => run('session')).not.toThrow();
+    expect(() => run('other-session')).toThrow(
+      'Managed connection binding belongs to a different Session',
+    );
   });
 });

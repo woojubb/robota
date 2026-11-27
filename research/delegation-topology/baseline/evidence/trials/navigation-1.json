@@ -1,0 +1,36 @@
+{
+  "task": "navigation",
+  "trial": 1,
+  "passed": false,
+  "result": {
+    "completed": false,
+    "error": "Provider request failed or accounting became uncertain; no retry"
+  },
+  "verifier": {
+    "passed": false,
+    "exitCode": 1,
+    "diagnostic": "node:fs:560\n  return binding.open(\n                 ^\n\nError: ENOENT: no such file or directory, open '/work/answer.json'\n    at Object.openSync (node:fs:560:18)\n    at Object.readFileSync (node:fs:444:35)\n    at file:///work/[eval1]:1:99\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:282:26)\n    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:278:20)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {\n  errno: -2,\n  code: 'ENOENT',\n  syscall: 'open',\n  path: '/work/answer.json'\n}\n\nNode.js v22.23.3\n"
+  },
+  "protectedFilesUnchanged": true,
+  "elapsedMs": 9424.013124999998,
+  "requests": 1,
+  "candidate": {},
+  "diagnostics": [],
+  "stopPaid": true,
+  "fixtureSnapshot": "fixtures/navigation-1",
+  "fixtureManifest": [
+    {
+      "path": "src/catalog.mjs",
+      "sha256": "fd86aafc5146ca291d8a3d141807790d1d034f9edcd6e86371dd69d5b5b0127b"
+    },
+    {
+      "path": "src/display.mjs",
+      "sha256": "00c4831e0894d469799ae22c3546b28c314448db9aa4aa30bf26a1f9e51b562a"
+    },
+    {
+      "path": "src/main.mjs",
+      "sha256": "786c0a18b19631f77bc262ab4228c8fe9bc03c4423d7637833335960d9fcc574"
+    }
+  ],
+  "unexpectedFiles": []
+}

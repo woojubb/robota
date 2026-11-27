@@ -24,6 +24,8 @@ Composition roots
   apps/agent-web            Next.js host for the browser remote client
   apps/personal-agent       Personal agent: its chats and background goals served to its own web
                             UI and an HTTP API on loopback, composed from the SDK without the CLI
+  apps/personal-agent-host  Control plane hosting many isolated personal-agent accounts, one unit each,
+                            through a runtime port and a proxy port; Node built-ins only, no SDK dependency
   apps/starter-nextjs       Next.js chat starter over agent-framework
   apps/remote-signaling     Content-blind WebRTC signaling relay for remote control
   apps/action               GitHub Action that runs agent-cli

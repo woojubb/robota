@@ -1,0 +1,49 @@
+{
+  "benchmarkSha256": "699378eaa14bf45c5f7da609337d69cfec86b412745a32d96a128650d9a8915e",
+  "controls": [
+    {
+      "name": "transient-timeout-then-success",
+      "passed": true,
+      "readOnlyGetAttempts": 2
+    },
+    {
+      "name": "wrapped-reset-then-success",
+      "passed": true,
+      "readOnlyGetAttempts": 2
+    },
+    {
+      "name": "http503-then-success",
+      "passed": true,
+      "readOnlyGetAttempts": 2
+    },
+    {
+      "name": "timeout-deadline-exhaustion",
+      "passed": true,
+      "readOnlyGetAttempts": 5
+    },
+    {
+      "name": "tls-fails-closed",
+      "passed": true,
+      "readOnlyGetAttempts": 1
+    },
+    {
+      "name": "auth-fails-closed",
+      "passed": true,
+      "readOnlyGetAttempts": 1
+    },
+    {
+      "name": "url-fails-closed",
+      "passed": true,
+      "readOnlyGetAttempts": 1
+    },
+    {
+      "name": "recovery-outcome-failure-counts-and-new-ids",
+      "passed": true
+    },
+    {
+      "name": "resume-loads-all-positive-identities",
+      "passed": true
+    }
+  ],
+  "paidCalls": 0
+}

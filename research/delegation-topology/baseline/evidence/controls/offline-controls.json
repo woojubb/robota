@@ -1,0 +1,32 @@
+[
+  {
+    "task": "navigation",
+    "brokenRejected": true,
+    "solvedAccepted": true
+  },
+  {
+    "task": "bug-repair",
+    "brokenRejected": true,
+    "solvedAccepted": true
+  },
+  {
+    "task": "feature",
+    "brokenRejected": true,
+    "solvedAccepted": true
+  },
+  {
+    "task": "multi-file",
+    "brokenRejected": true,
+    "solvedAccepted": true
+  },
+  {
+    "task": "test-diagnosis",
+    "brokenRejected": true,
+    "solvedAccepted": true
+  },
+  {
+    "hostAbsolutePathDenied": true,
+    "networkDenied": true,
+    "fixtureReadOnly": true
+  }
+]

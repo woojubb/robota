@@ -1,0 +1,6 @@
+---
+'@robota-sdk/agent-core': minor
+'@robota-sdk/agent-session': minor
+---
+
+Managed-run providers are an opt-in, fail-closed execution form. A provider with `kind: 'managed-run'` owns its native loop and submits each complete tool batch to a turn-scoped host port; the host keeps admission, durable journaling and cancellation, and requires a readable journal and a claimed Session. By default only a fresh conversation runs. A provider that declares `continuation: 'live-process'` may continue later turns on the same live native process: `Session` holds an in-memory `IManagedConnectionBinding` (Session id, connection id, committed revision, settled-action frontier and used frame identities), gives it to the provider with each turn, and records the next revision only from acknowledged journal appends so a committed turn is never reported as failed afterwards. A continuation is refused, with a distinct message per cause, when the Session is reconstructed, the process was lost, a turn failed uncommitted, the provider, model, history or tool projection changed, or a frame or native call identity repeats an earlier turn's. It also ends on a provider or model swap, a history replacement and the new `Session.invalidateManagedContinuation()`, which a host calls after a code rewind. Compaction under a managed provider is refused without ending the connection.

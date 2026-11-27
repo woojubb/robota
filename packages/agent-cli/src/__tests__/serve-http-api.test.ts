@@ -27,6 +27,8 @@ const workspace = path.join(root, 'workspace');
 const state = path.join(userHome, '.robota');
 const requests: WireRequest[] = [];
 let providerFailure: unknown;
+/** Session-naming requests the provider has answered completely. */
+let namingAnswered = 0;
 let provider: Server;
 let serve: ChildProcess;
 let apiUrl = '';
@@ -40,6 +42,27 @@ function baseEnvironment(): Record<string, string> {
     ),
   );
   return { ...environment, HOME: userHome, PRODUCT_ID: 'robota' };
+}
+
+/**
+ * A served session names itself after its first turn, with a request of its own to the provider. It
+ * is the only request whose system prompt asks for a session title. The fragment is copied here
+ * rather than imported: the naming prompt is private to the published framework that agent-cli pins.
+ */
+function isNamingRequest(wire: WireRequest): boolean {
+  return wire.messages.some(
+    (message) => message.role === 'system' && String(message.content).includes('session titles'),
+  );
+}
+
+async function waitUntilSessionNamed(): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  while (namingAnswered === 0) {
+    if (Date.now() > deadline) {
+      throw new Error(`The served session never completed its naming request.\n${serveStderr}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
 }
 
 function listen(server: Server): Promise<number> {
@@ -91,6 +114,7 @@ beforeAll(async () => {
       for await (const chunk of request) raw += String(chunk);
       const wire = JSON.parse(raw) as WireRequest;
       requests.push(wire);
+      if (isNamingRequest(wire)) response.once('finish', () => (namingAnswered += 1));
       const probing = wire.messages.some(
         (message) => message.role === 'user' && String(message.content).includes(ENV_PROBE),
       );
@@ -136,14 +160,21 @@ beforeAll(async () => {
 
   // Simulate a busy CLI event loop during shutdown; the launcher must not kill it early.
   const delaySignal = path.join(root, 'delay-sigterm.cjs');
-  writeFileSync(delaySignal, "process.on('SIGTERM', () => { const until = Date.now() + 200; while (Date.now() < until) {} });\n");
+  writeFileSync(
+    delaySignal,
+    "process.on('SIGTERM', () => { const until = Date.now() + 200; while (Date.now() < until) {} });\n",
+  );
   const port = await freePort();
   serve = spawn(
     launcher,
     ['--serve', '--http-port', String(port), '--permission-mode', 'bypassPermissions'],
     {
       cwd: workspace,
-      env: { ...environment, PRODUCT_HTTP_TOKEN: TOKEN, NODE_OPTIONS: `--require ${JSON.stringify(delaySignal)}` },
+      env: {
+        ...environment,
+        PRODUCT_HTTP_TOKEN: TOKEN,
+        NODE_OPTIONS: `--require ${JSON.stringify(delaySignal)}`,
+      },
       stdio: ['ignore', 'ignore', 'pipe'],
     },
   );
@@ -215,6 +246,8 @@ describe('--serve --http-port', () => {
   }, 90_000);
 
   it('runs a slash command without calling the model', async () => {
+    // The first turn's naming request is asynchronous; count only once it has been answered (only when a real turn has run).
+    if (requests.some((wire) => !isNamingRequest(wire))) await waitUntilSessionNamed();
     const count = requests.length;
     const response = await api('/command', {
       method: 'POST',

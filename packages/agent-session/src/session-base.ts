@@ -1,4 +1,5 @@
 import { requireExecutionRoot } from './execution-root.js';
+import { ManagedContinuation } from './managed-continuation.js';
 import { SessionBusyError, TurnClaim } from './turn-claim.js';
 import { isManagedRunProvider, ManagedRunUnavailableError } from '@robota-sdk/agent-core';
 
@@ -49,6 +50,7 @@ export abstract class SessionBase {
    * was not the one in flight. See `turn-claim.ts`.
    */
   protected readonly turnClaim = new TurnClaim();
+  protected readonly managedContinuation = new ManagedContinuation();
   private readonly permissionModeGuards = new Set<(next: TPermissionMode) => void>();
 
   getPermissionMode(): TPermissionMode {
@@ -156,6 +158,7 @@ export abstract class SessionBase {
       throw new SessionBusyError('Cannot change the model while a session operation is active');
     }
     const nextModel = options.model ?? this.model;
+    if (nextModel !== this.model) this.managedContinuation.end();
     // The system prompt is not model config; it is updated independently via updateSystemMessage.
     this.agent.setModel({
       provider: this.aiProvider.name,
@@ -400,6 +403,7 @@ export abstract class SessionBase {
   clearHistory(): void {
     this.assertInputAllowed();
     this.agent.clearHistory();
+    this.managedContinuation.end();
     this.contextTracker.reset();
   }
 }

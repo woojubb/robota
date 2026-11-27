@@ -1,0 +1,60 @@
+{
+  "attemptsIncludingInfrastructureStop": 18,
+  "infrastructureStops": 3,
+  "measuredTrials": 15,
+  "successes": 15,
+  "observedAllAttemptPassRate": 0.8333333333333334,
+  "observedMeasuredPassRate": 1.0,
+  "requests": 69,
+  "reportedCostUsd": null,
+  "knownSettledCostUsd": 0.027530844000000002,
+  "unknownCostRequests": 1,
+  "unverifiedRoutingRequests": 1,
+  "reportedCostPerSuccessUsd": null,
+  "promptTokens": 129384,
+  "completionTokens": 11869,
+  "cachedInputTokens": 104174,
+  "reportedReasoningTokens": 4216,
+  "conservativeCumulativeReservationsUsd": 8.625,
+  "budgetUsd": 10,
+  "tasks": [
+    {
+      "task": "navigation",
+      "trials": 3,
+      "successes": 3,
+      "medianActiveSeconds": 6.022202694999986,
+      "requests": 12
+    },
+    {
+      "task": "bug-repair",
+      "trials": 3,
+      "successes": 3,
+      "medianActiveSeconds": 11.114957582999923,
+      "requests": 15
+    },
+    {
+      "task": "feature",
+      "trials": 3,
+      "successes": 3,
+      "medianActiveSeconds": 8.181113867000008,
+      "requests": 12
+    },
+    {
+      "task": "multi-file",
+      "trials": 3,
+      "successes": 3,
+      "medianActiveSeconds": 9.823686782999866,
+      "requests": 14
+    },
+    {
+      "task": "test-diagnosis",
+      "trials": 3,
+      "successes": 3,
+      "medianActiveSeconds": 7.377229924999992,
+      "requests": 12
+    }
+  ],
+  "stopped": null,
+  "unknownCostReservationsUsd": 0.125,
+  "settledPlusUnknownReservationsUsd": 0.152530844
+}
