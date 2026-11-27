@@ -22,7 +22,7 @@ services before it reaches the provider; a call an admission rejects is never di
 limit stops a runtime before it produces a result nothing asked for. A runtime configured, through
 what the adapter can see (its provider options, a routing or managed provider, a model-backed hook),
 to reach a provider by another path or to carry one admitted call on to other models is refused
-before its first call, because no limit can count calls it never sees. An enforced runtime gives each call a bound taken from the request it is about to send, large enough for every attempt the provider may bill; a call whose bound cannot be established is refused rather than sent, and a call that may have been billed more than once keeps its bound counted until the host reconciles it. A cache hit costs nothing to
+before its first call, because no limit can count calls it never sees. An enforced runtime gives each call a bound taken from the request it is about to send, large enough for every attempt the provider may bill; a call whose bound cannot be established is refused rather than sent, and a call that may have been billed more than once keeps its bound counted until the host reconciles it. A paid tool effect is admitted against the budget before it starts and is refused, never started, when the budget or its price cannot admit it; it is settled when its result arrives and, because what a tool spent is the host's to say, a model-backed one keeps its bound counted until the host reconciles it. A cache hit costs nothing to
 serve, so it is reported through the ledger's admission-free cache-hit path instead, carrying its own
 identity — never spending a call-limit allowance a free hit did not need.
 
@@ -68,7 +68,7 @@ concerns `agent-roundtable` itself declines to solve. Its callers are metered un
 enforcement: a metered caller admits and reports what a runtime already reports but cannot declare a
 call's bound before dispatch, so a conversation with a budget refuses it rather than count it
 unbounded. Enforcement is the host's declaration, proven when the lease opens; a bound rests on the
-request's encoded size and the host's declared overhead, attempts and tool classification, so it is
+request's encoded size and the host's declared overhead, attempts, tool classification and paid-tool token bounds, so it is
 only as sound as those declarations. It does not implement
 Session's own `input` or `reconciliation` waits, or a durable, cross-process resumable selector.
 

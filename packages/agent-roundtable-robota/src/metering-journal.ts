@@ -12,7 +12,12 @@ import type {
   UsageTokens,
 } from '@robota-sdk/agent-roundtable';
 import { requestBound } from './call-bound';
-import { normalizeEnforcement, type CallEnforcement, type RuntimeEnforcement } from './enforcement';
+import {
+  isDeclaredTool,
+  normalizeEnforcement,
+  type CallEnforcement,
+  type RuntimeEnforcement,
+} from './enforcement';
 import { RuntimeParticipantError } from './errors';
 
 /** The ledger only accepts non-negative integers; a fractional or non-finite count is dropped. */
@@ -74,6 +79,44 @@ function usageReport(
 }
 
 /**
+ * A paid tool effect's ledger call id. The journal's action id is stable across a retried or
+ * recovered attempt, so admission is idempotent and recovery can find the effect again; the prefix
+ * keeps it apart from every model call id, which the journal derives without it.
+ */
+const TOOL_EFFECT_CALL_PREFIX = 'tool-effect:';
+
+export function toolEffectCallId(actionId: string): string {
+  return `${TOOL_EFFECT_CALL_PREFIX}${actionId}`;
+}
+
+/** The paid effects a journal has admitted and not yet settled, by action id. */
+type StartedEffects = Map<string, { callId: string; tokens: number }>;
+
+/**
+ * What the adapter knows when an admitted effect reaches its result. A money-only effect consumed no
+ * tokens, and its report never varies with the tool's own verdict, so a repeat of the same result
+ * repeats the report exactly (a different report after a final one would conflict). A model-backed
+ * effect's consumption is unknown to the adapter: it stays non-final, so the bound is kept until the
+ * host reconciles it and a repeated result can replace it.
+ */
+function effectReport(callId: string, tokens: number, succeeded: boolean): UsageReport {
+  if (tokens === 0)
+    return {
+      callId,
+      outcome: 'completed',
+      provenance: 'reported',
+      tokens: { input: 0, output: 0 },
+      final: true,
+    };
+  return {
+    callId,
+    outcome: succeeded ? 'completed' : 'failed',
+    provenance: 'unknown',
+    final: false,
+  };
+}
+
+/**
  * The metering behaviour shared by `meterJournal` and `meterRecoverableJournal`.
  *
  * `callJournaledProvider` (agent-core) writes a `model-request`/`model-cache-hit` record and
@@ -89,22 +132,36 @@ async function meteredAppend(
   inner: { append(record: TExecutionJournalRecord): Promise<void> },
   services: TurnServices,
   enforcement: CallEnforcement | undefined,
+  started: StartedEffects,
 ): Promise<void> {
   if (enforcement && record.kind === 'managed-frame')
     throw new RuntimeParticipantError(
       'unbounded-call',
       'An enforced runtime cannot take a managed frame: its calls are not bounded by a request',
     );
-  if (
-    enforcement &&
-    record.kind === 'tool-effect-start' &&
-    !enforcement.freeTools.has(record.toolName)
-  )
-    throw new RuntimeParticipantError(
-      'unbounded-call',
-      `An enforced runtime must declare every tool free or paid: ${record.toolName}`,
-    );
+  if (enforcement && record.kind === 'tool-effect-start') {
+    if (!isDeclaredTool(enforcement, record.toolName))
+      throw new RuntimeParticipantError(
+        'unbounded-call',
+        `An enforced runtime must declare every tool free or paid: ${record.toolName}`,
+      );
+    const tokens = enforcement.paidTools.get(record.toolName);
+    if (tokens !== undefined) {
+      // Admitted before the start record reaches the inner journal, so a refusal means the effect
+      // never starts. A denied approval writes no start record and so is never charged.
+      const callId = toolEffectCallId(record.actionId);
+      await services.admitToolEffect({ callId, toolName: record.toolName, tokens });
+      started.set(record.actionId, { callId, tokens });
+    }
+    await inner.append(record);
+    return;
+  }
   if (record.kind === 'model-request') {
+    if (enforcement && record.callId.startsWith(TOOL_EFFECT_CALL_PREFIX))
+      throw new RuntimeParticipantError(
+        'unbounded-call',
+        'An enforced runtime reserves the tool-effect call id prefix for paid tool effects',
+      );
     // The bound is taken before the inner journal or admission, so a request whose bound cannot be
     // established is refused before anything is recorded or sent.
     const bound = enforcement ? requestBound(record, enforcement) : undefined;
@@ -128,7 +185,13 @@ async function meteredAppend(
     return;
   }
   await inner.append(record);
-  if (record.kind === 'model-response') {
+  if (record.kind === 'tool-result') {
+    const effect = started.get(record.actionId);
+    if (effect)
+      await services.recordUsage(
+        effectReport(effect.callId, effect.tokens, record.result.success === true),
+      );
+  } else if (record.kind === 'model-response') {
     await services.recordUsage(
       usageReport(
         record.callId,
@@ -163,7 +226,8 @@ async function meteredAppend(
  *
  * With `enforcement`, every `model-request` is admitted with a bound taken from the request itself
  * and a request whose bound cannot be established is refused (`unbounded-call`) before anything
- * is recorded; see `RuntimeEnforcement`.
+ * is recorded; see `RuntimeEnforcement`. A declared paid tool's `tool-effect-start` is admitted as a
+ * tool effect before it reaches `inner` and settled at its `tool-result`.
  */
 export function meterJournal(
   inner: IExecutionJournal,
@@ -171,8 +235,9 @@ export function meterJournal(
   enforcement?: RuntimeEnforcement,
 ): IExecutionJournal {
   const declared = enforcement && normalizeEnforcement(enforcement);
+  const started: StartedEffects = new Map();
   return {
-    append: (record) => meteredAppend(record, inner, services, declared),
+    append: (record) => meteredAppend(record, inner, services, declared, started),
   };
 }
 
@@ -187,8 +252,9 @@ export function meterRecoverableJournal(
   enforcement?: RuntimeEnforcement,
 ): IRecoverableExecutionJournal {
   const declared = enforcement && normalizeEnforcement(enforcement);
+  const started: StartedEffects = new Map();
   return {
-    append: (record) => meteredAppend(record, inner, services, declared),
+    append: (record) => meteredAppend(record, inner, services, declared, started),
     read: (executionId) => inner.read(executionId),
   };
 }
