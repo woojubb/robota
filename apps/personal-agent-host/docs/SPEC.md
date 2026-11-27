@@ -18,8 +18,8 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
 - **The store is owner-only.** The state directory, the account file, each secret file and the audit log are
   readable by their owner alone. Writes are atomic; a store that is malformed or too open is refused, never
   repaired by starting empty.
-- **Secrets are never output.** A model key is held in a file of its own and read only to start that account's
-  unit. Listing and showing accounts never load it, and it appears in no result, audit line, error message,
+- **Secrets are never output.** A model key enters through stdin or a hidden prompt, never an argument or the
+  environment, is held in a file of its own and is read only to start that account's unit. Listing and showing accounts never load it, and it appears in no result, audit line, error message,
   proxy configuration or unit description, including text an underlying runtime returns.
 - **The guard fails closed.** No unit starts unless the network guard is verified, and a reconcile that cannot
   verify it stops every unit.
@@ -27,15 +27,24 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
   account answers 503 and is never proxied, and a deleted or half-made one is unknown.
 - **A failed command leaves nothing half-made.** Every step of an add is undone on failure; a crash leaves at
   most a `provisioning` or `deleting` record, finished by removal at the next start and audited as recovered.
-- **One operation at a time, every command audited.** Refusals and failures are recorded with their reason.
+- **Commands arrive over an owner-only Unix socket and nothing else.** No port is opened, so only the
+  operator's own user can reach the control plane. A second server on the same state directory is refused, and
+  the CLI is merely a client of that socket.
+- **One operation at a time, every command audited.** Refusals and failures are recorded with their reason,
+  and so is a request rejected before it became a command (without its body). Request bodies are strict: an
+  unknown field is an error, never ignored.
+- **A script can rely on the exit code.** Done, failed, usage, refused, no such account and unreachable each
+  have their own code, and every refusal carries a typed error code.
 - **Strays are reported, never deleted.** A unit of this install with no record is surfaced for the operator.
 
 ## Invariants
 
 - The hostname of an account is `<id>.<base domain>`, fixed when the account is created.
 - An account id is a DNS label that is also safe in an engine object name.
-- The container backend is used for an account only when the operator has allowed it by setting; a backend
-  that is not built yet is refused.
+- `serve` starts only with a backend: the in-memory fake runs solely behind a setting named for tests and
+  development.
+- The container backend is used for an account only when the operator has allowed it by setting; a backend that
+  is not built yet is refused.
 - The account record never holds a credential; a provider URL that carries one is refused.
 
 ## Non-goals
@@ -51,7 +60,11 @@ Self-signup, billing, live migration, GPU, and disk quotas on containers. Accoun
 - **A guard that disappears while units run is reapplied, else every unit stops.** A unit must never keep
   running unguarded, and stopping is the fail-closed fallback when reapplying fails.
 - **The stored hostname is checked for syntax, not against the configured domain.** The record's hostname is
-  authoritative once created, so changing the configured base domain cannot make the store unreadable.
+  authoritative once created, so changing the configured base domain cannot make the store unreadable; status
+  reports a record whose domain differs and never rewrites it.
+- **The socket bind is the single-instance lock.** A socket file counts as stale only when a connection to it is
+  refused; anything else at that path (a regular file, another user's socket, a listener that does not answer)
+  is left alone and refused, and only one start at a time may replace a stale one.
 - **Zero runtime dependencies.** Node built-ins only, so the root daemon has no third-party code to trust.
 - **A cleanup that cannot finish keeps the record.** The half-made account stays visible in `provisioning`
   rather than leaving an unrecorded unit behind.

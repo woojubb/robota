@@ -336,6 +336,23 @@ describe('access code, list, show and status', () => {
       { id: 'alice', desired: 'active', actual: 'running', healthy: true },
     ]);
     expect(status.orphans).toEqual(['stray']);
+    expect(status.domainMismatches).toEqual([]);
+  });
+
+  it('flags a stored hostname under another domain than the configured one, without rewriting it', async () => {
+    const first = await makeHost();
+    await first.plane.add(addInput('alice'));
+    const moved = await makeHost({
+      dir: first.dir,
+      extra: { PERSONAL_AGENT_HOST_BASE_DOMAIN: 'agents.other.test' },
+    });
+    const status = await moved.plane.status();
+    expect(status.baseDomain).toBe('agents.other.test');
+    expect(status.domainMismatches).toEqual([
+      { id: 'alice', hostname: 'alice.agents.example.test' },
+    ]);
+    expect(moved.store.get('alice')?.hostname).toBe('alice.agents.example.test');
+    expect((await moved.plane.show('alice')).hostname).toBe('alice.agents.example.test');
   });
 });
 
