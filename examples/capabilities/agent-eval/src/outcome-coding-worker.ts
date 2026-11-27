@@ -104,6 +104,8 @@ async function main(): Promise<void> {
   // Disposable per trial: both live in memory-backed storage the host discards with the container.
   process.env.HOME = init.homeDir;
   process.env.PRODUCT_USER_STATE_DIR = init.stateDir;
+  // The task tree is a mount inside the scratch repository's directory: git must look across it.
+  process.env.GIT_DISCOVERY_ACROSS_FILESYSTEM = '1';
   prepareWorkspace(init);
 
   let sequence = 0;
