@@ -9,16 +9,18 @@
     "typecheck": "tsgo --noEmit",
     "baseline:plugin": "tsx --conditions=source src/outcome-plugin.ts",
     "baseline:browser": "tsx --conditions=source src/outcome-browser.ts",
-    "test": "node --import tsx --test src/outcome-*.test.ts"
+    "test": "node --import tsx --test src/outcome-*.test.ts",
+    "coding:offline": "tsx --conditions=source src/outcome-coding-offline.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",
     "@robota-sdk/agent-core": "workspace:^",
-    "@robota-sdk/agent-framework": "^3.2.5",
+    "@robota-sdk/agent-framework": "workspace:^",
     "@robota-sdk/agent-mcp": "workspace:^",
-    "@robota-sdk/agent-provider": "^3.3.0",
+    "@robota-sdk/agent-provider": "workspace:^",
     "@robota-sdk/agent-provider-replay": "workspace:^",
-    "@robota-sdk/agent-tools": "^3.3.0"
+    "@robota-sdk/agent-tools": "workspace:^",
+    "openai": "^6.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

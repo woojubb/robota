@@ -713,20 +713,23 @@ importers:
         specifier: workspace:^
         version: link:../../../packages/agent-core
       '@robota-sdk/agent-framework':
-        specifier: ^3.2.5
-        version: 3.2.5
+        specifier: workspace:^
+        version: link:../../../packages/agent-framework
       '@robota-sdk/agent-mcp':
         specifier: workspace:^
         version: link:../../../packages/agent-mcp
       '@robota-sdk/agent-provider':
-        specifier: ^3.3.0
-        version: 3.3.1(@anthropic-ai/sdk@0.114.0(zod@4.6.7))(@google/genai@1.52.0(@modelcontextprotocol/sdk@1.32.2(zod@4.6.7)))(openai@6.0.0(ws@8.21.1)(zod@4.6.7))
+        specifier: workspace:^
+        version: link:../../../packages/agent-provider
       '@robota-sdk/agent-provider-replay':
         specifier: workspace:^
         version: link:../../../packages/agent-provider-replay
       '@robota-sdk/agent-tools':
-        specifier: ^3.3.0
-        version: 3.3.1(@robota-sdk/agent-core@packages+agent-core)
+        specifier: workspace:^
+        version: link:../../../packages/agent-tools
+      openai:
+        specifier: ^6.0.0
+        version: 6.0.0(ws@8.21.1)(zod@4.6.7)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -15459,15 +15462,6 @@ snapshots:
   '@robota-sdk/agent-tools@3.3.1(@robota-sdk/agent-core@3.3.3)':
     dependencies:
       '@robota-sdk/agent-core': 3.3.3
-      '@robota-sdk/agent-os': 3.3.0(koffi@3.3.1)
-      fast-glob: 3.3.3
-      koffi: 3.3.1
-      p-limit: 7.3.3
-      zod: 4.6.7
-
-  '@robota-sdk/agent-tools@3.3.1(@robota-sdk/agent-core@packages+agent-core)':
-    dependencies:
-      '@robota-sdk/agent-core': link:packages/agent-core
       '@robota-sdk/agent-os': 3.3.0(koffi@3.3.1)
       fast-glob: 3.3.3
       koffi: 3.3.1
