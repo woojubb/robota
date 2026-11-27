@@ -182,6 +182,16 @@ describe('a call proven never dispatched', () => {
     expect(recordCharge(state.snapshot.usage[0], bothBudget)).toEqual({ tokens: 0n, cost: 0n });
   });
 
+  it('cannot be admitted again under its id, so nothing runs outside the budget', () => {
+    const state = stateOf(tokenBudget);
+    admit(state, 'c1', bound(10, 10));
+    settle(state, { kind: 'not-dispatched', callId: 'c1' });
+    expect(() => admit(state, 'c1', bound(10, 10))).toThrow(
+      expect.objectContaining({ code: 'conflict' }),
+    );
+    expect(state.snapshot.usage).toHaveLength(1);
+  });
+
   it('works without a budget', () => {
     const state = stateOf(null);
     reserveModelCall(state, 1, ctx, { callId: 'c1', providerId: 'p', modelId: 'm' });

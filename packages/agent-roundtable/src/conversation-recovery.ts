@@ -206,14 +206,15 @@ export function applyRecovery(
       refuse(`A settled result cannot be contradicted: ${member.participantId}`);
     switch (answer.kind) {
       case 'not-started':
-        if (resuming) member.status = 'resumable';
-        else
-          Object.assign(member, {
-            status: 'pending',
-            outcome: null,
-            checkpoint: null,
-            turn: { ...turn, attemptId: options.newAttemptId() },
-          });
+        // The old attempt's calls are all refunded, so the retry takes a new attempt id and with it
+        // new call ids; a member resuming a saved wait keeps its responses.
+        Object.assign(
+          member,
+          resuming
+            ? { status: 'resumable' }
+            : { status: 'pending', outcome: null, checkpoint: null },
+          { turn: { ...turn, attemptId: options.newAttemptId() } },
+        );
         break;
       case 'resume': {
         member.checkpoint = usableCheckpoint(

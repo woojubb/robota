@@ -139,8 +139,8 @@ export interface AttemptRecoveryInput {
  * A factory's answer for one interrupted attempt, drawn from its own durable journal. `calls` answers
  * every reserved call: 'not-dispatched' only for a call proven never to have left, 'settled' with the
  * journal's final report, 'uncertain' for the rest, which keeps the bound counted.
- * - 'not-started': nothing was dispatched, so the turn runs again from the start; every call must be
- *   'not-dispatched'.
+ * - 'not-started': nothing was dispatched, so the turn runs again from the start under a new attempt id,
+ *   and with it new call ids; every call must be 'not-dispatched'.
  * - 'resume': the same attempt continues from `checkpoint`, reusing what its journal holds.
  * - 'settled': the attempt had finished; its outcome is published without running it again.
  * - 'uncertain': an effect started without a result. The turn parks on `requests`, all of kind
