@@ -24,36 +24,24 @@ agent is reached over the standard input and output of another program.
 
 ## Usage
 
-The package starts no process. The host supplies a launcher that yields the agent's byte streams,
-one connection per session the roundtable opens:
+The session core starts no process. The host supplies a launcher that yields the agent's byte
+streams, one connection per session the roundtable opens. `spawnAcpAgent` is that launcher for an
+agent that runs as a child process:
 
 ```ts
-import { spawn } from 'node:child_process';
-import { Readable, Writable } from 'node:stream';
-
 import { createRoundtable, MemoryConversationStore } from '@robota-sdk/agent-roundtable';
-import { acpParticipant, type AcpLauncher } from '@robota-sdk/agent-roundtable-acp';
-
-// A sketch: a production launcher also ends the whole process tree and drains the agent's stderr.
-// It also passes an explicit `env` to `spawn` rather than letting the agent inherit this process's.
-const launcher: AcpLauncher = {
-  async launch() {
-    const child = spawn('my-acp-agent', ['--stdio'], { stdio: ['pipe', 'pipe', 'inherit'] });
-    return {
-      toAgent: Writable.toWeb(child.stdin) as WritableStream<Uint8Array>,
-      fromAgent: Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>,
-      async close() {
-        child.kill();
-      },
-    };
-  },
-};
+import { acpParticipant, spawnAcpAgent } from '@robota-sdk/agent-roundtable-acp';
 
 const reviewer = acpParticipant({
   id: 'reviewer',
   runtime: { id: 'acp/reviewer', version: '1' },
   cwd: '/path/to/workspace', // the directory the agent is told to work in
-  launcher,
+  launcher: spawnAcpAgent({
+    command: '/usr/local/bin/my-acp-agent', // absolute, or a name found on the PATH in `env`
+    args: ['--stdio'],
+    cwd: '/path/to/workspace',
+    env: { PATH: '/usr/local/bin:/usr/bin:/bin', MY_AGENT_TOKEN: token },
+  }),
 });
 
 const room = createRoundtable({
@@ -63,6 +51,58 @@ const room = createRoundtable({
   store: new MemoryConversationStore(),
   limits: { maxTurnsPerRun: 2 },
 });
+```
+
+### `spawnAcpAgent` options
+
+| Option        | Default | Meaning                                                                                  |
+| ------------- | ------- | ---------------------------------------------------------------------------------------- |
+| `command`     | none    | The program to run                                                                       |
+| `args`        | `[]`    | Its arguments                                                                            |
+| `cwd`         | none    | Absolute working directory of the process                                                |
+| `env`         | none    | The process's whole environment: required, string values only, nothing is inherited      |
+| `killGraceMs` | 2000    | How long `close()` waits after asking the tree to exit before it kills the tree          |
+| `onStderr`    | discard | Receives the agent's standard error one line at a time; the stream is drained either way |
+
+Every `launch()` starts one process whose standard input and output are the connection. The agent
+sees exactly `env`: pass what it needs to start and authenticate, such as `PATH`, because the
+host's own variables are never passed on. On macOS and Linux the process leads its own process
+group, and `close()` ends standard input, asks the group to exit, waits up to `killGraceMs` and then
+kills the group, so helpers the agent started do not outlive the session. A process that cannot be
+started (a missing program or working directory) rejects the open with an `AcpParticipantError`
+whose `code` is `launch-failed`. If the agent exits mid-turn, that turn and every later one fails
+with `connection-closed`.
+
+Not covered: if the host process itself dies, nothing ends the agent, which keeps running unless it
+exits when its standard input ends. On Windows the tree is ended with `taskkill`, an agent that is a
+`.cmd` shim needs a shell the launcher does not provide, and none of this is verified there yet.
+
+### A custom launcher
+
+Any other way of reaching an agent, such as a container or a remote host, is a launcher of its own:
+
+```ts
+import { spawn } from 'node:child_process';
+import { Readable, Writable } from 'node:stream';
+
+import type { AcpLauncher } from '@robota-sdk/agent-roundtable-acp';
+
+// A sketch of the port; `spawnAcpAgent` is the complete version for child processes.
+const launcher: AcpLauncher = {
+  async launch() {
+    const child = spawn('my-acp-agent', ['--stdio'], {
+      env: { PATH: '/usr/bin' },
+      stdio: ['pipe', 'pipe', 'inherit'],
+    });
+    return {
+      toAgent: Writable.toWeb(child.stdin) as WritableStream<Uint8Array>,
+      fromAgent: Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>,
+      async close() {
+        child.kill();
+      },
+    };
+  },
+};
 ```
 
 ## What a participant does and does not do

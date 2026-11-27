@@ -1,5 +1,6 @@
 export type AcpParticipantErrorCode =
   | 'invalid-options'
+  | 'launch-failed'
   | 'startup-timeout'
   | 'handshake-failed'
   | 'protocol-version-mismatch'

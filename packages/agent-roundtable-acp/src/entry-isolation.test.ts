@@ -6,8 +6,9 @@ import { describe, expect, it } from 'vitest';
 
 // The dependency boundary is not gated by the repository's dependency rules, so this reads the
 // manifest and the shipped source and holds the line: the adapter depends on the roundtable
-// contract and the protocol SDK alone, never on a sibling adapter, the framework or a transport, and
-// it reads neither the process environment nor product configuration.
+// contract, the process-termination primitive and the protocol SDK alone, never on a sibling
+// adapter, the framework or a transport, and it reads neither the process environment nor product
+// configuration: a launched agent's environment comes only from the options it is given.
 
 const SRC = path.dirname(fileURLToPath(import.meta.url));
 
@@ -29,7 +30,11 @@ const SHIPPED = readdirSync(SRC)
   );
 
 const ALLOWED_SPECIFIERS = new Set([
+  'node:child_process',
   'node:path',
+  'node:stream',
+  'node:string_decoder',
+  '@robota-sdk/agent-os/process',
   '@robota-sdk/agent-roundtable',
   '@agentclientprotocol/sdk',
 ]);
@@ -41,8 +46,11 @@ function specifiersOf(text: string): string[] {
 }
 
 describe('manifest', () => {
-  it('depends at run time on the roundtable contract alone', () => {
-    expect(Object.keys(manifest.dependencies ?? {})).toEqual(['@robota-sdk/agent-roundtable']);
+  it('depends at run time on the roundtable contract and the process primitive alone', () => {
+    expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual([
+      '@robota-sdk/agent-os',
+      '@robota-sdk/agent-roundtable',
+    ]);
     expect(manifest.optionalDependencies).toBeUndefined();
   });
 
@@ -63,7 +71,10 @@ describe('manifest', () => {
       ...Object.keys(manifest.devDependencies ?? {}),
       ...Object.keys(manifest.optionalDependencies ?? {}),
     ].filter((name) => name.startsWith('@robota-sdk/'));
-    expect([...new Set(named)]).toEqual(['@robota-sdk/agent-roundtable']);
+    expect([...new Set(named)].sort()).toEqual([
+      '@robota-sdk/agent-os',
+      '@robota-sdk/agent-roundtable',
+    ]);
   });
 });
 
@@ -73,7 +84,7 @@ describe('shipped source', () => {
   });
 
   it.each(SHIPPED)(
-    '%s imports only relative modules, node:path, the roundtable and the SDK',
+    '%s imports only relative modules, the Node process and stream modules, the roundtable, the process primitive and the SDK',
     (file) => {
       for (const specifier of specifiersOf(readFileSync(path.join(SRC, file), 'utf8'))) {
         expect(

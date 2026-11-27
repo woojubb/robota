@@ -6,6 +6,9 @@ export type { AcpParticipantErrorCode } from './errors';
 
 export type { AcpConnection, AcpLauncher } from './launcher';
 
+export { spawnAcpAgent } from './spawn-launcher';
+export type { SpawnAcpAgentOptions } from './spawn-launcher';
+
 export type {
   AcpPermissionApprover,
   AcpPermissionDecision,

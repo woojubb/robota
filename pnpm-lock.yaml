@@ -1905,6 +1905,9 @@ importers:
 
   packages/agent-roundtable-acp:
     dependencies:
+      '@robota-sdk/agent-os':
+        specifier: workspace:^
+        version: link:../agent-os
       '@robota-sdk/agent-roundtable':
         specifier: workspace:^
         version: link:../agent-roundtable
