@@ -122,7 +122,8 @@ same escalation pattern independently rather than sharing the implementation.
 `killProcessTree(child, options)` returns a promise that resolves once the process has actually
 exited, following this escalation:
 
-1. Already-exited processes resolve immediately without signalling.
+1. Already-exited processes resolve immediately without signalling the process; with
+   `processGroup` the group may still hold members, so step 6 applies.
 2. An optional pre-kill hook runs first (e.g. a graceful IPC `cancel` message before any signal);
    if it throws or rejects, that is swallowed and escalation still proceeds.
 3. The initial signal (default `SIGTERM`) is sent to the whole process group on POSIX, requiring
@@ -134,6 +135,10 @@ exited, following this escalation:
 5. The promise settles on the real `exit` event — never synchronously, and never on the
    `child.killed` flag, which is misleading. This lets dependent cleanup (e.g. temp-dir removal)
    safely follow.
+6. With `processGroup` on POSIX, the direct child's exit does not end the work: members of its
+   group that outlived it or ignore the signal are signalled, and killed once the grace has passed.
+   The promise resolves only when the group is empty or a brief bounded wait after that kill has
+   passed. The caller passes `processGroup` only for a child spawned `detached: true`.
 
 It never rejects for a process that will not die — SIGKILL to a process group is the terminal
 action. Signalling an already-dead process (`ESRCH`) is caught and ignored. It rejects only when
