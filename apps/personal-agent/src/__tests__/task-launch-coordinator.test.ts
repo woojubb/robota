@@ -147,7 +147,7 @@ describe('starting a ready task', () => {
     );
     expect(other.goalId).not.toBe(first.goalId);
     // Once the goal has finished, the same work asked for again is a new request.
-    const run = await world.goals.startRun(first.goalId);
+    const run = await world.goals.startRun(first.goalId!);
     await world.goals.finishRun(run, 'done', 'Yes.');
     const later = await world.launches.start(request({ key: keyOf(4) }));
     expect(later.created).toBe(true);
@@ -169,10 +169,17 @@ describe('starting a ready task', () => {
 });
 
 describe('a start that is not ready', () => {
-  it.each(['unavailable', 'needs-setup'] as const)(
+  it.each([
+    ['unavailable', undefined],
+    // A task that needs setup waits only when the host has a way to start it.
+    ['needs-setup', []],
+  ] as const)(
     'is refused with the readiness when the browser is %s, keeping and making nothing',
-    async (state) => {
-      const world = startWorld({ browser: { current: state } });
+    async (state, recipes) => {
+      const world = startWorld({
+        browser: { current: state },
+        ...(recipes !== undefined && { recipes }),
+      });
       const error = await refusal(world.launches.start(request()));
       expect(error.kind).toBe('not-ready');
       expect(error.detail.readiness?.state).toBe(state);
@@ -405,7 +412,7 @@ describe('what a launch lets its goal run on', () => {
   it('runs a launched goal with only the browser’s reading tools and the access the person was shown', async () => {
     const world = startWorld({ browserPort: siteBrowser().port });
     const started = await world.launches.start(request());
-    const goal = (await world.goals.get(started.goalId))!;
+    const goal = (await world.goals.get(started.goalId!))!;
     expect(await world.launches.mayStart(goal)).toBe(true);
     const shape = await world.launches.shape(goal, runOf(goal));
     expect(shape?.onlyTools).toEqual(['BrowserOpen', 'BrowserView']);

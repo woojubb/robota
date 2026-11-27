@@ -13,8 +13,11 @@ import { BUILT_IN_DEFINITIONS } from '../task-catalog/built-in.js';
 import { digestOf } from '../task-catalog/launch/digest.js';
 import { createFileLaunchStore } from '../task-catalog/launch/file-store.js';
 import { createFixtureWebRoot, loginClient, startHarness } from './harness.js';
+import { startStandInConnector, virtualHostFetch } from './stand-in-connector.js';
 import { PAGE, QUESTION, keyOf, launchIntent } from './launch-world.js';
 
+import type { IVerifiedConnectorBindingSpec } from '../task-catalog/binding-providers.js';
+import type { ILaunchRecipe } from '../task-catalog/launch/recipes.js';
 import type { IHarness } from './harness.js';
 
 interface IReply {
@@ -566,13 +569,13 @@ describe('where a launch stands, over the API', () => {
     expect(target.model.requests).toEqual([]);
   });
 
-  it('is read-only: no write reaches a launch, and the status of one that does not exist is a 404', async () => {
+  it('takes no write to a launch beyond the waiting-request routes, and the status of one that does not exist is a 404', async () => {
     const { api } = await started();
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
       for (const path of [
         'tasks/launches',
         'tasks/launches/launch-x',
-        'tasks/launches/launch-x/cancel',
+        'tasks/launches/launch-x/stop',
       ])
         expect((await api.send(method, path, body())).status, `${method} ${path}`).toBe(404);
     }
@@ -587,5 +590,176 @@ describe('where a launch stands, over the API', () => {
     await settled(target);
     for (const path of ['tasks/launches', `tasks/launches/${first.body.launch.id}`])
       expect((await api.send('GET', path, undefined, { cookie: false })).status, path).toBe(403);
+  });
+});
+
+describe('a start that needs setup over the API', () => {
+  const HOST = 'mail.stand-in.test';
+  const TOKEN = ['static', 'token', 'launch', '0001'].join('-');
+  const SEARCH: IVerifiedConnectorBindingSpec = {
+    capability: 'mail.search',
+    service: { kind: 'mail', endpointOrigin: `https://${HOST}` },
+    tool: 'search_mail',
+    effect: 'read-only',
+    argumentBoundary: 'search words in the connected mailbox; nothing is sent',
+  };
+  const recipe: ILaunchRecipe = {
+    definitionId: 'catch-up-on-mailbox',
+    revision: 1,
+    title: 'Catch up on a connected mailbox',
+    pages: [],
+    instructions: () => 'Summarise the recent mail.',
+  };
+  const MAIL_START = 'tasks/definitions/catch-up-on-mailbox/start';
+  const mailBody = (change: Record<string, unknown> = {}): Record<string, unknown> => ({
+    idempotencyKey: keyOf(1),
+    inputs: { period: 'Last day' },
+    ...change,
+  });
+  const closers: (() => Promise<void>)[] = [];
+  afterEach(async () => {
+    for (const close of closers.splice(0).reverse()) await close();
+  });
+
+  async function mailWorld() {
+    const mail = await startStandInConnector({
+      access: { token: TOKEN },
+      tools: [{ name: 'search_mail', annotations: { readOnlyHint: true }, run: () => 'none' }],
+      publicBase: `https://${HOST}`,
+    });
+    closers.push(mail.close);
+    harness = await startHarness({
+      gui: true,
+      webRoot: createFixtureWebRoot(),
+      browserAvailable: () => false,
+      connectorBindingSpecs: [SEARCH],
+      taskLaunch: { recipes: [recipe], capabilityTools: { 'mail.search': [] } },
+      connectorNetwork: {
+        fetch: virtualHostFetch({ [HOST]: mail.port }),
+        lookup: async () => ['203.0.113.10'],
+      },
+    });
+    harness.model.script({ text: 'Nothing needs your attention.' });
+    const api = await client(harness);
+    const signIn = async (): Promise<string> => {
+      const made = await api.send('POST', 'connectors', {
+        title: 'Work mail',
+        kind: 'mail',
+        endpoint: `https://${HOST}/mcp`,
+        auth: 'token',
+      });
+      expect(made.status).toBe(200);
+      const id = made.body.connector.id as string;
+      expect((await api.send('POST', `connectors/${id}/connect`, { token: TOKEN })).status).toBe(
+        200,
+      );
+      return id;
+    };
+    return { harness, api, signIn };
+  }
+
+  it('lists which tasks the host can start, and answers 202 with the waiting request and its steps', async () => {
+    const { api } = await mailWorld();
+    const listed = (await api.send('GET', 'tasks/definitions')).body.definitions as any[];
+    expect(listed.map((entry) => [entry.id, entry.startable])).toEqual([
+      ['catch-up-on-mailbox', true],
+      ['prepare-my-week', false],
+      ['draft-reply-to-message', false],
+      ['check-fact-on-page', false],
+    ]);
+    const first = await api.send('POST', MAIL_START, mailBody());
+    expect(first.status).toBe(202);
+    expect(Object.keys(first.body)).toEqual(['launch']);
+    expect(first.body.launch).toMatchObject({
+      status: 'setup',
+      progress: 'setup',
+      steps: [{ type: 'connect', kind: 'mail' }],
+      inputs: { period: 'Last day' },
+    });
+    expect(first.body.launch).not.toHaveProperty('goalId');
+    // A retry and a second tab are the same waiting request.
+    for (const key of [1, 2]) {
+      const again = await api.send('POST', MAIL_START, mailBody({ idempotencyKey: keyOf(key) }));
+      expect(again.status).toBe(202);
+      expect(again.body.launch.id).toBe(first.body.launch.id);
+    }
+    expect((await api.send('GET', 'goals')).body.goals).toEqual([]);
+    // A task the host has no way to start is refused, as it was.
+    const other = await api.send('POST', 'tasks/definitions/prepare-my-week/start', {
+      idempotencyKey: keyOf(5),
+      inputs: { days: 7 },
+    });
+    expect(other.status).toBe(422);
+  });
+
+  it('is finished by the person: the sign-in is done, they look at the access, and confirm what they saw', async () => {
+    const { harness: target, api, signIn } = await mailWorld();
+    const first = await api.send('POST', MAIL_START, mailBody());
+    const id = first.body.launch.id as string;
+    const connector = await signIn();
+    // The connector did not exist when Start was pressed, so the request waits for a look.
+    const review = (await api.send('GET', `tasks/launches/${id}`)).body.launch;
+    expect(review).toMatchObject({
+      status: 'review',
+      progress: 'review',
+      proposed: [{ capability: 'mail.search', adapter: 'connector', account: connector }],
+    });
+    expect((await api.send('GET', 'goals')).body.goals).toEqual([]);
+    const wrong = await api.send('POST', `tasks/launches/${id}/confirm`, {
+      reviewDigest: 'a'.repeat(64),
+    });
+    expect(wrong.status).toBe(409);
+    expect(wrong.body.launch).toMatchObject({ status: 'review' });
+    const confirmed = await api.send('POST', `tasks/launches/${id}/confirm`, {
+      reviewDigest: review.reviewDigest,
+    });
+    expect(confirmed.status).toBe(200);
+    expect(Object.keys(confirmed.body)).toEqual(['launch']);
+    expect(confirmed.body.launch).toMatchObject({ status: 'launched' });
+    await settled(target);
+    expect((await api.send('GET', 'goals')).body.goals).toHaveLength(1);
+    // Confirming twice is refused and makes nothing more.
+    const twice = await api.send('POST', `tasks/launches/${id}/confirm`, {
+      reviewDigest: review.reviewDigest,
+    });
+    expect(twice.status).toBe(409);
+    expect((await api.send('GET', 'goals')).body.goals).toHaveLength(1);
+  });
+
+  it('takes account, confirm and cancel with exactly their fields, a small body, and their own refusals', async () => {
+    const { api } = await mailWorld();
+    const id = (await api.send('POST', MAIL_START, mailBody())).body.launch.id as string;
+    const base = `tasks/launches/${id}`;
+    const refused = async (path: string, send: unknown, status: number) =>
+      expect((await api.send('POST', path, send)).status, `${path} ${JSON.stringify(send)}`).toBe(
+        status,
+      );
+    // Exactly the keys the route takes.
+    await refused(`${base}/account`, {}, 400);
+    await refused(`${base}/account`, { connectorId: 'connector-x', extra: 1 }, 400);
+    await refused(`${base}/account`, { connectorId: 7 }, 400);
+    await refused(`${base}/account`, [], 400);
+    await refused(`${base}/confirm`, { reviewDigest: 'a'.repeat(64), extra: 1 }, 400);
+    await refused(`${base}/confirm`, { reviewDigest: 'short' }, 400);
+    await refused(`${base}/cancel`, { now: true }, 400);
+    await refused(`${base}/cancel`, 'cancel', 400);
+    // Small.
+    await refused(`${base}/account`, { connectorId: 'c'.repeat(2000) }, 413);
+    // An account this task does not offer, a request that is not in review, and one that is not there.
+    await refused(`${base}/account`, { connectorId: 'connector-ghost' }, 422);
+    await refused(`${base}/confirm`, { reviewDigest: 'a'.repeat(64) }, 409);
+    await refused('tasks/launches/launch-none/account', { connectorId: 'connector-x' }, 404);
+    await refused('tasks/launches/launch-none/confirm', { reviewDigest: 'a'.repeat(64) }, 404);
+    await refused('tasks/launches/launch-none/cancel', {}, 404);
+    // Cancelling ends it, and a second click is the same answer.
+    for (let click = 0; click < 2; click += 1) {
+      const cancelled = await api.send('POST', `${base}/cancel`, {});
+      expect(cancelled.status).toBe(200);
+      expect(cancelled.body.launch).toMatchObject({ status: 'cancelled', progress: 'cancelled' });
+    }
+    expect((await api.send('GET', base)).body.launch).toMatchObject({ status: 'cancelled' });
+    // Only the person's own browser may move a request.
+    expect((await api.send('POST', `${base}/cancel`, {}, { cookie: false })).status).toBe(403);
+    expect((await api.send('GET', 'goals')).body.goals).toEqual([]);
   });
 });

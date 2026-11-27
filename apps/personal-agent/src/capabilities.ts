@@ -68,6 +68,7 @@ import { createSyncRuns } from './connectors/sync-runs.js';
 import { createCaseConnectorBindings } from './case-connector-binding.js';
 import type { IApprovalRegistry } from './approvals.js';
 import type { ICaseConnectorBindings } from './case-connector-binding.js';
+import type { ILaunchRecipe, TCapabilityTools } from './task-catalog/launch/recipes.js';
 import { createLayoutBook } from './layout.js';
 import { createNotificationTransport } from './notification-transport.js';
 import { createPushApi } from './push/push-api.js';
@@ -82,7 +83,12 @@ import { createFileTaskCatalogStore } from './task-catalog/file-store.js';
 import { createLaunchCoordinator } from './task-catalog/launch/coordinator.js';
 import { createFileLaunchStore } from './task-catalog/launch/file-store.js';
 import { checkSuggestedInputs } from './task-catalog/launch/inputs.js';
-import { LAUNCH_RECIPES, recipeFor } from './task-catalog/launch/recipes.js';
+import {
+  CAPABILITY_TOOLS,
+  LAUNCH_RECIPES,
+  canStart,
+  recipeFor,
+} from './task-catalog/launch/recipes.js';
 import { normalizedReference } from './task-catalog/fields.js';
 import { createOfferService } from './task-catalog/offers/service.js';
 import { createReadinessContextSource } from './task-catalog/readiness-context.js';
@@ -176,6 +182,14 @@ export interface IPersonalCapabilityOptions {
    * The product's own reviewed table when absent; only host code passes another.
    */
   readonly connectorBindingSpecs?: readonly IVerifiedConnectorBindingSpec[];
+  /**
+   * What the host can start, and what each capability lets a started run use. The product's own
+   * recipes and tool table when absent; only host code passes another.
+   */
+  readonly taskLaunch?: {
+    readonly recipes?: readonly ILaunchRecipe[];
+    readonly capabilityTools?: TCapabilityTools;
+  };
   /** Where the add form looks for services to suggest: the public registry when absent, none with `null`. */
   readonly connectorRegistryUrl?: string | null;
   /** Owner or test carrier and resolver for the connectors' requests; each is still judged against the egress policy first. */
@@ -281,7 +295,10 @@ export function createPersonalCapabilities(
     options.browserAvailable ?? (() => findChromiumExecutable(options.environment) !== undefined);
   // What each task can run on is worked out again whenever the list is shown, from the agent's browser
   // and the person's connectors as they are then.
+  const launchRecipes = options.taskLaunch?.recipes ?? LAUNCH_RECIPES;
+  const capabilityTools = options.taskLaunch?.capabilityTools ?? CAPABILITY_TOOLS;
   const taskCatalog = createTaskCatalog({
+    startable: (definition) => canStart(launchRecipes, definition, capabilityTools),
     store: createFileTaskCatalogStore({ directory: join(options.stateDir, 'task-catalog') }),
     readiness: createReadinessContextSource({
       browserAvailable,
@@ -517,7 +534,7 @@ export function createPersonalCapabilities(
       checkSuggestedInputs(
         definition,
         suggested,
-        recipeFor(LAUNCH_RECIPES, definition)?.pages ?? [],
+        recipeFor(launchRecipes, definition)?.pages ?? [],
         new Set(options.browserAllowedHosts ?? []),
       ),
   });
@@ -529,7 +546,8 @@ export function createPersonalCapabilities(
     store: createFileLaunchStore({ directory: join(options.stateDir, 'task-catalog') }),
     catalog: taskCatalog,
     goals,
-    recipes: LAUNCH_RECIPES,
+    recipes: launchRecipes,
+    capabilityTools,
     offers: offers.launch,
     // The pages the owner named as reachable although local are the ones a task may be given too.
     ...(options.browserAllowedHosts !== undefined && { pageHosts: options.browserAllowedHosts }),

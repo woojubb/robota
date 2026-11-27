@@ -24,6 +24,13 @@ const LAUNCHES_SHOWN = 50;
 const START_KEYS = ['idempotencyKey', 'inputs', 'offerId'];
 /** An offer decision is a word and a time. */
 const DECISION_BODY_LIMIT = 1024;
+/** What each route that moves a waiting request takes: exactly these keys, and a small body. */
+const WAITING_BODY_LIMIT = 1024;
+const WAITING_KEYS: Readonly<Record<string, readonly string[]>> = {
+  account: ['connectorId'],
+  confirm: ['reviewDigest'],
+  cancel: [],
+};
 
 const ok = (body: unknown): ILoopbackGuiApiResponse => ({ status: 200, body });
 const fail = (status: number, body: Record<string, unknown>): ILoopbackGuiApiResponse => ({
@@ -42,7 +49,7 @@ function refusal(error: LaunchRefusedError): ILoopbackGuiApiResponse {
     case 'unknown':
       return fail(404, { error: error.message });
     case 'conflict':
-      return fail(409, { error: error.message });
+      return fail(409, { error: error.message, ...(launch !== undefined && { launch }) });
     case 'not-ready':
       return fail(422, { error: error.message, ...(readiness !== undefined && { readiness }) });
     case 'stale':
@@ -73,6 +80,20 @@ function startBody(body: unknown): {
   };
 }
 
+/** The body of a route that moves a waiting request: an object with exactly the keys the route takes. */
+function waitingBody(body: unknown, action: string): Record<string, unknown> {
+  if (typeof body !== 'object' || body === null || Array.isArray(body))
+    throw new LaunchRefusedError('invalid', 'The request must be a JSON object');
+  if (JSON.stringify(body).length > WAITING_BODY_LIMIT)
+    throw new LaunchRefusedError('too-large', 'The request is too large');
+  const record = body as Record<string, unknown>;
+  const keys = WAITING_KEYS[action]!;
+  const given = Object.keys(record);
+  if (given.length !== keys.length || given.some((key) => !keys.includes(key)))
+    throw new LaunchRefusedError('invalid', 'The request does not have the fields this takes');
+  return record;
+}
+
 /** The refusals of a decision about an offer. */
 function offerRefusal(error: OfferRefusedError): ILoopbackGuiApiResponse {
   return fail(error.kind === 'unknown' ? 404 : error.kind === 'conflict' ? 409 : 400, {
@@ -96,10 +117,33 @@ export function createTaskCatalogApi(
     ) {
       try {
         const started = await launches.start({ definitionId: id, ...startBody(body) });
+        // A request that waits for setup or a look has no goal yet: it is accepted, not started.
+        if (started.goalId === undefined) return { status: 202, body: { launch: started.launch } };
         return {
           status: started.created ? 201 : 200,
           body: { launch: started.launch, goalId: started.goalId },
         };
+      } catch (error) {
+        if (error instanceof LaunchRefusedError) return refusal(error);
+        throw error;
+      }
+    }
+    if (
+      method === 'POST' &&
+      collection === 'launches' &&
+      id !== undefined &&
+      action !== undefined &&
+      Object.hasOwn(WAITING_KEYS, action)
+    ) {
+      try {
+        const fields = waitingBody(body, action);
+        const launch =
+          action === 'account'
+            ? await launches.chooseAccount(id, fields['connectorId'])
+            : action === 'confirm'
+              ? await launches.confirm(id, fields['reviewDigest'])
+              : await launches.cancel(id);
+        return ok({ launch });
       } catch (error) {
         if (error instanceof LaunchRefusedError) return refusal(error);
         throw error;

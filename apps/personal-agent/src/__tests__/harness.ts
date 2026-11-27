@@ -93,6 +93,8 @@ export async function startHarness(
     browserAvailable?: () => boolean;
     /** The connector tools the host verified, instead of the product's own (empty) table. */
     connectorBindingSpecs?: import('../capabilities.js').IPersonalCapabilityOptions['connectorBindingSpecs'];
+    /** What the host can start and what each capability lets a run use, instead of the product's own. */
+    taskLaunch?: import('../capabilities.js').IPersonalCapabilityOptions['taskLaunch'];
   } = {},
 ): Promise<IHarness> {
   const stateDir = options.stateDir ?? mkdtempSync(join(tmpdir(), 'personal-agent-'));
@@ -117,6 +119,7 @@ export async function startHarness(
     ...(options.connectorBindingSpecs !== undefined && {
       connectorBindingSpecs: options.connectorBindingSpecs,
     }),
+    ...(options.taskLaunch !== undefined && { taskLaunch: options.taskLaunch }),
     ...(options.browserAllowedHosts !== undefined && {
       browserAllowedHosts: options.browserAllowedHosts,
     }),

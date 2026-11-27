@@ -86,6 +86,8 @@ describe('the task catalog API', () => {
     expect(definitions.body.definitions).toEqual(
       BUILT_IN_DEFINITIONS.map((definition, index) => ({
         ...definition,
+        // Only the page-reading task has a recipe and tools, so only it can be started.
+        startable: index === 3,
         readiness: {
           state: 'unavailable',
           reason: [

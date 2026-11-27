@@ -5,6 +5,7 @@
  * bounded and as plain text, and the evidence is what the host recorded, not what the report says.
  */
 import type { IGoal } from '@robota-sdk/agent-product/personal';
+import type { TSetupStep } from '../types.js';
 import type { ILaunchIntent, ILaunchStatusView, ILaunchView, TLaunchProgress } from './types.js';
 
 type TLiveGoalStatus = 'active' | 'running' | 'waiting' | 'paused';
@@ -33,8 +34,10 @@ export const launchView = ({
 export function describeStatus(input: {
   readonly intent: ILaunchIntent;
   readonly goal?: IGoal;
+  /** What is left to set up, as the host works it out now; shown for a request waiting for setup. */
+  readonly steps?: readonly TSetupStep[];
 }): ILaunchStatusView {
-  const { intent, goal } = input;
+  const { intent, goal, steps } = input;
   const view = launchView(intent);
   const live = (progress: TLaunchProgress, reason: string): ILaunchStatusView => ({
     ...view,
@@ -43,6 +46,16 @@ export function describeStatus(input: {
     evidence: [],
   });
   switch (intent.status) {
+    case 'setup':
+      return {
+        ...live('setup', 'This task needs setting up. It starts once that is done.'),
+        ...(steps !== undefined && { steps }),
+      };
+    case 'review':
+      return live(
+        'review',
+        'Look at the access this task would use, then start it or cancel the request.',
+      );
     case 'reserved':
       return live('starting', 'Your agent is getting this task going.');
     case 'failed':

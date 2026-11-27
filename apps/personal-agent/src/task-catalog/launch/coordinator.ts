@@ -20,23 +20,32 @@
  * with a button, and the same key must be unique across tasks while a second tab's different key for
  * the same work is answered with the launch already under way, so a single queue is both enough and
  * simplest. The goal book's own lock, shared with other processes, still makes one launch id one goal.
+ *
+ * A task the host can start but that needs setting up is not refused: the request is kept as waiting,
+ * with no goal. It moves when it is read, retried or recovered, never on a timer of its own: it ends if
+ * it waited too long or what it rests on changed, goes on waiting while setup remains, and once the task
+ * is ready it starts by itself only on access the person saw named when they pressed Start (or chose
+ * since). Access that is new, or a request whose recorded access went missing or changed, waits for the
+ * person to look at it and confirm exactly what is shown. A request that waited is never started later
+ * under authority it was not made on.
  */
 import { randomUUID } from 'node:crypto';
 
 import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
 import { BROWSER_TOOL_NAMES, createBrowserTools } from '@robota-sdk/agent-product/personal';
 
+import { CONNECTOR_ID } from '../bindings.js';
 import { TaskCatalogRefusedError } from '../fields.js';
 import { digestOf, canonicalJson } from './digest.js';
 import { EVIDENCE_RULES } from './evidence-rules.js';
 import { resolveInputs } from './inputs.js';
 import { decideOutcome } from './outcome.js';
-import { canStart, recipeFor, toolsFor } from './recipes.js';
+import { CAPABILITY_TOOLS, canStart, recipeFor, toolsFor } from './recipes.js';
 import { fencedBrowser } from './page-fence.js';
 import { pageKey, recordingBrowser } from './receipts.js';
 import { describeStatus, launchView } from './status.js';
 import { LaunchRefusedError } from './types.js';
-import { launchKey, launchOfferId, rawInputs } from './validate.js';
+import { LAUNCH_LIMITS, launchKey, launchOfferId, rawInputs } from './validate.js';
 
 import type { GoalBook, IBrowserPort, IGoal, IGoalRun } from '@robota-sdk/agent-product/personal';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
@@ -44,9 +53,9 @@ import type { IGoalShape } from '../../goal-runner.js';
 import type { ITaskCatalog } from '../catalog.js';
 import type { TBindingSource } from '../bindings.js';
 import type { IEvidenceRule } from './evidence-rules.js';
-import type { ILaunchRecipe } from './recipes.js';
+import type { ILaunchRecipe, TCapabilityTools } from './recipes.js';
 import type { ILaunchStore } from './store.js';
-import type { ITaskDefinition, TOutcomeState } from '../types.js';
+import type { ITaskDefinition, TOutcomeState, TReadiness, TSetupStep } from '../types.js';
 import type {
   ILaunchBinding,
   ILaunchIntent,
@@ -93,6 +102,18 @@ export interface ILaunchCoordinator {
   start(request: ILaunchStartRequest): Promise<ILaunchStarted>;
   /** A launch and where it stands. A goal that has ended is decided here first, so the answer is never a guess. */
   get(id: string): Promise<ILaunchStatusView | undefined>;
+  /**
+   * Choose the account for a request waiting for setup, by the connector's id: only one the task's
+   * choose-account step offers now. Any earlier choice among the same accounts is replaced.
+   */
+  chooseAccount(id: string, connectorId: unknown): Promise<ILaunchStatusView>;
+  /**
+   * Start a request that waits for a look, on exactly the access it showed: the digest of what the task
+   * would use now must be the one given, or nothing starts and the request is shown again.
+   */
+  confirm(id: string, reviewDigest: unknown): Promise<ILaunchStatusView>;
+  /** Cancel a request that waits for setup or a look; it never starts. */
+  cancel(id: string): Promise<ILaunchStatusView>;
   /** The newest launches first, at most `limit`, each with where it stands. */
   list(limit: number): Promise<readonly ILaunchStatusView[]>;
   /**
@@ -133,11 +154,20 @@ export interface ILaunchCoordinatorOptions {
   readonly newId?: () => string;
   /** Called once a goal is recorded, to run it without waiting for the next tick; its answer is not awaited. */
   readonly onGoalReady?: () => void;
-  /** How long a launch left reserved may still be resumed. */
+  /** How long a launch left reserved may still be resumed, counted from when it was reserved. */
   readonly resumeWithinMs?: number;
+  /** How long a request may wait for setup or a look before it ends; a sitting's worth, since later the facts are stale. */
+  readonly setupWithinMs?: number;
+  /** What each capability lets a run use; the product's own table unless a test supplies another. */
+  readonly capabilityTools?: TCapabilityTools;
 }
 
 const DEFAULT_RESUME_WITHIN_MS = 15 * 60_000;
+const DEFAULT_SETUP_WITHIN_MS = 24 * 60 * 60_000;
+const HEX_DIGEST = /^[0-9a-f]{64}$/u;
+const SETUP_TOO_LONG =
+  'This request waited too long for setup. Start it again if you still want it.';
+const NO_LONGER_RUNS = 'This task can no longer run here.';
 const GOAL_FAILED = 'Your agent could not set this task up. Try starting it again.';
 const READING_TOOLS: ReadonlySet<string> = new Set([
   BROWSER_TOOL_NAMES.open,
@@ -156,6 +186,40 @@ const describeBinding = (binding: TBindingSource): ILaunchBinding => ({
   argumentBoundary: binding.argumentBoundary,
 });
 
+const isWaiting = (intent: ILaunchIntent): boolean =>
+  intent.status === 'setup' || intent.status === 'review';
+
+/** The connectors a person pressing Start was shown: in an access, in a step still to do, or among the accounts to choose from. */
+function namedBy(readiness: TReadiness, bindings: readonly ILaunchBinding[]): string[] {
+  const ids = new Set<string>();
+  for (const binding of bindings) if (binding.account !== undefined) ids.add(binding.account);
+  if (readiness.state === 'needs-setup')
+    for (const step of readiness.steps) {
+      if (step.type === 'choose-account') for (const account of step.accounts) ids.add(account.id);
+      else if (step.type !== 'connect') ids.add(step.connectorId);
+    }
+  return [...ids].sort().slice(0, LAUNCH_LIMITS.accounts);
+}
+
+/** The access in a fixed order, so that what the person looked at and what is recomputed compare equal. */
+const ordered = (bindings: readonly ILaunchBinding[]): ILaunchBinding[] =>
+  [...bindings].sort((a, b) => {
+    const [x, y] = [canonicalJson(a), canonicalJson(b)];
+    return x < y ? -1 : x > y ? 1 : 0;
+  });
+
+/** What a request waiting for setup or a look is to do now, from one reading of what it rests on. */
+type TWaitingPlan =
+  | { readonly kind: 'end'; readonly message: string }
+  | { readonly kind: 'setup'; readonly changed: boolean }
+  | {
+      readonly kind: 'ready';
+      readonly bindings: ILaunchBinding[];
+      readonly changed: boolean;
+      /** Whether every account is one the person named or chose and nothing recorded at Start changed. */
+      readonly unattended: boolean;
+    };
+
 /** The order the bindings are listed in does not make a different request. */
 const sameBindings = (a: readonly ILaunchBinding[], b: readonly ILaunchBinding[]): boolean =>
   JSON.stringify(a.map(canonicalJson).sort()) === JSON.stringify(b.map(canonicalJson).sort());
@@ -165,6 +229,8 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
   const now = options.now ?? (() => new Date());
   const newId = options.newId ?? (() => `launch-${randomUUID()}`);
   const resumeWithinMs = options.resumeWithinMs ?? DEFAULT_RESUME_WITHIN_MS;
+  const setupWithinMs = options.setupWithinMs ?? DEFAULT_SETUP_WITHIN_MS;
+  const capabilityTools = options.capabilityTools ?? CAPABILITY_TOOLS;
   const rules = options.rules ?? EVIDENCE_RULES;
   const pageHosts = new Set(options.pageHosts ?? []);
   let tail: Promise<unknown> = Promise.resolve();
@@ -186,8 +252,22 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
     );
   };
 
-  /** The answer for an intent that has settled: its goal, or the refusal it ended with. */
-  const answer = (intent: ILaunchIntent, created: boolean): ILaunchStarted => {
+  /** What is left to set up for a request, as the host works it out now. */
+  const stepsOf = async (intent: ILaunchIntent): Promise<readonly TSetupStep[] | undefined> => {
+    const assessment = await catalog.assess(intent.definitionId, intent.chosenAccounts);
+    return assessment?.readiness.state === 'needs-setup' ? assessment.readiness.steps : undefined;
+  };
+
+  /** A waiting request as the page reads it, without moving it. */
+  const describeWaiting = async (intent: ILaunchIntent): Promise<ILaunchStatusView> =>
+    describeStatus({
+      intent,
+      ...(intent.status === 'setup' && { steps: (await stepsOf(intent)) ?? [] }),
+    });
+
+  /** The answer for an intent that has settled: its goal, the request still waiting, or the refusal it ended with. */
+  const answer = async (intent: ILaunchIntent, created: boolean): Promise<ILaunchStarted> => {
+    if (isWaiting(intent)) return { launch: await describeWaiting(intent), created };
     if (intent.status !== 'launched' || intent.goalId === undefined) return ended(intent);
     return { launch: view(intent), goalId: intent.goalId, created };
   };
@@ -246,9 +326,9 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
 
   /** Why a reserved request no longer rests on what it was made from, or nothing when it still does. */
   const staleReason = async (intent: ILaunchIntent): Promise<string | undefined> => {
-    if (now().getTime() - Date.parse(intent.createdAt) > resumeWithinMs)
+    if (now().getTime() - Date.parse(intent.reservedAt ?? intent.createdAt) > resumeWithinMs)
       return 'This request waited too long to start. Start it again if you still want it.';
-    const assessment = await catalog.assess(intent.definitionId);
+    const assessment = await catalog.assess(intent.definitionId, intent.chosenAccounts);
     if (assessment === undefined) return 'This task is no longer in your catalog.';
     if (
       assessment.definition.revision !== intent.definitionRevision ||
@@ -287,8 +367,123 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
     return fail(intent, 'stale', stale);
   };
 
+  /**
+   * What a waiting request is to do now. It ends when it waited too long, when the task is gone or
+   * changed, when its offer no longer passes the gate, or when the task can no longer run here. Else the
+   * access recorded at Start is compared with what the task would run on now (a binding that went
+   * missing or changed, except one the person's own choice turned down, marks the request as changed for
+   * good), and the request either still needs setup or is ready.
+   */
+  const planWaiting = async (intent: ILaunchIntent): Promise<TWaitingPlan> => {
+    const end = (message: string): TWaitingPlan => ({ kind: 'end', message });
+    if (now().getTime() - Date.parse(intent.createdAt) > setupWithinMs) return end(SETUP_TOO_LONG);
+    const assessment = await catalog.assess(intent.definitionId, intent.chosenAccounts);
+    if (assessment === undefined) return end('This task is no longer in your catalog.');
+    const { definition } = assessment;
+    if (
+      definition.revision !== intent.definitionRevision ||
+      digestOf(definition) !== intent.definitionDigest
+    )
+      return end('This task changed after you asked for it. Look at it again and start it again.');
+    if (intent.origin.kind === 'offer') {
+      const admission =
+        options.offers === undefined
+          ? ({ ok: false, reason: 'There is no such offer.' } as const)
+          : await options.offers.admit(intent.origin.offerId, definition);
+      if (!admission.ok) return end(admission.reason);
+    }
+    if (
+      assessment.readiness.state === 'unavailable' ||
+      !canStart(recipes, definition, capabilityTools)
+    )
+      return end(NO_LONGER_RUNS);
+    const current = assessment.bindings.map(describeBinding);
+    const chosen = intent.chosenAccounts ?? [];
+    const turnedDown = (recorded: ILaunchBinding): boolean =>
+      recorded.account !== undefined &&
+      current.some(
+        (live) =>
+          live.capability === recorded.capability &&
+          live.account !== undefined &&
+          live.account !== recorded.account &&
+          chosen.includes(live.account),
+      );
+    const missing = intent.bindings.some(
+      (recorded) =>
+        !current.some((live) => canonicalJson(live) === canonicalJson(recorded)) &&
+        !turnedDown(recorded),
+    );
+    const changed = intent.authorityChanged === true || missing;
+    if (assessment.readiness.state === 'needs-setup') return { kind: 'setup', changed };
+    const named = new Set([...(intent.namedAccounts ?? []), ...chosen]);
+    const unattended =
+      !changed &&
+      current.every((binding) => binding.account === undefined || named.has(binding.account));
+    return { kind: 'ready', bindings: ordered(current), changed, unattended };
+  };
+
+  /** Reserve a ready request on the access it will run on and make its one goal. */
+  const reserveAndStart = async (
+    intent: ILaunchIntent,
+    bindings: readonly ILaunchBinding[],
+    changed: boolean,
+  ): Promise<ILaunchIntent> =>
+    materialize(
+      await store.advance(intent.id, {
+        status: 'reserved',
+        bindings,
+        reservedAt: now().toISOString(),
+        ...(changed && { authorityChanged: true as const }),
+      }),
+    );
+
+  /** Put a request in front of the person with the access it would now run on. */
+  const toReview = (
+    intent: ILaunchIntent,
+    bindings: readonly ILaunchBinding[],
+    changed: boolean,
+  ): Promise<ILaunchIntent> =>
+    store.advance(intent.id, {
+      status: 'review',
+      proposed: bindings,
+      reviewDigest: digestOf(bindings),
+      ...(changed && { authorityChanged: true as const }),
+    });
+
+  /**
+   * Move a waiting request on from one reading of what it rests on. A request that still needs setup
+   * stays (or goes back from review); a ready one starts by itself only on access the person named or
+   * chose, and otherwise waits to be looked at. Run inside the queue.
+   */
+  const advanceWaiting = async (from: ILaunchIntent): Promise<ILaunchIntent> => {
+    const intent = (await store.get(from.id)) ?? from;
+    if (!isWaiting(intent)) return intent;
+    const plan = await planWaiting(intent);
+    if (plan.kind === 'end') return fail(intent, 'stale', plan.message);
+    if (plan.kind === 'setup') {
+      if (intent.status === 'setup' && (!plan.changed || intent.authorityChanged === true))
+        return intent;
+      return store.advance(intent.id, {
+        status: 'setup',
+        ...(plan.changed && { authorityChanged: true as const }),
+      });
+    }
+    if (plan.unattended) return reserveAndStart(intent, plan.bindings, plan.changed);
+    const flagged = plan.changed && intent.authorityChanged !== true;
+    if (intent.status === 'review' && intent.reviewDigest === digestOf(plan.bindings) && !flagged)
+      return intent;
+    return toReview(intent, plan.bindings, plan.changed);
+  };
+
   const settle = async (intent: ILaunchIntent): Promise<ILaunchStarted> =>
-    answer(intent.status === 'reserved' ? await resume(intent) : intent, false);
+    answer(
+      intent.status === 'reserved'
+        ? await resume(intent)
+        : isWaiting(intent)
+          ? await advanceWaiting(intent)
+          : intent,
+      false,
+    );
 
   /** A launch of the same task and values whose goal is still under way: a second request for it is the same request. */
   const underWay = async (
@@ -304,7 +499,7 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
         canonicalJson(intent.inputs) !== wanted
       )
         continue;
-      if (intent.status === 'reserved') return intent;
+      if (intent.status === 'reserved' || isWaiting(intent)) return intent;
       if (intent.status !== 'launched' || intent.goalId === undefined) continue;
       const goal = await goals.get(intent.goalId);
       if (goal !== undefined && OPEN_GOAL_STATES.has(goal.status)) return intent;
@@ -340,8 +535,14 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
   const awaiting = (intent: ILaunchIntent): boolean =>
     intent.status === 'launched' && intent.outcome === undefined;
 
-  const statusOf = async (intent: ILaunchIntent): Promise<ILaunchStatusView> => {
-    const current = awaiting(intent) ? await inOrder(() => decide(intent)) : intent;
+  /** A launch as the page reads it after the work it owes is done; the caller holds the queue. */
+  const viewIn = async (intent: ILaunchIntent): Promise<ILaunchStatusView> => {
+    const current = isWaiting(intent)
+      ? await advanceWaiting(intent)
+      : awaiting(intent)
+        ? await decide(intent)
+        : intent;
+    if (isWaiting(current)) return describeWaiting(current);
     if (
       current.status !== 'launched' ||
       current.goalId === undefined ||
@@ -350,6 +551,19 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
       return describeStatus({ intent: current });
     const goal = await goals.get(current.goalId);
     return describeStatus({ intent: current, ...(goal !== undefined && { goal }) });
+  };
+
+  const statusOf = (intent: ILaunchIntent): Promise<ILaunchStatusView> =>
+    isWaiting(intent) || awaiting(intent) ? inOrder(() => viewIn(intent)) : viewIn(intent);
+
+  const waitingRequest = async (id: string, wanted: readonly string[]): Promise<ILaunchIntent> => {
+    const intent = await store.get(id);
+    if (intent === undefined) throw new LaunchRefusedError('unknown', 'There is no such launch.');
+    if (!wanted.includes(intent.status))
+      throw new LaunchRefusedError('conflict', 'This request is not waiting for that any more.', {
+        launch: view(intent),
+      });
+    return intent;
   };
 
   /**
@@ -417,10 +631,12 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
     if (assessment === undefined) throw new LaunchRefusedError('unknown', 'There is no such task.');
     const { definition } = assessment;
     const recipe = recipeFor(recipes, definition);
+    // A task that needs setting up is kept and waits; only one the host cannot run, or has no way to
+    // start, is refused.
     if (
-      assessment.readiness.state !== 'ready' ||
+      assessment.readiness.state === 'unavailable' ||
       recipe === undefined ||
-      !canStart(recipes, definition)
+      !canStart(recipes, definition, capabilityTools)
     )
       throw new LaunchRefusedError(
         'not-ready',
@@ -449,6 +665,9 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
     const twin = await underWay(definition.id, definitionDigest, inputs);
     if (twin !== undefined) return settle(twin);
     const stamp = now().toISOString();
+    const bindings = assessment.bindings.map(describeBinding);
+    const waiting = assessment.readiness.state === 'needs-setup';
+    const named = waiting ? namedBy(assessment.readiness, bindings) : [];
     const intent: ILaunchIntent = {
       id: newId(),
       idempotencyKey: key,
@@ -457,9 +676,10 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
       definitionRevision: definition.revision,
       definitionDigest,
       inputs,
-      bindings: assessment.bindings.map(describeBinding),
+      bindings,
       origin: offerId === undefined ? { kind: 'manual' } : { kind: 'offer', offerId },
-      status: 'reserved',
+      status: waiting ? 'setup' : 'reserved',
+      ...(named.length > 0 && { namedAccounts: named }),
       createdAt: stamp,
       updatedAt: stamp,
     };
@@ -470,11 +690,80 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
         throw new LaunchRefusedError('failed', error.message);
       throw error;
     }
-    return answer(await materialize(intent), true);
+    return answer(waiting ? intent : await materialize(intent), true);
   };
 
   return {
     start: (request) => inOrder(() => startOne(request)),
+    chooseAccount: (id, connectorId) =>
+      inOrder(async () => {
+        if (typeof connectorId !== 'string' || !CONNECTOR_ID.test(connectorId))
+          throw new LaunchRefusedError('invalid', 'connectorId is not the id of a connector');
+        const intent = await waitingRequest(id, ['setup']);
+        // The accounts offered are read without the choices made, so a choice can be changed while the request waits.
+        const open = await catalog.assess(intent.definitionId);
+        const steps =
+          open?.readiness.state === 'needs-setup'
+            ? open.readiness.steps.filter(
+                (step) =>
+                  step.type === 'choose-account' &&
+                  step.accounts.some((account) => account.id === connectorId),
+              )
+            : [];
+        if (open === undefined || steps.length === 0)
+          throw new LaunchRefusedError('not-ready', 'That account is not one this task offers.', {
+            launch: view(intent),
+            ...(open !== undefined && { readiness: open.readiness }),
+          });
+        const replaced = new Set(
+          steps.flatMap((step) =>
+            step.type === 'choose-account' ? step.accounts.map((account) => account.id) : [],
+          ),
+        );
+        const chosen = [
+          ...(intent.chosenAccounts ?? []).filter((earlier) => !replaced.has(earlier)),
+          connectorId,
+        ];
+        return viewIn(await store.advance(id, { status: 'setup', chosenAccounts: chosen }));
+      }),
+    confirm: (id, reviewDigest) =>
+      inOrder(async () => {
+        if (typeof reviewDigest !== 'string' || !HEX_DIGEST.test(reviewDigest))
+          throw new LaunchRefusedError(
+            'invalid',
+            'reviewDigest is not the digest of an access list',
+          );
+        const intent = await waitingRequest(id, ['review']);
+        const plan = await planWaiting(intent);
+        if (plan.kind === 'end') return ended(await fail(intent, 'stale', plan.message));
+        if (plan.kind === 'setup') {
+          const back = await store.advance(id, {
+            status: 'setup',
+            ...(plan.changed && { authorityChanged: true as const }),
+          });
+          throw new LaunchRefusedError(
+            'conflict',
+            'Something this task needs changed, so it is waiting for setup again.',
+            { launch: await describeWaiting(back) },
+          );
+        }
+        if (digestOf(plan.bindings) !== reviewDigest) {
+          const again = await toReview(intent, plan.bindings, plan.changed);
+          throw new LaunchRefusedError(
+            'conflict',
+            'The access this task would use changed. Look at it again before starting.',
+            { launch: await describeWaiting(again) },
+          );
+        }
+        return viewIn(await reserveAndStart(intent, plan.bindings, plan.changed));
+      }),
+    cancel: (id) =>
+      inOrder(async () => {
+        const intent = await waitingRequest(id, ['setup', 'review', 'cancelled']);
+        return viewIn(
+          intent.status === 'cancelled' ? intent : await store.advance(id, { status: 'cancelled' }),
+        );
+      }),
     get: async (id) => {
       const intent = await store.get(id);
       return intent === undefined ? undefined : statusOf(intent);
@@ -487,11 +776,12 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
     recover: () =>
       inOrder(async () => {
         for (const intent of await store.list()) {
-          if (intent.status !== 'reserved') continue;
+          if (intent.status !== 'reserved' && intent.status !== 'setup') continue;
           try {
-            await resume(intent);
+            if (intent.status === 'setup') await advanceWaiting(intent);
+            else await resume(intent);
           } catch {
-            // allow-fallback: an intent that cannot be settled now stays reserved, and the next start or retry settles it.
+            // allow-fallback: an intent that cannot be settled now stays as it is, and the next start, read or retry settles it.
           }
         }
         // A goal that ended while nobody was deciding (a stop between its end and its outcome) is decided now.
@@ -522,7 +812,10 @@ export function createLaunchCoordinator(options: ILaunchCoordinatorOptions): ILa
         intent !== undefined &&
         (intent.status === 'reserved' || intent.status === 'launched') &&
         (intent.goalId === undefined || intent.goalId === goal.id)
-          ? toolsFor(intent.bindings.map((binding) => binding.capability))
+          ? toolsFor(
+              intent.bindings.map((binding) => binding.capability),
+              capabilityTools,
+            )
           : undefined;
       if (intent === undefined || tools === undefined)
         return {

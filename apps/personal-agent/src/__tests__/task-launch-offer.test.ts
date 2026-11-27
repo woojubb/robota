@@ -159,7 +159,7 @@ describe('what the offer is told', () => {
     const { port, calls } = offersPort();
     const world = startWorld({ offers: port });
     const started = await world.launches.start(fromOffer());
-    const goal = (await world.goals.get(started.goalId))!;
+    const goal = (await world.goals.get(started.goalId!))!;
     const launchId = started.launch.id;
     expect(calls).toEqual([`admit ${OFFER}`, `accepted ${OFFER} ${launchId}`]);
 
@@ -178,7 +178,7 @@ describe('what the offer is told', () => {
     const { port, calls } = offersPort();
     const world = startWorld({ offers: port });
     const started = await world.launches.start(fromOffer());
-    await runLaunchedGoal(world, started.goalId, {
+    await runLaunchedGoal(world, started.goalId!, {
       outcome: 'done',
       report: 'Yes.',
       reads: [receipt()],
@@ -196,7 +196,7 @@ describe('what the offer is told', () => {
     expect(started.created).toBe(true);
     expect(port.accepted).toHaveBeenCalledTimes(1);
 
-    await runLaunchedGoal(world, started.goalId, { outcome: 'done', report: 'Yes.' });
+    await runLaunchedGoal(world, started.goalId!, { outcome: 'done', report: 'Yes.' });
     await world.launches.get(started.launch.id);
     expect(port.outcome).toHaveBeenCalledTimes(1);
     // A stop before the offer was told leaves it for the host's next start, where each record is repeated
