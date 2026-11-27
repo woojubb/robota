@@ -14,7 +14,9 @@ import type {
   ModelCallCapability,
   ModelCallIntent,
   PricePolicy,
+  ToolEffectIntent,
   TurnServices,
+  UsageCallKind,
   UsageEstimator,
   UsagePrincipal,
   UsageRecord,
@@ -41,8 +43,14 @@ function text(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
 }
 
-function sameIdentity(record: UsageRecord, ctx: UsageContext, call: ModelCallIntent): boolean {
+function sameIdentity(
+  record: UsageRecord,
+  ctx: UsageContext,
+  call: ModelCallIntent,
+  kind: UsageCallKind,
+): boolean {
   return (
+    record.kind === kind &&
     record.conversationId === ctx.conversationId &&
     record.providerId === call.providerId &&
     record.modelId === call.modelId &&
@@ -56,7 +64,8 @@ function sameIdentity(record: UsageRecord, ctx: UsageContext, call: ModelCallInt
  * serialized by the same lock that already orders every other state change. Idempotent per callId and
  * bound: re-admitting a call already reserved or settled is a no-op rather than a second reservation,
  * and a changed bound conflicts. Under a budget the call is admitted only while the bound it declares
- * fits beside everything already spent or reserved.
+ * fits beside everything already spent or reserved. A tool effect (`kind`) is admitted the same way
+ * but is not a model call: it skips every model-call limit, though it still counts against a budget.
  */
 export function reserveModelCall(
   state: ConversationState,
@@ -64,6 +73,7 @@ export function reserveModelCall(
   ctx: UsageContext,
   call: ModelCallIntent,
   policies: { pricing?: PricePolicy; estimator?: UsageEstimator } = {},
+  kind: UsageCallKind = 'model',
 ): void {
   if (!text(call.callId) || !text(call.providerId) || !text(call.modelId))
     throw new RoundtableError('invalid-config', 'Model call identity is invalid');
@@ -75,7 +85,7 @@ export function reserveModelCall(
   const usage = state.snapshot.usage;
   const existing = usage.find((record) => record.callId === call.callId);
   if (existing) {
-    if (!sameIdentity(existing, ctx, call))
+    if (!sameIdentity(existing, ctx, call, kind))
       throw new RoundtableError('conflict', 'Model call id was already used by another call');
     if (canonicalJson(existing.bound ?? null) !== canonicalJson(call.bound ?? null))
       throw new RoundtableError(
@@ -85,20 +95,24 @@ export function reserveModelCall(
     return;
   }
   const limits = state.definition.limits;
-  const admittedUsage = usage.filter((record) => record.admitted);
-  if (limits.maxModelCallsPerRun !== null) {
+  const admittedUsage = usage.filter((record) => record.admitted && record.kind === 'model');
+  if (kind === 'model' && limits.maxModelCallsPerRun !== null) {
     const count = admittedUsage.filter((record) => record.runId === ctx.runId).length;
     if (count >= limits.maxModelCallsPerRun)
       throw new RoundtableError('model-call-limit', 'Model-call limit for this run was reached');
   }
-  if (limits.maxModelCallsPerConversation !== null) {
+  if (kind === 'model' && limits.maxModelCallsPerConversation !== null) {
     if (admittedUsage.length >= limits.maxModelCallsPerConversation)
       throw new RoundtableError(
         'model-call-limit',
         'Model-call limit for this conversation was reached',
       );
   }
-  if (limits.maxModelCallsPerParticipant !== null && ctx.principal.kind === 'participant') {
+  if (
+    kind === 'model' &&
+    limits.maxModelCallsPerParticipant !== null &&
+    ctx.principal.kind === 'participant'
+  ) {
     const count = admittedUsage.filter(
       (record) =>
         record.principal.kind === 'participant' && record.principal.id === ctx.principal.id,
@@ -111,9 +125,12 @@ export function reserveModelCall(
   }
   const budget = state.definition.budget;
   const reservation =
-    budget === null ? null : resolveReservation(call, budget, policies.pricing, policies.estimator);
+    budget === null
+      ? null
+      : resolveReservation(call, kind, budget, policies.pricing, policies.estimator);
   if (budget !== null && reservation !== null) admitUnderBudget(usage, budget, reservation);
   const record: UsageRecord = {
+    kind,
     callId: call.callId,
     providerId: call.providerId,
     modelId: call.modelId,
@@ -191,6 +208,8 @@ export function settleUsage(
       existing.principal.id !== ctx.principal.id
     )
       throw new RoundtableError('conflict', 'Usage report does not belong to this principal');
+    if (existing.kind === 'tool-effect' && report.outcome === 'cache-hit')
+      throw new RoundtableError('conflict', 'A tool effect cannot be reported as a cache hit');
     if (existing.status === 'settled' && sameReport(existing, report)) return;
     if (existing.reconciled)
       throw new RoundtableError('conflict', 'A reconciled call accepts no further usage report');
@@ -209,6 +228,7 @@ export function settleUsage(
     );
   }
   const base = existing ?? {
+    kind: 'model' as UsageCallKind,
     callId: report.callId,
     providerId: report.providerId as string,
     modelId: report.modelId as string,
@@ -223,6 +243,7 @@ export function settleUsage(
     admitted: false,
   };
   const settled: UsageRecord = {
+    kind: base.kind,
     callId: base.callId,
     providerId: base.providerId,
     modelId: base.modelId,
@@ -269,7 +290,7 @@ function callCountSpent(
   principals: readonly UsagePrincipal[],
 ): boolean {
   const { limits } = state.definition;
-  const usage = state.snapshot.usage.filter((record) => record.admitted);
+  const usage = state.snapshot.usage.filter((record) => record.admitted && record.kind === 'model');
   const needed = principals.length;
   const runUsed = usage.filter((record) => record.runId === runId).length;
   if (limits.maxModelCallsPerRun !== null && limits.maxModelCallsPerRun - runUsed < needed)
@@ -377,22 +398,46 @@ export function createTurnServices(options: {
   estimator?: UsageEstimator;
 }): TurnServices {
   const { persistence, emit, signal, ctx, onLimit, pricing, estimator } = options;
+  async function admit(call: ModelCallIntent, kind: UsageCallKind): Promise<void> {
+    signal.throwIfAborted();
+    try {
+      await persistence.update((draft, revision) => {
+        reserveModelCall(draft, revision, ctx, call, { pricing, estimator }, kind);
+      });
+    } catch (error) {
+      // A reached limit ends the run like a time limit rather than failing the conversation.
+      if (error instanceof RoundtableError && error.code === 'model-call-limit')
+        onLimit('model-calls');
+      if (error instanceof RoundtableError && error.code === 'budget-limit') onLimit('budget');
+      throw error;
+    }
+    const record = persistence.snapshot().snapshot.usage.find((r) => r.callId === call.callId);
+    if (record) await emit({ type: 'usage', record }, signal);
+  }
   return {
     async admitModelCall(call: ModelCallIntent): Promise<void> {
-      signal.throwIfAborted();
-      try {
-        await persistence.update((draft, revision) => {
-          reserveModelCall(draft, revision, ctx, call, { pricing, estimator });
-        });
-      } catch (error) {
-        // A reached limit ends the run like a time limit rather than failing the conversation.
-        if (error instanceof RoundtableError && error.code === 'model-call-limit')
-          onLimit('model-calls');
-        if (error instanceof RoundtableError && error.code === 'budget-limit') onLimit('budget');
-        throw error;
-      }
-      const record = persistence.snapshot().snapshot.usage.find((r) => r.callId === call.callId);
-      if (record) await emit({ type: 'usage', record }, signal);
+      await admit(call, 'model');
+    },
+    async admitToolEffect(effect: ToolEffectIntent): Promise<void> {
+      if (
+        !text(effect?.callId) ||
+        !text(effect.toolName) ||
+        !Number.isSafeInteger(effect.tokens) ||
+        effect.tokens < 0
+      )
+        throw new RoundtableError(
+          'invalid-config',
+          'A tool effect needs a call id, a tool name and a non-negative integer token bound',
+        );
+      await admit(
+        {
+          callId: effect.callId,
+          providerId: 'tool',
+          modelId: effect.toolName,
+          bound: { inputTokens: effect.tokens, maxOutputTokens: 0 },
+        },
+        'tool-effect',
+      );
     },
     async recordUsage(report: UsageReport): Promise<void> {
       // Not gated on `signal`: a response that settles after the run stopped still belongs in the

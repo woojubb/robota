@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { FunctionTool, ConversationAgent, clearRegisteredToolProfiles } from '@robota-sdk/agent-core';
+import {
+  FunctionTool,
+  ConversationAgent,
+  clearRegisteredToolProfiles,
+} from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { SelectionContext, TurnServices } from '@robota-sdk/agent-roundtable';
 import { runtimeSelector, runtimeSelectorRegistration } from './runtime-selector';
@@ -11,7 +15,11 @@ afterEach(() => {
 });
 
 function noServices(): TurnServices {
-  return { admitModelCall: async () => {}, recordUsage: async () => {} };
+  return {
+    admitModelCall: async () => {},
+    recordUsage: async () => {},
+    admitToolEffect: async () => {},
+  };
 }
 
 function context(overrides: Partial<SelectionContext> = {}): SelectionContext {
@@ -170,6 +178,7 @@ describe('runtimeSelector', () => {
           admitted.push(call);
         },
         recordUsage: async () => {},
+        admitToolEffect: async () => {},
       },
     });
     expect(selection).toEqual({ kind: 'speak', participantId: 'a' });
@@ -263,6 +272,7 @@ describe('runtimeSelector', () => {
         throw new Error('turn cancelled');
       },
       recordUsage: async () => {},
+      admitToolEffect: async () => {},
     };
     await expect(
       selector.select(context(), { signal: controller.signal, services: cancelledDuringAdmission }),

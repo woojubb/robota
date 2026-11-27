@@ -133,3 +133,95 @@ describe('the persisted usage ledger is validated on load', () => {
     ).rejects.toMatchObject({ code: 'invalid-config' });
   });
 });
+
+describe('a persisted tool effect is validated on load', () => {
+  async function saved(conversationId: string) {
+    const f = fixture();
+    const factory: ParticipantFactory = {
+      modelCalls: 'metered',
+      checkpointVersions: ['1'],
+      openSession: async () => ({
+        session: {
+          runTurn: async (_turn, options) => {
+            await options.services.admitToolEffect({
+              callId: 'fx-1',
+              toolName: 'search',
+              tokens: 5,
+            });
+            await options.services.recordUsage({
+              callId: 'fx-1',
+              outcome: 'completed',
+              provenance: 'reported',
+              final: true,
+              tokens: { input: 5, output: 0 },
+            });
+            return { kind: 'speak', content: 'ok' };
+          },
+          checkpoint: async () => ({ version: '1', data: null }),
+        },
+        release: async () => {},
+      }),
+    };
+    const participant: AgentParticipant = { ...f.participant, factory };
+    const registry: RoundtableRegistry = {
+      resolveParticipant: vi.fn(async () => ({ reference: participant.runtime, factory })),
+    };
+    const store = new MemoryConversationStore();
+    const room = createRoundtable({
+      conversationId,
+      store,
+      participants: [participant],
+      limits: { maxTurnsPerRun: 1 },
+    });
+    await room.run();
+    await room.dispose();
+    const envelope = (await store.load(conversationId))!;
+    const state = envelope.state as unknown as ConversationState;
+    const [record] = state.snapshot.usage as unknown as Record<string, unknown>[];
+    return { store, registry, envelope, record };
+  }
+
+  it('round-trips a tool-effect record', async () => {
+    const { store, registry } = await saved('tool-effect-round-trip');
+    const loaded = await loadRoundtable({
+      conversationId: 'tool-effect-round-trip',
+      store,
+      registry,
+    });
+    expect(loaded.snapshot().usage).toEqual([
+      expect.objectContaining({
+        kind: 'tool-effect',
+        providerId: 'tool',
+        modelId: 'search',
+        bound: { inputTokens: 5, maxOutputTokens: 0 },
+        status: 'settled',
+      }),
+    ]);
+    await loaded.dispose();
+  });
+
+  it.each([
+    ['a corrupt kind', (record: Record<string, unknown>) => (record.kind = 'bogus')],
+    ['no kind', (record: Record<string, unknown>) => delete record.kind],
+    [
+      'a tool effect with output tokens',
+      (record: Record<string, unknown>) => (record.bound = { inputTokens: 5, maxOutputTokens: 1 }),
+    ],
+    [
+      'a tool effect with a provider',
+      (record: Record<string, unknown>) => (record.providerId = 'p'),
+    ],
+    [
+      'an admission-free tool effect',
+      (record: Record<string, unknown>) =>
+        Object.assign(record, { admitted: false, outcome: 'cache-hit' }),
+    ],
+  ])('rejects %s', async (_label, corrupt) => {
+    const { store, registry, envelope, record } = await saved('tool-effect-corrupt');
+    corrupt(record);
+    vi.spyOn(store, 'load').mockResolvedValue(envelope);
+    await expect(
+      loadRoundtable({ conversationId: 'tool-effect-corrupt', store, registry }),
+    ).rejects.toMatchObject({ code: 'invalid-config' });
+  });
+});
