@@ -411,6 +411,21 @@ describe('crash recovery', () => {
 });
 
 describe('audit', () => {
+  it('keeps the result of a completed command when only its audit write fails', async () => {
+    const host = await makeHost();
+    await host.plane.add(addInput('alice'));
+    host.audit.append = async () => {
+      throw new Error('ENOSPC: disk full');
+    };
+    const view = await host.plane.suspend('alice');
+    expect(view.state).toBe('suspended');
+    expect(host.store.get('alice')?.state).toBe('suspended');
+    const status = await host.plane.status();
+    expect(status.audit.failures).toBeGreaterThanOrEqual(1);
+    expect(status.audit.last).toContain('disk full');
+    expect(JSON.stringify(status)).not.toContain(KEY);
+  });
+
   it('records every command, refused or not, and never a secret', async () => {
     const host = await makeHost();
     await host.plane.add(addInput('alice'));

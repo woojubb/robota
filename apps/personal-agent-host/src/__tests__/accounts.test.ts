@@ -158,6 +158,54 @@ describe('account store', () => {
         }),
       ],
       [
+        'hostname with an injected line',
+        JSON.stringify({
+          version: 1,
+          installId: 'abcdef01',
+          accounts: [{ ...record('alice'), hostname: 'alice.evil.example\n}\nimport /etc/x {' }],
+        }),
+      ],
+      [
+        'hostname with no domain',
+        JSON.stringify({
+          version: 1,
+          installId: 'abcdef01',
+          accounts: [{ ...record('alice'), hostname: 'alice.' }],
+        }),
+      ],
+      [
+        'hostname with a space',
+        JSON.stringify({
+          version: 1,
+          installId: 'abcdef01',
+          accounts: [{ ...record('alice'), hostname: 'alice.a b' }],
+        }),
+      ],
+      [
+        'hostname in uppercase',
+        JSON.stringify({
+          version: 1,
+          installId: 'abcdef01',
+          accounts: [{ ...record('alice'), hostname: 'alice.Example.Test' }],
+        }),
+      ],
+      [
+        'image with a space',
+        JSON.stringify({
+          version: 1,
+          installId: 'abcdef01',
+          accounts: [{ ...record('alice'), image: 'bad image' }],
+        }),
+      ],
+      [
+        'image with a newline',
+        JSON.stringify({
+          version: 1,
+          installId: 'abcdef01',
+          accounts: [{ ...record('alice'), image: 'img\nx' }],
+        }),
+      ],
+      [
         'duplicate id',
         JSON.stringify({
           version: 1,

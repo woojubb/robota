@@ -1,3 +1,4 @@
+import { IMAGE, validateBaseDomain } from '../config.js';
 import { HostError } from '../errors.js';
 import type { IProviderInfo, IUnitLimits, RuntimeBackend } from '../runtime/port.js';
 import type { AccountState, IAccountRecord, KeySource } from './types.js';
@@ -129,12 +130,16 @@ export function parseAccountRecord(value: unknown, where: string): IAccountRecor
     if (
       typeof r.hostname !== 'string' ||
       !r.hostname.startsWith(`${id}.`) ||
-      r.hostname.length > 253
+      r.hostname.length > 253 ||
+      validateBaseDomain(r.hostname.slice(id.length + 1)) !== undefined
     ) {
-      corrupt('hostname must be <id>.<domain>');
+      // Syntax only: the stored hostname is authoritative, so changing the configured base domain
+      // later never makes the store unreadable.
+      corrupt('hostname must be <id>.<valid DNS domain>');
     }
     if (!STATES.includes(r.state as AccountState)) corrupt('unknown state');
-    if (typeof r.image !== 'string' || r.image.length === 0) corrupt('image is missing');
+    if (typeof r.image !== 'string' || !IMAGE.test(r.image))
+      corrupt('image is not a valid reference');
     if (typeof r.createdAt !== 'string' || !TIMESTAMP.test(r.createdAt))
       corrupt('createdAt is invalid');
     if (typeof r.updatedAt !== 'string' || !TIMESTAMP.test(r.updatedAt))

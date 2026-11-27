@@ -36,6 +36,10 @@ async function code(promise: Promise<unknown>): Promise<string | undefined> {
 export function describeRuntimePortContract(
   name: string,
   make: () => IRuntimePort | Promise<IRuntimePort>,
+  options: {
+    /** A runtime whose guard cannot be verified; when given, `start` must be refused on it. */
+    makeUnverified?: () => IRuntimePort | Promise<IRuntimePort>;
+  } = {},
 ): void {
   describe(`runtime port contract: ${name}`, () => {
     it('provisions idempotently', async () => {
@@ -122,6 +126,18 @@ export function describeRuntimePortContract(
       expect(await code(port.accessCode('nobody'))).toBe('unknown-account');
       expect(await code(port.start(unitSpecFor('nobody'), {}))).toBe('unknown-account');
     });
+
+    if (options.makeUnverified) {
+      const makeUnverified = options.makeUnverified;
+      it('refuses to start a unit while the guard is unverified', async () => {
+        const port = await makeUnverified();
+        expect((await port.describe()).guard.state).toBe('unverified');
+        await port.provision(unitSpecFor('alpha'));
+        expect(await code(port.start(unitSpecFor('alpha'), {}))).toBe('guard-unverified');
+        expect((await port.inspect('alpha')).state).not.toBe('running');
+        await port.destroy('alpha');
+      });
+    }
 
     it('describes its backend and guard', async () => {
       const description = await (await make()).describe();

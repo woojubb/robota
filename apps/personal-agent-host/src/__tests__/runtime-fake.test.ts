@@ -4,7 +4,13 @@ import { FakeRuntime } from '../runtime/fake.js';
 import { RuntimePortError } from '../runtime/port.js';
 import { describeRuntimePortContract, unitSpecFor } from '../runtime/testing/contract.js';
 
-describeRuntimePortContract('fake runtime', () => new FakeRuntime());
+describeRuntimePortContract('fake runtime', () => new FakeRuntime(), {
+  makeUnverified: () => {
+    const runtime = new FakeRuntime();
+    runtime.setGuard('unverified');
+    return runtime;
+  },
+});
 
 describe('fake runtime specifics', () => {
   it('uses documentation-range addresses, never loopback', async () => {

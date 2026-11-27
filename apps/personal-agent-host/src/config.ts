@@ -31,7 +31,7 @@ const PREFIX = 'PERSONAL_AGENT_HOST_';
 const ACCOUNT_NETWORK_PREFIX = 29;
 const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
-const IMAGE = /^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,254}$/u;
+export const IMAGE = /^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,254}$/u;
 /** An account hostname is `<id>.<baseDomain>`; ids are at most 31 characters. */
 const MAX_BASE_DOMAIN = 253 - 32;
 

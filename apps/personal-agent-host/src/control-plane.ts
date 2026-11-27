@@ -68,6 +68,8 @@ export interface IAccountView {
 export interface IStatusReport {
   runtime: Pick<IRuntimeDescription, 'backend' | 'isolation'> & { guard: GuardState };
   routesHash: string | null;
+  /** Audit writes that failed after their command had completed. */
+  audit: { failures: number; last: string | null };
   accounts: Array<{
     id: string;
     desired: IAccountRecord['state'];
@@ -89,6 +91,8 @@ export class ControlPlane {
   private queue: Promise<unknown> = Promise.resolve();
   private known: string[] = [];
   private routesHash: string | null = null;
+  private auditFailures = 0;
+  private lastAuditFailure: string | null = null;
   private readonly reconciler: Reconciler;
 
   constructor(private readonly deps: IControlPlaneDeps) {
@@ -116,6 +120,12 @@ export class ControlPlane {
     if (secret) this.known.push(secret);
   }
 
+  /** The operation already happened, so an audit failure is surfaced in status, not as a failure. */
+  private noteAuditFailure(error: unknown): void {
+    this.auditFailures += 1;
+    this.lastAuditFailure = scrub(errorMessage(error), this.known);
+  }
+
   private toHostError(error: unknown): HostError {
     if (error instanceof HostError) {
       return new HostError(error.code, scrub(error.message, this.known));
@@ -133,7 +143,9 @@ export class ControlPlane {
       this.known = [];
       try {
         const result = await task();
-        await this.deps.audit.append({ actor, command: name, account, result: 'ok', reason: null });
+        await this.deps.audit
+          .append({ actor, command: name, account, result: 'ok', reason: null })
+          .catch((error: unknown) => this.noteAuditFailure(error));
         return result;
       } catch (error) {
         const failure = this.toHostError(error);
@@ -434,6 +446,7 @@ export class ControlPlane {
           guard: description.guard.state,
         },
         routesHash: this.routesHash,
+        audit: { failures: this.auditFailures, last: this.lastAuditFailure },
         accounts: records.map((r) => {
           const unit = units.get(r.id);
           return {

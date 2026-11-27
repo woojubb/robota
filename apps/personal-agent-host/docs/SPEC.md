@@ -44,25 +44,16 @@ Self-signup, billing, live migration, GPU, and disk quotas on containers. Accoun
 
 ## Design decisions
 
-- **D1 Explicit per-hostname certificates.** Accounts are operator-created, so every hostname is known when the
-  proxy is configured; an unknown name gets no certificate by construction, with no approval endpoint to get
-  wrong.
-- **D2 The loopback-only agent is reached by a byte forwarder inside the unit.** A sidecar sharing the
-  namespace loses its network when the unit restarts, and a bind-address option would touch published
-  transport packages and drop the loopback-only property.
-- **D3 The proxy sits on the host network.** Joining it to every account network would put it on every
-  account's link and conflict with dropping account-to-account traffic.
-- **D4 Only the control plane starts units.** Units carry no restart policy, so the guard always precedes them.
-- **D5 The container engine is driven through its API, not its CLI.** Structured results, hardening fields that
-  tests can assert, no CLI in the image, and the same channel reaches a remote engine.
-- **D6 The guard is applied through a short-lived helper unit.** It works against a remote engine and keeps the
-  daemon off the host network.
-- **D7 The control plane holds each key and hands it over only at start.** A suspended account's key then exists
-  only in the store; no encryption at rest, because its key would sit beside the file. Root on the runtime host
-  can see a running unit's key, and the guide says so.
-- **D8 Units may query DNS only at the resolvers the host discovers.** Everything else on private, link-local,
-  metadata and carrier-grade ranges stays unreachable.
-- **D9 A guard that disappears while units run is reapplied, else every unit stops.**
+- **Only the control plane starts units.** Units carry no restart policy, so the guard always precedes them.
+- **The control plane holds each key and hands it over only at start.** A suspended account's key then exists
+  only in the store; there is no encryption at rest, because its key would sit beside the file. Root on the
+  runtime host can see a running unit's key, and the guide says so.
+- **A guard that disappears while units run is reapplied, else every unit stops.** A unit must never keep
+  running unguarded, and stopping is the fail-closed fallback when reapplying fails.
+- **The stored hostname is checked for syntax, not against the configured domain.** The record's hostname is
+  authoritative once created, so changing the configured base domain cannot make the store unreadable.
 - **Zero runtime dependencies.** Node built-ins only, so the root daemon has no third-party code to trust.
 - **A cleanup that cannot finish keeps the record.** The half-made account stays visible in `provisioning`
   rather than leaving an unrecorded unit behind.
+- **An audit write that fails after its command completed does not fail the command.** The failure is
+  counted and shown in status instead of reporting finished work as failed.
