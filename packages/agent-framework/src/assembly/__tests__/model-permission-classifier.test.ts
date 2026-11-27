@@ -166,7 +166,7 @@ describe('createSession and auto mode', () => {
       parentConfig: base.config,
       parentContext: base.context,
       parentTools: [],
-      provider: base.provider!,
+      provider: base.provider as IAIProvider,
       terminal: base.terminal,
       cwd: process.cwd(),
       permissionMode: 'auto',

@@ -145,6 +145,18 @@ export interface ISessionOptions<P extends TExecutionProvider = IAIProvider> {
   commandSandbox?: ICommandSandboxApproval;
   /** Decides for `auto` mode. Without one the session refuses that mode. */
   permissionClassifier?: IPermissionClassifier;
+  /**
+   * The classifier was built only from `helperProvider`, never from the session's own provider.
+   * Under a managed provider that also declares `isolatesHelperRequests`, only such a classifier
+   * lets `auto` mode run.
+   */
+  permissionClassifierFromHelper?: boolean;
+  /**
+   * Model-step provider for the host's own side requests (permission classification, naming) when
+   * the session's provider is managed. Never inferred from environment variables or defaults; a
+   * managed provider is refused here.
+   */
+  helperProvider?: IAIProvider;
   /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */
   onProjectAllowTool?: (toolName: string) => void;
   /** Callback for text deltas — enables streaming text to the UI in real-time */

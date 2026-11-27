@@ -14,6 +14,7 @@ import {
 } from '@robota-sdk/agent-core';
 
 import { SessionBase } from './session-base.js';
+import { assertModelStepHelper } from './managed-helper.js';
 import type { IManagedTurnFence } from './managed-continuation.js';
 import {
   buildPermissionEnforcer,
@@ -216,6 +217,9 @@ export class Session extends SessionBase {
       model: this.model,
       provider: provider.name,
     });
+    assertModelStepHelper(options.helperProvider);
+    this.helperProvider = options.helperProvider;
+    this.permissionClassifierFromHelper = options.permissionClassifierFromHelper === true;
     this.aiProvider = provider;
     configureProvider(provider, options, (event, data) => this.log(event, data));
     this.permissionEnforcer = buildPermissionEnforcer(
@@ -853,6 +857,7 @@ export class Session extends SessionBase {
       effort: this.getModelEffort(),
       agent: this.agent,
       aiProvider: this.aiProvider,
+      managedAutoAllowed: this.managedAutoAllowed(),
       contextTracker: this.contextTracker,
       hooks: this.hooks,
       hookTypeExecutors: this.hookTypeExecutors,

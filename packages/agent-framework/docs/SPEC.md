@@ -309,7 +309,13 @@ These are behaviors a caller cannot infer from a type signature alone.
   failed title does not use up the naming, so one bad first turn cannot leave a session unnamed for
   good; once named, it is never renamed. A name it already has is kept, and a rename made while the
   title is generated wins. The title-generation call always disables tool use, so hosted web tools
-  can never be invoked merely to generate a title.
+  can never be invoked merely to generate a title. Under a managed provider the title comes from the
+  session's explicit helper provider, or the session stays unnamed and says so once.
+- **A managed provider never borrows a helper from the environment.** A session built on a managed
+  provider runs its side requests (permission classification, naming) only on an explicit
+  model-step helper provider that the consumer passes in; none is inferred from environment
+  variables or defaults. `auto` mode is available only when that helper builds the classifier and
+  the provider declares that it isolates helper requests; otherwise it is refused with the reason.
 - **A rename or a redaction reaches the stored record or says why not.** `setName` writes the name
   onto the session's stored record. A redaction replaces matched text where the conversation, its
   display history and its name hold it, keeping every message, id and tool-call pairing so the

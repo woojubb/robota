@@ -17,6 +17,7 @@ import {
   ExecutionRecoveryError,
 } from '@robota-sdk/agent-core';
 
+import { MANAGED_AUTO_REFUSAL } from './managed-helper.js';
 import { perTurnRunOptions } from './session-run-options.js';
 import { createRunObservers } from './session-run-observation.js';
 
@@ -56,7 +57,9 @@ export async function executeRun(
         group.hooks.some((hook) => hook.type === 'prompt' || hook.type === 'agent'),
       ),
     );
-    if (ctx.permissionMode === 'auto' || modelBackedHook)
+    if (ctx.permissionMode === 'auto' && ctx.managedAutoAllowed !== true)
+      throw new ExecutionRecoveryError('EXECUTION_RECOVERY_REQUIRED', MANAGED_AUTO_REFUSAL);
+    if (modelBackedHook)
       throw new ExecutionRecoveryError(
         'EXECUTION_RECOVERY_REQUIRED',
         'Managed execution requires an isolated model-helper route',
