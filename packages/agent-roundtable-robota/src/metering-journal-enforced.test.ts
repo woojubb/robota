@@ -28,6 +28,9 @@ function services() {
     recordUsage: vi.fn(async (report: UsageReport) => {
       recorded.push(report);
     }),
+    admitToolEffect: vi.fn(async () => {
+      throw new Error('a tool effect must not be admitted here');
+    }),
   };
   return svc;
 }

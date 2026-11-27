@@ -12,7 +12,13 @@ afterEach(() => {
 });
 
 function noServices(): TurnServices {
-  return { admitModelCall: async () => {}, recordUsage: async () => {} };
+  return {
+    admitModelCall: async () => {},
+    recordUsage: async () => {},
+    admitToolEffect: async () => {
+      throw new Error('a tool effect must not be admitted here');
+    },
+  };
 }
 
 function hostOptions(
