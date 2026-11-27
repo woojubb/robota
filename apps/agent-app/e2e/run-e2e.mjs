@@ -138,6 +138,10 @@ try {
   const app = await launch();
   try {
     const page = await app.firstWindow();
+    const policyMessages = [];
+    page.on('console', (message) => {
+      if (/Content Security Policy|Refused to/u.test(message.text())) policyMessages.push(message.text());
+    });
     await connected(page);
     firstPid = readDaemonPid();
     check('the window connects to the token-gated daemon it started', isAlive(firstPid));
@@ -165,6 +169,73 @@ try {
       return menu ? walk(menu.items) : false;
     });
     check('the Edit menu still offers Copy (composer shortcuts keep working)', hasCopyRole);
+
+    // The meta policy in the page allows any loopback port; only the response header pins the daemon's
+    // exact port. A violation here therefore proves the header policy is enforced on the file:// renderer.
+    const daemonUrl = readDaemon()?.url;
+    const blockedSocket = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const timer = setTimeout(() => resolve(undefined), 5_000);
+          document.addEventListener(
+            'securitypolicyviolation',
+            (event) => {
+              clearTimeout(timer);
+              resolve({ directive: event.violatedDirective, blocked: event.blockedURI });
+            },
+            { once: true },
+          );
+          try {
+            new WebSocket('ws://127.0.0.1:9/');
+          } catch {
+            // a thrown error is not a policy report
+          }
+        }),
+    );
+    console.log(`port-pin probe: daemon=${daemonUrl} violation=${JSON.stringify(blockedSocket)}`);
+    check(
+      'the header policy pins the renderer to the daemon port (a socket to another loopback port is blocked)',
+      blockedSocket?.directive?.startsWith('connect-src') === true,
+    );
+
+    // The bundled app sandbox page is the only page the renderer frames. On an engine without native
+    // network isolation it must say so (and run nothing); an engine that has it needs this check updated.
+    const versions = await app.evaluate(() => ({
+      electron: process.versions.electron,
+      chrome: process.versions.chrome,
+    }));
+    console.log(`engine: electron ${versions.electron}, chrome ${versions.chrome}`);
+    const chromeMajor = Number.parseInt(versions.chrome, 10);
+    check(
+      `the engine (chrome ${versions.chrome}) lacks native app-view isolation; update the sandbox frame check for an engine that has it`,
+      chromeMajor < 158,
+    );
+    await page.getByLabel('message').fill('show app view');
+    await page.getByLabel('message').press('Enter');
+    const sandboxFrame = page.locator('iframe[title^="App from"]');
+    await sandboxFrame.waitFor({ timeout: 20_000 });
+    check('the app view frame is sandboxed to scripts only', (await sandboxFrame.getAttribute('sandbox')) === 'allow-scripts');
+    const frameSource = new URL((await sandboxFrame.getAttribute('src')) ?? 'about:blank');
+    const bundledSandbox = realpathSync(join(here, '..', 'dist', 'renderer', 'app-sandbox.html'));
+    check(
+      'the app view frame loads the bundled app sandbox page',
+      frameSource.protocol === 'file:' && realpathSync(decodeURIComponent(frameSource.pathname)) === bundledSandbox,
+    );
+    await page
+      .frameLocator('iframe[title^="App from"]')
+      .getByText('App views are unavailable because this browser cannot enforce their network isolation.', {
+        exact: true,
+      })
+      .waitFor({ timeout: 20_000 });
+    check('the sandbox page runs its script and refuses the app view with its reason', true);
+    check(
+      'the sandbox frame holds no nested frame',
+      (await page.frameLocator('iframe[title^="App from"]').locator('iframe').count()) === 0,
+    );
+    check(
+      'no policy refusal of the sandbox frame or its inline script',
+      !policyMessages.some((message) => /Refused to frame|Refused to execute inline script/u.test(message)),
+    );
   } catch (err) {
     check(`first launch threw: ${err?.message ?? err}`, false);
   } finally {
