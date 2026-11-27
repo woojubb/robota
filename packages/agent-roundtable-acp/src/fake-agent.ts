@@ -31,10 +31,12 @@ export interface FakePromptCall {
   readonly sessionId: string;
   /** The connection back to the client, for requests the agent makes of it. */
   readonly peer: AgentContext;
+  /** Resolves when the client sends `session/cancel` for this prompt's session. */
+  readonly cancelled: Promise<void>;
   update(update: SessionUpdate): Promise<void>;
   chunk(text: string): Promise<void>;
   requestPermission(
-    request: Pick<RequestPermissionRequest, 'options' | 'toolCall'>,
+    request: Pick<RequestPermissionRequest, 'options' | 'toolCall'> & { sessionId?: string },
   ): Promise<RequestPermissionResponse>;
 }
 
@@ -61,6 +63,8 @@ export interface FakeAgent {
   prompts(): { sessionId: string; prompt: unknown }[];
   /** Notifications the agent received, by method. */
   readonly notifications: { method: string; params: unknown }[];
+  /** Resolves once the agent has received `count` notifications of `method` in total. */
+  whenNotified(method: string, count?: number): Promise<void>;
   readonly launches: { conversationId: string; participantId: string }[];
   closes(): number;
   /** Resolves once the connection has been closed `count` times in total. */
@@ -101,6 +105,9 @@ export function createFakeAgent(
   const launches: { conversationId: string; participantId: string }[] = [];
   let closeCount = 0;
   const closeWaiters: { count: number; resolve: () => void }[] = [];
+  const notificationWaiters: { method: string; count: number; resolve: () => void }[] = [];
+  const cancelWaiters: { sessionId: string; resolve: () => void }[] = [];
+  const cancelledSessions = new Set<string>();
   let latestPeer: AgentContext | undefined;
   let latestCrash: (() => void) | undefined;
 
@@ -134,6 +141,11 @@ export function createFakeAgent(
             params,
             sessionId: params.sessionId,
             peer,
+            cancelled: cancelledSessions.has(params.sessionId)
+              ? Promise.resolve()
+              : new Promise<void>((resolve) =>
+                  cancelWaiters.push({ sessionId: params.sessionId, resolve }),
+                ),
             update: (update) =>
               peer.notify('session/update', { sessionId: params.sessionId, update }),
             chunk: (text) =>
@@ -151,6 +163,16 @@ export function createFakeAgent(
         })
         .onNotification('session/cancel', ({ params }) => {
           notifications.push({ method: 'session/cancel', params });
+          cancelledSessions.add(params.sessionId);
+          for (const waiter of cancelWaiters.filter((w) => w.sessionId === params.sessionId)) {
+            waiter.resolve();
+          }
+          for (const waiter of [...notificationWaiters]) {
+            if (notifications.filter((n) => n.method === waiter.method).length >= waiter.count) {
+              notificationWaiters.splice(notificationWaiters.indexOf(waiter), 1);
+              waiter.resolve();
+            }
+          }
         });
       const agentOutput = tapLines((line) => {
         if (line.trim() === '') return;
@@ -207,6 +229,10 @@ export function createFakeAgent(
         .filter((message) => message.method === 'session/prompt')
         .map((message) => message.params as { sessionId: string; prompt: unknown }),
     notifications,
+    whenNotified: (method, count = 1) =>
+      notifications.filter((n) => n.method === method).length >= count
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => notificationWaiters.push({ method, count, resolve })),
     launches,
     closes: () => closeCount,
     whenClosed: (count = 1) =>

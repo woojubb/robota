@@ -11,7 +11,8 @@ import type { DeltaQueue } from './delta-queue';
 import { AcpParticipantError } from './errors';
 import type { AcpLauncher } from './launcher';
 import { toTurnOutcome } from './outcome';
-import { rejectPermission } from './permission';
+import { cancelledPermission, createPermissionTracker, rejectPermission } from './permission';
+import type { AcpPermissionApprover, PermissionTracker } from './permission';
 import type { TurnRenderer } from './render';
 
 /** The ACP protocol version this adapter speaks; a different one is a different contract. */
@@ -22,6 +23,9 @@ export interface AcpSessionSettings {
   launcher: AcpLauncher;
   render: TurnRenderer;
   startupTimeoutMs: number;
+  approver?: AcpPermissionApprover;
+  cancelGraceMs: number;
+  maxReplyChars: number;
 }
 
 interface OpenContext {
@@ -32,7 +36,20 @@ interface OpenContext {
 /** What the update handler records for the one turn that is waiting on its prompt response. */
 interface ActiveTurn {
   chunks: string[];
+  /** Length of the text recorded so far, which the reply bound is checked against. */
+  size: number;
   deltas: DeltaQueue;
+  permissions: PermissionTracker;
+  /** Set once nothing more of this turn is wanted: no chunk is recorded, no request is allowed. */
+  ended: boolean;
+  /** Set as soon as the prompt response, or its failure, has arrived. */
+  responded: boolean;
+  /** Settles, never rejects, once the prompt response has arrived or the connection failed. */
+  promptSettled: Promise<void>;
+  /** Rejects when the turn must fail for a reason the response cannot carry. */
+  failure: Promise<never>;
+  /** Fails the turn and ends it, since an agent that overran can no longer be trusted. */
+  fail(error: AcpParticipantError): void;
 }
 
 interface StartupControl {
@@ -44,11 +61,20 @@ interface StartupControl {
 const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-/** Rejects with the signal's reason when it aborts; `stop` detaches the listener once it no longer matters. */
-function whenAborted(signal: AbortSignal): { promise: Promise<never>; stop(): void } {
+/**
+ * Rejects with the signal's reason when it aborts, after running `onAbort` in the same tick;
+ * `stop` detaches the listener once it no longer matters.
+ */
+function whenAborted(
+  signal: AbortSignal,
+  onAbort: () => void,
+): { promise: Promise<never>; stop(): void } {
   let listener: () => void = () => {};
   const promise = new Promise<never>((_, reject) => {
-    listener = () => reject(signal.reason);
+    listener = () => {
+      onAbort();
+      reject(signal.reason);
+    };
     signal.addEventListener('abort', listener, { once: true });
   });
   return { promise, stop: () => signal.removeEventListener('abort', listener) };
@@ -110,6 +136,10 @@ async function startSession(
 ): Promise<ParticipantLease> {
   const connection = await settings.launcher.launch({ ...context });
   const state: { sessionId?: string; active?: ActiveTurn } = {};
+  // Set once a turn can no longer be trusted (host abort, reply bound): its agent may still be
+  // working, so the session takes no more turns and every later request of the agent is cancelled.
+  let dead = false;
+  let windDown: Promise<void> | undefined;
 
   // Client capabilities are advertised empty, so the only agent request this side handles is the
   // permission request, and the SDK answers every other one as an unknown method. Each chunk is
@@ -118,14 +148,32 @@ async function startSession(
   const app = client({ name: 'robota-roundtable' })
     .onNotification('session/update', ({ params }) => {
       const turn = state.active;
-      if (turn === undefined || params.sessionId !== state.sessionId) return;
+      if (turn === undefined || turn.ended || params.sessionId !== state.sessionId) return;
       const { update } = params;
       if (update.sessionUpdate !== 'agent_message_chunk') return;
       if (update.content.type !== 'text' || update.content.text === '') return;
-      turn.chunks.push(update.content.text);
-      turn.deltas.push(update.content.text);
+      const { text } = update.content;
+      if (turn.size + text.length > settings.maxReplyChars) {
+        turn.fail(
+          new AcpParticipantError(
+            'reply-too-long',
+            `The agent's reply is longer than ${settings.maxReplyChars} characters`,
+          ),
+        );
+        return;
+      }
+      turn.size += text.length;
+      turn.chunks.push(text);
+      turn.deltas.push(text);
     })
-    .onRequest('session/request_permission', ({ params }) => rejectPermission(params));
+    .onRequest('session/request_permission', ({ params }) => {
+      if (dead) return cancelledPermission;
+      const turn = state.active;
+      if (turn === undefined || turn.ended || params.sessionId !== state.sessionId) {
+        return rejectPermission(params);
+      }
+      return turn.permissions.answer(params);
+    });
   const acp = app.connect(ndJsonStream(connection.toAgent, connection.fromAgent));
 
   let closing: Promise<void> | undefined;
@@ -135,6 +183,8 @@ async function startSession(
       await connection.close();
     })());
   control.onConnected(close);
+  // A connection that dies takes every request still waiting on the host with it.
+  acp.signal.addEventListener('abort', () => state.active?.permissions.end(), { once: true });
 
   const abandon = async (): Promise<never> => {
     await close().catch(() => {});
@@ -174,9 +224,52 @@ async function startSession(
 
   const sessionId = state.sessionId;
   let released = false;
-  let dead = false;
   let running = false;
   let firstTurnDone = false;
+  let releaseNow: () => void = () => {};
+  const releasing = new Promise<void>((resolve) => {
+    releaseNow = resolve;
+  });
+
+  /** Stops recording the turn and cancels whatever the agent still waits on the host for. */
+  const endTurn = (turn: ActiveTurn): void => {
+    turn.ended = true;
+    turn.deltas.stop();
+    turn.permissions.end();
+  };
+
+  /**
+   * Ends a turn that can no longer be trusted, once per session. The session is dead from the
+   * first instant. A prompt still in flight is cancelled, and the agent gets a bounded time to
+   * acknowledge before the connection is ended, since cancellation is only a request. The session
+   * stays dead even when the agent acknowledges: its own history now holds a turn the roundtable
+   * never published.
+   */
+  const wind = (turn: ActiveTurn): Promise<void> =>
+    (windDown ??= (async () => {
+      dead = true;
+      let cancelSent: Promise<void> | undefined;
+      if (!turn.responded) {
+        try {
+          cancelSent = acp.agent.notify('session/cancel', { sessionId }).catch(() => {});
+        } catch {
+          // The connection is already gone; ending it below is all that is left.
+        }
+      }
+      endTurn(turn);
+      if (!turn.responded) {
+        // The grace period starts now and covers the cancel write too: an agent that has stopped
+        // reading its input never accepts it, and the connection must still end.
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const grace = new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, settings.cancelGraceMs);
+        });
+        // A host that releases the session wants the connection ended now.
+        await Promise.race([Promise.all([cancelSent, turn.promptSettled]), grace, releasing]);
+        clearTimeout(timer);
+      }
+      await close().catch(() => {});
+    })());
 
   const session: ParticipantSession = {
     async runTurn(turn: ParticipantTurn, options: ParticipantExecutionOptions) {
@@ -184,7 +277,7 @@ async function startSession(
       if (dead) {
         throw new AcpParticipantError(
           'session-dead',
-          'A host abort ended this session; its agent may still be working, so it takes no more turns',
+          'A cancelled or overrun turn ended this session; its agent may still be working, so it takes no more turns',
         );
       }
       // A turn is running from here until its `finally`, which includes delivering the last deltas
@@ -198,30 +291,65 @@ async function startSession(
       const { signal } = options;
       signal.throwIfAborted();
       running = true;
-      const abortion = whenAborted(signal);
+      let active: ActiveTurn | undefined;
+      // On abort the host gets its rejection at once; cancelling the agent and ending the
+      // connection go on behind it, and nothing more is delivered from the moment the abort is seen.
+      const abortion = whenAborted(signal, () => {
+        if (active !== undefined) void wind(active);
+      });
       try {
         const text = settings.render(turn, { firstTurn: !firstTurnDone });
-        const active: ActiveTurn = { chunks: [], deltas: createDeltaQueue(options.onDelta) };
-        state.active = active;
+        let failTurn: (error: AcpParticipantError) => void = () => {};
+        const failure = new Promise<never>((_, reject) => {
+          failTurn = reject;
+        });
+        failure.catch(() => {});
+        const current: ActiveTurn = {
+          chunks: [],
+          size: 0,
+          deltas: createDeltaQueue(options.onDelta),
+          permissions: createPermissionTracker(settings.approver, context),
+          ended: false,
+          responded: false,
+          promptSettled: Promise.resolve(),
+          failure,
+          fail: (error) => {
+            failTurn(error);
+            void wind(current);
+          },
+        };
+        active = current;
+        state.active = current;
         const prompt = acp.agent
           .request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] })
-          .catch((error: unknown) => {
-            throw promptFailure(error, acp.signal.aborted);
-          });
+          .then(
+            (answer) => {
+              current.responded = true;
+              return answer;
+            },
+            (error: unknown) => {
+              current.responded = true;
+              throw promptFailure(error, acp.signal.aborted);
+            },
+          );
+        current.promptSettled = prompt.then(
+          () => {},
+          () => {},
+        );
         // Every wait below also ends on a host abort, and an abort that settles alongside the last
         // of them still wins: a cancelled turn never publishes the words it had produced so far.
-        const response = await Promise.race([prompt, abortion.promise]);
+        const response = await Promise.race([prompt, abortion.promise, current.failure]);
         state.active = undefined;
-        await Promise.race([active.deltas.flush(), abortion.promise]);
+        await Promise.race([current.deltas.flush(), abortion.promise, current.failure]);
         if (signal.aborted) throw signal.reason;
-        const outcome = toTurnOutcome(response.stopReason, active.chunks.join(''));
+        const outcome = toTurnOutcome(response.stopReason, current.chunks.join(''));
         firstTurnDone = true;
         return outcome;
       } catch (error) {
         // Stopping the wait does not stop the agent, and a session whose agent may still be working
         // must not take a turn that could mix in what it says next.
         if (signal.aborted) {
-          dead = true;
+          if (active !== undefined) void wind(active);
           throw signal.reason;
         }
         throw error;
@@ -229,16 +357,20 @@ async function startSession(
         state.active = undefined;
         abortion.stop();
         running = false;
+        if (active !== undefined) endTurn(active);
       }
     },
   };
 
   return {
     session,
-    release() {
+    async release() {
       released = true;
+      if (state.active !== undefined) endTurn(state.active);
       state.active = undefined;
-      return close();
+      releaseNow();
+      await windDown?.catch(() => {});
+      await close();
     },
   };
 }

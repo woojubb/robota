@@ -17,19 +17,24 @@ own usage never leaves it; the turn's contribution is the text it says in reply,
 agent did not finish saying is published.
 
 A turn the agent ends itself is a contribution when it said something and a yield when it said
-nothing. Any other ending fails the turn, whether the reply was cut short, the prompt was refused, or
-the turn was cancelled by someone other than the host, because publishing it would present an
-incomplete or withheld reply as the agent's own.
+nothing. Any other ending fails the turn, whether the reply was cut short, the prompt was refused, the
+turn was cancelled by someone other than the host, or the reply outgrew the bound the host set for
+it, because publishing it would present an incomplete or withheld reply as the agent's own.
 
-A host abort ends the wait and the session, and never produces partial text. Stopping the wait does
-not stop the agent, which may still be working on that turn, so a session that has been aborted takes
-no further turns: it fails closed rather than risk mixing that work into a later answer.
+A host abort ends the wait and the session, and never produces partial text. The host is answered at
+once; the agent is asked to cancel, given a short time to say so, and then disconnected. Stopping the
+wait does not stop the agent, which may still be working on that turn, so a session that has been
+aborted takes no further turns, even when the agent acknowledged the cancellation: it fails closed
+rather than risk mixing that work into a later answer. A reply that outgrows its bound ends the same
+way, because an agent that is still talking cannot be trusted afterwards.
 
 The adapter lends the agent no authority of the host's. It advertises no client capability, so the
 agent cannot reach the host's files or terminals through the connection; every request the agent
-makes of the client other than a permission request is refused as unknown, and a permission request
-is answered with a rejection. What the agent can do on its own is set by how it is started and
-configured, which is the host's decision and outside this package.
+makes of the client other than a permission request is refused as unknown. A permission request is
+refused unless the host supplied an approver and it allowed that one call, and then only for that
+call: nothing is ever granted for the rest of the session. A request the approver is still weighing
+when the turn ends is cancelled, and a late answer is ignored. What the agent can do on its own is
+set by how it is started and configured, which is the host's decision and outside this package.
 
 The participant declares that it makes no metered model calls, offers no checkpoint and no wait
 continuation. A roundtable's model-call limits therefore never bound it, and a conversation holding
@@ -75,6 +80,11 @@ follow a draft protocol version.
 - No client capability is advertised. An agent that asked its client for files or a terminal would
   act under the host's authority; with none offered, those stay inside the agent's own process,
   under its own configuration.
+- An approval is for one call, never for a class of calls. An agent's own "always" options would
+  outlive the host's decision and the turn that asked for it, so they are never chosen, and an allow
+  with only those on offer is a refusal.
+- An acknowledged cancellation still ends the session. The agent's own history then holds a turn the
+  roundtable never published, which is the same desynchronisation that makes a refusal fail.
 - The agent is reached through a launcher port rather than a command line. The adapter stays free of
   how an agent is started, whether as a child process, in a container or somewhere remote, and a
   test can run a protocol-complete agent in memory.

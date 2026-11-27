@@ -72,8 +72,9 @@ const room = createRoundtable({
 | Prompt              | One text block with the new public messages; the purpose only on the first turn             |
 | Reply               | The concatenated text the agent says; blank text yields the turn                            |
 | Other endings       | Reaching a token or request limit, a refusal or a cancellation not asked for fails the turn |
-| Host abort          | Throws the abort reason, never partial text, and ends the session for later turns           |
-| Permission requests | Answered with a rejection; no client capability is advertised                               |
+| Host abort          | Throws the abort reason at once, never partial text; cancels the agent, ends the session    |
+| Long reply          | A reply past `maxReplyChars` fails the turn and ends the session, like an abort             |
+| Permission requests | Refused unless the `approver` allows that one call; no client capability is advertised      |
 | Model calls         | Declared `none`: a roundtable's model-call limits do not bound this participant             |
 | Recovery            | No checkpoint: a conversation holding it cannot be loaded back after a turn                 |
 
@@ -82,6 +83,31 @@ A failed turn rejects with an `AcpParticipantError` whose `code` names the cause
 `renderSharedIncrement` is the default way a turn becomes prompt text; pass `render` to replace it.
 Each message is quoted line by line under a `### From <participant>` header, so a message cannot
 forge another author's header.
+
+## Options
+
+| Option             | Default | Meaning                                                                                        |
+| ------------------ | ------- | ---------------------------------------------------------------------------------------------- |
+| `approver`         | none    | Decides each permission request: `decide(request, { signal })` answers `'allow'` or `'reject'` |
+| `startupTimeoutMs` | 30000   | Bound on launching the agent and completing the handshake                                      |
+| `cancelGraceMs`    | 5000    | How long an aborted turn waits for the agent to acknowledge the cancel before disconnecting    |
+| `maxReplyChars`    | 100000  | The longest reply one turn may have; past it the turn fails with `reply-too-long`              |
+
+`allow` selects the agent's one-time allow option and `reject` its one-time reject option; an
+option that remembers a decision is never chosen, so an `allow` with only those on offer is refused.
+Anything but the two strings, a throw, a rejection, a request outside a running turn or for another
+session is a refusal too. The `signal` aborts when the turn is aborted, the session ends or the
+connection dies, and a request still waiting then is answered as cancelled. The request's tool call
+fields are whatever the agent sent: treat them as untrusted text.
+
+```ts
+const reviewer = acpParticipant({
+  // ...
+  approver: {
+    decide: ({ toolCall }) => (toolCall.kind === 'read' ? 'allow' : 'reject'),
+  },
+});
+```
 
 ## Documents
 
