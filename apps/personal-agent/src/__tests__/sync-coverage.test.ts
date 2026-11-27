@@ -6,7 +6,7 @@
  * the host tells a run and what it takes from one: whether a backlog larger than one run, an item that
  * became visible late, a restart and a run that confirmed nothing leave something unread.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -111,6 +111,7 @@ interface IWorld {
   readonly harness: IHarness;
   readonly id: string;
   readonly stateDir: string;
+  call(method: string, segments: string[], body?: unknown): Promise<{ status: number; body: any }>;
 }
 
 async function connectedWorld(mail: IStandInConnector, stateDir?: string): Promise<IWorld> {
@@ -146,7 +147,7 @@ async function connectedWorld(mail: IStandInConnector, stateDir?: string): Promi
     id = made.body.connector.id as string;
     expect((await call('POST', ['connectors', id, 'sync'], { everyMinutes: 60 })).status).toBe(200);
   }
-  return { harness, id, stateDir: harness.stateDir };
+  return { harness, id, stateDir: harness.stateDir, call };
 }
 
 interface IBehavior {
@@ -430,5 +431,51 @@ describe('what a connector sync reads over several runs', () => {
     await sync(world);
     const [, silent, next] = starts(mailbox);
     expect(next).toBe(silent);
+  });
+});
+
+describe('what a sync keeps of how far its runs read', () => {
+  const recordOf = (world: IWorld): string =>
+    join(world.stateDir, 'connector-sync', `${world.id}.json`);
+
+  it('is held owner-only, and goes when the sync is turned off or the connector is removed', async () => {
+    const { mail, mailbox } = await startMail(backlog(3, Date.now()));
+    const world = await connectedWorld(mail);
+    world.harness.model.script(obedient(world));
+    await sync(world);
+
+    expect(existsSync(recordOf(world))).toBe(true);
+    expect(statSync(recordOf(world)).mode & 0o777).toBe(0o600);
+    expect(statSync(join(world.stateDir, 'connector-sync')).mode & 0o777).toBe(0o700);
+    expect(readFileSync(recordOf(world), 'utf8')).not.toContain('msg-');
+
+    expect(
+      (await world.call('POST', ['connectors', world.id, 'sync'], { everyMinutes: null })).status,
+    ).toBe(200);
+    expect(existsSync(recordOf(world))).toBe(false);
+
+    // Turned on again, a run confirms again, and removing the connector takes the record with it.
+    expect(
+      (await world.call('POST', ['connectors', world.id, 'sync'], { everyMinutes: 60 })).status,
+    ).toBe(200);
+    await sync(world);
+    expect(existsSync(recordOf(world))).toBe(true);
+    expect((await world.call('POST', ['connectors', world.id, 'remove'], {})).status).toBe(200);
+    expect(existsSync(recordOf(world))).toBe(false);
+    expect(mailbox.listings.length).toBeGreaterThan(0);
+  });
+
+  it('is not written by the tool the agent has outside a sync run', async () => {
+    const { mail } = await startMail(backlog(1, Date.now()));
+    const world = await connectedWorld(mail);
+    const tool = world.harness.capabilities.tools.find(
+      (entry) => entry.getName() === 'ConnectorSyncProgress',
+    )!;
+    const { data } = await tool.execute(
+      { connector: world.id, complete: true } as never,
+      { toolName: 'ConnectorSyncProgress', parameters: {} } as never,
+    );
+    expect(JSON.parse(String(data))).toMatchObject({ recorded: false });
+    expect(existsSync(recordOf(world))).toBe(false);
   });
 });

@@ -216,13 +216,19 @@ export {
 } from './connectors/keep.js';
 export {
   ConnectorSync,
+  createSyncProgressTool,
   SYNC_MAX_MINUTES,
   SYNC_MIN_MINUTES,
   syncRunTools,
   syncGoalPrompt,
   syncRunInstructions,
 } from './connectors/sync.js';
-export type { IConnectorSyncStatus } from './connectors/sync.js';
+export type {
+  IConnectorSyncStatus,
+  ISyncProgressPort,
+  ISyncProgressReport,
+  TSyncProgressAnswer,
+} from './connectors/sync.js';
 export { CONNECTOR_AUTHS, CONNECTOR_KINDS } from './connectors/types.js';
 export type {
   IConnector,
