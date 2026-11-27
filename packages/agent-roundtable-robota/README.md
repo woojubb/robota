@@ -269,7 +269,12 @@ declares the participant `'enforced'`, so a budgeted conversation admits it:
 sessionParticipant({
   id: 'reviewer',
   runtime: { id: 'product/reviewer', version: '1' },
-  enforcement: { providerAttempts: 2, requestOverheadTokens: 200, freeTools: ['read_file'] },
+  enforcement: {
+    providerAttempts: 2,
+    requestOverheadTokens: 200,
+    freeTools: ['read_file'],
+    paidTools: { web_summary: { tokens: 4000 }, send_sms: { tokens: 0 } },
+  },
   createSessionOptions: async () => ({
     /* ..., maxOutputTokens: 1024, autoCompactThreshold: false */
   }),
@@ -277,7 +282,10 @@ sessionParticipant({
 ```
 
 `providerAttempts` (a positive safe integer) and `requestOverheadTokens` (a non-negative safe integer)
-have no defaults; `freeTools` names the tools whose effects spend no model tokens, each once. An invalid
+have no defaults; `freeTools` names the tools whose effects spend no model tokens, each once, and
+`paidTools` maps each tool that may cost money or model tokens to the most tokens one effect may
+consume (`0` for a tool that only spends money). No tool may be both free and paid, and a bound is a
+non-negative safe integer. An invalid
 declaration throws `RuntimeParticipantError('invalid-config')` when the participant is created. A
 selector's `enforcement` carries only the first two: its one decision tool is free.
 
@@ -286,7 +294,7 @@ An enforced runtime is refused with `RuntimeParticipantError('unbounded-call')`,
 when it has no positive output cap (a `Session`'s `maxOutputTokens`, an agent's `defaultModel.maxTokens`),
 when a `Session` may compact its history on its own (set `autoCompactThreshold: false`; a compaction
 request carries no output cap), when its provider has hosted web tools enabled, or when a tool is in no
-list (paid tools are not supported yet, so every tool must be free). At each admission a request is
+list. At each admission a request is
 refused the same way if it has no positive output cap, carries a part that is not text, asks for hosted
 web tools, has a bound beyond a safe integer, starts an undeclared tool effect, or arrives as a managed
 frame. A cache hit stays admission-free.
@@ -299,6 +307,14 @@ a client that bills retries inside one call. Cache reads are part of input alrea
 input at the highest input rate it may be charged. When `providerAttempts` is greater than one, usage
 the provider attests settles as `partial`, not `reported`, because it may describe only one attempt: the
 bound stays counted until the host settles the call with `reconcileUsage`.
+
+A paid tool's effect is admitted before it starts, as a tool effect with the declared token bound, and
+a rejection (`budget-limit`, or an effect a cost budget cannot price) means the effect never runs; a
+denied approval starts no effect and charges nothing. The effect is settled when its result arrives:
+as `reported` with zero tokens for a bound of `0`, otherwise as `unknown` and not final, so the bound
+stays counted until the host settles the effect with `reconcileUsage`. The ledger call id is
+`tool-effect:` plus the journal's action id, and an enforced runtime refuses a model call that takes
+that prefix.
 
 ## Provider SDK retries
 
