@@ -573,7 +573,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'thinking': {
-          if (msg.isThinking) turnOpenRef.current = true;
+          // Not a turn start: a blocking command (`/compact`) is thinking too, and ends with no turn frame.
           setIsThinking(msg.isThinking);
           break;
         }
@@ -1037,6 +1037,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       if (next !== 'connected') {
         roleRef.current = null;
         setRole(null);
+        // A turn that ends while disconnected sends no end frame here; the reconnect reads the
+        // whole transcript, which also covers a read that was waiting for that turn.
+        turnOpenRef.current = false;
+        rewrittenReadPendingRef.current = false;
       }
       // A reply lost with the connection never arrives; the views waiting on one learn that now.
       if (next !== 'connected') {

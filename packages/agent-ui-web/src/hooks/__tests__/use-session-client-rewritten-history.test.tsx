@@ -50,9 +50,11 @@ function done(): TServerMessage {
 
 function setup() {
   let onMessage: ((message: TServerMessage) => void) | undefined;
+  let onStatusChange: ((value: 'connected' | 'disconnected') => void) | undefined;
   const sent: TClientMessage[] = [];
   const makeClient: TMakeSessionClient = (callbacks) => {
     onMessage = callbacks.onMessage;
+    onStatusChange = callbacks.onStatusChange;
     return { connect: () => {}, disconnect: () => {}, send: (message) => sent.push(message) };
   };
   const { result } = renderHook(() => useSessionClient(makeClient));
@@ -62,6 +64,7 @@ function setup() {
     result,
     count,
     deliver: (message: TServerMessage) => act(() => onMessage?.(message)),
+    connection: (value: 'connected' | 'disconnected') => act(() => onStatusChange?.(value)),
     contents: () =>
       result.current.messages.flatMap((entry) =>
         'content' in entry && typeof entry.content === 'string' ? [entry.content] : [],
@@ -145,6 +148,33 @@ describe('a rewritten history', () => {
     deliver({ type: 'user_message', content: 'next' });
     deliver(done());
     expect(count('get-messages')).toBe(readsBefore + 1);
+  });
+
+  it('does not take a blocking command for a running turn', () => {
+    const { deliver, count } = setup();
+    // `/compact` is thinking, then not, with no turn frame at all.
+    deliver({ type: 'thinking', isThinking: true });
+    deliver({ type: 'thinking', isThinking: false });
+    const reads = count('get-messages');
+    deliver({ type: 'history_changed', rewritten: true });
+    expect(count('get-messages')).toBe(reads + 1);
+  });
+
+  it('forgets an open turn and a waiting read when the connection drops', () => {
+    const { deliver, count, connection } = setup();
+    deliver({ type: 'user_message', content: 'work' });
+    deliver({ type: 'history_changed', rewritten: true });
+    const reads = count('get-messages');
+    // The turn ends while the page is away; the reconnect reads the transcript itself.
+    connection('disconnected');
+    connection('connected');
+    deliver({ type: 'history_changed', rewritten: true });
+    expect(count('get-messages')).toBeGreaterThan(reads);
+    const afterIdle = count('get-messages');
+    // The old waiting read is gone: a later turn's end adds none.
+    deliver({ type: 'user_message', content: 'next' });
+    deliver(done());
+    expect(count('get-messages')).toBe(afterIdle);
   });
 
   it('reads after an interrupted turn and drops the wait when the session changes', () => {
