@@ -132,6 +132,32 @@ describe('a catalog entry', () => {
       expect(titleOf(title)).toBe(expected);
     });
 
+    describe('at the clipped end', () => {
+      const entryOf = (text: string) =>
+        catalogEntryOf({ ...OK, title: text, description: text }, 'file')!;
+      const limits = [
+        ['title', 80, (text: string) => entryOf(text).title],
+        ['description', 300, (text: string) => entryOf(text).description!],
+      ] as const;
+
+      it.each(limits)('leaves no joiner last when it sat at the %s limit', (_name, limit, read) => {
+        const clipped = read('x'.repeat(limit - 1) + '‍' + 'y');
+        expect(clipped).toBe('x'.repeat(limit - 1));
+        const sequence = read('a'.repeat(limit - 2) + '\u{1F468}‍\u{1F469}');
+        expect(sequence).toBe('a'.repeat(limit - 2) + '\u{1F468}');
+      });
+
+      it.each(limits)(
+        'never cuts an emoji into a lone surrogate at the %s limit',
+        (_name, limit, read) => {
+          const clipped = read('x'.repeat(limit - 1) + '\u{1F600}');
+          expect(clipped).toBe('x'.repeat(limit - 1) + '\u{1F600}');
+          expect(clipped.isWellFormed()).toBe(true);
+          expect(read('x'.repeat(limit) + '\u{1F600}')).toBe('x'.repeat(limit));
+        },
+      );
+    });
+
     it.each([
       ['direction overrides', 'Not‮esab⁦d⁩؜‎‏', 'Notesabd'],
       ['zero-width spaces', 'No​tes', 'Notes'],
