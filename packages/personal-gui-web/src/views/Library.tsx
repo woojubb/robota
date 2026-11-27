@@ -36,7 +36,7 @@ export function originLabel(claim: IClaimView): string {
  * already sent to the model provider stay.
  */
 const FORGET_SCOPE =
-  'It is removed from the library, and its exact words from your saved conversations and their titles. The same thing said differently, what services sent, the feed and cases, and anything already sent to the model provider stay.';
+  'It is removed from the library, and its exact words from your saved conversations and their titles, where they can be found: a short statement is looked for only in the chat it came from. The same thing said differently, what services sent, the feed and cases, and anything already sent to the model provider stay.';
 
 function day(iso: string): string {
   return iso.slice(0, 10);

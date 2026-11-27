@@ -54,9 +54,7 @@ on — in the person's own state directory.
   side-chat title that holds the same words, with each conversation otherwise intact and still
   resumable. A conversation another writer holds, one waiting on an execution, or one that cannot be
   read is never written to and is reported as not reached; one that is running is cleaned when its turn
-  ends. The answer to the person names what was reached and what stays: rewording, what a service sent,
-  the feed and cases, a conversation another agent holds, and anything already sent to a provider or
-  channel.
+  ends. The answer to the person names what was reached and what stays.
 - **The catalog is the owner's and local.** Built-in definitions ship with the product; offers and
   installed definitions live in the owner-only state directory. No hosted catalog or recommendation
   service is needed to browse.

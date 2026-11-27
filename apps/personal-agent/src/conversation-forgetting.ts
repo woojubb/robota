@@ -52,6 +52,11 @@ export interface IHeldConversations {
   readonly owed: IOwedRedactions;
 }
 
+/** What the reach did; `notSearched` counts statements and titles too short to look for in that conversation. */
+export interface IConversationReachReport extends IForgetReachReport {
+  readonly notSearched: number;
+}
+
 export interface IConversationForgetting {
   readonly reach: IForgetReach;
   /** Connect the running agent's sessions; before this only saved records are reached. */
@@ -77,6 +82,8 @@ export const FORGET_STAYS: readonly string[] = [
   'Only the exact words of the forgotten statement are searched for: the same thing said differently, a paraphrase, or part of it stays.',
   'Places named in a conversation (file paths, addresses, folders), message names, and a conversation’s goal, plan, background tasks and loops are not searched.',
   'What a service or another person sent you, and what the agent read from it, stays.',
+  'A short statement is searched only in the conversation it was learned in, and not at all when that conversation is not known; a short page title is not searched.',
+  'A conversation that is running when you forget is cleaned when its turn ends; if the agent stops first, it keeps the words.',
   'The feed, its run history and the cases are not changed.',
   'A conversation another running agent holds is not changed until that agent stops.',
   'Anything already sent to the model provider or to a messaging channel stays with them.',
@@ -161,12 +168,14 @@ export function createConversationForgetting(
     held.owed.owe(id, texts);
   };
 
-  async function reachNow(forgotten: readonly IForgottenText[]): Promise<IForgetReachReport> {
+  async function reachNow(forgotten: readonly IForgottenText[]): Promise<IConversationReachReport> {
     // A statement is searched in every conversation when it is distinctive; a short one ("tea") would
     // damage unrelated text, so it is searched only in the conversation it was learned in. A page
     // title is ordinary words unless it is long enough to be distinctive.
     const everywhere = new Set<string>();
     const sourced = new Map<string, Set<string>>();
+    /** Short texts, by the conversation they can be searched in (none for a title or an unsourced claim). */
+    const short: { text: string; sessionId: string | undefined }[] = [];
     for (const item of forgotten) {
       const text = item.text.trim();
       if (text === '') continue;
@@ -175,7 +184,8 @@ export function createConversationForgetting(
         const own = sourced.get(item.sessionId) ?? new Set<string>();
         own.add(text);
         sourced.set(item.sessionId, own);
-      }
+        short.push({ text, sessionId: item.sessionId });
+      } else short.push({ text, sessionId: undefined });
     }
     const textsFor = (id: string): string[] => [...everywhere, ...(sourced.get(id) ?? [])];
     const redactorFor = (id: string): TTextRedactor | undefined => {
@@ -187,6 +197,11 @@ export function createConversationForgetting(
       if (item.kind === 'claim' && item.sessionId !== undefined) sourceIds.add(item.sessionId);
     }
 
+    const parkedOnDisk = (id: string): boolean =>
+      [chats, goals].some((store) => {
+        const outcome = store.load(id);
+        return outcome.status === 'valid' && outcome.record.pendingExecution !== undefined;
+      });
     const cleaned = new Set<string>();
     const pending = new Set<string>();
     const notReached = new Set<string>();
@@ -205,7 +220,9 @@ export function createConversationForgetting(
         if (outcome === 'redacted') cleaned.add(id);
         else if (outcome === 'busy') {
           owe(session, textsFor(id));
-          pending.add(id);
+          // A parked execution is saved and survives a restart: no turn ending will clean it.
+          if (parkedOnDisk(id)) notReached.add(id);
+          else pending.add(id);
         }
       } catch {
         // allow-fallback: a session that has ended is a saved record now, and is read as one below.
@@ -250,10 +267,17 @@ export function createConversationForgetting(
       const shown = name === undefined || name === '' ? `chat ${id.slice(0, 8)}` : name;
       sources.push(redactorFor(id)?.(shown) ?? shown);
     }
+    // A short text is searched only where it was learned; one with no known conversation was not.
+    const notSearched = new Set(
+      short
+        .filter((item) => item.sessionId === undefined || !names.has(item.sessionId))
+        .map((item) => item.text),
+    ).size;
     return {
       cleaned: done.length,
       pending: waiting.length,
       notReached: unreached,
+      notSearched,
       sources: [...new Set(sources)],
     };
   }

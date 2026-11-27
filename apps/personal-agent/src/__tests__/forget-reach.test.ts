@@ -96,6 +96,34 @@ function record(
   } as IInteractiveSessionRecord;
 }
 
+/** A conversation parked on an execution that waits for an answer, as a record keeps it. */
+function parkedRecord(id: string, text: string): IInteractiveSessionRecord {
+  const base = record(id, text);
+  const call = (base.messages[1] as { toolCalls: { id: string }[] }).toolCalls[0]!.id;
+  return {
+    ...base,
+    messages: [
+      base.messages[0]!,
+      { ...base.messages[1]!, metadata: { executionId: 'e1', providerCallId: 'provider-1' } },
+    ],
+    pendingExecution: {
+      executionId: 'e1',
+      requests: [
+        {
+          executionId: 'e1',
+          actionId: 'a1',
+          parentCallId: 'provider-1',
+          toolCallId: call,
+          toolName: 'WikiSearch',
+          kind: 'permission',
+          data: {},
+          requestId: 'r1',
+        },
+      ],
+    },
+  } as IInteractiveSessionRecord;
+}
+
 function filesUnder(dir: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -218,9 +246,7 @@ describe('forgetting reaches the saved conversations', () => {
       source: { origin: 'owner' },
     });
     chats.save(record('chat-held', FACT));
-    chats.save(
-      record('chat-parked', FACT, { pendingExecution: { executionId: 'e1', requests: [] } }),
-    );
+    chats.save(parkedRecord('chat-parked', FACT));
     chats.save(record('chat-damaged', FACT));
     chats.save(record('chat-free', FACT));
     const damaged = filesUnder(join(dir, 'sessions')).find((file) =>
@@ -269,6 +295,64 @@ describe('forgetting reaches the saved conversations', () => {
     expect(other.status === 'valid' && other.record.messages[0]!.content).toBe(
       'Remember: likes tea.',
     );
+  });
+
+  it('reports a short statement or title it could not search, without repeating it', async () => {
+    const dir = stateDir();
+    const { wiki, chats } = await world(dir);
+    chats.save(record('chat-known', 'likes tea'));
+    const known = await wiki.remember({
+      pageTitle: 'Drinks',
+      kind: 'preference',
+      claim: 'likes tea',
+      source: { origin: 'owner', sessionId: 'chat-known' },
+    });
+    const unsourced = await wiki.remember({
+      pageTitle: 'Snacks',
+      kind: 'preference',
+      claim: 'likes rice',
+      source: { origin: 'owner' },
+    });
+    const lost = await wiki.remember({
+      pageTitle: 'Pets',
+      kind: 'preference',
+      claim: 'owns cat',
+      source: { origin: 'owner', sessionId: 'chat-gone' },
+    });
+    const first = await wiki.forgetWithReport({ claimId: known.claimId });
+    expect(first.conversations).toMatchObject({ cleaned: 1 });
+    expect(first.conversations).toMatchObject({ notSearched: 1 });
+    const second = await wiki.forgetWithReport({ claimIds: [unsourced.claimId, lost.claimId] });
+    // Two short claims (none searched) and the two short titles of the pages they left empty.
+    expect(second.conversations).toMatchObject({ cleaned: 0, notSearched: 4 });
+    expect(JSON.stringify(second)).not.toMatch(/rice|cat/u);
+  });
+
+  it('counts a running session as pending, and one with a parked execution as not reached', async () => {
+    const dir = stateDir();
+    const { wiki, forgetting, chats } = await world(dir);
+    const live = (id: string): ILiveConversation => ({
+      sessionId: id,
+      getName: () => id,
+      redactConversation: () => 'busy',
+      on: () => undefined,
+      off: () => undefined,
+    });
+    forgetting.bind({
+      live: () => [live('chat-running'), live('chat-parked')],
+      owed: createOwedRedactions(),
+    });
+    chats.save(record('chat-running', 'nothing here'));
+    chats.save(parkedRecord('chat-parked', 'nothing here'));
+    const filed = await wiki.remember({
+      pageTitle: 'Home',
+      kind: 'matter',
+      claim: FACT,
+      source: { origin: 'owner' },
+    });
+    const result = await wiki.forgetWithReport({ claimId: filed.claimId });
+    expect(result.conversations).toMatchObject({ cleaned: 0, pending: 1, notReached: 1 });
+    forgetting.dispose();
   });
 
   it('cleans a session it runs when idle, and owes the cleaning to a busy one until its turn ends', async () => {
