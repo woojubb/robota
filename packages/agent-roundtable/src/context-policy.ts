@@ -1,7 +1,7 @@
 import { errorMessage, RoundtableError } from './errors';
 import { canonicalJson } from './json';
 import { increments } from './policies';
-import { isThenable } from './usage-validation';
+import { abandonThenable, isThenable } from './usage-validation';
 import type { ContextAssembly, ContextPolicy, ParticipantTurn, SharedMessage } from './types';
 
 /** A summary stands in for consumed messages, so it is bounded rather than a second transcript. */
@@ -79,7 +79,7 @@ export function assembleContext(
   }
   if (isThenable(assembly)) {
     // The result is abandoned, so its rejection must not escape later as an unhandled one.
-    void Promise.resolve(assembly).catch(() => {});
+    abandonThenable(assembly);
     invalid(`Context policy must return its result synchronously: ${input.participantId}`);
   }
   if (assembly === null || typeof assembly !== 'object')

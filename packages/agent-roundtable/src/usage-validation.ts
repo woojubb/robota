@@ -49,6 +49,15 @@ export function isThenable(value: unknown): boolean {
   }
 }
 
+/** Drops an abandoned promise-like result so its later rejection is not reported as unhandled. */
+export function abandonThenable(value: unknown): void {
+  try {
+    void Promise.resolve(value).catch(() => {});
+  } catch {
+    // A hostile `then` accessor has nothing further to settle.
+  }
+}
+
 /** A bound both paths accept: two non-negative safe integers whose sum is still a safe integer. */
 export function validModelCallBound(bound: unknown): boolean {
   if (bound === null || typeof bound !== 'object' || Array.isArray(bound)) return false;

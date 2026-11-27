@@ -218,6 +218,11 @@ describe('the reservation fields of a saved record are validated on load', () =>
       'a reservation with a cost under a token-only budget',
       (record) => (record.reservation = { tokens: 15, cost: usd('1'), provenance: 'declared' }),
     ],
+    ['a declared reservation with no stored bound', (record) => delete record.bound],
+    [
+      'an estimated reservation under a strict budget',
+      (record) => (record.reservation = { tokens: 15, cost: null, provenance: 'estimated' }),
+    ],
     [
       'a reservation with an extra key',
       (record) =>

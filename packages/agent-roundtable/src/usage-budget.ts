@@ -13,7 +13,12 @@ import type {
   UsageRecord,
   UsageReservation,
 } from './usage-types';
-import { isThenable, validBudgetCost, validModelCallBound } from './usage-validation';
+import {
+  abandonThenable,
+  isThenable,
+  validBudgetCost,
+  validModelCallBound,
+} from './usage-validation';
 
 export type StoredBudget = NonNullable<ConversationState['definition']['budget']>;
 
@@ -169,7 +174,10 @@ export function budgetExhausted(records: readonly UsageRecord[], budget: StoredB
 }
 
 function synchronous<T>(value: T, what: string): T {
-  if (isThenable(value)) invalid(`${what} must return synchronously`);
+  if (isThenable(value)) {
+    abandonThenable(value);
+    invalid(`${what} must return synchronously`);
+  }
   return value;
 }
 

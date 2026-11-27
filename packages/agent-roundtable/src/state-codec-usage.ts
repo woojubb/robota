@@ -68,6 +68,13 @@ export function validateUsageState(
           validUsageAmount(amount, currency),
       );
     }
+    if (entry.reservation !== null) {
+      // A declared reservation is the call's own bound; an estimate exists only where the budget allows one.
+      const { provenance } = record(entry.reservation);
+      requireState(
+        provenance === 'declared' ? entry.bound !== undefined : budget?.mode === 'estimated',
+      );
+    }
     requireState(
       entry.reconciled === null ||
         (budget !== null &&

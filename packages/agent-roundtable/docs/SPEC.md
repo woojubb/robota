@@ -35,7 +35,7 @@ Cancellation, disposal, time and model-call limits and a spent budget stop new d
 running work to settle. They end a run, not the conversation: only failure and semantic completion are
 final, so a host can stop work and continue it later without losing settled results. A spent model-call
 limit or budget refuses a group whole before any member runs, since a group commits only whole; a budget
-admits a call only while the bound it declares fits beside what is already spent or reserved. A result a participant returned
+admits a call only while the bound it declares fits beside what is already spent or reserved, and a caller that declares it makes no model calls is outside it, since that declaration is its own word. A result a participant returned
 is kept, and an attempt stopped without one runs again on the next run, as does a selector whose
 decision was not saved. A retry restores private state from the participant's checkpoint when it
 provides one, as loading would, so that state does not depend on whether the process restarted. A

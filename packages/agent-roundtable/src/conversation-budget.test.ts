@@ -447,6 +447,64 @@ describe('what a strict budget and an estimated budget admit', () => {
     );
   });
 
+  describe('an abandoned asynchronous result that later rejects', () => {
+    async function unhandledAfter(run: () => Promise<unknown>): Promise<unknown[]> {
+      const seen: unknown[] = [];
+      const listener = (reason: unknown) => void seen.push(reason);
+      process.on('unhandledRejection', listener);
+      try {
+        await run();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      } finally {
+        process.off('unhandledRejection', listener);
+      }
+      return seen;
+    }
+
+    it('is refused for an estimator without an unhandled rejection', async () => {
+      const errors: unknown[] = [];
+      const seen = await unhandledAfter(() =>
+        scripted(
+          {
+            budget: { tokens: 100, mode: 'estimated' },
+            estimator: {
+              estimate: (async () => {
+                throw new Error('estimator down');
+              }) as never,
+            },
+          },
+          async (services) => {
+            errors.push(await rejection(admit(services, 'x')));
+          },
+        ),
+      );
+      expect(errors).toEqual([expect.objectContaining({ code: 'invalid-config' })]);
+      expect(seen).toEqual([]);
+    });
+
+    it('is refused for a pricing bound without an unhandled rejection', async () => {
+      const errors: unknown[] = [];
+      const seen = await unhandledAfter(() =>
+        scripted(
+          {
+            budget: { cost: usd(100) },
+            pricing: {
+              ...perToken,
+              bound: (async () => {
+                throw new Error('pricing down');
+              }) as never,
+            },
+          },
+          async (services) => {
+            errors.push(await rejection(admit(services, 'x', bound(1))));
+          },
+        ),
+      );
+      expect(errors).toEqual([expect.objectContaining({ code: 'invalid-config' })]);
+      expect(seen).toEqual([]);
+    });
+  });
+
   it('refuses a pricing bound returned asynchronously', async () => {
     const errors: unknown[] = [];
     await scripted(
