@@ -432,7 +432,8 @@ describe('what a strict budget and an estimated budget admit', () => {
     for (const estimate of [
       () => ({}),
       () => ({ bound: bound(-1) }),
-      () => Promise.resolve({ bound: bound(1) }) as never,
+      // A thenable that otherwise holds a valid estimate: only its being awaitable refuses it.
+      () => Object.assign({ bound: bound(1) }, { then: () => {} }) as never,
     ]) {
       await scripted(
         { budget: { tokens: 100, mode: 'estimated' }, estimator: { estimate } },
@@ -451,7 +452,7 @@ describe('what a strict budget and an estimated budget admit', () => {
     await scripted(
       {
         budget: { cost: usd(100) },
-        pricing: { ...perToken, bound: () => Promise.resolve(usd(1)) as never },
+        pricing: { ...perToken, bound: () => Object.assign(usd(1), { then: () => {} }) as never },
       },
       async (services) => {
         errors.push(await rejection(admit(services, 'x', bound(1))));
