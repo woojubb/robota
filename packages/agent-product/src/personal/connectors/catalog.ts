@@ -47,18 +47,48 @@ const isControl = (character: string): boolean => {
   return code <= 0x1f || (code >= 0x7f && code <= 0x9f);
 };
 
+const FORMATTING = /^\p{Cf}$/u;
+const JOINER = /^[‌‍]$/u;
+const WORD_OR_EMOJI = /^[\p{L}\p{M}\p{N}\p{Extended_Pictographic}\p{Emoji_Modifier}️]$/u;
+
+/**
+ * Invisible formatting (direction overrides, zero-width marks) can make a name read as another, so
+ * it is removed. A zero-width joiner or non-joiner stays only between two word or emoji characters
+ * of the original text: it changes how a word in some scripts, and an emoji sequence, is drawn.
+ */
+function withoutInvisibleFormatting(characters: readonly string[]): string {
+  return characters
+    .filter((character, index) => {
+      if (!FORMATTING.test(character)) return true;
+      if (!JOINER.test(character)) return false;
+      const before = characters[index - 1];
+      const after = characters[index + 1];
+      return (
+        before !== undefined &&
+        after !== undefined &&
+        WORD_OR_EMOJI.test(before) &&
+        WORD_OR_EMOJI.test(after)
+      );
+    })
+    .join('');
+}
+
 /** Text of somebody else's, as one plain line of at most `limit` characters. */
 function plain(value: unknown, limit: number): string | undefined {
   if (typeof value !== 'string') return undefined;
-  const line = [...value]
-    .map((character) => (isControl(character) ? ' ' : character))
-    .join('')
-    // Invisible formatting (direction overrides, zero-width marks) can make a name read as another.
-    .replace(/\p{Cf}/gu, '')
+  const collapsed = withoutInvisibleFormatting(
+    [...value].map((character) => (isControl(character) ? ' ' : character)),
+  )
     .replace(/\s+/gu, ' ')
-    .trim()
-    .slice(0, limit)
     .trim();
+  // Clipped to `limit` UTF-16 units, the length the connector book checks, without cutting a
+  // character in two; a joiner the clip leaves last joins nothing.
+  let clipped = '';
+  for (const character of collapsed) {
+    if (clipped.length + character.length > limit) break;
+    clipped += character;
+  }
+  const line = clipped.replace(/[‌‍]+$/u, '').trim();
   return line === '' ? undefined : line;
 }
 
