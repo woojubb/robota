@@ -46,7 +46,8 @@ function baseEnvironment(): Record<string, string> {
 
 /**
  * A served session names itself after its first turn, with a request of its own to the provider. It
- * is the only request whose system prompt asks for a session title.
+ * is the only request whose system prompt asks for a session title. The fragment is copied here
+ * rather than imported: the naming prompt is private to the published framework that agent-cli pins.
  */
 function isNamingRequest(wire: WireRequest): boolean {
   return wire.messages.some(
@@ -245,8 +246,8 @@ describe('--serve --http-port', () => {
   }, 90_000);
 
   it('runs a slash command without calling the model', async () => {
-    // The first turn's naming request is asynchronous; count only once it has been answered.
-    await waitUntilSessionNamed();
+    // The first turn's naming request is asynchronous; count only once it has been answered (only when a real turn has run).
+    if (requests.some((wire) => !isNamingRequest(wire))) await waitUntilSessionNamed();
     const count = requests.length;
     const response = await api('/command', {
       method: 'POST',
