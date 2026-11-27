@@ -25,6 +25,15 @@ export function offerSource(offer: ITaskOfferView): string {
   return `${ORIGIN[offer.source]} · ${where}`;
 }
 
+/** The service an offer was read from, by the name the person gave it, or their library. */
+export function offerSourceName(offer: ITaskOfferView): string {
+  const { evidence } = offer;
+  if (evidence === undefined) return ORIGIN[offer.source];
+  return evidence.kind === 'connector'
+    ? (evidence.connectorTitle ?? 'a service you connected')
+    : 'your library';
+}
+
 /** Newest first: the one the agent noticed last comes first. */
 export function newestFirst(offers: readonly ITaskOfferView[]): readonly ITaskOfferView[] {
   return [...offers].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));

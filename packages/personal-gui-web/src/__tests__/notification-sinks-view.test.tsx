@@ -8,6 +8,7 @@ import { openQuestionCount, titleWithCount, usePageNotifications } from '../noti
 import { BrowserNotifications } from '../views/BrowserNotifications.js';
 import { NotificationAddress } from '../views/NotificationAddress.js';
 import { SettingsView } from '../views/Settings.js';
+import { DEFAULT_PREFERENCES } from './offers-world.js';
 
 import type {
   IBrowserNotificationView,
@@ -211,6 +212,7 @@ describe('the notification address in Settings', () => {
         today: { sent: 0, limit: 3 },
         waitingInDigest: 0,
       }),
+      offerPreferences: async () => ({ preferences: DEFAULT_PREFERENCES }),
     });
     render(<SettingsView api={api} />);
     expect(await screen.findByRole('form', { name: 'Notifications' })).toBeTruthy();

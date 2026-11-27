@@ -158,6 +158,39 @@ describe('personal API client', () => {
     }
   });
 
+  it('reads the suggestion preferences with a plain read and changes them with one write that names only the parts changed', async () => {
+    const answer = {
+      preferences: {
+        enabled: true,
+        delivery: 'feed',
+        topics: [],
+        mutedTopics: ['research'],
+        mutedSources: [],
+      },
+    };
+    const read = recorder({ status: 200, body: answer });
+    expect(await read.api.offerPreferences()).toEqual(answer);
+    expect(read.calls[0]!.url).toBe('api/tasks/offer-preferences');
+    expect(read.calls[0]!.init?.method).toBe('GET');
+    expect(read.calls[0]!.init?.headers).toEqual({});
+
+    const changed = recorder({ status: 200, body: answer });
+    expect(await changed.api.changeOfferPreferences({ mutedTopics: ['research'] })).toEqual(answer);
+    expect(changed.calls[0]!.url).toBe('api/tasks/offer-preferences');
+    expect(changed.calls[0]!.init?.method).toBe('PUT');
+    expect(changed.calls[0]!.init?.headers).toEqual({
+      'content-type': 'application/json',
+      [API_WRITE_HEADER]: '1',
+    });
+    expect(JSON.parse(String(changed.calls[0]!.init?.body))).toEqual({ mutedTopics: ['research'] });
+
+    const refused = recorder({ status: 400, body: { error: 'delivery must be one of feed' } });
+    await expect(refused.api.changeOfferPreferences({ delivery: 'feed' })).rejects.toMatchObject({
+      status: 400,
+      message: 'delivery must be one of feed',
+    });
+  });
+
   it('reads the launches the person made, and one of them, with plain reads and no write', async () => {
     const launch = { id: 'launch/1', progress: 'verified', evidence: [] };
     const listed = recorder({ status: 200, body: { launches: [launch] } });

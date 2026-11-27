@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import { ApiError } from '../api.js';
 import { LaunchStatus } from './LaunchStatus.js';
-import { newestFirst, offerSource, offerTitle } from './offer-text.js';
+import { muteSuggestions, sourceKey, topicKey } from './offer-mute.js';
+import { newestFirst, offerSource, offerSourceName, offerTitle } from './offer-text.js';
 import { READINESS, Readiness, chip } from './TaskReadiness.js';
 import { TaskStart } from './TaskStart.js';
 import { Button, when } from './ui.js';
@@ -37,18 +38,19 @@ function useDecision(
   readonly busy: boolean;
   readonly problem: string | undefined;
   readonly decide: (offerId: string, request: TTaskOfferDecisionRequest) => Promise<void>;
+  readonly mute: (kind: 'topic' | 'source', value: string) => Promise<void>;
 } {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   /** Set at once on a press, since a second press can come before the page has redrawn. */
   const sending = useRef(false);
-  const decide = async (offerId: string, request: TTaskOfferDecisionRequest): Promise<void> => {
+  const run = async (action: () => Promise<void>): Promise<void> => {
     if (sending.current) return;
     sending.current = true;
     setBusy(true);
     setProblem(undefined);
     try {
-      await api.decideTaskOffer(offerId, request);
+      await action();
       await onChanged();
     } catch (caught) {
       setProblem(caught instanceof ApiError ? caught.message : NOT_REACHED);
@@ -57,7 +59,14 @@ function useDecision(
       setBusy(false);
     }
   };
-  return { busy, problem, decide };
+  const decide = (offerId: string, request: TTaskOfferDecisionRequest): Promise<void> =>
+    run(async () => {
+      await api.decideTaskOffer(offerId, request);
+    });
+  // The card stays until the agent has taken the change and the lists, read again, no longer hold it.
+  const mute = (kind: 'topic' | 'source', value: string): Promise<void> =>
+    run(() => muteSuggestions(api, kind, value));
+  return { busy, problem, decide, mute };
 }
 
 /**
@@ -95,7 +104,7 @@ function OfferCard({
   const [expanded, setExpanded] = useState(focused);
   // A launch made from this card is shown at once, before the list has been read again.
   const [startedId, setStartedId] = useState<string | undefined>(undefined);
-  const { busy, problem, decide } = useDecision(api, onChanged);
+  const { busy, problem, decide, mute } = useDecision(api, onChanged);
   const card = useRef<HTMLElement>(null);
   const noted = useRef(false);
   useEffect(() => {
@@ -118,6 +127,8 @@ function OfferCard({
     offer.readiness.state !== 'unavailable' &&
     definition?.startable === true;
   const evidence = offer.evidence;
+  const topic = definition === undefined ? undefined : topicKey(definition.category);
+  const source = sourceKey(offer);
   return (
     <li>
       <article
@@ -177,6 +188,24 @@ function OfferCard({
                   {label}
                 </Button>
               ))}
+              {topic !== undefined && topic !== '' && (
+                <Button
+                  disabled={busy}
+                  label={`Mute topic ${definition!.category}`}
+                  onClick={() => void mute('topic', topic)}
+                >
+                  Mute topic
+                </Button>
+              )}
+              {source !== undefined && (
+                <Button
+                  disabled={busy}
+                  label={`Mute source ${offerSourceName(offer)}`}
+                  onClick={() => void mute('source', source)}
+                >
+                  Mute source
+                </Button>
+              )}
             </>
           )}
         </div>

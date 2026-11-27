@@ -350,6 +350,24 @@ export interface ITaskOfferDecisionView {
   readonly snoozedUntil?: string;
 }
 
+export type TOfferDelivery = 'feed' | 'notify' | 'digest';
+
+/** What the person chose about suggestions; topics are task categories, sources are `library` or a connector's id. */
+export interface IOfferPreferencesView {
+  readonly enabled: boolean;
+  readonly delivery: TOfferDelivery;
+  /** When not empty, only suggestions for these topics. */
+  readonly topics: readonly string[];
+  readonly mutedTopics: readonly string[];
+  readonly mutedSources: readonly string[];
+}
+
+/** The preferences as they read now; `issue` is set when the saved words could not be read, which reads as off. */
+export interface IOfferPreferencesAnswer {
+  readonly preferences: IOfferPreferencesView;
+  readonly issue?: string;
+}
+
 /** One access a task would run on, as the agent recorded it: plain words, never a credential. */
 export interface ITaskAccessView {
   readonly capability: string;
@@ -684,6 +702,10 @@ export interface IPersonalApi {
     offerId: string,
     request: TTaskOfferDecisionRequest,
   ): Promise<ITaskOfferDecisionView>;
+  /** What the person chose about suggestions. */
+  offerPreferences(): Promise<IOfferPreferencesAnswer>;
+  /** Change what the person chose: only the parts named, refused whole when any part is not valid. */
+  changeOfferPreferences(change: Partial<IOfferPreferencesView>): Promise<IOfferPreferencesAnswer>;
   /**
    * Start a task the agent said is ready, from an offer when `offerId` is given. One key is one
    * request: sending the same key again, for whatever reason, answers the same launch and goal.
@@ -913,6 +935,8 @@ export function createPersonalApi(
           request,
         )
       ).offer,
+    offerPreferences: () => call('GET', 'tasks/offer-preferences'),
+    changeOfferPreferences: (change) => call('PUT', 'tasks/offer-preferences', change),
     startTask: (definitionId, request) =>
       call('POST', `tasks/definitions/${id(definitionId)}/start`, request),
     taskLaunches: async () =>
