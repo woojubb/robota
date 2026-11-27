@@ -548,7 +548,10 @@ Recall marks every claim the agent read rather than heard as data, so an instruc
 never the person's, and stored text stays on one line so a claim cannot lay out what reads as another.
 Likely secrets are refused before anything is written. A forgotten claim is removed from every page
 that held it; a page it empties goes too, with every link and log entry that named it, since a page is
-named by its title. Only a content-free log line remains, so the fact is never recalled again. The store is a port: a host supplies one per principal, and the file store keeps plain Markdown
+named by its title. Only a content-free log line remains, so the fact is never recalled again. What was
+removed is then handed to the host, which keeps the conversations the wiki was filled from, so it can
+reach the copies they hold; a host that cannot reach every copy says so, and that never undoes the
+forget. The store is a port: a host supplies one per principal, and the file store keeps plain Markdown
 a person can read and export without Robota.
 
 The browser is a port too. The agent reads a page as text with numbered elements and acts by number;

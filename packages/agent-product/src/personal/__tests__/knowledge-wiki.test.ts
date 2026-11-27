@@ -9,10 +9,11 @@ import {
   SensitiveContentRefusedError,
   createFileKnowledgeStore,
   createMemoryKnowledgeStore,
+  WIKI_INSTRUCTIONS,
   createWikiTools,
 } from '../index.js';
 
-import type { IKnowledgeStore } from '../index.js';
+import type { IForgetReach, IForgottenText, IKnowledgeStore } from '../index.js';
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -317,5 +318,136 @@ describe('wiki tools', () => {
       { toolName: 'WikiSearch', parameters: {} },
     );
     expect(dataOf(after)).toContain('No wiki pages match');
+  });
+});
+
+describe('what a forget hands to the host', () => {
+  function recordingReach(store: IKnowledgeStore) {
+    const calls: {
+      forgotten: readonly IForgottenText[];
+      pagesHoldingIt: string[];
+      logNamesIt: boolean;
+      logSaysForget: boolean;
+    }[] = [];
+    const reach: IForgetReach = {
+      async reach(forgotten) {
+        const pages = await store.listPages();
+        const log = await store.readLog(100);
+        calls.push({
+          forgotten,
+          pagesHoldingIt: pages
+            .filter((page) =>
+              [page.title, ...page.claims.map((claim) => claim.text)].some((text) =>
+                forgotten.some((entry) => text.includes(entry.text)),
+              ),
+            )
+            .map((page) => page.id),
+          logNamesIt: log.some((entry) => entry.pageId === 'tea-habits'),
+          logSaysForget: log.some((entry) => entry.action === 'forget'),
+        });
+        return { cleaned: 2, pending: 1, notReached: 0, sources: ['Morning chat'] };
+      },
+    };
+    return { calls, reach };
+  }
+
+  it('hands every forgotten statement with its conversation to the host after the wiki no longer holds it', async () => {
+    const store = createMemoryKnowledgeStore();
+    const { calls, reach } = recordingReach(store);
+    const wiki = new KnowledgeWiki({ store, now: clock, reach });
+    const first = await wiki.remember({
+      pageTitle: 'Tea habits',
+      claim: 'Mina drinks green tea every morning',
+      source: { origin: 'owner', sessionId: 'session-1' },
+    });
+    await wiki.remember({
+      pageTitle: 'Tea habits',
+      claim: 'Mina drinks black tea every morning',
+      source: { origin: 'owner', sessionId: 'session-2' },
+      supersedes: first.claimId,
+    });
+    const result = await wiki.forgetWithReport({ pageId: 'tea-habits' });
+    expect(result).toEqual({
+      forgotten: 2,
+      conversations: { cleaned: 2, pending: 1, notReached: 0, sources: ['Morning chat'] },
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.pagesHoldingIt).toEqual([]);
+    expect(calls[0]!.logNamesIt).toBe(false);
+    expect(calls[0]!.logSaysForget).toBe(true);
+    expect(calls[0]!.forgotten).toEqual([
+      { text: 'Mina drinks green tea every morning', kind: 'claim', sessionId: 'session-1' },
+      { text: 'Mina drinks black tea every morning', kind: 'claim', sessionId: 'session-2' },
+      { text: 'Tea habits', kind: 'title' },
+    ]);
+  });
+
+  it('keeps the forget when the host cannot reach the conversations, and says so', async () => {
+    const store = createMemoryKnowledgeStore();
+    const wiki = new KnowledgeWiki({
+      store,
+      now: clock,
+      reach: {
+        async reach() {
+          throw new Error('the session store is locked');
+        },
+      },
+    });
+    await wiki.remember({
+      pageTitle: 'Mina',
+      claim: 'Mina drinks green tea',
+      source: { origin: 'owner', sessionId: 's' },
+    });
+    const result = await wiki.forgetWithReport({ text: 'green tea' });
+    expect(result).toEqual({ forgotten: 1, reachFailed: true });
+    expect(await wiki.read('mina')).toBeUndefined();
+  });
+
+  it('forgets many claims in one call and reaches once', async () => {
+    const store = createMemoryKnowledgeStore();
+    const { calls, reach } = recordingReach(store);
+    const wiki = new KnowledgeWiki({ store, now: clock, reach });
+    const ids: string[] = [];
+    for (const claim of ['Likes tea', 'Likes walks', 'Likes jazz']) {
+      ids.push(
+        (await wiki.remember({ pageTitle: 'Mina', claim, source: { origin: 'owner' } })).claimId,
+      );
+    }
+    expect(await wiki.forget({ claimIds: [ids[0]!, ids[2]!] })).toBe(2);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.forgotten.map((entry) => entry.text)).toEqual(['Likes tea', 'Likes jazz']);
+    expect((await wiki.read('mina'))!.claims.map((claim) => claim.text)).toEqual(['Likes walks']);
+  });
+
+  it('does not reach when nothing was forgotten, and forget still returns the number', async () => {
+    const store = createMemoryKnowledgeStore();
+    const { calls, reach } = recordingReach(store);
+    const wiki = new KnowledgeWiki({ store, now: clock, reach });
+    expect(await wiki.forget({ claimIds: ['nope'] })).toBe(0);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('answers the model with counts only', async () => {
+    const store = createMemoryKnowledgeStore();
+    const { reach } = recordingReach(store);
+    const wiki = new KnowledgeWiki({ store, now: clock, reach });
+    const saved = await wiki.remember({
+      pageTitle: 'Mina',
+      claim: 'Mina drinks green tea',
+      source: { origin: 'owner' },
+    });
+    const tools = Object.fromEntries(createWikiTools(wiki).map((tool) => [tool.schema.name, tool]));
+    const answer = dataOf(
+      await tools['WikiForget']!.execute(
+        { claimId: saved.claimId },
+        { toolName: 'WikiForget', parameters: {} },
+      ),
+    );
+    expect(answer).not.toMatch(/green tea|Mina/u);
+    expect(JSON.parse(answer)).toEqual({
+      forgotten: 1,
+      conversations: { cleaned: 2, pending: 1, notReached: 0 },
+    });
+    expect(WIKI_INSTRUCTIONS).toContain('[forgotten]');
   });
 });
