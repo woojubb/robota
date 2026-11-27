@@ -12,6 +12,7 @@ export type AcpParticipantErrorCode =
   | 'max-turn-requests'
   | 'cancelled'
   | 'refusal'
+  | 'reply-too-long'
   | 'unknown-stop-reason';
 
 /** Raised by an ACP participant and its sessions; never by the roundtable core. */

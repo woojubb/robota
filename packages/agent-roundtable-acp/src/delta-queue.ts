@@ -12,20 +12,26 @@
  * creates it, so no link is ever left awaiting a later `push` or `flush` to notice it rejected.
  * `sink` rejecting is recorded as the chain's first failure and skips every later delta; `flush`
  * rethrows that same first failure for as long as it stands.
+ *
+ * `stop` ends delivery for good: a delta not yet handed to `sink` is dropped, so nothing is
+ * delivered once the turn that owns the queue no longer wants it. A delta already inside `sink`
+ * cannot be recalled.
  */
 export interface DeltaQueue {
   push(text: string): void;
   flush(): Promise<void>;
+  stop(): void;
 }
 
 export function createDeltaQueue(sink: (text: string) => Promise<void>): DeltaQueue {
   let tail: Promise<void> = Promise.resolve();
   let failure: { error: unknown } | undefined;
+  let stopped = false;
   return {
     push(text: string): void {
       tail = tail
         .then(() => {
-          if (failure) return;
+          if (failure || stopped) return;
           return sink(text);
         })
         .catch((error: unknown) => {
@@ -35,6 +41,9 @@ export function createDeltaQueue(sink: (text: string) => Promise<void>): DeltaQu
     async flush(): Promise<void> {
       await tail;
       if (failure) throw failure.error;
+    },
+    stop(): void {
+      stopped = true;
     },
   };
 }
