@@ -6,12 +6,16 @@
 //   --hang                 never answer a prompt
 //   --exit-mid-turn        say one word, then exit without answering the prompt
 //   --grandchild           start a long-lived child of its own before answering anything
+//   --grandchild-ignores-term   the grandchild keeps running when asked to terminate (`grandchild-ready`)
+//   --grandchild-holds-stdout   the grandchild shares the agent's standard output
+//   --exit-after-grandchild     exit as soon as the grandchild has started
 //   --ignore-sigterm       keep running when asked to terminate, and past the end of its input
 //   --stderr-flood <n>     write about n bytes to standard error before answering a prompt
 //
 // Progress is reported on standard error, one line each, so a test can wait on an event instead of
 // a delay: `ready`, `pid:<n>`, `grandchild:<n>`, `prompt`, `sigterm`, `cancel`, `flood-done`.
 import { spawn } from 'node:child_process';
+import { writeSync } from 'node:fs';
 import { Readable, Writable } from 'node:stream';
 
 import { agent, ndJsonStream } from '@agentclientprotocol/sdk';
@@ -25,16 +29,26 @@ const valueOf = (name) => {
 const note = (text) => process.stderr.write(`${text}\n`);
 
 if (has('ignore-sigterm')) {
-  process.on('SIGTERM', () => note('sigterm'));
+  // A synchronous write, so the line is out before any later kill can land.
+  process.on('SIGTERM', () => writeSync(2, 'sigterm\n'));
   // Without this the process would end by itself once its input ends; only a kill may end it.
   setInterval(() => {}, 1_000);
 }
 
 if (has('grandchild')) {
-  const grandchild = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
-    stdio: 'ignore',
+  const code = has('grandchild-ignores-term')
+    ? "process.on('SIGTERM', () => {}); process.stderr.write('grandchild-ready\\n'); setInterval(() => {}, 1000)"
+    : 'setInterval(() => {}, 1000)';
+  // Sharing the agent's standard output keeps that pipe open for as long as the grandchild lives.
+  const stdout = has('grandchild-holds-stdout') ? 'inherit' : 'ignore';
+  const grandchild = spawn(process.execPath, ['-e', code], {
+    // Its standard error is shared too, only so it can report that it is ready to ignore the request.
+    stdio: ['ignore', stdout, has('grandchild-ignores-term') ? 'inherit' : 'ignore'],
   });
-  grandchild.once('spawn', () => note(`grandchild:${grandchild.pid}`));
+  grandchild.once('spawn', () => {
+    note(`grandchild:${grandchild.pid}`);
+    if (has('exit-after-grandchild')) process.exit(0);
+  });
 }
 
 const flood = async (bytes) => {

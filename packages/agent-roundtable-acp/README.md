@@ -68,13 +68,16 @@ Every `launch()` starts one process whose standard input and output are the conn
 sees exactly `env`: pass what it needs to start and authenticate, such as `PATH`, because the
 host's own variables are never passed on. On macOS and Linux the process leads its own process
 group, and `close()` ends standard input, asks the group to exit, waits up to `killGraceMs` and then
-kills the group, so helpers the agent started do not outlive the session. A process that cannot be
+kills the group, so helpers the agent started do not outlive the session, even when the agent
+exited first or a helper ignored the request. The same step runs as soon as the agent exits, so a
+helper that still holds the agent's output cannot keep the connection open. A process that cannot be
 started (a missing program or working directory) rejects the open with an `AcpParticipantError`
 whose `code` is `launch-failed`. If the agent exits mid-turn, that turn and every later one fails
 with `connection-closed`.
 
 Not covered: if the host process itself dies, nothing ends the agent, which keeps running unless it
-exits when its standard input ends. On Windows the tree is ended with `taskkill`, an agent that is a
+exits when its standard input ends. On Windows the tree is ended with `taskkill` only while the agent is
+running: a helper that outlives it, or holds its output, is not ended when it exits. An agent that is a
 `.cmd` shim needs a shell the launcher does not provide, and none of this is verified there yet.
 
 ### A custom launcher

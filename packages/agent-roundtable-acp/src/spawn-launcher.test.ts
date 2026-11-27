@@ -286,6 +286,52 @@ describe('an agent that dies', () => {
   });
 });
 
+describe('a process tree the agent leaves behind', () => {
+  posixOnly('is ended on close when the agent exited first', async () => {
+    const watcher = stderrWatcher();
+    const args = ['--grandchild', '--exit-after-grandchild'];
+    const launcher = launcherFor(args, { onStderr: watcher.onStderr });
+    const connection = await launcher.launch({
+      conversationId: 'conversation-1',
+      participantId: 'acp',
+    });
+    const childPid = pidOf(await watcher.when('pid:'));
+    const grandchildPid = pidOf(await watcher.when('grandchild:'));
+    await gone(childPid);
+    await connection.close();
+
+    await gone(grandchildPid);
+  });
+
+  posixOnly('is ended on close when a helper ignores the request to exit', async () => {
+    const watcher = stderrWatcher();
+    const args = ['--grandchild', '--grandchild-ignores-term'];
+    const lease = await openLease(args, {
+      launcher: launcherFor(args, { onStderr: watcher.onStderr }),
+    });
+    const grandchildPid = pidOf(await watcher.when('grandchild:'));
+    // Until it says so, the helper might still be starting and die of the request by default.
+    await watcher.when('grandchild-ready');
+    await lease.release();
+
+    await gone(grandchildPid);
+  });
+
+  posixOnly('fails the turn as a closed connection when a helper holds the output', async () => {
+    const watcher = stderrWatcher();
+    const args = ['--exit-mid-turn', '--grandchild', '--grandchild-holds-stdout'];
+    const lease = await openLease(args, {
+      launcher: launcherFor(args, { onStderr: watcher.onStderr }),
+    });
+    const grandchildPid = pidOf(await watcher.when('grandchild:'));
+    const failure = await settled(lease.session.runTurn(turnOf(), executionOptions()));
+
+    expect(failure.rejected).toMatchObject({ code: 'connection-closed' });
+    await gone(grandchildPid);
+    await lease.release();
+  });
+});
+
 describe('an agent that cannot be started', () => {
   it('rejects launch with a typed error that names the command', async () => {
     const launcher = spawnAcpAgent({

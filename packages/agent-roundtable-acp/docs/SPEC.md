@@ -46,7 +46,7 @@ The session core starts no process. Whatever yields the byte streams to an agent
 sits behind a port, and a session's connection lives and ends with its lease. One launcher for that
 port ships with the package: it starts the agent as a child process, gives it exactly the
 environment the host names and nothing inherited, and ends the whole tree it started when the
-connection closes. An agent that cannot be started fails the open with a typed error. Opening is
+connection closes or the agent exits, including helpers that outlive it or ignore the request. An agent that cannot be started fails the open with a typed error. Opening is
 bounded by the adapter's own startup limit because the roundtable gives opening no cancellation.
 
 It speaks version 1 of the protocol only and uses only its stable parts. An agent that answers with
