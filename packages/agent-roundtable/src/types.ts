@@ -7,7 +7,15 @@ import type {
   ResumeRequest,
   ResponseReceipt,
 } from './request-types';
-import type { ModelCallCapability, PricePolicy, TurnServices, UsageRecord } from './usage-types';
+import type {
+  ModelCallCapability,
+  PricePolicy,
+  TurnServices,
+  UsageBudget,
+  UsageEstimator,
+  UsageReconciliation,
+  UsageRecord,
+} from './usage-types';
 
 export type { JsonValue } from './json-value';
 export type {
@@ -21,16 +29,23 @@ export type {
   ResumeRequest,
 } from './request-types';
 export type {
+  ModelCallBound,
   ModelCallCapability,
   ModelCallIntent,
   Money,
   PricePolicy,
   TurnServices,
+  UsageAmount,
+  UsageBudget,
+  UsageEstimate,
+  UsageEstimator,
   UsageOutcome,
   UsagePrincipal,
   UsageProvenance,
+  UsageReconciliation,
   UsageRecord,
   UsageReport,
+  UsageReservation,
   UsageSummary,
   UsageTokens,
 } from './usage-types';
@@ -107,7 +122,10 @@ export interface ParticipantFactory {
   supportsContinuation?: boolean;
   /** Checkpoint formats this factory can restore without migration. */
   checkpointVersions?: readonly string[];
-  /** Declared so model-call limits and pricing can be enforced; required to configure either. */
+  /**
+   * Declared so model-call limits, pricing and budgets can be enforced; required to configure any.
+   * A budget accepts only 'none' or 'enforced'.
+   */
   modelCalls?: ModelCallCapability;
   openSession(context: {
     conversationId: string;
@@ -155,7 +173,10 @@ export interface SelectionContext {
 export interface TurnSelector {
   /** A version covers policy and configuration. Unversioned selectors cannot be loaded. */
   reference?: RuntimeReference;
-  /** Declared so model-call limits and pricing can be enforced; required to configure either. */
+  /**
+   * Declared so model-call limits, pricing and budgets can be enforced; required to configure any.
+   * A budget accepts only 'none' or 'enforced'.
+   */
   modelCalls?: ModelCallCapability;
   /** Omit only for a stateless policy whose progress is derived from the selection context. */
   checkpoint?(): Promise<ParticipantCheckpoint>;
@@ -224,6 +245,8 @@ export interface LoadRoundtableOptions {
   registry: RoundtableRegistry;
   /** Must match the version the conversation was created or last loaded with. */
   pricing?: PricePolicy;
+  /** Required to load a conversation saved with an estimated budget, and refused for any other. */
+  estimator?: UsageEstimator;
   onEvent?: RoundtableOptions['onEvent'];
   onEventError?: RoundtableOptions['onEventError'];
 }
@@ -239,7 +262,7 @@ export interface ConversationSnapshot {
 
 export type RunResult = { revision: number } & (
   | { status: 'completed'; reason: string }
-  | { status: 'limited'; reason: 'turns' | 'time' | 'model-calls' }
+  | { status: 'limited'; reason: 'turns' | 'time' | 'model-calls' | 'budget' }
   | { status: 'cancelled' }
   | { status: 'failed'; message: string }
   | { status: 'waiting'; requests: ConversationRequest[] }
@@ -272,6 +295,13 @@ export interface RoundtableOptions {
   leaseMs?: number;
   /** Requires every agent factory and the selector to declare `modelCalls`. */
   pricing?: PricePolicy;
+  /**
+   * A token or cost ceiling over the whole conversation, saved with it. Requires every agent factory
+   * and the selector to declare `modelCalls` as 'none' or 'enforced'; a cost amount requires `pricing`.
+   */
+  budget?: UsageBudget;
+  /** Supplies a call's bound in an 'estimated' budget, and is refused with any other mode. */
+  estimator?: UsageEstimator;
   onEvent?: (event: RoundtableEvent) => void | Promise<void>;
   onEventError?: (error: unknown, event: RoundtableEvent) => void | Promise<void>;
 }
@@ -296,6 +326,13 @@ export interface Roundtable {
   submitInput(input: ExternalInput): Promise<{ revision: number; messageId: string }>;
   /** Accept a correlated response; execution advances only on a later run(). */
   resume(input: ResumeRequest): Promise<ResponseReceipt>;
+  /**
+   * Settles what a call whose usage was never fully reported counts against the budget, replacing the
+   * bound it keeps counted until then. Only the host can do this: a participant cannot refund itself.
+   * The same amounts again are a no-op; different ones, or a call whose usage is already known, conflict.
+   * Never changes a call count, and is refused while a run, input or resume is active.
+   */
+  reconcileUsage(input: UsageReconciliation): Promise<{ revision: number }>;
   snapshot(): ConversationSnapshot;
   dispose(): Promise<void>;
 }

@@ -9,7 +9,8 @@ export class RoundtableError extends Error {
       | 'disposed'
       | 'stale-claim'
       | 'recovery-required'
-      | 'model-call-limit',
+      | 'model-call-limit'
+      | 'budget-limit',
     message: string,
   ) {
     super(message);

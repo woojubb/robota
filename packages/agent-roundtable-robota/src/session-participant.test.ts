@@ -933,3 +933,24 @@ describe('sessionParticipant borrowed provider lifetime', () => {
     expect(close).toHaveBeenCalledOnce();
   });
 });
+
+describe('sessionParticipant: a roundtable budget', () => {
+  it('refuses a session participant at construction, since it cannot declare a bound before dispatch', () => {
+    const participant = sessionParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/session', version: '1' },
+      createSessionOptions: async () => {
+        throw new Error('not used in this test');
+      },
+    });
+    expect(participant.factory.modelCalls).toBe('metered');
+    expect(() =>
+      createRoundtable({
+        conversationId: 'budget-session',
+        participants: [participant],
+        limits: { maxTurnsPerRun: 1 },
+        budget: { tokens: 1000 },
+      }),
+    ).toThrow(expect.objectContaining({ code: 'invalid-config' }));
+  });
+});

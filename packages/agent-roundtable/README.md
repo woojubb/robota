@@ -86,16 +86,16 @@ objects lets `loadRoundtable` reopen a conversation later.
 
 ## Exports
 
-| Export                      | What it is for                                                                                                                                                                                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createRoundtable(options)` | Validates configuration and returns a `Roundtable` handle; `run()` executes it.                                                                                                                                                                   |
-| `loadRoundtable(options)`   | Reopens a conversation from a `ConversationStore`, resolving saved runtime, selector and context policy references through a `RoundtableRegistry`.                                                                                                |
-| `MemoryConversationStore`   | The in-memory `ConversationStore`; no durability, no `recovery: 'durable'` support.                                                                                                                                                               |
-| `externalParticipant(def)`  | Declares a participant answered through `submitInput`/`resume` instead of a factory.                                                                                                                                                              |
-| `increments()`              | The default `ContextPolicy`: no model calls; a participant is offered every message it has not seen and did not write (see "Context policy").                                                                                                     |
-| `roundRobin()`              | The default `TurnSelector`: no model calls; cycles through participants in order after the last speaker, forever — it never finishes on its own, so a run's own limits (`maxTurnsPerRun`, `timeoutMs`, a model-call limit) are what stop it.      |
-| `RoundtableError`           | Thrown by every rejecting call and by `TurnServices.admitModelCall`; `code` is `invalid-config`, `busy`, `conflict`, `disposed`, `stale-claim`, `recovery-required`, `model-call-limit`, `invalid-selection` or `invalid-context` (see "Errors"). |
-| `summarizeUsage(records)`   | Reduces `UsageRecord[]` (from a snapshot or the `usage` event) into one combined `UsageSummary`; filter the records first (by run, participant, ...) for a per-principal breakdown.                                                               |
+| Export                      | What it is for                                                                                                                                                                                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createRoundtable(options)` | Validates configuration and returns a `Roundtable` handle; `run()` executes it.                                                                                                                                                                                   |
+| `loadRoundtable(options)`   | Reopens a conversation from a `ConversationStore`, resolving saved runtime, selector and context policy references through a `RoundtableRegistry`.                                                                                                                |
+| `MemoryConversationStore`   | The in-memory `ConversationStore`; no durability, no `recovery: 'durable'` support.                                                                                                                                                                               |
+| `externalParticipant(def)`  | Declares a participant answered through `submitInput`/`resume` instead of a factory.                                                                                                                                                                              |
+| `increments()`              | The default `ContextPolicy`: no model calls; a participant is offered every message it has not seen and did not write (see "Context policy").                                                                                                                     |
+| `roundRobin()`              | The default `TurnSelector`: no model calls; cycles through participants in order after the last speaker, forever — it never finishes on its own, so a run's own limits (`maxTurnsPerRun`, `timeoutMs`, a model-call limit) are what stop it.                      |
+| `RoundtableError`           | Thrown by every rejecting call and by `TurnServices.admitModelCall`; `code` is `invalid-config`, `busy`, `conflict`, `disposed`, `stale-claim`, `recovery-required`, `model-call-limit`, `budget-limit`, `invalid-selection` or `invalid-context` (see "Errors"). |
+| `summarizeUsage(records)`   | Reduces `UsageRecord[]` (from a snapshot or the `usage` event) into one combined `UsageSummary`; filter the records first (by run, participant, ...) for a per-principal breakdown.                                                                               |
 
 Everything else this package exports is a type: the participant/session/selector contracts
 (`ParticipantDefinition`, `ParticipantSession`, `TurnSelector`, …), the store contract
@@ -148,13 +148,13 @@ effects, and it does not enable `recovery: 'durable'` for Roundtable execution.
 
 `run()` advances until one of these results:
 
-| Status      | Meaning                                                                                       |
-| ----------- | --------------------------------------------------------------------------------------------- |
-| `waiting`   | Requests need answers: `submitInput` answers input, `resume` answers any request.             |
-| `limited`   | This run reached `maxTurnsPerRun`, `timeoutMs` or a model-call limit; the next run continues. |
-| `cancelled` | The `signal` fired or `dispose()` was called; the next run or a loaded handle continues.      |
-| `completed` | The selector finished the conversation. Every later `run()` returns the same result.          |
-| `failed`    | A participant, the selector or the store failed. Every later `run()` returns the same result. |
+| Status      | Meaning                                                                                                   |
+| ----------- | --------------------------------------------------------------------------------------------------------- |
+| `waiting`   | Requests need answers: `submitInput` answers input, `resume` answers any request.                         |
+| `limited`   | This run reached `maxTurnsPerRun`, `timeoutMs`, a model-call limit or the budget; the next run continues. |
+| `cancelled` | The `signal` fired or `dispose()` was called; the next run or a loaded handle continues.                  |
+| `completed` | The selector finished the conversation. Every later `run()` returns the same result.                      |
+| `failed`    | A participant, the selector or the store failed. Every later `run()` returns the same result.             |
 
 ## Events
 
@@ -204,6 +204,48 @@ before any session opens. The assembled view is stored with the turn, so a loade
 asks the policy again for a turn it already assembled. A selector's own view is not shaped by the
 policy: it is shown the whole transcript.
 
+## Budget
+
+`budget: { tokens?, cost?, mode? }` puts a ceiling over the whole conversation: a positive token amount,
+a `cost` (`{ currency, minorUnits }` with a positive integer amount), or both. Tokens count
+`input + output` (cache and reasoning counts are parts of those, so a reporter folds them into `input`).
+A cost amount needs `pricing`, and a strict one needs `pricing.bound(call)`, which returns the most a
+call can cost given its declared bound (or `null` when it cannot be priced). The amounts are saved with
+the conversation, so `loadRoundtable` takes no `budget`: the saved one governs, and a different one is
+not accepted.
+
+Every agent factory and the selector must declare `modelCalls` as `'none'` or `'enforced'`, where
+`'enforced'` means the caller also passes a `bound: { inputTokens, maxOutputTokens }` with each
+`admitModelCall`. A merely `'metered'` or undeclared caller is refused at construction with
+`invalid-config`, as is any amount or mode no admission could satisfy. A `'none'` declaration is the
+caller's own word, so spend by such a caller is outside the budget.
+
+Admission sets the bound aside before the call is dispatched and is refused with `budget-limit` unless
+it fits beside everything already spent or reserved; filling the budget exactly is admitted and one
+unit over is not. A report that fully shows a call's usage (a final `completed` or `cache-hit` report
+with `reported` or `estimated` provenance, carrying `input` and `output` tokens for a token budget and a
+price for a cost budget) replaces the bound with the actual usage. A call that is cancelled, failed,
+partial, unreported or otherwise not fully known keeps its bound counted, raised to anything its
+report proves, because a refund on a guess could let the budget be overspent. A bound set too low
+can still overspend once, after which admissions stop.
+
+`mode: 'estimated'` takes an `estimator: { estimate(call) }` and lets a call that declares no bound
+borrow the estimator's (`{ bound?, cost? }`, returned synchronously). Its reservation is recorded with
+provenance `'estimated'`; a strict budget, the default, refuses a call without a bound.
+
+A host settles a call whose usage never arrived with `room.reconcileUsage({ callId, tokens, cost? })`,
+which replaces its retained bound with the amounts given. Only the handle has it, never the
+`TurnServices` a participant receives, so a participant cannot refund itself. The same amounts again
+change nothing; different amounts, an unknown call, a call that was never admitted or one whose usage
+is already fully known are a `conflict`. It never changes a call count or a record's status, advances
+the revision, is refused while a run, input or resume is active, and a reconciled call accepts no
+further report.
+
+A run stops with `limited` and reason `'budget'` instead of dispatching a selector or a group once any
+amount is fully spent (a call-count limit is checked first). A group is refused whole,
+and one made only of `'none'` members still runs. A remainder smaller than every call's bound ends each
+run `limited` without dispatching.
+
 ## Errors
 
 Calls reject with a `RoundtableError` whose `code` is one of `invalid-config`, `busy` (a `run`,
@@ -212,10 +254,11 @@ Calls reject with a `RoundtableError` whose `code` is one of `invalid-config`, `
 longer pending), `disposed`, `stale-claim` (this handle's claim on the store expired or changed
 owner) or `recovery-required`.
 
-`model-call-limit` is different: it is thrown by `TurnServices.admitModelCall` itself, to whichever
-custom participant, selector or `meterJournal` (from `@robota-sdk/agent-roundtable-robota`) host called it, once a configured `maxModelCallsPerRun`,
-`-PerConversation` or `-PerParticipant` limit is reached. Admission has already stopped the run,
-which ends `limited` (reason `'model-calls'`) either way. The caller should still let the rejection
+`model-call-limit` and `budget-limit` are different: they are thrown by `TurnServices.admitModelCall`
+itself, to whichever custom participant, selector or `meterJournal` (from `@robota-sdk/agent-roundtable-robota`) host called it, once a configured `maxModelCallsPerRun`,
+`-PerConversation` or `-PerParticipant` limit is reached (`model-call-limit`) or a call's bound no
+longer fits the budget (`budget-limit`). Admission has already stopped the run, which ends `limited`
+(reason `'model-calls'` or `'budget'`) either way. The caller should still let the rejection
 propagate (or return `failed`): the interrupted attempt is then discarded and retried on a later run,
 whereas swallowing it and returning `speak` keeps that partial result and publishes it later.
 
@@ -233,7 +276,7 @@ it like any other participant/selector/store failure. The decision is never save
 
 ## Cancellation
 
-Passing a `signal` to `run()`, a `timeoutMs` limit, a model-call limit that rejects an admission and
+Passing a `signal` to `run()`, a `timeoutMs` limit, a model-call limit or budget that rejects an admission and
 `dispose()` stop new turns and wait for running participants to settle; they end the run, not the
 conversation. A result a participant returned is kept, even one that arrives after the abort, and is
 published when its group completes on a later run. An attempt stopped without one, for example a

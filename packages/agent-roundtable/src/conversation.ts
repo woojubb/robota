@@ -19,7 +19,14 @@ import { MemoryConversationStore } from './memory-store';
 import { increments, roundRobin } from './policies';
 import { resolveSelection, validateSelection } from './selection';
 import type { StoreOwner } from './store-owner';
-import { createTurnServices, modelCallsSpent, requireModelCallCapabilities } from './usage-ledger';
+import { normalizeBudget, reconcileModelCall, reconciliationIsNoop } from './usage-budget';
+import type { StoredBudget } from './usage-budget';
+import {
+  createTurnServices,
+  meters,
+  requireModelCallCapabilities,
+  spentLimit,
+} from './usage-ledger';
 import type {
   AgentParticipant,
   ContextPolicy,
@@ -37,12 +44,13 @@ import type {
   TurnSelector,
   TurnServices,
   UsagePrincipal,
+  UsageReconciliation,
   ResumeRequest,
   ResponseReceipt,
 } from './types';
 
 /** A limit that stops a run while work is in flight; the next run continues from saved state. */
-type RunLimit = 'time' | 'model-calls';
+type RunLimit = 'time' | 'model-calls' | 'budget';
 
 export class Conversation implements Roundtable {
   private readonly participants: Map<string, ParticipantDefinition>;
@@ -59,6 +67,7 @@ export class Conversation implements Roundtable {
   private disposed = false;
   private busy = false;
   private terminal?: TerminalResult;
+  private budget: StoredBudget | null = null;
   private readonly options: RoundtableOptions;
 
   constructor(options: RoundtableOptions, restored?: ConversationState) {
@@ -96,6 +105,7 @@ export class Conversation implements Roundtable {
             version: this.contextPolicy.reference.version,
           },
           pricingVersion: options.pricing?.version ?? null,
+          budget: this.budget,
         },
         selectorCheckpoint: null,
         snapshot: {
@@ -266,6 +276,38 @@ export class Conversation implements Roundtable {
     return submitted;
   }
 
+  reconcileUsage(value: UsageReconciliation): Promise<{ revision: number }> {
+    let input: UsageReconciliation;
+    try {
+      input = structuredClone(value);
+      this.assertIdle();
+      // The same amounts again change nothing, so they are answered without advancing the revision.
+      if (reconciliationIsNoop(this.persistence.snapshot(), input))
+        return Promise.resolve({ revision: this.snapshot().revision });
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    this.busy = true;
+    const reconciled = this.applyReconciliation(input).finally(() => {
+      this.busy = false;
+      this.active = undefined;
+    });
+    this.active = reconciled;
+    return reconciled;
+  }
+
+  private async applyReconciliation(input: UsageReconciliation): Promise<{ revision: number }> {
+    await this.persistence.begin();
+    try {
+      await this.persistence.update((draft, revision) => {
+        reconcileModelCall(draft, revision, input);
+      });
+      return { revision: this.snapshot().revision };
+    } finally {
+      await this.persistence.end();
+    }
+  }
+
   private async acceptResponse(input: ResumeRequest): Promise<ResponseReceipt> {
     await this.persistence.begin();
     try {
@@ -379,8 +421,8 @@ export class Conversation implements Roundtable {
         attempted += phase.members.filter(
           (member) => member.status === 'pending' || member.status === 'resumable',
         ).length;
-        if (!(await this.continueGroup(signal, owner, runId)))
-          return { status: 'limited', reason: 'model-calls', revision: view.revision };
+        const refused = await this.continueGroup(signal, owner, runId);
+        if (refused) return { status: 'limited', reason: refused, revision: view.revision };
         view = this.snapshot();
         if (view.requests.length)
           return { status: 'waiting', revision: view.revision, requests: view.requests };
@@ -393,11 +435,10 @@ export class Conversation implements Roundtable {
       let selection: Selection;
       if (phase.kind === 'selected') selection = phase.selection;
       else {
-        if (
-          this.selector.modelCalls === 'metered' &&
-          modelCallsSpent(this.persistence.snapshot(), runId, [selector])
-        )
-          return { status: 'limited', reason: 'model-calls', revision: view.revision };
+        const spent = meters(this.selector.modelCalls)
+          ? spentLimit(this.persistence.snapshot(), runId, [selector])
+          : null;
+        if (spent) return { status: 'limited', reason: spent, revision: view.revision };
         const attemptId = crypto.randomUUID();
         await this.persistence.update((draft) => {
           draft.phase = { kind: 'selecting', attemptId };
@@ -467,14 +508,16 @@ export class Conversation implements Roundtable {
       const agents = selected.filter((p): p is AgentParticipant => p.kind === 'agent');
       // A participant whose factory declares 'none' needs no allowance, like a 'none' selector.
       const members = agents
-        .filter((p) => p.factory.modelCalls === 'metered')
+        .filter((p) => meters(p.factory.modelCalls))
         .map(({ id }): UsagePrincipal => ({ kind: 'participant', id }));
-      if (modelCallsSpent(this.persistence.snapshot(), runId, members)) {
-        return { status: 'limited', reason: 'model-calls', revision: this.snapshot().revision };
+      const spent = spentLimit(this.persistence.snapshot(), runId, members);
+      if (spent) {
+        return { status: 'limited', reason: spent, revision: this.snapshot().revision };
       }
       attempted += selected.length;
-      if (!(await this.executeParticipants(agents, groupId, signal, owner, runId)))
-        return { status: 'limited', reason: 'model-calls', revision: this.snapshot().revision };
+      const refused = await this.executeParticipants(agents, groupId, signal, owner, runId);
+      if (refused)
+        return { status: 'limited', reason: refused, revision: this.snapshot().revision };
     }
   }
 
@@ -484,7 +527,7 @@ export class Conversation implements Roundtable {
     signal: AbortSignal,
     owner: StoreOwner,
     runId: string,
-  ): Promise<boolean> {
+  ): Promise<'model-calls' | 'budget' | null> {
     const state = this.persistence.snapshot();
     const baseRevision = state.snapshot.revision;
     const turns: ParticipantTurn[] = selected.map((p) => ({
@@ -526,12 +569,15 @@ export class Conversation implements Roundtable {
     return this.continueGroup(signal, owner, runId);
   }
 
-  /** Resolves false, without dispatching anyone, when a spent model-call limit refuses the group. */
+  /**
+   * Resolves the limit that refuses the group, without dispatching anyone, when a model-call limit or
+   * the budget is spent; null once the group has run.
+   */
   private async continueGroup(
     signal: AbortSignal,
     owner: StoreOwner,
     runId: string,
-  ): Promise<boolean> {
+  ): Promise<'model-calls' | 'budget' | null> {
     const phase = this.persistence.snapshot().phase;
     if (phase.kind !== 'group') throw new RoundtableError('conflict', 'Active group is missing');
     if (
@@ -553,9 +599,10 @@ export class Conversation implements Roundtable {
       throw new RoundtableError('conflict', 'Group participant is missing');
     // A participant whose factory declares 'none' needs no allowance, like a 'none' selector.
     const members = (selected as AgentParticipant[])
-      .filter((participant) => participant.factory.modelCalls === 'metered')
+      .filter((participant) => meters(participant.factory.modelCalls))
       .map(({ id }): UsagePrincipal => ({ kind: 'participant', id }));
-    if (modelCallsSpent(resumeState, runId, members)) return false;
+    const spent = spentLimit(resumeState, runId, members);
+    if (spent) return spent;
     await executeGroup({
       participants: selected as AgentParticipant[],
       turns: pending.map((member) => member.turn),
@@ -619,7 +666,7 @@ export class Conversation implements Roundtable {
         }),
     });
     signal.throwIfAborted();
-    if (this.snapshot().requests.length) return true;
+    if (this.snapshot().requests.length) return null;
     await this.persistence.update((draft, revision) => {
       if (draft.phase.kind !== 'group')
         throw new RoundtableError('conflict', 'Active group changed');
@@ -662,7 +709,7 @@ export class Conversation implements Roundtable {
       },
       signal,
     );
-    return true;
+    return null;
   }
 
   private async acceptInput(
@@ -756,7 +803,7 @@ export class Conversation implements Roundtable {
       emit: (event, eventSignal) => this.emit(event, eventSignal),
       signal,
       // A rejected admission stops only the run these services were bound to.
-      onLimit: () => limit?.('model-calls'),
+      onLimit: (reason) => limit?.(reason),
       ctx: {
         conversationId: this.options.conversationId,
         runId,
@@ -766,6 +813,7 @@ export class Conversation implements Roundtable {
         attemptId,
       },
       pricing: this.options.pricing,
+      estimator: this.options.estimator,
     });
   }
 
@@ -876,6 +924,11 @@ export class Conversation implements Roundtable {
     }
     if (this.options.pricing && !this.options.pricing.version)
       throw new RoundtableError('invalid-config', 'A pricing policy requires a version');
+    this.budget = normalizeBudget(
+      this.options.budget,
+      this.options.pricing,
+      this.options.estimator,
+    );
     requireModelCallCapabilities({
       participants: this.options.participants,
       selector: this.selector,
@@ -883,7 +936,9 @@ export class Conversation implements Roundtable {
         this.options.limits.maxModelCallsPerRun !== undefined ||
         this.options.limits.maxModelCallsPerConversation !== undefined ||
         this.options.limits.maxModelCallsPerParticipant !== undefined ||
-        this.options.pricing !== undefined,
+        this.options.pricing !== undefined ||
+        this.budget !== null,
+      budgeted: this.budget !== null,
     });
   }
 }
