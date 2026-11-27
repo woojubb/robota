@@ -338,6 +338,7 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
         isFiniteNumber(value['beforeUsedPercentage']) &&
         isFiniteNumber(value['afterUsedPercentage']),
     ),
+    rewritten: isOptional(isBoolean),
   },
   turn_source: { source: oneOf(Object.keys(TURN_SOURCES)) },
   commands: { commands: isRecordArray, skills: isRecordArray },

@@ -310,11 +310,15 @@ These are behaviors a caller cannot infer from a type signature alone.
   good; once named, it is never renamed. A name it already has is kept, and a rename made while the
   title is generated wins. The title-generation call always disables tool use, so hosted web tools
   can never be invoked merely to generate a title.
-- **A rename reaches the stored record or says why not.** `setName` writes the name onto the
-  session's stored record. A record this process cannot read (corrupt, unsupported or locked), or a
-  session that can no longer save its record, raises an error, because a rename that appears to
-  succeed while changing nothing on disk is worse than a refusal. A session with nothing saved yet
-  is renamed in memory and the next save writes it.
+- **A rename or a redaction reaches the stored record or says why not.** `setName` writes the name
+  onto the session's stored record. A redaction replaces matched text where the conversation, its
+  display history and its name hold it, keeping every message, id and tool-call pairing so the
+  record still resumes; a live session is redacted in memory as well, only while idle, and its
+  surfaces re-read the transcript. A record this process cannot read (corrupt, unsupported or
+  locked), one another writer holds, one whose pending execution a journal would replay, or a
+  session that can no longer save its record, is refused rather than skipped, because a rename or
+  a redaction that appears to succeed while changing nothing on disk is worse than a refusal. A
+  session with nothing saved yet is renamed in memory and the next save writes it.
 - **Status changes are pushed.** A status change made through any client reaches every client on
   the session. Context usage is not part of that: it moves every turn and
   is reported on its own, so counting it would push a status after every turn with nothing changed.

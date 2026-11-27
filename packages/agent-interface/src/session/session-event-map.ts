@@ -259,6 +259,8 @@ export interface IInteractiveSessionEvents {
   session_renamed: (event: ISessionRenamedEvent) => void;
   /** The conversation history was cleared host-side — all surfaces refresh transcripts. */
   history_cleared: () => void;
+  /** Text in the conversation was redacted in place — all surfaces re-read their transcripts. */
+  history_rewritten: () => void;
   /** The host made another session current — all surfaces re-read transcript and status. */
   session_switched: (event: ISessionSwitchedEvent) => void;
   /** The mode, model, effort, goal or name changed; every surface shows the new status. */
