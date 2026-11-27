@@ -2,15 +2,35 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ConversationAgent } from '../../core/conversation-agent';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 import { FunctionTool } from '../../tool-registry';
+import { AbstractPlugin } from '../../abstracts/abstract-plugin';
+import type { IPluginExecutionContext } from '../../abstracts/abstract-plugin-types';
 import type { TExecutionJournalRecord } from '../../interfaces/execution-journal';
 import type { IToolExecutionContext } from '../../interfaces/tool';
+
+/** Records the session id the tool-call hooks report, which must match the tool's own context. */
+class SessionRecordingPlugin extends AbstractPlugin {
+  readonly name = 'SessionRecordingPlugin';
+  readonly version = '1.0.0';
+  readonly hookSessionIds: Array<string | undefined> = [];
+  override async beforeToolExecution(
+    context: IPluginExecutionContext,
+    tool: IToolExecutionContext,
+  ): Promise<void> {
+    this.hookSessionIds.push(context.sessionId, tool.sessionId);
+  }
+}
 
 const agents: ConversationAgent[] = [];
 afterEach(async () => {
   await Promise.all(agents.splice(0).map((agent) => agent.destroy()));
 });
 
-function fixture(seen: Array<string | undefined>, calls = 1, rounds = 1) {
+function fixture(
+  seen: Array<string | undefined>,
+  calls = 1,
+  rounds = 1,
+  plugins: AbstractPlugin[] = [],
+) {
   const scripted = createScriptedProvider([
     ...Array.from({ length: rounds }, (_, round) => ({
       toolCalls: Array.from({ length: calls }, (_, n) => ({
@@ -22,6 +42,7 @@ function fixture(seen: Array<string | undefined>, calls = 1, rounds = 1) {
   ]);
   const agent = new ConversationAgent({
     name: 'session-id-test',
+    plugins,
     toolExecutionPolicy: (batch) => ({
       scheduling: new Map(batch.map((call) => [call.id, { resources: [] }])),
     }),
@@ -56,6 +77,13 @@ describe('tool context session id', () => {
     const seen: Array<string | undefined> = [];
     await fixture(seen, 3).run('go', { sessionId: 'session-A' });
     expect(seen).toEqual(['session-A', 'session-A', 'session-A']);
+  });
+
+  it('reports the same session id to tool-call plugin hooks and to the tool', async () => {
+    const seen: Array<string | undefined> = [];
+    const plugin = new SessionRecordingPlugin();
+    await fixture(seen, 1, 1, [plugin]).run('go', { sessionId: 'session-A' });
+    expect(plugin.hookSessionIds).toEqual(['session-A', 'session-A']);
   });
 
   it('leaves the id absent when the run has none', async () => {

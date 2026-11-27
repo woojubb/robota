@@ -215,7 +215,7 @@ export async function executeAndRecordToolCalls(
     plugins: deps.plugins,
     logger,
     executionId,
-    sessionId: conversationId,
+    sessionId: sessionId ?? conversationId,
     // A pre-effect wait resumes the wrapper, not a new logical call.
     alreadyDispatched: (index) =>
       effectiveJournalContext?.recovery?.actions.get(toolRequests[index].executionId ?? '')
