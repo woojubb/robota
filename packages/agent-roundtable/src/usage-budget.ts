@@ -96,6 +96,8 @@ export function budgetOptions(budget: StoredBudget | null): UsageBudget | undefi
 /** The amount a settled record's own report fully shows, or null while any part of it is unknown. */
 function knownUsage(record: UsageRecord, budget: StoredBudget): BudgetCharge | null {
   if (record.status !== 'settled' || !record.final) return null;
+  // A call proven never dispatched used nothing, whatever it had reserved.
+  if (record.outcome === 'not-dispatched') return { tokens: 0n, cost: 0n };
   if (record.outcome !== 'completed' && record.outcome !== 'cache-hit') return null;
   if (record.provenance !== 'reported' && record.provenance !== 'estimated') return null;
   let tokens = 0n;

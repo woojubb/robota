@@ -10,7 +10,8 @@ export class RoundtableError extends Error {
       | 'stale-claim'
       | 'recovery-required'
       | 'model-call-limit'
-      | 'budget-limit',
+      | 'budget-limit'
+      | 'call-settled',
     message: string,
   ) {
     super(message);

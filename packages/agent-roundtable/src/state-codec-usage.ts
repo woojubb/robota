@@ -1,7 +1,7 @@
 import { requireState, record, list, text, integer, unique } from './state-codec-values';
 import type { StoredBudget } from './usage-budget';
 import {
-  USAGE_OUTCOMES,
+  STORED_USAGE_OUTCOMES,
   USAGE_PROVENANCES,
   validBudgetCost,
   validModelCallBound,
@@ -97,11 +97,23 @@ export function validateUsageState(
     requireState(entry.admitted || (entry.status === 'settled' && entry.outcome === 'cache-hit'));
     if (entry.status === 'settled') {
       requireState(
-        (USAGE_OUTCOMES as readonly string[]).includes(String(entry.outcome)) &&
+        (STORED_USAGE_OUTCOMES as readonly string[]).includes(String(entry.outcome)) &&
           (USAGE_PROVENANCES as readonly string[]).includes(String(entry.provenance)) &&
           typeof entry.final === 'boolean',
       );
       requireState(entry.tokens === undefined || validUsageTokens(entry.tokens));
+      if (entry.outcome === 'not-dispatched') {
+        // Only recovery writes it: an admitted call, finally settled at zero with nothing reported or reconciled.
+        requireState(
+          entry.admitted === true &&
+            entry.final === true &&
+            entry.provenance === 'reported' &&
+            entry.tokens === undefined &&
+            !Object.hasOwn(entry, 'raw') &&
+            entry.reconciled === null &&
+            (entry.price === null || record(entry.price).cost === null),
+        );
+      }
     } else {
       requireState(
         !Object.hasOwn(entry, 'outcome') &&
