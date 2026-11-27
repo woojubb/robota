@@ -1,4 +1,4 @@
-import type { ExternalParticipant, TurnSelector } from './types';
+import type { ContextPolicy, ExternalParticipant, TurnSelector } from './types';
 
 export function externalParticipant(
   options: Omit<ExternalParticipant, 'kind'>,
@@ -18,4 +18,16 @@ export function roundRobin(): TurnSelector {
       return { kind: 'speak', participantId: next.id };
     },
   };
+}
+
+const builtInIncrements: ContextPolicy = {
+  reference: Object.freeze({ id: 'roundtable/increments', version: '1' }),
+  modelCalls: 'none',
+  assemble: ({ undelivered }) => ({ messages: [...undelivered], consumed: [] }),
+};
+Object.freeze(builtInIncrements);
+
+/** The default context policy: a participant is offered every message it has not seen and did not write. */
+export function increments(): ContextPolicy {
+  return builtInIncrements;
 }

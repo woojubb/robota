@@ -3,6 +3,7 @@ export class RoundtableError extends Error {
     public readonly code:
       | 'invalid-config'
       | 'invalid-selection'
+      | 'invalid-context'
       | 'busy'
       | 'conflict'
       | 'disposed'

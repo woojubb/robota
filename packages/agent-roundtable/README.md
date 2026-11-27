@@ -3,7 +3,8 @@
 Coordinates independent agents and people in one shared conversation. Each participant keeps its own
 runtime and private state; the roundtable decides who speaks next, runs a turn or a parallel group of
 turns, and publishes their messages to a shared transcript in a stable order. The host supplies the
-participants, the selector that picks the next turn, and the store that holds conversation progress.
+participants, the selector that picks the next turn, optionally the context policy that shapes what
+each participant is shown, and the store that holds conversation progress.
 The package runs no model and imports no provider: a participant can wrap an agent session, another
 agent runtime, or plain code.
 
@@ -80,19 +81,20 @@ This exact example is executed by `src/readme-example.test.ts`, so it stays runn
 changes.
 
 Omitting `store` uses the same in-memory store. A durable `ConversationStore` together with a
-`RoundtableRegistry` that maps saved runtime and selector versions back to live factories lets
-`loadRoundtable` reopen a conversation later.
+`RoundtableRegistry` that maps saved runtime, selector and context policy versions back to live
+objects lets `loadRoundtable` reopen a conversation later.
 
 ## Exports
 
 | Export                      | What it is for                                                                                                                                                                                                                                    |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `createRoundtable(options)` | Validates configuration and returns a `Roundtable` handle; `run()` executes it.                                                                                                                                                                   |
-| `loadRoundtable(options)`   | Reopens a conversation from a `ConversationStore`, resolving saved runtime/selector references through a `RoundtableRegistry`.                                                                                                                    |
+| `loadRoundtable(options)`   | Reopens a conversation from a `ConversationStore`, resolving saved runtime, selector and context policy references through a `RoundtableRegistry`.                                                                                                |
 | `MemoryConversationStore`   | The in-memory `ConversationStore`; no durability, no `recovery: 'durable'` support.                                                                                                                                                               |
 | `externalParticipant(def)`  | Declares a participant answered through `submitInput`/`resume` instead of a factory.                                                                                                                                                              |
+| `increments()`              | The default `ContextPolicy`: no model calls; a participant is offered every message it has not seen and did not write (see "Context policy").                                                                                                     |
 | `roundRobin()`              | The default `TurnSelector`: no model calls; cycles through participants in order after the last speaker, forever — it never finishes on its own, so a run's own limits (`maxTurnsPerRun`, `timeoutMs`, a model-call limit) are what stop it.      |
-| `RoundtableError`           | Thrown by every rejecting call and by `TurnServices.admitModelCall`; `code` distinguishes `invalid-config`, `busy`, `conflict`, `disposed`, `stale-claim`, `recovery-required`, `model-call-limit` and `invalid-selection` (see README "Errors"). |
+| `RoundtableError`           | Thrown by every rejecting call and by `TurnServices.admitModelCall`; `code` is `invalid-config`, `busy`, `conflict`, `disposed`, `stale-claim`, `recovery-required`, `model-call-limit`, `invalid-selection` or `invalid-context` (see "Errors"). |
 | `summarizeUsage(records)`   | Reduces `UsageRecord[]` (from a snapshot or the `usage` event) into one combined `UsageSummary`; filter the records first (by run, participant, ...) for a per-principal breakdown.                                                               |
 
 Everything else this package exports is a type: the participant/session/selector contracts
@@ -167,6 +169,41 @@ effects, and it does not enable `recovery: 'durable'` for Roundtable execution.
 
 An exception from `onEvent` goes to `onEventError` and cannot undo a committed group.
 
+## Context policy
+
+A participant's turn is shown a view of the messages it has not consumed and did not write. The
+default, `increments()`, offers all of them. A host passes `contextPolicy` to change that: its
+`assemble({ recipient, undelivered, purpose })` returns the `messages` to offer (a subset of
+`undelivered`, each unchanged and listed once), an optional `summary`, and the ids it `consumed`
+without offering. An undelivered message in neither list is deferred and offered to that participant
+on a later turn; a consumed one is never offered again, and the `summary` (non-empty text of at most
+32768 characters) is what stands in for it. Both appear in `turn.context`, and the participant's
+delivery cursor records exactly the messages offered plus the ids consumed.
+
+```typescript
+const newestOnly: ContextPolicy = {
+  reference: { id: 'host/newest-only', version: '1' },
+  modelCalls: 'none',
+  assemble: ({ undelivered }) => {
+    const skipped = undelivered.slice(0, -1);
+    return {
+      messages: undelivered.slice(-1),
+      ...(skipped.length ? { summary: `${skipped.length} earlier messages were skipped.` } : {}),
+      consumed: skipped.map((message) => message.id),
+    };
+  },
+};
+```
+
+A policy must be a function of its input alone and declare no model calls (`modelCalls` is `'none'` or
+omitted); a model-backed summarizer is a metered caller and is rejected at construction. Its
+`reference` is saved with the conversation, so `loadRoundtable` needs a registry whose
+`resolveContextPolicy(reference)` returns a policy with the same reference; the built-in `increments()`
+resolves without one, and a missing resolver or a different reference is refused with `invalid-config`
+before any session opens. The assembled view is stored with the turn, so a loaded conversation never
+asks the policy again for a turn it already assembled. A selector's own view is not shaped by the
+policy: it is shown the whole transcript.
+
 ## Errors
 
 Calls reject with a `RoundtableError` whose `code` is one of `invalid-config`, `busy` (a `run`,
@@ -181,6 +218,11 @@ custom participant, selector or `meterJournal` (from `@robota-sdk/agent-roundtab
 which ends `limited` (reason `'model-calls'`) either way. The caller should still let the rejection
 propagate (or return `failed`): the interrupted attempt is then discarded and retried on a later run,
 whereas swallowing it and returning `speak` keeps that partial result and publishes it later.
+
+`invalid-context` never reaches a caller as a rejection either: it is thrown internally when a context
+policy throws, or returns a message that was not undelivered or is listed twice, an unknown or repeated
+consumed id, a message that is also consumed, or a summary that is empty, too long or not text. The
+group is never started and the run ends `failed` with the error's message.
 
 `invalid-selection` never reaches a caller as a rejection: it is thrown internally when a selector's
 decision is malformed, empty, or has duplicate participant ids, names an unknown participant, mixes
@@ -226,8 +268,8 @@ loaded envelope, and it rejects (rather than guesses at) one whose `schemaVersio
 recognize, with a `RoundtableError('invalid-config', ...)`; so a schema change ships as a new number
 and an explicit migration, never a silent reinterpretation — independent of how many API-compatible
 minor/patch releases happen in between. `loadRoundtable` additionally requires the saved
-participant/selector runtime and configuration versions to match what a `RoundtableRegistry` resolves
-today; a mismatch is refused the same way, rather than run against the wrong definition.
+participant/selector runtime, context policy and configuration versions to match what a
+`RoundtableRegistry` resolves today; a mismatch is refused the same way, rather than run against the wrong definition.
 
 ## Documentation
 

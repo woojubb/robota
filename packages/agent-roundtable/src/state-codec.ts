@@ -1,3 +1,4 @@
+import { maxSummaryLength } from './context-policy';
 import type { ConversationState } from './conversation-state';
 import {
   requireState,
@@ -183,18 +184,34 @@ export function decodeConversation(
       requireState(turn.purpose === undefined || typeof turn.purpose === 'string');
       const context = record(turn.context);
       requireState(context.baseRevision === phase.baseRevision);
-      const delivered = list(context.messages).map(record);
-      unique(delivered.map((m) => m.id));
+      const offered = list(context.messages).map(record);
+      unique(offered.map((m) => m.id));
+      // A view may leave messages out, so each stored one only has to be an undelivered, foreign
+      // transcript message at or below the base revision; a summary is text and never a message.
+      const undelivered = (id: unknown): boolean => {
+        const message = byMessage.get(id);
+        return (
+          message !== undefined &&
+          Number(message.revision) <= Number(phase.baseRevision) &&
+          message.participantId !== member.participantId &&
+          !list(byId.get(member.participantId)?.delivered).includes(id)
+        );
+      };
       requireState(
-        delivered.every(
-          (m) =>
-            byMessage.has(m.id) &&
-            canonicalJson(m) === canonicalJson(byMessage.get(m.id)) &&
-            Number(m.revision) <= Number(phase.baseRevision) &&
-            m.participantId !== member.participantId &&
-            !list(byId.get(member.participantId)?.delivered).includes(m.id),
+        offered.every(
+          (m) => undelivered(m.id) && canonicalJson(m) === canonicalJson(byMessage.get(m.id)),
         ),
       );
+      if (context.summary !== undefined)
+        requireState(text(context.summary) && context.summary.length <= maxSummaryLength);
+      if (context.consumed !== undefined) {
+        const consumed = list(context.consumed);
+        unique(consumed);
+        requireState(
+          consumed.length > 0 &&
+            consumed.every((id) => undelivered(id) && !offered.some((m) => m.id === id)),
+        );
+      }
       if (member.outcome !== null) {
         const outcome = record(member.outcome);
         requireState(

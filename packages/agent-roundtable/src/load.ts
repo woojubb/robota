@@ -1,8 +1,9 @@
 import { Conversation } from './conversation';
 import { RoundtableError } from './errors';
-import { roundRobin } from './policies';
+import { increments, roundRobin } from './policies';
 import { decodeConversation } from './state-codec';
 import type {
+  ContextPolicy,
   LoadRoundtableOptions,
   ParticipantCheckpoint,
   ParticipantDefinition,
@@ -42,7 +43,11 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
   if (!envelope) throw new RoundtableError('conflict', 'Conversation does not exist');
   const state = decodeConversation(envelope, options.conversationId);
   const { definition, phase } = state;
-  sameReference(definition.contextPolicy, { id: 'roundtable/increments', version: '1' });
+  const builtInPolicy = increments();
+  const savedPolicyIsBuiltIn = definition.contextPolicy.id === builtInPolicy.reference.id;
+  if (savedPolicyIsBuiltIn) sameReference(definition.contextPolicy, builtInPolicy.reference);
+  else if (!options.registry.resolveContextPolicy)
+    throw new RoundtableError('invalid-config', 'Context policy is not registered');
   samePricingVersion(definition.pricingVersion, options.pricing?.version ?? null);
   if (
     !state.terminal &&
@@ -56,6 +61,15 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
       'recovery-required',
       'Interrupted execution requires runtime reconciliation before loading',
     );
+  }
+  let contextPolicy: ContextPolicy = builtInPolicy;
+  if (!savedPolicyIsBuiltIn) {
+    // Resolved only once the load is not refused for interrupted work, and before any participant.
+    const registered = await options.registry.resolveContextPolicy!({
+      ...definition.contextPolicy,
+    });
+    sameReference(registered?.reference, definition.contextPolicy);
+    contextPolicy = registered;
   }
   const participants: ParticipantDefinition[] = [];
   for (const saved of state.participants) {
@@ -131,6 +145,7 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
       store: options.store,
       participants,
       selector,
+      contextPolicy,
       ...(definition.purpose === null ? {} : { purpose: definition.purpose }),
       limits: {
         maxTurnsPerRun: definition.limits.maxTurnsPerRun,
