@@ -18,7 +18,16 @@ export interface StoredMember {
   participantId: string;
   turn: ParticipantTurn;
   messageId: string;
-  status: 'pending' | 'running' | 'settled' | 'prepared' | 'waiting' | 'resumable' | 'failed';
+  status:
+    | 'pending'
+    | 'running'
+    | 'settled'
+    | 'prepared'
+    | 'waiting'
+    | 'resumable'
+    /** Reconciled after an interruption: the same attempt continues from its checkpoint. */
+    | 'recovering'
+    | 'failed';
   requestIds: string[];
   checkpoint: ParticipantCheckpoint | null;
   outcome: Exclude<ParticipantOutcome, { kind: 'failed' }> | null;

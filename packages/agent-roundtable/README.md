@@ -84,13 +84,35 @@ Omitting `store` uses the same in-memory store. A durable `ConversationStore` to
 `RoundtableRegistry` that maps saved runtime, selector and context policy versions back to live
 objects lets `loadRoundtable` reopen a conversation later.
 
+### Durable recovery
+
+`recovery: 'durable'` lets a restarted process continue a conversation another one stopped midway,
+without running a completed effect twice. It is checked in `invalid-config` before the store, the
+registry or any session is touched: the store declares `durability: 'durable'`; every agent factory
+declares `recovery: 'reconcilable'` with `reconcile`, `supportsContinuation` and `checkpointVersions`;
+the selector declares `recovery: 'reconcilable'` and a `reference` (the built-in `roundRobin()` does,
+and is `idempotentDecision`). A saved durable conversation is refused by `loadRoundtable` with any other
+store.
+
+The first `run()` after a restart reconciles under the claim, in one commit, before anything runs. Each
+interrupted member's `reconcile({ turn, checkpoint, reservedCalls })` answers from the factory's own
+journal with `calls` (every reserved call exactly once: `not-dispatched` is refunded exactly,
+`settled` takes the journal's final report, `uncertain` keeps its bound) and one of `not-started`
+(runs again from the start; every call must be `not-dispatched`), `resume` (the same attempt continues
+from the checkpoint, member status `recovering`), `settled` (the outcome is published without running
+again) or `uncertain` (an effect started without a result: the turn parks on `reconciliation` requests
+and `run()` returns `waiting`; the effect is never attempted again until the host answers them). A
+selection stopped before it was saved is asked again only when the selector declares
+`idempotentDecision`. A failed member without a terminal result fails the conversation. An answer that
+is invalid, incomplete or thrown rejects `run()` with `recovery-required` and commits nothing.
+
 ## Exports
 
 | Export                      | What it is for                                                                                                                                                                                                                                                                                          |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `createRoundtable(options)` | Validates configuration and returns a `Roundtable` handle; `run()` executes it.                                                                                                                                                                                                                         |
 | `loadRoundtable(options)`   | Reopens a conversation from a `ConversationStore`, resolving saved runtime, selector and context policy references through a `RoundtableRegistry`.                                                                                                                                                      |
-| `MemoryConversationStore`   | The in-memory `ConversationStore`; no durability, no `recovery: 'durable'` support.                                                                                                                                                                                                                     |
+| `MemoryConversationStore`   | The in-memory `ConversationStore`; no durability, so it cannot back `recovery: 'durable'`.                                                                                                                                                                                                              |
 | `externalParticipant(def)`  | Declares a participant answered through `submitInput`/`resume` instead of a factory.                                                                                                                                                                                                                    |
 | `increments()`              | The default `ContextPolicy`: no model calls; a participant is offered every message it has not seen and did not write (see "Context policy").                                                                                                                                                           |
 | `roundRobin()`              | The default `TurnSelector`: no model calls; cycles through participants in order after the last speaker, forever — it never finishes on its own, so a run's own limits (`maxTurnsPerRun`, `timeoutMs`, a model-call limit) are what stop it.                                                            |
@@ -150,7 +172,7 @@ then issue a higher fence while refusing the old claim, and to show nothing of a
 Passing either suite checks these storage behaviors under the supplied test clock. It does not establish
 durability across process death or a crash beyond what the fixture's `restart()` exercises (a new client
 over shared storage in the same process does not), production clock bounds, multi-region consistency, or
-exactly-once external effects, and it does not enable `recovery: 'durable'` for Roundtable execution.
+exactly-once external effects. A store that passes it is what `recovery: 'durable'` asks for.
 
 ## Run results
 
@@ -313,7 +335,8 @@ abandoned attempt. A participant without checkpoints keeps its live session (a n
 first turn), so its private state may retain the abandoned attempt; retry-independent private state
 requires `checkpoint()`. If the attempt already acted outside the conversation, the participant's
 runtime must report that. `run()` and `loadRoundtable` reject with `recovery-required` only when stored
-state holds a turn that was never seen to settle, such as after the process stopped mid-turn. A group
+state holds a turn that was never seen to settle, such as after the process stopped mid-turn; a
+durable conversation reconciles such a turn instead, and rejects only for an answer it cannot use. A group
 with a failed member is never published or run again automatically.
 
 ## Supported environments
