@@ -12,10 +12,11 @@ import { join } from 'node:path';
 
 import { DEFAULT_DELIVERY_SETTINGS, DeliveryRefusedError, applySettingsChange } from './policy.js';
 
-import type { IDeliverySettings, IDeliveryState, IDeliveryStore } from './types.js';
+import type { IDeliverySettings, IDeliveryState, IDeliveryStore, IPendingOffer } from './types.js';
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/u;
 export const PENDING_DIGEST_MAX = 50;
+export const OFFER_SOURCES_MAX = 50;
 
 export function createMemoryDeliveryStore<T>(initial?: T): IDeliveryStore<T> {
   let held = initial;
@@ -40,7 +41,10 @@ function writeJson(path: string, value: unknown): void {
 /** The counters as stored, or `undefined` when they are not what this module writes. */
 function stateOf(raw: unknown): IDeliveryState | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined;
-  const { day, sent, digestedOn, pendingDigest } = raw as Record<string, unknown>;
+  const { day, sent, digestedOn, pendingDigest, offerSources, pendingOffers } = raw as Record<
+    string,
+    unknown
+  >;
   if (typeof day !== 'string' || !DAY.test(day)) return undefined;
   if (typeof sent !== 'number' || !Number.isInteger(sent) || sent < 0) return undefined;
   if (digestedOn !== undefined && (typeof digestedOn !== 'string' || !DAY.test(digestedOn)))
@@ -53,6 +57,37 @@ function stateOf(raw: unknown): IDeliveryState | undefined {
     pendingDigest: pendingDigest
       .filter((id): id is string => typeof id === 'string')
       .slice(-PENDING_DIGEST_MAX),
+    ...offerFieldsOf(offerSources, pendingOffers),
+  };
+}
+
+/** The offer fields, which a file written before offers existed lacks; entries that are not valid are dropped. */
+function offerFieldsOf(
+  offerSources: unknown,
+  pendingOffers: unknown,
+): Pick<IDeliveryState, 'offerSources' | 'pendingOffers'> {
+  const kept: [string, string][] = [];
+  if (typeof offerSources === 'object' && offerSources !== null && !Array.isArray(offerSources))
+    for (const [key, value] of Object.entries(offerSources))
+      if (typeof value === 'string' && !Number.isNaN(Date.parse(value))) kept.push([key, value]);
+  const sources = kept
+    .sort(([, a], [, b]) => Date.parse(a) - Date.parse(b))
+    .slice(-OFFER_SOURCES_MAX);
+  const offers = Array.isArray(pendingOffers)
+    ? pendingOffers
+        .filter(
+          (entry): entry is IPendingOffer =>
+            typeof entry === 'object' &&
+            entry !== null &&
+            typeof (entry as IPendingOffer).offerId === 'string' &&
+            typeof (entry as IPendingOffer).title === 'string',
+        )
+        .map(({ offerId, title }) => ({ offerId, title }))
+        .slice(-PENDING_DIGEST_MAX)
+    : [];
+  return {
+    ...(sources.length > 0 && { offerSources: Object.fromEntries(sources) }),
+    ...(offers.length > 0 && { pendingOffers: offers }),
   };
 }
 

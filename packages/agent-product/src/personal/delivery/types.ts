@@ -37,14 +37,23 @@ export interface IDeliveryState {
   readonly digestedOn?: string;
   /** Feed items waiting for the next digest. */
   readonly pendingDigest: readonly string[];
+  /** When a source last had an offer pushed, by source key; at most a few dozen, the oldest dropped. */
+  readonly offerSources?: Readonly<Record<string, string>>;
+  /** Offers waiting for the next digest, by id, with the title the host verified. */
+  readonly pendingOffers?: readonly IPendingOffer[];
 }
 
-/** What becomes of one question: pushed now, held for the daily summary, or left in the feed. */
+export interface IPendingOffer {
+  readonly offerId: string;
+  readonly title: string;
+}
+
+/** What becomes of one question or offer: pushed now, held for the daily summary, or left in the feed. */
 export type TDelivery = 'notify' | 'digest' | 'feed';
 
 export interface IDeliveryMessage {
   /** A `test` message is the person's own check that a sink works; it is never a question. */
-  readonly kind: 'question' | 'digest' | 'test';
+  readonly kind: 'question' | 'offer' | 'digest' | 'test';
   /** A short plain line that says what the message is about, for a sink that shows a heading. */
   readonly title: string;
   /** Plain text on one or a few lines; a sink adds nothing to it. */
@@ -74,6 +83,8 @@ export interface IDeliveryStatus {
   readonly today: { readonly sent: number; readonly limit: number };
   /** Open questions held for the next digest. */
   readonly waitingInDigest: number;
+  /** Offers held for the next digest that are still offered. */
+  readonly offersWaitingInDigest: number;
 }
 
 /** The feed as delivery needs it: a card, looked up again before a digest names it. */
