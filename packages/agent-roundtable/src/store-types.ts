@@ -26,7 +26,7 @@ export interface ConversationCommit {
 export interface ConversationStore {
   /**
    * `'durable'` promises that committed envelopes, fences and operation receipts survive the
-   * process that wrote them, as proven by `runDurableConversationStoreConformance`.
+   * process that wrote them, as checked by `runDurableConversationStoreConformance`.
    */
   readonly durability: 'memory' | 'durable';
   create(conversationId: string, state: JsonValue): Promise<ConversationEnvelope>;

@@ -446,6 +446,7 @@ async function durableDeclaration({
   check(again.durability === 'durable', 'second restarted client must declare durable');
 }
 
+// `load` returns only the latest envelope; `restart-receipts` covers the earlier commits.
 async function restartCommits({
   clients: [a],
   leaseMs,
@@ -600,7 +601,7 @@ export async function runConversationStoreConformance(
 }
 
 /**
- * Runs the storage contract, then proves a store that declares `'durable'` keeps committed
+ * Runs the storage contract, then checks that a store that declares `'durable'` keeps committed
  * envelopes, fences and receipts across new clients over the same storage.
  */
 export async function runDurableConversationStoreConformance(

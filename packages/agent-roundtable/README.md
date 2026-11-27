@@ -148,8 +148,9 @@ returns the original receipt and creates no revision), to keep an unreleased cla
 then issue a higher fence while refusing the old claim, and to show nothing of a rejected write.
 
 Passing either suite checks these storage behaviors under the supplied test clock. It does not establish
-production clock bounds, multi-region consistency, or exactly-once external effects, and it does not
-enable `recovery: 'durable'` for Roundtable execution.
+durability across process death or a crash beyond what the fixture's `restart()` exercises (a new client
+over shared storage in the same process does not), production clock bounds, multi-region consistency, or
+exactly-once external effects, and it does not enable `recovery: 'durable'` for Roundtable execution.
 
 ## Run results
 
