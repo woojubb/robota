@@ -68,6 +68,12 @@ export interface IAccountView {
 export interface IStatusReport {
   runtime: Pick<IRuntimeDescription, 'backend' | 'isolation'> & { guard: GuardState };
   routesHash: string | null;
+  baseDomain: string;
+  /**
+   * Accounts whose stored hostname lies under another domain than the configured one. Reported
+   * only: the stored hostname stays authoritative and is never rewritten.
+   */
+  domainMismatches: Array<{ id: string; hostname: string }>;
   /** Audit writes that failed after their command had completed. */
   audit: { failures: number; last: string | null };
   accounts: Array<{
@@ -446,6 +452,10 @@ export class ControlPlane {
           guard: description.guard.state,
         },
         routesHash: this.routesHash,
+        baseDomain: this.deps.config.baseDomain,
+        domainMismatches: records
+          .filter((r) => r.hostname !== hostnameFor(r.id, this.deps.config.baseDomain))
+          .map((r) => ({ id: r.id, hostname: r.hostname })),
         audit: { failures: this.auditFailures, last: this.lastAuditFailure },
         accounts: records.map((r) => {
           const unit = units.get(r.id);

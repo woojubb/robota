@@ -1,6 +1,7 @@
 /** Typed failures of the control plane. Messages never carry a secret value. */
 export type HostErrorCode =
   | 'config-invalid'
+  | 'bad-request'
   | 'invalid-input'
   | 'refused'
   | 'not-found'
@@ -14,6 +15,7 @@ export type HostErrorCode =
 
 /** Codes that mean the request was turned down, as opposed to something that broke. */
 export const REFUSAL_CODES: ReadonlySet<HostErrorCode> = new Set<HostErrorCode>([
+  'bad-request',
   'invalid-input',
   'refused',
   'not-found',
