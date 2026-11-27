@@ -2011,6 +2011,27 @@ describe('finding a service to add', () => {
     );
   });
 
+  it('sends the name the person edited after choosing a suggestion, not the suggested one', async () => {
+    const search = vi.fn(async () => FOUND);
+    const add = vi.fn(async () => ({ connector: NOTES }));
+    await openAddForm({ connectorCatalog: search, addConnector: add });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText('Example notes');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Use' })[0]!);
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Example notes');
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'My notes' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith({
+        title: 'My notes',
+        kind: 'notes',
+        endpoint: 'https://notes.example.test/mcp',
+        auth: 'token',
+        tokenHeader: 'X-Api-Key',
+      }),
+    );
+  });
+
   it('searches on Enter without adding anything, and clears what a previous choice filled that belongs to another sign-in', async () => {
     const search = vi.fn(async () => FOUND);
     const add = vi.fn(async () => ({ connector: NOTES }));

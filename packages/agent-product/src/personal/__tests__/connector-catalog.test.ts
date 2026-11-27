@@ -108,6 +108,70 @@ describe('a catalog entry', () => {
     );
   });
 
+  describe('joiners in a name', () => {
+    const titleOf = (title: string) => catalogEntryOf({ ...OK, title }, 'file')?.title;
+
+    it.each([
+      ['Persian', 'می‌خواهم'],
+      ['Devanagari', 'क्‍ष'],
+      ['an emoji sequence', '\u{1F468}‍\u{1F469}‍\u{1F467} Family notes'],
+      ['an emoji with a presentation selector', '❤️‍\u{1F525} Heat'],
+    ])('keeps a joiner between word or emoji characters in %s', (_name, title) => {
+      expect(titleOf(title)).toBe(title);
+    });
+
+    it.each([
+      ['at the start', '‍Notes', 'Notes'],
+      ['at the end', 'Notes‌', 'Notes'],
+      ['beside a space', 'My ‍notes', 'My notes'],
+      ['beside a space on the other side', 'My‌ notes', 'My notes'],
+      ['doubled', 'No‍‍tes', 'Notes'],
+      ['beside a control character', 'My\u0000‍notes', 'My notes'],
+      ['beside punctuation', 'My-‍notes', 'My-notes'],
+    ])('drops a joiner %s', (_where, title, expected) => {
+      expect(titleOf(title)).toBe(expected);
+    });
+
+    describe('at the clipped end', () => {
+      const entryOf = (text: string) =>
+        catalogEntryOf({ ...OK, title: text, description: text }, 'file')!;
+      const limits = [
+        ['title', 80, (text: string) => entryOf(text).title],
+        ['description', 300, (text: string) => entryOf(text).description!],
+      ] as const;
+
+      it.each(limits)('leaves no joiner last when it sat at the %s limit', (_name, limit, read) => {
+        const clipped = read('x'.repeat(limit - 1) + '‍' + 'y');
+        expect(clipped).toBe('x'.repeat(limit - 1));
+        const sequence = read('a'.repeat(limit - 2) + '\u{1F468}‍\u{1F469}');
+        expect(sequence).toBe('a'.repeat(limit - 2) + '\u{1F468}');
+      });
+
+      it.each(limits)(
+        'never cuts an emoji into a lone surrogate at the %s limit',
+        (_name, limit, read) => {
+          const fits = read('x'.repeat(limit - 2) + '\u{1F600}');
+          expect(fits).toBe('x'.repeat(limit - 2) + '\u{1F600}');
+          const clipped = read('x'.repeat(limit - 1) + '\u{1F600}');
+          expect(clipped).toBe('x'.repeat(limit - 1));
+          expect(clipped.isWellFormed()).toBe(true);
+          expect(read('x'.repeat(limit) + '\u{1F600}')).toBe('x'.repeat(limit));
+        },
+      );
+    });
+
+    it.each([
+      ['direction overrides', 'Not‮esab⁦d⁩؜‎‏', 'Notesabd'],
+      ['zero-width spaces', 'No​tes', 'Notes'],
+      ['a word joiner', 'No⁠tes', 'Notes'],
+      ['the byte order mark', '﻿Notes', 'Notes'],
+      ['a soft hyphen', 'No­tes', 'Notes'],
+      ['tag characters', 'No\u{E0041}tes', 'Notes'],
+    ])('still removes %s', (_name, title, expected) => {
+      expect(titleOf(title)).toBe(expected);
+    });
+  });
+
   it.each([
     ['not an object', 'text'],
     ['without a name', { endpoint: OK.endpoint }],
