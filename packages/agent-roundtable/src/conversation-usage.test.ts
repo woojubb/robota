@@ -11,6 +11,7 @@ import {
   type ParticipantOutcome,
   type ParticipantTurn,
   type PricePolicy,
+  type Roundtable,
   type TurnServices,
 } from './index';
 
@@ -915,7 +916,9 @@ describe('per-turn usage services and the admission ledger', () => {
   it('a response that settles after the run stops on a timeout still records its tokens; a new admission afterward is refused', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     let entered!: () => void;
-    const enteredTurn = new Promise<void>((resolve) => { entered = resolve; });
+    const enteredTurn = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
     let secondAdmissionError: unknown;
     const room = createRoundtable({
       conversationId: 'late-settlement',
@@ -925,7 +928,9 @@ describe('per-turn usage services and the admission ledger', () => {
           entered();
           // Settle only after the run has stopped, regardless of scheduler latency.
           if (!options.signal.aborted) {
-            await new Promise<void>((resolve) => options.signal.addEventListener('abort', () => resolve(), { once: true }));
+            await new Promise<void>((resolve) =>
+              options.signal.addEventListener('abort', () => resolve(), { once: true }),
+            );
           }
           await options.services.recordUsage({
             callId: 'c1',
@@ -1002,5 +1007,157 @@ describe('per-turn usage services and the admission ledger', () => {
       ).toEqual(['metered', 'silent']);
       await room.dispose();
     });
+  });
+});
+
+describe('a participant admits the paid effects of its tools', () => {
+  async function withServices(
+    limits: Record<string, number>,
+    script: (services: TurnServices, room: () => Roundtable) => Promise<void>,
+  ) {
+    let room!: Roundtable;
+    room = createRoundtable({
+      conversationId: crypto.randomUUID(),
+      participants: [
+        agent('a', async (_turn, options) => {
+          await script(options.services, () => room);
+          return { kind: 'speak', content: 'ok' };
+        }),
+      ],
+      limits: { maxTurnsPerRun: 1, ...limits },
+    });
+    const result = await room.run();
+    return { room, result };
+  }
+  const caught = (promise: Promise<unknown>) =>
+    promise.then(
+      () => undefined,
+      (error) => error,
+    );
+
+  it('admits a tool effect before it starts and records it as a tool effect', async () => {
+    let admittedBeforeStart = false;
+    const { room } = await withServices({}, async (services, current) => {
+      await services.admitToolEffect({ callId: 'fx-1', toolName: 'search', tokens: 40 });
+      admittedBeforeStart = current().snapshot().usage.length === 1;
+    });
+    expect(admittedBeforeStart).toBe(true);
+    expect(room.snapshot().usage).toEqual([
+      expect.objectContaining({
+        kind: 'tool-effect',
+        callId: 'fx-1',
+        providerId: 'tool',
+        modelId: 'search',
+        bound: { inputTokens: 40, maxOutputTokens: 0 },
+        status: 'reserved',
+        admitted: true,
+      }),
+    ]);
+    await room.dispose();
+  });
+
+  it('never counts a tool effect against a model-call limit', async () => {
+    const errors: unknown[] = [];
+    const { room, result } = await withServices(
+      { maxModelCallsPerRun: 1, maxModelCallsPerConversation: 1, maxModelCallsPerParticipant: 1 },
+      async (services) => {
+        await services.admitToolEffect({ callId: 'fx-1', toolName: 't', tokens: 1 });
+        await services.admitToolEffect({ callId: 'fx-2', toolName: 't', tokens: 1 });
+        await services.admitModelCall({ callId: 'm-1', providerId: 'p', modelId: 'm' });
+        errors.push(
+          await caught(services.admitModelCall({ callId: 'm-2', providerId: 'p', modelId: 'm' })),
+        );
+      },
+    );
+    expect(errors).toEqual([expect.objectContaining({ code: 'model-call-limit' })]);
+    expect(result.status).toBe('limited');
+    expect(room.snapshot().usage.map((record) => record.callId)).toEqual(['fx-1', 'fx-2', 'm-1']);
+    await room.dispose();
+  });
+
+  it('settles a tool effect through recordUsage and keeps its bound while usage is not fully known', async () => {
+    const { room } = await withServices({}, async (services) => {
+      await services.admitToolEffect({ callId: 'fx-1', toolName: 'search', tokens: 40 });
+      await services.recordUsage({
+        callId: 'fx-1',
+        outcome: 'completed',
+        provenance: 'unknown',
+        final: true,
+      });
+    });
+    expect(room.snapshot().usage[0]).toMatchObject({
+      kind: 'tool-effect',
+      status: 'settled',
+      outcome: 'completed',
+      provenance: 'unknown',
+      bound: { inputTokens: 40, maxOutputTokens: 0 },
+    });
+    await room.dispose();
+  });
+
+  it('is idempotent per call id and conflicts on a changed token bound', async () => {
+    const errors: unknown[] = [];
+    const { room } = await withServices({}, async (services) => {
+      await services.admitToolEffect({ callId: 'fx-1', toolName: 'search', tokens: 40 });
+      await services.admitToolEffect({ callId: 'fx-1', toolName: 'search', tokens: 40 });
+      errors.push(
+        await caught(services.admitToolEffect({ callId: 'fx-1', toolName: 'search', tokens: 41 })),
+        await caught(services.admitToolEffect({ callId: 'fx-1', toolName: 'other', tokens: 40 })),
+        await caught(
+          services.admitModelCall({
+            callId: 'fx-1',
+            providerId: 'tool',
+            modelId: 'search',
+            bound: { inputTokens: 40, maxOutputTokens: 0 },
+          }),
+        ),
+      );
+    });
+    expect(errors).toEqual([
+      expect.objectContaining({ code: 'conflict' }),
+      expect.objectContaining({ code: 'conflict' }),
+      expect.objectContaining({ code: 'conflict' }),
+    ]);
+    expect(room.snapshot().usage).toHaveLength(1);
+    await room.dispose();
+  });
+
+  it('rejects an invalid tool effect identity', async () => {
+    const errors: unknown[] = [];
+    const { room } = await withServices({}, async (services) => {
+      for (const effect of [
+        { callId: '', toolName: 't', tokens: 1 },
+        { callId: 'x', toolName: '', tokens: 1 },
+        { callId: 'x', toolName: 't', tokens: -1 },
+        { callId: 'x', toolName: 't', tokens: 1.5 },
+        { callId: 'x', toolName: 't', tokens: Number.MAX_SAFE_INTEGER + 1 },
+        { callId: 'x', toolName: 't', tokens: Number.NaN },
+      ])
+        errors.push(await caught(services.admitToolEffect(effect)));
+    });
+    expect(errors).toHaveLength(6);
+    for (const error of errors) expect(error).toMatchObject({ code: 'invalid-config' });
+    expect(room.snapshot().usage).toEqual([]);
+    await room.dispose();
+  });
+
+  it('refuses a cache-hit report for a tool effect', async () => {
+    const errors: unknown[] = [];
+    const { room } = await withServices({}, async (services) => {
+      await services.admitToolEffect({ callId: 'fx-1', toolName: 'search', tokens: 40 });
+      errors.push(
+        await caught(
+          services.recordUsage({
+            callId: 'fx-1',
+            outcome: 'cache-hit',
+            provenance: 'reported',
+            final: true,
+          }),
+        ),
+      );
+    });
+    expect(errors).toEqual([expect.objectContaining({ code: 'conflict' })]);
+    expect(room.snapshot().usage[0]).toMatchObject({ kind: 'tool-effect', status: 'reserved' });
+    await room.dispose();
   });
 });

@@ -58,6 +58,17 @@ export function validateUsageState(
         requireState(validBudgetCost(price.cost, currency));
     }
     requireState(entry.bound === undefined || validModelCallBound(entry.bound));
+    requireState(entry.kind === 'model' || entry.kind === 'tool-effect');
+    if (entry.kind === 'tool-effect') {
+      // A tool effect is always admitted with a declared bound that has no output, and is never a cache hit.
+      requireState(
+        entry.providerId === 'tool' &&
+          entry.admitted === true &&
+          entry.bound !== undefined &&
+          record(entry.bound).maxOutputTokens === 0 &&
+          entry.outcome !== 'cache-hit',
+      );
+    }
     // Only admission under a budget reserves anything, so no budget means nothing to set aside or settle.
     requireState(Object.hasOwn(entry, 'reservation') && Object.hasOwn(entry, 'reconciled'));
     requireState((entry.reservation !== null) === (budget !== null && entry.admitted === true));

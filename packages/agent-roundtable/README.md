@@ -86,16 +86,16 @@ objects lets `loadRoundtable` reopen a conversation later.
 
 ## Exports
 
-| Export                      | What it is for                                                                                                                                                                                                                                                    |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createRoundtable(options)` | Validates configuration and returns a `Roundtable` handle; `run()` executes it.                                                                                                                                                                                   |
-| `loadRoundtable(options)`   | Reopens a conversation from a `ConversationStore`, resolving saved runtime, selector and context policy references through a `RoundtableRegistry`.                                                                                                                |
-| `MemoryConversationStore`   | The in-memory `ConversationStore`; no durability, no `recovery: 'durable'` support.                                                                                                                                                                               |
-| `externalParticipant(def)`  | Declares a participant answered through `submitInput`/`resume` instead of a factory.                                                                                                                                                                              |
-| `increments()`              | The default `ContextPolicy`: no model calls; a participant is offered every message it has not seen and did not write (see "Context policy").                                                                                                                     |
-| `roundRobin()`              | The default `TurnSelector`: no model calls; cycles through participants in order after the last speaker, forever — it never finishes on its own, so a run's own limits (`maxTurnsPerRun`, `timeoutMs`, a model-call limit) are what stop it.                      |
-| `RoundtableError`           | Thrown by every rejecting call and by `TurnServices.admitModelCall`; `code` is `invalid-config`, `busy`, `conflict`, `disposed`, `stale-claim`, `recovery-required`, `model-call-limit`, `budget-limit`, `invalid-selection` or `invalid-context` (see "Errors"). |
-| `summarizeUsage(records)`   | Reduces `UsageRecord[]` (from a snapshot or the `usage` event) into one combined `UsageSummary`; filter the records first (by run, participant, ...) for a per-principal breakdown.                                                                               |
+| Export                      | What it is for                                                                                                                                                                                                                                                                          |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createRoundtable(options)` | Validates configuration and returns a `Roundtable` handle; `run()` executes it.                                                                                                                                                                                                         |
+| `loadRoundtable(options)`   | Reopens a conversation from a `ConversationStore`, resolving saved runtime, selector and context policy references through a `RoundtableRegistry`.                                                                                                                                      |
+| `MemoryConversationStore`   | The in-memory `ConversationStore`; no durability, no `recovery: 'durable'` support.                                                                                                                                                                                                     |
+| `externalParticipant(def)`  | Declares a participant answered through `submitInput`/`resume` instead of a factory.                                                                                                                                                                                                    |
+| `increments()`              | The default `ContextPolicy`: no model calls; a participant is offered every message it has not seen and did not write (see "Context policy").                                                                                                                                           |
+| `roundRobin()`              | The default `TurnSelector`: no model calls; cycles through participants in order after the last speaker, forever — it never finishes on its own, so a run's own limits (`maxTurnsPerRun`, `timeoutMs`, a model-call limit) are what stop it.                                            |
+| `RoundtableError`           | Thrown by every rejecting call and by `TurnServices.admitModelCall` and `admitToolEffect`; `code` is `invalid-config`, `busy`, `conflict`, `disposed`, `stale-claim`, `recovery-required`, `model-call-limit`, `budget-limit`, `invalid-selection` or `invalid-context` (see "Errors"). |
+| `summarizeUsage(records)`   | Reduces `UsageRecord[]` (from a snapshot or the `usage` event) into one combined `UsageSummary`, counting tool effects (`toolEffects`) apart from model calls; filter the records first (by run, participant, ...) for a per-principal breakdown.                                       |
 
 Everything else this package exports is a type: the participant/session/selector contracts
 (`ParticipantDefinition`, `ParticipantSession`, `TurnSelector`, …), the store contract
@@ -241,6 +241,17 @@ is already fully known are a `conflict`. It never changes a call count or a reco
 the revision, is refused while a run, input or resume is active, and a reconciled call accepts no
 further report.
 
+A participant whose tool spends money or tokens of its own declares each effect before it starts with
+`services.admitToolEffect({ callId, toolName, tokens })`, where `tokens` is the most it can spend in the
+budget's token unit. The effect is admitted like a model call under the same rules (`budget-limit` when
+it does not fit, an idempotent retry per call id, a conflict on a changed bound), is recorded with
+`kind: 'tool-effect'`, provider `'tool'` and the tool name as the model, and is settled through
+`recordUsage` and `reconcileUsage` like any call; a cache hit cannot be reported for it. A cost budget
+prices it through `pricing.bound`, which also receives the call's `kind`, and refuses an effect that
+cannot be priced. A tool effect counts against the budget but never against a model-call limit, and
+`summarizeUsage` counts it under `toolEffects`, leaving `totalCalls` and the other call counters to
+model calls while tokens and cost include both.
+
 A run stops with `limited` and reason `'budget'` instead of dispatching a selector or a group once any
 amount is fully spent (a call-count limit is checked first). A group is refused whole,
 and one made only of `'none'` members still runs. A remainder smaller than every call's bound ends each
@@ -254,7 +265,7 @@ Calls reject with a `RoundtableError` whose `code` is one of `invalid-config`, `
 longer pending), `disposed`, `stale-claim` (this handle's claim on the store expired or changed
 owner) or `recovery-required`.
 
-`model-call-limit` and `budget-limit` are different: they are thrown by `TurnServices.admitModelCall`
+`model-call-limit` and `budget-limit` are different: they are thrown by `TurnServices.admitModelCall` or `admitToolEffect`
 itself, to whichever custom participant, selector or `meterJournal` (from `@robota-sdk/agent-roundtable-robota`) host called it, once a configured `maxModelCallsPerRun`,
 `-PerConversation` or `-PerParticipant` limit is reached (`model-call-limit`) or a call's bound no
 longer fits the budget (`budget-limit`). Admission has already stopped the run, which ends `limited`

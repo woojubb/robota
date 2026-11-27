@@ -7,6 +7,7 @@ import type {
   PricePolicy,
   UsageAmount,
   UsageBudget,
+  UsageCallKind,
   UsageEstimate,
   UsageEstimator,
   UsageReconciliation,
@@ -190,7 +191,7 @@ function priceBound(value: Money | null, budget: StoredBudget, what: string): Mo
 
 function runEstimator(
   estimator: UsageEstimator | undefined,
-  call: ModelCallIntent,
+  call: ModelCallIntent & { kind: UsageCallKind },
   budget: StoredBudget,
 ): UsageEstimate {
   if (typeof estimator?.estimate !== 'function')
@@ -211,13 +212,15 @@ function runEstimator(
  */
 export function resolveReservation(
   call: ModelCallIntent,
+  kind: UsageCallKind,
   budget: StoredBudget,
   pricing: PricePolicy | undefined,
   estimator: UsageEstimator | undefined,
 ): UsageReservation {
   let provenance: UsageReservation['provenance'] = 'declared';
   let estimate: UsageEstimate | undefined;
-  const estimated = (): UsageEstimate => (estimate ??= runEstimator(estimator, call, budget));
+  const estimated = (): UsageEstimate =>
+    (estimate ??= runEstimator(estimator, { ...call, kind }, budget));
   let bound: ModelCallBound | undefined = call.bound;
   if (bound === undefined) {
     if (budget.mode !== 'estimated')
@@ -231,7 +234,7 @@ export function resolveReservation(
   if (budget.cost !== null) {
     if (typeof pricing?.bound === 'function')
       cost = priceBound(
-        synchronous(pricing.bound({ ...call, bound }), 'The pricing bound'),
+        synchronous(pricing.bound({ ...call, bound, kind }), 'The pricing bound'),
         budget,
         'The pricing bound',
       );

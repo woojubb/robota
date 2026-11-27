@@ -23,6 +23,22 @@ export interface ModelCallIntent {
   bound?: ModelCallBound;
 }
 
+/**
+ * What a ledger record stands for: a provider call ('model'), or a paid effect of a participant's tool
+ * ('tool-effect') that draws on a budget but is not a model call.
+ */
+export type UsageCallKind = 'model' | 'tool-effect';
+
+/**
+ * A paid effect a participant's tool is about to cause, declared before it starts. `tokens` is the
+ * most it can spend in the budget's token unit; a tool effect has no output and no provider.
+ */
+export interface ToolEffectIntent {
+  callId: string;
+  toolName: string;
+  tokens: number;
+}
+
 export type UsageOutcome = 'completed' | 'failed' | 'cancelled' | 'cache-hit';
 
 /** How trustworthy the reported counts are; only 'reported' comes straight from the provider. */
@@ -91,7 +107,7 @@ export interface UsageEstimate {
 
 /** Synchronous, run once per admission inside the serialized state update, like `PricePolicy.cost`. */
 export interface UsageEstimator {
-  estimate(call: ModelCallIntent): UsageEstimate;
+  estimate(call: ModelCallIntent & { kind: UsageCallKind }): UsageEstimate;
 }
 
 /** What the host settles a call's usage at when its own report never arrived or was not trustworthy. */
@@ -102,6 +118,8 @@ export interface UsageReconciliation {
 }
 
 interface UsageRecordIdentity extends ModelCallIntent {
+  /** A tool effect has providerId 'tool', its tool name as modelId, and a bound with no output. */
+  kind: UsageCallKind;
   conversationId: string;
   runId: string;
   principal: UsagePrincipal;
@@ -152,6 +170,12 @@ export interface TurnServices {
    * process still holds the conversation; only admitting a new call is refused once a run has stopped.
    */
   recordUsage(report: UsageReport): Promise<void>;
+  /**
+   * Awaited before a paid tool effect starts; idempotent when retried with the same callId and
+   * tokens. It is refused the way `admitModelCall` is, and a tool effect counts against a budget but
+   * never against a model-call limit. Its usage is reported through `recordUsage`.
+   */
+  admitToolEffect(effect: ToolEffectIntent): Promise<void>;
 }
 
 /** A versioned cost function; changing the version requires explicit migration on reload. */
@@ -162,9 +186,10 @@ export interface PricePolicy {
    * The most a call can cost given its declared bound, or null when it cannot be priced. Synchronous,
    * and required by a strict cost budget, which sets that amount aside before the call is dispatched.
    */
-  bound?(call: ModelCallIntent & { bound: ModelCallBound }): Money | null;
+  bound?(call: ModelCallIntent & { bound: ModelCallBound; kind: UsageCallKind }): Money | null;
 }
 
+/** Call counters count model calls only; tokens and cost include every record, tool effects too. */
 export interface UsageSummary {
   totalCalls: number;
   reservedCalls: number;
@@ -174,6 +199,8 @@ export interface UsageSummary {
   tokens: Required<UsageTokens>;
   /** One entry per currency that appeared; amounts are never combined across currencies. */
   cost: Money[];
+  /** Tool effects, counted apart from the model calls above. */
+  toolEffects: number;
 }
 
 /** Aggregates a ledger slice for display; callers filter records (by run, participant, ...) first. */
@@ -189,13 +216,18 @@ export function summarizeUsage(records: readonly UsageRecord[]): UsageSummary {
   let reservedCalls = 0;
   let settledCalls = 0;
   let unknownCalls = 0;
+  let totalCalls = 0;
+  let toolEffects = 0;
   for (const record of records) {
+    const model = record.kind === 'model';
+    if (model) totalCalls++;
+    else toolEffects++;
     if (record.status === 'reserved') {
-      reservedCalls++;
+      if (model) reservedCalls++;
       continue;
     }
-    settledCalls++;
-    if (record.provenance === 'unknown') unknownCalls++;
+    if (model) settledCalls++;
+    if (model && record.provenance === 'unknown') unknownCalls++;
     if (record.tokens) {
       for (const key of Object.keys(tokens) as (keyof UsageTokens)[]) {
         const value = record.tokens[key];
@@ -208,7 +240,7 @@ export function summarizeUsage(records: readonly UsageRecord[]): UsageSummary {
     }
   }
   return {
-    totalCalls: records.length,
+    totalCalls,
     reservedCalls,
     settledCalls,
     unknownCalls,
@@ -217,5 +249,6 @@ export function summarizeUsage(records: readonly UsageRecord[]): UsageSummary {
       currency,
       minorUnits: minorUnits.toString(),
     })),
+    toolEffects,
   };
 }

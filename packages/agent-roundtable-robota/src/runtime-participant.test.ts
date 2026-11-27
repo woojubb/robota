@@ -26,7 +26,11 @@ afterEach(() => {
 });
 
 function noServices(): TurnServices {
-  return { admitModelCall: async () => {}, recordUsage: async () => {} };
+  return {
+    admitModelCall: async () => {},
+    recordUsage: async () => {},
+    admitToolEffect: async () => {},
+  };
 }
 
 function turn(overrides: Partial<ParticipantTurn> = {}): ParticipantTurn {
@@ -105,6 +109,7 @@ describe('runtimeParticipant: speak path', () => {
         admitted.push(call);
       },
       recordUsage: async () => {},
+      admitToolEffect: async () => {},
     };
     await lease.session.runTurn(turn(), execOptions({ services }));
     expect(admitted).toHaveLength(1);

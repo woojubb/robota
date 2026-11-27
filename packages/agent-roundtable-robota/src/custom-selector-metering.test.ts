@@ -23,6 +23,7 @@ function services(): TurnServices & { admitted: ModelCallIntent[]; recorded: Usa
     recordUsage: async (report) => {
       recorded.push(report);
     },
+    admitToolEffect: async () => {},
   };
 }
 

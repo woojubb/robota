@@ -1128,3 +1128,106 @@ describe('loading a conversation saved with a budget', () => {
     await loaded.dispose();
   });
 });
+
+describe('a budget admits a paid tool effect like a model call', () => {
+  const effect = (services: TurnServices, callId: string, tokens: number, toolName = 'search') =>
+    services.admitToolEffect({ callId, toolName, tokens });
+
+  it('refuses a tool effect that does not fit and ends the run limited', async () => {
+    const errors: unknown[] = [];
+    const { room, result } = await scripted({ budget: { tokens: 100 } }, async (services) => {
+      await admit(services, 'm-1', bound(60, 30));
+      await effect(services, 'fx-fits', 10);
+      errors.push(await rejection(effect(services, 'fx-over', 1)));
+    });
+    expect(errors).toEqual([expect.objectContaining({ code: 'budget-limit' })]);
+    expect(result).toMatchObject({ status: 'limited', reason: 'budget' });
+    expect(room.snapshot().usage.map((record) => record.callId)).toEqual(['m-1', 'fx-fits']);
+    await room.dispose();
+  });
+
+  it('prices a tool effect bound through the pricing policy and refuses one it cannot price', async () => {
+    const seen: unknown[] = [];
+    const pricing: PricePolicy = {
+      ...perToken,
+      bound: (call) => {
+        seen.push({ kind: call.kind, modelId: call.modelId, bound: call.bound });
+        return call.modelId === 'unpriced' ? null : usd(call.bound.inputTokens);
+      },
+    };
+    const errors: unknown[] = [];
+    const { room } = await scripted({ budget: { cost: usd(100) }, pricing }, async (services) => {
+      await effect(services, 'fx-1', 30);
+      errors.push(await rejection(effect(services, 'fx-2', 5, 'unpriced')));
+    });
+    expect(seen[0]).toEqual({
+      kind: 'tool-effect',
+      modelId: 'search',
+      bound: { inputTokens: 30, maxOutputTokens: 0 },
+    });
+    expect(errors).toEqual([expect.objectContaining({ code: 'invalid-config' })]);
+    expect(room.snapshot().usage).toHaveLength(1);
+    expect(room.snapshot().usage[0].reservation).toMatchObject({ tokens: 30, cost: usd(30) });
+    await room.dispose();
+  });
+
+  it('reconciles a tool effect like a model call', async () => {
+    const runs: ParticipantTurn[] = [];
+    const room = createRoundtable({
+      conversationId: crypto.randomUUID(),
+      participants: [
+        enforced('a', async (turn, options) => {
+          runs.push(turn);
+          if (runs.length === 1) await effect(options.services, 'lost', 100);
+          return speak();
+        }),
+      ],
+      limits: { maxTurnsPerRun: 1 },
+      budget: { tokens: 100 },
+    });
+    expect(await room.run()).toMatchObject({ status: 'limited', reason: 'turns' });
+    // The unreported effect keeps its whole bound, so nothing is left to start another turn.
+    expect(await room.run()).toMatchObject({ status: 'limited', reason: 'budget' });
+    await room.reconcileUsage({ callId: 'lost', tokens: 10 });
+    expect(room.snapshot().usage[0]).toMatchObject({
+      kind: 'tool-effect',
+      reconciled: { tokens: 10, cost: null },
+    });
+    expect(await room.run()).toMatchObject({ status: 'limited', reason: 'turns' });
+    expect(runs).toHaveLength(2);
+    await room.dispose();
+  });
+});
+
+describe('the usage summary counts tool effects apart from model calls', () => {
+  it('leaves call counters to model calls while tokens include every record', async () => {
+    const { room } = await scripted({ budget: { tokens: 1000 } }, async (services) => {
+      await admit(services, 'm-1', bound(10, 5));
+      await services.recordUsage({
+        callId: 'm-1',
+        outcome: 'completed',
+        provenance: 'reported',
+        final: true,
+        tokens: { input: 10, output: 5 },
+      });
+      await services.admitToolEffect({ callId: 'fx-1', toolName: 't', tokens: 7 });
+      await services.recordUsage({
+        callId: 'fx-1',
+        outcome: 'completed',
+        provenance: 'reported',
+        final: true,
+        tokens: { input: 7, output: 0 },
+      });
+      await services.admitToolEffect({ callId: 'fx-2', toolName: 't', tokens: 3 });
+    });
+    expect(summarizeUsage(room.snapshot().usage)).toMatchObject({
+      totalCalls: 1,
+      reservedCalls: 0,
+      settledCalls: 1,
+      unknownCalls: 0,
+      toolEffects: 2,
+      tokens: { input: 17, output: 5 },
+    });
+    await room.dispose();
+  });
+});

@@ -23,6 +23,7 @@ function services(): TurnServices & {
     recordUsage: vi.fn(async (report: UsageReport) => {
       recorded.push(report);
     }),
+    admitToolEffect: vi.fn(async () => {}),
   };
 }
 
