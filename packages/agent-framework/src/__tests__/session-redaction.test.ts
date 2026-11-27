@@ -143,6 +143,23 @@ describe('redacting a record', () => {
     expect(call.function.arguments).toBe(`not json ${GONE}`);
   });
 
+  it('drops a provider continuation from a message it changed and keeps the others', () => {
+    const record = holdingRecord();
+    record.messages[0] = {
+      ...record.messages[0],
+      metadata: { providerContinuation: 'signed-1', note: 'kept' },
+    } as never;
+    record.messages[3] = {
+      ...record.messages[3],
+      content: 'no match here',
+      parts: undefined,
+      metadata: { providerContinuation: 'signed-2' },
+    } as never;
+    const redacted = redactSessionRecord(record, redact) as IInteractiveSessionRecord;
+    expect(redacted.messages[0].metadata).toEqual({ note: 'kept' });
+    expect(redacted.messages[3].metadata).toEqual({ providerContinuation: 'signed-2' });
+  });
+
   it('returns nothing to save for a record that never held the text', () => {
     const clean = holdingRecord({ name: 'plain' });
     const innocent = redactSessionRecord(clean, (value) =>
@@ -275,13 +292,14 @@ describe('redacting a stored record', () => {
 function liveSession(
   dir: string,
   scripted: ReturnType<typeof createScriptedProvider>,
-  gate?: Promise<void>,
+  gate?: { wait?: Promise<void>; entered?: number },
 ) {
   const provider = gate
     ? {
         ...scripted.provider,
         chat: async (...args: Parameters<typeof scripted.provider.chat>) => {
-          await gate;
+          gate.entered = (gate.entered ?? 0) + 1;
+          await gate.wait;
           return scripted.provider.chat(...args);
         },
       }
@@ -335,6 +353,33 @@ describe('redacting a live conversation', () => {
     }
   });
 
+  it('waits for a running compaction before redacting', async () => {
+    const dir = tempDir();
+    const scripted = createScriptedProvider([{ text: 'Noted.' }, { text: 'A summary.' }]);
+    const gate: { wait?: Promise<void>; entered?: number } = {};
+    let release: () => void = () => undefined;
+    const { session, store } = liveSession(dir, scripted, gate);
+    try {
+      await (
+        await session.submit(`Remember ${FACT}`)
+      ).completed;
+      gate.wait = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const enteredBefore = gate.entered ?? 0;
+      const compacting = session.compactContext();
+      await vi.waitFor(() => expect(gate.entered).toBeGreaterThan(enteredBefore));
+      expect(session.redactConversation(redact)).toBe('busy');
+      release();
+      await compacting;
+      expect(session.redactConversation(redact)).toBe('redacted');
+      expect(JSON.stringify(store.load(session.getStatusSnapshot().sessionId))).not.toContain(FACT);
+    } finally {
+      release();
+      await session.shutdown();
+    }
+  });
+
   it('waits for a running turn before redacting', async () => {
     const dir = tempDir();
     const scripted = createScriptedProvider([{ text: 'Noted.' }]);
@@ -342,7 +387,7 @@ describe('redacting a live conversation', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const { session } = liveSession(dir, scripted, gate);
+    const { session } = liveSession(dir, scripted, { wait: gate });
     try {
       const submitted = session.submit(`Remember ${FACT}`);
       await vi.waitFor(() => expect(session.getLocalActivityStatus()).toBe('working'));

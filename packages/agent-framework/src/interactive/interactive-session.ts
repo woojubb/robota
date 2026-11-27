@@ -2227,13 +2227,17 @@ export class InteractiveSession
    * Replaces matched text in the conversation, its display history and the session name, keeping
    * every message, id and tool-call pairing, then saves and tells surfaces to re-read. Only an idle
    * session is rewritten: `busy` while a turn runs, input waits, or an execution awaits recovery,
-   * since a running turn would keep appending the text it just read. The system prompt and
-   * background state are left as they are.
+   * since a running turn would keep appending the text it just read; a compaction holds the
+   * session's turn claim, so it counts as running. The system prompt and background state are left
+   * as they are. A failed save leaves memory redacted and the disk unchanged (the next save writes
+   * the clean state) and the error reaches the caller; a pending recovery save raises rather than
+   * returning `busy`.
    */
   redactConversation(redact: TTextRedactor): 'redacted' | 'unchanged' | 'busy' {
     const session = this.getSessionOrThrow();
     if (
       this.execCtrl.executing ||
+      session.isRunning() ||
       this.promptRegistry.pendingCount > 0 ||
       this.execCtrl.pendingCount() > 0 ||
       session.getPendingExecution() !== undefined

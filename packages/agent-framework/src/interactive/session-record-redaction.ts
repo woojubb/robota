@@ -16,6 +16,8 @@ import {
   loadSessionForUpdate,
 } from '@robota-sdk/agent-session';
 
+import { PROVIDER_CONTINUATION_METADATA_KEY } from '@robota-sdk/agent-core';
+
 import { provenanceOfOutcome } from './session-authorship-gate.js';
 
 import type {
@@ -91,11 +93,33 @@ function walk(
   if (value === null || typeof value !== 'object' || value instanceof Date) return value;
   const source = value as Record<string, unknown>;
   const binary = typeof source['type'] === 'string' && BINARY_PART.has(source['type']);
+  const isMessage = !inArguments && typeof source['role'] === 'string';
+  const own: ITally = isMessage ? { changed: false } : tally;
   const next: Record<string, unknown> = {};
   for (const [name, child] of Object.entries(source)) {
-    next[name] = binary && name === 'data' ? child : walk(child, name, redact, tally, inArguments);
+    next[name] = binary && name === 'data' ? child : walk(child, name, redact, own, inArguments);
+  }
+  if (isMessage && own.changed) {
+    tally.changed = true;
+    dropProviderContinuation(next);
   }
   return next;
+}
+
+/**
+ * A provider's signed continuation echoes the message it came with, so once that message changed
+ * it can never be sent again (a continuation that no longer matches its message is refused), and
+ * keeping it would keep the original text on disk.
+ */
+function dropProviderContinuation(message: Record<string, unknown>): void {
+  const metadata = message['metadata'];
+  if (metadata === null || typeof metadata !== 'object' || Array.isArray(metadata)) return;
+  if (!(PROVIDER_CONTINUATION_METADATA_KEY in metadata)) return;
+  const { [PROVIDER_CONTINUATION_METADATA_KEY]: _dropped, ...rest } = metadata as Record<
+    string,
+    unknown
+  >;
+  message['metadata'] = rest;
 }
 
 /**
