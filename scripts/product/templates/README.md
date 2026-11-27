@@ -248,6 +248,7 @@ The [packages index](__PROJECT_DOCS_URL__/en/packages/) on the docs site covers 
 | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | [`@robota-sdk/agent-roundtable`](https://www.npmjs.com/package/@robota-sdk/agent-roundtable)               | Selects turns, runs parallel groups, publishes to a shared transcript; no model, no provider |
 | [`@robota-sdk/agent-roundtable-robota`](https://www.npmjs.com/package/@robota-sdk/agent-roundtable-robota) | Runs a Robota `Session` or plain `Robota` agent as a roundtable participant or selector      |
+| [`@robota-sdk/agent-roundtable-acp`](https://www.npmjs.com/package/@robota-sdk/agent-roundtable-acp)       | Seats an Agent Client Protocol agent as a roundtable participant                             |
 
 **Product composition** — build your own product on the same runtime:
 
