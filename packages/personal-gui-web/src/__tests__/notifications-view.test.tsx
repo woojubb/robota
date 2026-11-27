@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api.js';
 import { NotificationsSection } from '../views/Notifications.js';
 import { SettingsView } from '../views/Settings.js';
+import { DEFAULT_PREFERENCES } from './offers-world.js';
 
 import type { IDeliveryStatusView, IPersonalApi } from '../api.js';
 
@@ -153,6 +154,7 @@ describe('the Notifications section', () => {
         stateDir: '/home/person/.personal-agent',
         browser: { available: false },
       }),
+      offerPreferences: async () => ({ preferences: DEFAULT_PREFERENCES }),
     });
     render(<SettingsView api={api} />);
     expect(await screen.findByRole('heading', { name: 'Notifications' })).toBeTruthy();

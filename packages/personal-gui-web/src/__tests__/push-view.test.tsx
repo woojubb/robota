@@ -7,6 +7,7 @@ import { ApiError } from '../api.js';
 import { enablePush, keyBytes, PUSH_SCOPE } from '../push.js';
 import { PushNotifications } from '../views/PushNotifications.js';
 import { SettingsView } from '../views/Settings.js';
+import { DEFAULT_PREFERENCES } from './offers-world.js';
 
 import type { IPersonalApi } from '../api.js';
 
@@ -688,6 +689,7 @@ describe('notifications when the page is closed, in Settings', () => {
         waitingInDigest: 0,
       }),
       webhook: async () => ({ configured: false, format: 'plain' }),
+      offerPreferences: async () => ({ preferences: DEFAULT_PREFERENCES }),
     } as unknown as IPersonalApi;
     render(<SettingsView api={api} />);
     const section = await screen.findByRole('region', {

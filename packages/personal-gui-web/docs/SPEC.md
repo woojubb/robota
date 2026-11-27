@@ -58,9 +58,12 @@ importable library.
   or page may have shaped every word, beside the agent's word on whether its task is ready. Only an
   offer whose task the agent calls ready has a Start, on its opened card, as a form that begins on the
   values the offer suggests and that the person can change; what is on the form goes with the offer, and
-  the agent judges the offer again at the press and says why not when it refuses. Dismiss, Snooze and
-  Reopen carry the person's word and start nothing, a card tells the agent only that the person opened
-  it, and an offer that was started stays, with where its task stands. The Feed lists a few open offers
+  the agent judges the offer again at the press and says why not when it refuses. Dismiss, Snooze,
+  Reopen and Mute (a topic or a source) carry the person's word and start nothing, a card tells the
+  agent only that the person opened it, and an offer that was started stays, with where its task
+  stands. A card goes only once the agent has taken a mute and no longer lists it, and a refusal is
+  shown beside the card; Settings holds the same choices (suggestions on or off, how the person is
+  told, wanted and muted topics, muted sources) and shows what the agent answered. The Feed lists a few open offers
   as plain entries that open the exact card; an entry never starts, decides or interrupts, and when the
   offers cannot be read the Feed shows nothing for them.
 - **Secrets stay out of the page.** Settings name the environment variable that holds a provider key;
