@@ -18,7 +18,7 @@ import {
   localMinutes,
   minutesOf,
 } from './policy.js';
-import { PENDING_DIGEST_MAX } from './stores.js';
+import { OFFER_SOURCES_MAX, PENDING_DIGEST_MAX } from './stores.js';
 
 import type { ICaseAskedEvent } from '../cases/case-book.js';
 import type { IFeedItem } from '../goals/types.js';
@@ -30,12 +30,18 @@ import type {
   IDeliveryState,
   IDeliveryStatus,
   IDeliveryStore,
+  IPendingOffer,
+  TDelivery,
 } from './types.js';
 
 const TEXT_PART_LIMIT = 200;
 const TITLE_LIMIT = 100;
 const SINK_TIMEOUT_MS = 20_000;
 const FEED_POINTER = 'Open your Feed to answer.';
+const OFFER_POINTER = 'Open your Feed to look at it.';
+const SOURCE_KEY_LIMIT = 200;
+/** A source that had an offer pushed waits this long before another of its offers is pushed. */
+export const OFFER_SOURCE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 /** One line of plain text within a bound: no line breaks, no control or invisible formatting characters. */
 function oneLine(text: string, limit = TEXT_PART_LIMIT): string {
@@ -77,6 +83,18 @@ export interface IQuestionDeliveryOptions {
   readonly now?: () => Date;
   /** How long a sink may take before its attempt is given up. */
   readonly sinkTimeoutMs?: number;
+  /** Whether a held offer is still offered; one that is not is left out of the digest. */
+  readonly offers?: { stillOffered(offerId: string): boolean | Promise<boolean> };
+}
+
+export interface IOfferDeliveryInput {
+  readonly offerId: string;
+  /** The title the host verified; nothing else about the offer is ever sent. */
+  readonly title: string;
+  /** Where the offer came from; one source is pushed at most once per cooldown. */
+  readonly sourceKey: string;
+  /** What the person chose for offers: a push, or only the digest. */
+  readonly mode: 'notify' | 'digest';
 }
 
 export class QuestionDelivery {
@@ -183,6 +201,70 @@ export class QuestionDelivery {
     });
   }
 
+  /** The offers held for the digest that are still offered; the others drop out. */
+  private async stillOffered(held: readonly IPendingOffer[]): Promise<IPendingOffer[]> {
+    const { offers } = this.options;
+    if (offers === undefined) return [];
+    const flags = await Promise.all(
+      held.map(async ({ offerId }) => {
+        try {
+          return await offers.stillOffered(offerId);
+        } catch {
+          // allow-fallback: an offer that cannot be looked up is left out of the digest; it stays in the feed.
+          return false;
+        }
+      }),
+    );
+    return held.filter((_offer, index) => flags[index]);
+  }
+
+  /**
+   * An offer the person chose to receive. It shares the daily limit and quiet hours with questions, and
+   * a source that had one pushed waits a day for the next, so a push is a decision only the person's
+   * limits make. Held offers wait for the digest or stay in the feed. Resolves to what was done: `feed`
+   * also when a push was due but no sink took it.
+   */
+  onOffer(input: IOfferDeliveryInput): Promise<TDelivery> {
+    return this.deliveries(async () => {
+      const now = this.now();
+      const settings = await this.limits();
+      const state = await this.load(now);
+      const sourceKey = oneLine(input.sourceKey, SOURCE_KEY_LIMIT);
+      const title = oneLine(input.title, TITLE_LIMIT);
+      const last = Date.parse(state.offerSources?.[sourceKey] ?? '');
+      const cooling = !Number.isNaN(last) && now.getTime() - last < OFFER_SOURCE_COOLDOWN_MS;
+      const decision = decideDelivery({
+        urgency: input.mode === 'notify' && !cooling ? 'now' : 'digest',
+        now,
+        settings,
+        sentToday: state.sent,
+      });
+      if (decision === 'feed') return 'feed';
+      if (decision === 'digest') {
+        const held = [
+          ...(state.pendingOffers ?? []).filter((offer) => offer.offerId !== input.offerId),
+          { offerId: input.offerId, title },
+        ];
+        await this.options.state.write({
+          ...state,
+          pendingOffers: held.slice(-PENDING_DIGEST_MAX),
+        });
+        return 'digest';
+      }
+      const text = `Suggested: ${title}\n${OFFER_POINTER}`;
+      if ((await this.send({ kind: 'offer', title, text })) === 0) return 'feed';
+      const sources = Object.entries({ ...state.offerSources, [sourceKey]: now.toISOString() })
+        .sort(([, a], [, b]) => Date.parse(a) - Date.parse(b))
+        .slice(-OFFER_SOURCES_MAX);
+      await this.options.state.write({
+        ...state,
+        sent: state.sent + 1,
+        offerSources: Object.fromEntries(sources),
+      });
+      return 'notify';
+    });
+  }
+
   /**
    * Called every minute and once at start. Sends the day's one digest when its time has come, outside
    * quiet hours, and some held question still waits for an answer; then forgets what was held and
@@ -199,36 +281,57 @@ export class QuestionDelivery {
       const day = localDay(now);
       if (state.digestedOn === day) return;
       const open = await this.stillOpen(state.pendingDigest);
-      if (open.length === 0) {
-        if (state.pendingDigest.length > 0)
-          await this.options.state.write({ ...state, pendingDigest: [] });
+      const offered = await this.stillOffered(state.pendingOffers ?? []);
+      if (open.length === 0 && offered.length === 0) {
+        if (state.pendingDigest.length > 0 || (state.pendingOffers ?? []).length > 0)
+          await this.options.state.write({ ...state, pendingDigest: [], pendingOffers: [] });
         return;
       }
-      const count = open.length;
-      const text = [
-        `${count} question${count === 1 ? ' is' : 's are'} waiting for you:`,
-        ...open.map((item) => `- ${oneLine(item.title)}`),
-        FEED_POINTER,
-      ].join('\n');
-      await this.options.state.write({ ...state, pendingDigest: [], digestedOn: day });
+      const parts: string[] = [];
+      const titles: string[] = [];
+      if (open.length > 0) {
+        const count = open.length;
+        parts.push(
+          `${count} question${count === 1 ? ' is' : 's are'} waiting for you:`,
+          ...open.map((item) => `- ${oneLine(item.title)}`),
+        );
+        titles.push(`${count} question${count === 1 ? '' : 's'}`);
+      }
+      if (offered.length > 0) {
+        const count = offered.length;
+        parts.push(
+          `${count} suggestion${count === 1 ? ' is' : 's are'} ready to look at:`,
+          ...offered.map((offer) => `- ${oneLine(offer.title)}`),
+        );
+        titles.push(`${count} suggestion${count === 1 ? '' : 's'}`);
+      }
+      parts.push(open.length > 0 ? FEED_POINTER : OFFER_POINTER);
+      await this.options.state.write({
+        ...state,
+        pendingDigest: [],
+        pendingOffers: [],
+        digestedOn: day,
+      });
       await this.send({
         kind: 'digest',
-        title: `${count} question${count === 1 ? '' : 's'} waiting for you`,
-        text,
+        title: `${titles.join(' and ')} waiting for you`,
+        text: parts.join('\n'),
       });
     });
   }
 
-  /** The person's limits, how many pushes are used today, and how many questions wait for the digest. */
+  /** The person's limits, how many pushes are used today, and how many questions and offers wait for the digest. */
   async status(): Promise<IDeliveryStatus> {
     const settings = await this.limits();
     const stored = await this.options.state.read();
     const sent = stored !== undefined && stored.day === localDay(this.now()) ? stored.sent : 0;
     const waiting = stored === undefined ? [] : await this.stillOpen(stored.pendingDigest);
+    const offered = await this.stillOffered(stored?.pendingOffers ?? []);
     return {
       settings,
       today: { sent, limit: settings.dailyLimit },
       waitingInDigest: waiting.length,
+      offersWaitingInDigest: offered.length,
     };
   }
 

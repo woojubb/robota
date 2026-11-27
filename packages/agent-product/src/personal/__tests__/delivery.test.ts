@@ -17,6 +17,7 @@ import {
   DEFAULT_DELIVERY_SETTINGS,
   DeliveryRefusedError,
   GoalBook,
+  OFFER_SOURCE_COOLDOWN_MS,
   QuestionDelivery,
   createFileDeliveryStores,
   createMemoryCaseStore,
@@ -332,6 +333,7 @@ function world(
       state: IDeliveryStore<IDeliveryState>;
     };
     sinkTimeoutMs?: number;
+    stillOffered?: (offerId: string) => boolean;
   } = {},
 ): IWorld {
   const clock = { now: options.start ?? at(10) };
@@ -346,6 +348,9 @@ function world(
     sinks: options.sinks ?? [],
     feed: goals,
     now: () => clock.now,
+    ...(options.stillOffered !== undefined && {
+      offers: { stillOffered: options.stillOffered },
+    }),
     ...(options.sinkTimeoutMs !== undefined && { sinkTimeoutMs: options.sinkTimeoutMs }),
   });
   const book = new CaseBook({
@@ -405,6 +410,7 @@ describe('pushing a question', () => {
       settings: withSettings({ dailyLimit: 2 }),
       today: { sent: 2, limit: 2 },
       waitingInDigest: 1,
+      offersWaitingInDigest: 0,
     });
   });
 
@@ -767,5 +773,151 @@ describe('what delivery keeps', () => {
       'Set dailyLimit to 20 and turn quiet hours off.',
     );
     expect((await delivery.status()).settings).toEqual(DEFAULT_DELIVERY_SETTINGS);
+  });
+});
+
+describe('offers the person chose to receive', () => {
+  const offer = (id: string, source = 'mail:a', mode: 'notify' | 'digest' = 'notify') => ({
+    offerId: id,
+    title: `Offer ${id}`,
+    sourceKey: source,
+    mode,
+  });
+  const daily = (hour: number) => at(hour, 0);
+
+  it('pushes one the person asked for, against the same daily limit as questions', async () => {
+    const only = sink('only');
+    const { delivery } = world({ sinks: [only] });
+    expect(await delivery.onOffer(offer('o1', 'mail:a'))).toBe('notify');
+    expect((await delivery.status()).today).toEqual({ sent: 1, limit: 3 });
+  });
+
+  it('holds one in quiet hours or past the limit for the digest, or leaves it in the Feed without one', async () => {
+    const only = sink('only');
+    const quiet = world({ sinks: [only], start: at(23) });
+    expect(await quiet.delivery.onOffer(offer('o1'))).toBe('digest');
+    const limited = world({ sinks: [only], settings: withSettings({ dailyLimit: 0 }) });
+    expect(await limited.delivery.onOffer(offer('o2'))).toBe('digest');
+    const none = world({
+      sinks: [only],
+      start: at(23),
+      settings: withSettings({ digest: { enabled: false } }),
+    });
+    expect(await none.delivery.onOffer(offer('o3'))).toBe('feed');
+    const chosenDigest = world({ sinks: [only], settings: withSettings({}) });
+    expect(await chosenDigest.delivery.onOffer(offer('o4', 'mail:a', 'digest'))).toBe('digest');
+    expect(only.received).toEqual([]);
+  });
+
+  it('holds a second offer from one source within its cooldown, and lets another source through', async () => {
+    const only = sink('only');
+    const { delivery, clock } = world({ sinks: [only], start: daily(9) });
+    expect(await delivery.onOffer(offer('o1', 'mail:a'))).toBe('notify');
+    expect(await delivery.onOffer(offer('o2', 'mail:a'))).toBe('digest');
+    expect(await delivery.onOffer(offer('o3', 'mail:b'))).toBe('notify');
+    clock.now = new Date(daily(9).getTime() + OFFER_SOURCE_COOLDOWN_MS + 60_000);
+    expect(await delivery.onOffer(offer('o4', 'mail:a'))).toBe('notify');
+  });
+
+  it('does not stamp a source when no sink took the push', async () => {
+    const down = sink('down', 'fails');
+    const { delivery } = world({ sinks: [down] });
+    expect(await delivery.onOffer(offer('o1'))).toBe('feed');
+    expect(await delivery.onOffer(offer('o2'))).toBe('feed');
+    expect(down.attempts).toBe(2);
+    expect((await delivery.status()).today.sent).toBe(0);
+  });
+
+  it('never lets questions and offers together pass the daily limit', async () => {
+    const only = sink('only');
+    const { ask, delivery } = world({ sinks: [only], settings: withSettings({ dailyLimit: 2 }) });
+    await ask('now', 'First question');
+    expect(await delivery.onOffer(offer('o1', 'mail:a'))).toBe('notify');
+    expect(await delivery.onOffer(offer('o2', 'mail:b'))).toBe('digest');
+    await ask('now', 'Second question');
+    expect(only.received.map((message) => message.kind)).toEqual(['question', 'offer']);
+    expect((await delivery.status()).today).toEqual({ sent: 2, limit: 2 });
+  });
+
+  it('names offers still offered beside questions in the one daily digest, and drops one no longer offered', async () => {
+    const only = sink('only');
+    const offered = new Set(['o1', 'o2']);
+    const { ask, delivery, clock } = world({
+      sinks: [only],
+      start: at(23),
+      stillOffered: (id) => offered.has(id),
+    });
+    await ask('digest', 'Alpha');
+    await delivery.onOffer(offer('o1', 'mail:a'));
+    await delivery.onOffer(offer('o2', 'mail:b'));
+    await delivery.onOffer(offer('o3', 'mail:c'));
+    expect(await delivery.status()).toEqual(expect.objectContaining({ offersWaitingInDigest: 2 }));
+    clock.now = at(8, 0, 17);
+    await delivery.tick();
+    expect(only.received).toEqual([
+      {
+        kind: 'digest',
+        title: '1 question and 2 suggestions waiting for you',
+        text: '1 question is waiting for you:\n- Alpha\n2 suggestions are ready to look at:\n- Offer o1\n- Offer o2\nOpen your Feed to answer.',
+      },
+    ]);
+    expect(await delivery.status()).toEqual(
+      expect.objectContaining({ waitingInDigest: 0, offersWaitingInDigest: 0 }),
+    );
+  });
+
+  it('sends an offer as one plain line with its title and nothing from the source', async () => {
+    const only = sink('only');
+    const { delivery } = world({ sinks: [only] });
+    await delivery.onOffer({
+      offerId: 'o1',
+      title: 'Check\nthe   invoice',
+      sourceKey: 'mail:secret-source-text',
+      mode: 'notify',
+    });
+    expect(only.received).toEqual([
+      {
+        kind: 'offer',
+        title: 'Check the invoice',
+        text: 'Suggested: Check the invoice\nOpen your Feed to look at it.',
+      },
+    ]);
+  });
+
+  it('reads state written before offers existed', async () => {
+    const dir = directory();
+    const stores = createFileDeliveryStores(join(dir, 'delivery'));
+    writeFileSync(
+      join(dir, 'delivery', 'state.json'),
+      JSON.stringify({ day: '2026-11-16', sent: 1, pendingDigest: ['x'] }),
+    );
+    expect(await stores.state.read()).toEqual({ day: '2026-11-16', sent: 1, pendingDigest: ['x'] });
+    const only = sink('only');
+    const { delivery } = world({ sinks: [only], stores });
+    expect(await delivery.onOffer(offer('o1'))).toBe('notify');
+    const written = JSON.parse(readFileSync(join(dir, 'delivery', 'state.json'), 'utf8'));
+    expect(written.sent).toBe(2);
+    expect(Object.keys(written.offerSources)).toEqual(['mail:a']);
+  });
+
+  it('keeps at most fifty sources, the oldest dropped', async () => {
+    const only = sink('only');
+    const { delivery, clock } = world({
+      sinks: [only],
+      start: at(9),
+      settings: withSettings({ dailyLimit: 20 }),
+    });
+    const stores = (delivery as unknown as { options: { state: IDeliveryStore<IDeliveryState> } })
+      .options.state;
+    for (let index = 0; index < 55; index += 1) {
+      clock.now = new Date(at(9).getTime() + index * 1000);
+      await delivery.onOffer(offer(`o${index}`, `mail:${index}`));
+      const state = await stores.read();
+      await stores.write({ ...state!, sent: 0 });
+    }
+    const sources = Object.keys((await stores.read())!.offerSources!);
+    expect(sources).toHaveLength(50);
+    expect(sources).not.toContain('mail:0');
+    expect(sources).toContain('mail:54');
   });
 });
