@@ -140,9 +140,17 @@ later writes or ownership changes; an old caller expiry alone does not invalidat
 No test runner, provider, Node built-in, or runtime dependency is imported by this entry. The main
 package entry does not import the helper.
 
-Passing this suite checks these storage behaviors under the supplied test clock. It does not establish
-process-death durability, production clock bounds, multi-region consistency, or exactly-once external
-effects, and it does not enable `recovery: 'durable'` for Roundtable execution.
+A store that declares `durability: 'durable'` also runs `runDurableConversationStoreConformance`, which
+accepts the same fixture plus `restart()`, returning a new client over the same storage (a client it
+restarted from is never reused). After each restart the suite requires the store to still declare
+`'durable'`, to return every committed envelope and receipt (a retried commit whose reply was lost
+returns the original receipt and creates no revision), to keep an unreleased claim `busy` until expiry and
+then issue a higher fence while refusing the old claim, and to show nothing of a rejected write.
+
+Passing either suite checks these storage behaviors under the supplied test clock. It does not establish
+durability across process death or a crash beyond what the fixture's `restart()` exercises (a new client
+over shared storage in the same process does not), production clock bounds, multi-region consistency, or
+exactly-once external effects, and it does not enable `recovery: 'durable'` for Roundtable execution.
 
 ## Run results
 

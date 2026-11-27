@@ -24,6 +24,19 @@ export interface ConversationStoreConformanceFixture {
   cleanup(): void | Promise<void>;
 }
 
+export interface DurableConversationStoreConformanceFixture extends ConversationStoreConformanceFixture {
+  /** A new client over the same storage; the suite never reuses a client it restarted from. */
+  restart(): ConversationStore | Promise<ConversationStore>;
+}
+
+export type DurableConversationStoreConformanceCase =
+  | ConversationStoreConformanceCase
+  | 'durable-declaration'
+  | 'restart-commits'
+  | 'restart-receipts'
+  | 'restart-fencing'
+  | 'restart-rejected-writes';
+
 export type CreateConversationStoreConformanceFixture = (
   name: ConversationStoreConformanceCase,
 ) => ConversationStoreConformanceFixture | Promise<ConversationStoreConformanceFixture>;
@@ -421,22 +434,131 @@ async function invalidInputs({
   );
 }
 
-/** Runs each storage-contract scenario in a fresh fixture; throws with its case name on failure. */
-export async function runConversationStoreConformance(
-  createFixture: CreateConversationStoreConformanceFixture,
-): Promise<void> {
-  const cases: readonly [
-    ConversationStoreConformanceCase,
-    (fixture: ConversationStoreConformanceFixture) => Promise<void>,
-  ][] = [
-    ['roundtrip', roundtrip],
-    ['shared-cas', sharedCas],
-    ['leases', leases],
-    ['renew-release-race', renewReleaseRace],
-    ['operation-retries', operationRetries],
-    ['lost-reply', lostReply],
-    ['invalid-inputs', invalidInputs],
+async function durableDeclaration({
+  clients: [a, b],
+  restart,
+}: DurableConversationStoreConformanceFixture): Promise<void> {
+  check(a.durability === 'durable', 'first client must declare durable');
+  check(b.durability === 'durable', 'second client must declare durable');
+  const restarted = await restart();
+  check(restarted.durability === 'durable', 'restarted client must declare durable');
+  const again = await restart();
+  check(again.durability === 'durable', 'second restarted client must declare durable');
+}
+
+// `load` returns only the latest envelope; `restart-receipts` covers the earlier commits.
+async function restartCommits({
+  clients: [a],
+  leaseMs,
+  restart,
+}: DurableConversationStoreConformanceFixture): Promise<void> {
+  await a.create('room', { step: 0 });
+  const claim = await a.claim('room', 'owner', leaseMs);
+  let last: ConversationEnvelope | undefined;
+  for (const revision of [1, 2, 3]) {
+    last = await a.commit({
+      claim,
+      expectedRevision: revision - 1,
+      operationId: `r${revision}`,
+      state: { step: revision },
+    });
+  }
+  const wanted = { schemaVersion: 1, conversationId: 'room', revision: 3, state: { step: 3 } };
+  equal(last, wanted, 'commit reply carries the final revision');
+  equal(await load(await restart()), wanted, 'commits survive one restart');
+  equal(await load(await restart()), wanted, 'commits survive a second restart');
+}
+
+async function restartReceipts({
+  clients: [a],
+  leaseMs,
+  restart,
+}: DurableConversationStoreConformanceFixture): Promise<void> {
+  await a.create('room', null);
+  const claim = await a.claim('room', 'owner', leaseMs);
+  const changes: ConversationCommit[] = [
+    { claim, expectedRevision: 0, operationId: 'one', state: { answer: 1 } },
+    { claim, expectedRevision: 1, operationId: 'two', state: { answer: 2 } },
+    { claim, expectedRevision: 2, operationId: 'lost', state: { answer: 'once' } },
   ];
+  const receipts: ConversationEnvelope[] = [];
+  for (const change of changes) receipts.push(await a.commit(change));
+  // The reply to the last commit is treated as lost: only its operation id is known afterwards.
+  const restarted = await restart();
+  for (const [i, change] of changes.entries()) {
+    equal(
+      await restarted.lookupOperation('room', change.operationId),
+      receipts[i],
+      `receipt ${change.operationId} survives restart`,
+    );
+  }
+  equal(await restarted.commit(changes[2]), receipts[2], 'retry after restart returns the receipt');
+  equal(await restarted.commit(changes[0]), receipts[0], 'older retry returns its own receipt');
+  equal(await load(restarted), receipts[2], 'retries after restart create no revision');
+}
+
+async function restartFencing(f: DurableConversationStoreConformanceFixture): Promise<void> {
+  const {
+    clients: [a],
+    leaseMs,
+    restart,
+  } = f;
+  await a.create('room', null);
+  const first = await a.claim('room', 'owner', leaseMs);
+  await rejects(async () => (await restart()).claim('room', 'other', leaseMs), 'busy');
+  await f.advanceTo(first.expiresAt - Math.max(1, Math.floor(leaseMs / 2)));
+  await rejects(async () => (await restart()).claim('room', 'owner', leaseMs), 'busy');
+  await f.advanceTo(first.expiresAt);
+  const restarted = await restart();
+  const next = await restarted.claim('room', 'other', leaseMs);
+  check(next.fence > first.fence, 'claim after restart and expiry gets a higher fence');
+  await staleOperations(restarted, first, 0);
+  equal((await load(restarted)).revision, 0, 'stale claim cannot change state after restart');
+  equal(
+    (await restarted.commit({ claim: next, expectedRevision: 0, operationId: 'next', state: 1 }))
+      .revision,
+    1,
+    'new claim commits through the restarted client',
+  );
+}
+
+async function restartRejectedWrites({
+  clients: [a],
+  leaseMs,
+  restart,
+}: DurableConversationStoreConformanceFixture): Promise<void> {
+  await a.create('room', null);
+  const claim = await a.claim('room', 'owner', leaseMs);
+  const base = { claim, expectedRevision: 0, state: 'rejected' as JsonValue };
+  await rejects(
+    () => a.commit({ ...base, operationId: 'revision', expectedRevision: 1 }),
+    'conflict',
+  );
+  await rejects(
+    () => a.commit({ ...base, operationId: 'owner', claim: { ...claim, ownerId: 'wrong' } }),
+    'stale-claim',
+  );
+  await rejects(
+    () => a.commit({ ...base, operationId: 'state', state: NaN as unknown as JsonValue }),
+    'invalid-config',
+  );
+  const wanted = { schemaVersion: 1, conversationId: 'room', revision: 0, state: null };
+  for (const restarted of [await restart(), await restart()]) {
+    for (const operationId of ['revision', 'owner', 'state']) {
+      equal(
+        await restarted.lookupOperation('room', operationId),
+        undefined,
+        `rejected ${operationId} write leaves no receipt after restart`,
+      );
+    }
+    equal(await load(restarted), wanted, 'rejected writes leave no state after restart');
+  }
+}
+
+async function runCases<Name extends string, Fixture extends ConversationStoreConformanceFixture>(
+  cases: readonly (readonly [Name, (fixture: Fixture) => Promise<void>])[],
+  createFixture: (name: Name) => Fixture | Promise<Fixture>,
+): Promise<void> {
   for (const [name, run] of cases) {
     try {
       const fixture = await createFixture(name);
@@ -456,4 +578,51 @@ export async function runConversationStoreConformance(
       );
     }
   }
+}
+
+const storeCases: readonly [
+  ConversationStoreConformanceCase,
+  (fixture: ConversationStoreConformanceFixture) => Promise<void>,
+][] = [
+  ['roundtrip', roundtrip],
+  ['shared-cas', sharedCas],
+  ['leases', leases],
+  ['renew-release-race', renewReleaseRace],
+  ['operation-retries', operationRetries],
+  ['lost-reply', lostReply],
+  ['invalid-inputs', invalidInputs],
+];
+
+/** Runs each storage-contract scenario in a fresh fixture; throws with its case name on failure. */
+export async function runConversationStoreConformance(
+  createFixture: CreateConversationStoreConformanceFixture,
+): Promise<void> {
+  await runCases(storeCases, createFixture);
+}
+
+/**
+ * Runs the storage contract, then checks that a store that declares `'durable'` keeps committed
+ * envelopes, fences and receipts across new clients over the same storage.
+ */
+export async function runDurableConversationStoreConformance(
+  createFixture: (
+    name: DurableConversationStoreConformanceCase,
+  ) =>
+    | DurableConversationStoreConformanceFixture
+    | Promise<DurableConversationStoreConformanceFixture>,
+): Promise<void> {
+  await runCases<
+    DurableConversationStoreConformanceCase,
+    DurableConversationStoreConformanceFixture
+  >(
+    [
+      ...storeCases,
+      ['durable-declaration', durableDeclaration],
+      ['restart-commits', restartCommits],
+      ['restart-receipts', restartReceipts],
+      ['restart-fencing', restartFencing],
+      ['restart-rejected-writes', restartRejectedWrites],
+    ],
+    createFixture,
+  );
 }
