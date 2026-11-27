@@ -246,7 +246,7 @@ is stored with the outcome `'not-dispatched'`, which no participant can report: 
 exactly what admission set aside is released, yet it still counts against every call limit it was
 admitted under. A call the journal shows was settled takes that final report through the ordinary
 settle path, and an uncertain one keeps its bound until `reconcileUsage`. Each call is settled once,
-for its own principal and attempt; a second settlement is refused with `call-settled`.
+for its own principal and attempt; an answer naming a call that is already settled is refused with `call-settled`.
 
 A participant whose tool spends money or tokens of its own declares each effect before it starts with
 `services.admitToolEffect({ callId, toolName, tokens })`, where `tokens` is the most it can spend in the
@@ -270,7 +270,7 @@ Calls reject with a `RoundtableError` whose `code` is one of `invalid-config`, `
 `submitInput` or `resume` is already active, or another owner holds the stored conversation),
 `conflict` (a stale `expectedRevision`, a reused id with different content, or a request that is no
 longer pending), `disposed`, `stale-claim` (this handle's claim on the store expired or changed
-owner), `recovery-required` or `call-settled` (recovery already settled that call).
+owner), `recovery-required` or `call-settled` (the call a recovery answer names was already settled, by recovery or by a report).
 
 `model-call-limit` and `budget-limit` are different: they are thrown by `TurnServices.admitModelCall` or `admitToolEffect`
 itself, to whichever custom participant, selector or `meterJournal` (from `@robota-sdk/agent-roundtable-robota`) host called it, once a configured `maxModelCallsPerRun`,
