@@ -6,7 +6,8 @@ export class RuntimeParticipantError extends Error {
       | 'identity-mismatch'
       | 'checkpoint-invalid'
       | 'journal-missing'
-      | 'resource-reused',
+      | 'resource-reused'
+      | 'unmetered-caller',
     message: string,
   ) {
     super(message);

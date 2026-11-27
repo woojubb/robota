@@ -237,11 +237,25 @@ it settles. A `Session`-backed, checkpoint-resumable journal uses `meterRecovera
 ## Errors
 
 `RuntimeParticipantError` (`unsupported-wait`, `identity-mismatch`, `checkpoint-invalid`,
-`journal-missing`, `resource-reused`) is thrown by a participant's `runTurn`/`resumeTurn`/`openSession`.
+`journal-missing`, `resource-reused`, `unmetered-caller`) is thrown by a participant's
+`runTurn`/`resumeTurn`/`openSession`.
 `SelectorDecisionError` (`no-candidates`, `no-decision`, `multiple-decisions`, `invalid-decision`,
 `unknown-participant`) is thrown by `runtimeSelector`'s `select`, which also throws
 `RuntimeParticipantError('resource-reused')` if one selector instance is asked to decide for two
-conversations at the same time.
+conversations at the same time, and `RuntimeParticipantError('unmetered-caller')` for a refused
+runtime (below).
+
+## Refused callers
+
+A runtime that reaches a provider by a path the turn journal never records, or that carries one
+admitted call on to other models, is refused with `RuntimeParticipantError('unmetered-caller')` before
+its first provider call, because no limit can count a call it never sees. The refused configurations
+are a `Session` with a `permissionClassifier`, a provider that implements `resolveModelRoute` (a
+fallback chain, for example), a managed-run provider, and a `prompt` or `agent` hook executor. The
+check runs when the lease opens (for `runtimeSelector`, at the start of each `select`), before the
+lease is claimed or a `Session` is constructed, so the turn fails before the refused runtime makes any
+provider call, and an agent built for the refused open is destroyed. It applies whether or not the conversation has
+limits.
 
 ## Provider SDK retries
 

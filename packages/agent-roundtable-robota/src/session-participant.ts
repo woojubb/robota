@@ -34,6 +34,7 @@ import { toCompletionOutcome } from './outcome';
 import { RuntimeParticipantError } from './errors';
 import { claimLease } from './resource-guard';
 import { renderSharedIncrement, type TurnRenderer } from './render';
+import { assertCallersAreMetered } from './unmetered-callers';
 import type { OpenContext } from './open-context';
 
 export type { OpenContext } from './open-context';
@@ -137,6 +138,12 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
           restoring,
         };
         const hostOptions = await options.createSessionOptions(openCtx);
+        // Before the lease and before `new Session`, whose constructor fires SessionStart hooks.
+        assertCallersAreMetered({
+          providers: [hostOptions.provider],
+          permissionClassifier: hostOptions.permissionClassifier,
+          hookTypeExecutors: hostOptions.hookTypeExecutors,
+        });
         let state: SessionCheckpointState;
         if (context.checkpoint) {
           state = decodeSessionCheckpoint(context.checkpoint);

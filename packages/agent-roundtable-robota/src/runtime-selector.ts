@@ -1,5 +1,9 @@
 import { EmptyCompletionError, FunctionTool } from '@robota-sdk/agent-core';
-import type { IExecutionJournal, IToolWithEventService, ConversationAgent } from '@robota-sdk/agent-core';
+import type {
+  IExecutionJournal,
+  IToolWithEventService,
+  ConversationAgent,
+} from '@robota-sdk/agent-core';
 import type {
   RuntimeReference,
   SelectionContext,
@@ -9,6 +13,7 @@ import type {
 } from '@robota-sdk/agent-roundtable';
 import { meterJournal } from './metering-journal';
 import { quoteContent } from './render';
+import { assertCallersAreMetered } from './unmetered-callers';
 import { RuntimeParticipantError, SelectorDecisionError } from './errors';
 
 const DECISION_TOOL_NAME = 'decide_next_speaker';
@@ -174,6 +179,7 @@ export function runtimeSelector(options: RuntimeSelectorOptions): TurnSelector {
             'invalid-decision',
             'The selector agent must carry no tools of its own',
           );
+        assertCallersAreMetered({ providers: agent.getConfig().aiProviders });
         agent.clearHistory();
         await agent.updateTools([decisionTool(candidateIds)]);
         const before = agent.getHistory().length;

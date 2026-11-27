@@ -18,6 +18,7 @@ import { toCompletionOutcome } from './outcome';
 import { RuntimeParticipantError } from './errors';
 import { claimLease } from './resource-guard';
 import { renderSharedIncrement, type TurnRenderer } from './render';
+import { assertCallersAreMetered } from './unmetered-callers';
 import type { OpenContext } from './open-context';
 
 export type { OpenContext } from './open-context';
@@ -65,6 +66,12 @@ export function runtimeParticipant(options: RuntimeParticipantOptions): AgentPar
         // Borrowing changes close responsibility, never exclusive-use requirements.
         // A refused claim must not destroy resources another live lease still holds.
         const config = agent.getConfig();
+        try {
+          assertCallersAreMetered({ providers: config.aiProviders });
+        } catch (error) {
+          await agent.destroy().catch(() => {});
+          throw error;
+        }
         const releaseLease = claimLease([agent, ...config.aiProviders, ...(config.tools ?? [])]);
         try {
           if (context.checkpoint) {
