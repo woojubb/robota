@@ -210,6 +210,16 @@ A session runs one turn at a time:
   journal records remain the host's to keep or discard. Abandonment must never become a route to
   replay an effect or to claim an outcome nobody recorded. Restored discovery cannot prove an
   effect never started, and abandonment must acknowledge its configured checkpoint before returning.
+- The durable journal is append-only and acknowledges an append only after the line is on the
+  device, so an effect that starts after its admitting record was acknowledged is never absent
+  from it. An execution ends by being sealed, which refuses every later append; an execution that
+  holds records and was never sealed is one a crash interrupted, and its effects are unproven. A
+  journal that cannot be read in full (a partial last line, an unparsable or misnumbered record,
+  a foreign record) is refused, not repaired: nothing truncates history that may hold the only
+  proof of a dispatched effect. Abandoning such an execution seals it without opening it, so the
+  bytes stay for inspection and it can never be resumed. A host that seals its stored artifacts
+  has no sealed journal, and the store refuses to be built for it rather than write a sealed
+  session's conversation in plain text.
 - A wait holds no live approver. The turn claim is held until the execution and its pending writes
   settle. Injected classifiers, hooks and tools own their own model calls and must declare their
   journal integration separately.

@@ -1,0 +1,325 @@
+import {
+  appendFileSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { ExecutionRecoveryError, isUniversalValueEqual } from '@robota-sdk/agent-core';
+import type { TExecutionJournalRecord } from '@robota-sdk/agent-core';
+
+import { decodeJournalValue, encodeJournalValue } from '../execution-journal-value-codec.js';
+import { ExecutionJournalStoreError } from '../execution-journal-store.js';
+import { NodeExecutionJournalStore, SESSION_JOURNALS_DIRECTORY } from '../node.js';
+import { NodeSessionStore } from '../node.js';
+
+const EXECUTION = 'exec_1';
+let baseDir: string;
+
+beforeEach(() => {
+  baseDir = mkdtempSync(join(tmpdir(), 'journal-store-'));
+});
+afterEach(() => rmSync(baseDir, { recursive: true, force: true }));
+
+function request(recordId: string, extra: Record<string, unknown> = {}): TExecutionJournalRecord {
+  return {
+    kind: 'model-request',
+    recordId,
+    executionId: EXECUTION,
+    callId: `call-${recordId}`,
+    providerId: 'p',
+    modelId: 'm',
+    messages: [],
+    options: {},
+    ...extra,
+  } as TExecutionJournalRecord;
+}
+
+function store(
+  options: ConstructorParameters<typeof NodeExecutionJournalStore>[1] = { sealing: 'plain' },
+) {
+  return new NodeExecutionJournalStore(baseDir, options);
+}
+
+function journalFile(): string {
+  const directory = join(baseDir, SESSION_JOURNALS_DIRECTORY, 's1');
+  const name = readdirSync(directory).find((entry) => entry.endsWith('.jsonl'));
+  return join(directory, name!);
+}
+
+describe('execution journal value codec', () => {
+  it('round-trips the distinctions recovery compares by value', () => {
+    const shared = { n: 1 };
+    const cyclic: Record<string, unknown> = { name: 'loop' };
+    cyclic['self'] = cyclic;
+    const value = {
+      when: new Date('2026-01-02T03:04:05.678Z'),
+      invalid: new Date(NaN),
+      gone: undefined,
+      zero: -0,
+      nan: NaN,
+      big: Infinity,
+      text: 'a b\ud800',
+      list: [shared, shared, undefined, [1, 2]],
+      cyclic,
+      ['__proto__']: 'plain key',
+      $d: 'looks like a tag',
+    };
+    const stored = JSON.parse(JSON.stringify(encodeJournalValue(value)));
+    const decoded = decodeJournalValue(stored) as typeof value;
+    expect(isUniversalValueEqual(decoded, value)).toBe(true);
+    expect(decoded.list[0]).toBe(decoded.list[1]);
+    expect(decoded.cyclic['self']).toBe(decoded.cyclic);
+    expect(Object.hasOwn(decoded, '__proto__')).toBe(true);
+    expect(Object.getPrototypeOf(decoded)).toBe(Object.prototype);
+  });
+
+  it('refuses what a record cannot carry', () => {
+    class Custom {}
+    expect(() => encodeJournalValue({ f: () => 1 })).toThrow(TypeError);
+    expect(() => encodeJournalValue({ c: new Custom() })).toThrow(TypeError);
+    expect(() => encodeJournalValue({ b: 1n })).toThrow(TypeError);
+    const sparse = [1];
+    sparse[2] = 3;
+    expect(() => encodeJournalValue(sparse)).toThrow(TypeError);
+    expect(() =>
+      encodeJournalValue({
+        get x() {
+          return 1;
+        },
+      }),
+    ).toThrow(TypeError);
+    expect(() => decodeJournalValue({ $r: 7 })).toThrow(TypeError);
+    expect(() => decodeJournalValue({ nope: 1 })).toThrow(TypeError);
+  });
+});
+
+describe('NodeExecutionJournalStore', () => {
+  it('stores records durably and reads them back from a fresh store', async () => {
+    const written = request('a', {
+      messages: [{ role: 'user', content: 'hi', timestamp: new Date(1) }],
+    });
+    await store().forSession('s1').append(written);
+    await store().forSession('s1').append(request('b'));
+    const read = await store().forSession('s1').read(EXECUTION);
+    expect(read).toHaveLength(2);
+    expect(isUniversalValueEqual(read[0], written)).toBe(true);
+    expect(await store().forSession('s1').read('other')).toEqual([]);
+    expect(await store().forSession('s2').read(EXECUTION)).toEqual([]);
+  });
+
+  it('treats a repeated identical record as a no-op and refuses a different one at the same id', async () => {
+    const journal = store().forSession('s1');
+    await journal.append(request('a'));
+    const before = readFileSync(journalFile());
+    await journal.append(request('a'));
+    await store().forSession('s1').append(request('a'));
+    expect(readFileSync(journalFile()).equals(before)).toBe(true);
+    await expect(journal.append(request('a', { providerId: 'other' }))).rejects.toMatchObject({
+      code: 'conflict',
+    });
+    expect(readFileSync(journalFile()).equals(before)).toBe(true);
+  });
+
+  it('flushes the line before the append returns, and the directory only when it created the file', async () => {
+    const steps: string[] = [];
+    const journal = store({
+      sealing: 'plain',
+      io: {
+        writeSync: (fd, data) => {
+          steps.push('write');
+          appendFileSync(journalPathFor('s1'), data);
+          return data.length;
+        },
+        fsyncSync: () => void steps.push('fsync-file'),
+        syncDirectory: () => void steps.push('fsync-directory'),
+      },
+    }).forSession('s1');
+    await journal.append(request('a'));
+    await journal.append(request('b'));
+    expect(steps.filter((step) => step !== 'fsync-directory')).toEqual([
+      'write',
+      'fsync-file',
+      'write',
+      'fsync-file',
+    ]);
+    const firstWrite = steps.indexOf('write');
+    expect(steps.indexOf('fsync-file')).toBeGreaterThan(firstWrite);
+    // Every directory flush belongs to a creation, and the last one follows the first file flush.
+    expect(steps.lastIndexOf('fsync-directory')).toBeGreaterThan(steps.indexOf('fsync-file'));
+    expect(
+      steps.slice(steps.indexOf('fsync-file') + 1).filter((s) => s === 'fsync-directory'),
+    ).toHaveLength(1);
+  });
+
+  it('continues a short write', async () => {
+    const journal = store({
+      sealing: 'plain',
+      io: {
+        writeSync: (fd, data) => {
+          const part = data.subarray(0, 7);
+          appendFileSync(journalPathFor('s1'), part);
+          return part.length;
+        },
+      },
+    }).forSession('s1');
+    await journal.append(request('a'));
+    expect(await store().forSession('s1').read(EXECUTION)).toHaveLength(1);
+  });
+
+  it('refuses a torn tail on read and append, never truncating it', async () => {
+    const journal = store().forSession('s1');
+    await journal.append(request('a'));
+    appendFileSync(journalFile(), '{"v":1,"n":1,"r":{"$o":[["kind"');
+    const damaged = readFileSync(journalFile());
+    await expect(store().forSession('s1').read(EXECUTION)).rejects.toMatchObject({
+      code: 'torn-tail',
+    });
+    await expect(store().forSession('s1').append(request('b'))).rejects.toMatchObject({
+      code: 'torn-tail',
+    });
+    // The executing process saw it too: its cached view does not hide the damage.
+    await expect(journal.append(request('b'))).rejects.toMatchObject({ code: 'torn-tail' });
+    expect(readFileSync(journalFile()).equals(damaged)).toBe(true);
+    expect(await journal.unresolved()).toEqual([EXECUTION]);
+  });
+
+  it('refuses a failed append the next time instead of writing after its fragment', async () => {
+    const journal = store({
+      sealing: 'plain',
+      io: {
+        writeSync: (_fd, data) => {
+          appendFileSync(journalPathFor('s1'), data.subarray(0, 5));
+          throw new Error('disk full');
+        },
+      },
+    }).forSession('s1');
+    await expect(journal.append(request('a'))).rejects.toThrow('disk full');
+    await expect(journal.append(request('a'))).rejects.toMatchObject({ code: 'torn-tail' });
+  });
+
+  it('refuses a corrupt record, a numbering gap and a foreign execution', async () => {
+    const journal = store().forSession('s1');
+    await journal.append(request('a'));
+    await journal.append(request('b'));
+    const lines = readFileSync(journalFile(), 'utf8').split('\n');
+    const rewrite = (text: string) => writeFileSync(journalFile(), text);
+
+    rewrite(`${lines[0]}\nnot json\n`);
+    await expect(store().forSession('s1').read(EXECUTION)).rejects.toMatchObject({
+      code: 'corrupt-record',
+    });
+    rewrite(`${lines[1]}\n`);
+    await expect(store().forSession('s1').read(EXECUTION)).rejects.toMatchObject({
+      code: 'corrupt-record',
+    });
+    const foreign = JSON.parse(lines[0]!);
+    foreign.r.$o.find(([key]: [string]) => key === 'executionId')[1] = 'exec_2';
+    rewrite(`${JSON.stringify(foreign)}\n`);
+    await expect(store().forSession('s1').read(EXECUTION)).rejects.toMatchObject({
+      code: 'corrupt-record',
+    });
+  });
+
+  it('seals: further appends are refused, the seal is idempotent and never changes reason', async () => {
+    const journal = store().forSession('s1');
+    await journal.append(request('a'));
+    expect(await journal.unresolved()).toEqual([EXECUTION]);
+    const seal = await journal.seal(EXECUTION, { reason: 'completed' });
+    expect(seal).toMatchObject({ reason: 'completed', records: 1 });
+    expect(await journal.unresolved()).toEqual([]);
+    await expect(journal.append(request('b'))).rejects.toMatchObject({ code: 'sealed' });
+    await expect(store().forSession('s1').append(request('b'))).rejects.toMatchObject({
+      code: 'sealed',
+    });
+    expect(await journal.seal(EXECUTION, { reason: 'completed' })).toEqual(seal);
+    await expect(journal.seal(EXECUTION, { reason: 'abandoned' })).rejects.toMatchObject({
+      code: 'sealed',
+    });
+    expect(await store().forSession('s1').sealOf(EXECUTION)).toEqual(seal);
+    // A settled execution's records stay readable.
+    expect(await journal.read(EXECUTION)).toHaveLength(1);
+  });
+
+  it('an abandoned execution cannot be read for a resume, and a damaged one can still be abandoned', async () => {
+    const journal = store().forSession('s1');
+    await journal.append(request('a'));
+    appendFileSync(journalFile(), 'partial');
+    const bytes = readFileSync(journalFile());
+    const seal = await journal.seal(EXECUTION, { reason: 'abandoned', note: 'it may have run' });
+    expect(seal).toMatchObject({ reason: 'abandoned', note: 'it may have run', records: 1 });
+    expect(readFileSync(journalFile()).equals(bytes)).toBe(true);
+    await expect(store().forSession('s1').read(EXECUTION)).rejects.toBeInstanceOf(
+      ExecutionRecoveryError,
+    );
+    expect(await journal.unresolved()).toEqual([]);
+  });
+
+  it('keeps files and directories owner-only', async () => {
+    if (process.platform === 'win32') return;
+    const previous = process.umask(0o022);
+    try {
+      const journal = store().forSession('s1');
+      await journal.append(request('a'));
+      await journal.seal(EXECUTION, { reason: 'completed' });
+      const directory = join(baseDir, SESSION_JOURNALS_DIRECTORY, 's1');
+      expect(statSync(directory).mode & 0o077).toBe(0);
+      for (const name of readdirSync(directory))
+        expect(statSync(join(directory, name)).mode & 0o077).toBe(0);
+    } finally {
+      process.umask(previous);
+    }
+  });
+
+  it('tightens a journal an older writer left readable', async () => {
+    if (process.platform === 'win32') return;
+    const journal = store().forSession('s1');
+    await journal.append(request('a'));
+    const { chmodSync } = await import('node:fs');
+    chmodSync(journalFile(), 0o644);
+    await journal.append(request('b'));
+    expect(statSync(journalFile()).mode & 0o077).toBe(0);
+  });
+
+  it('refuses unsafe identities', async () => {
+    expect(() => store().forSession('../x')).toThrow(/Invalid session id/);
+    const journal = store().forSession('s1');
+    await expect(journal.append(request('a', { executionId: '' }))).rejects.toMatchObject({
+      code: 'invalid-identity',
+    });
+    await expect(
+      journal.append(request('a', { executionId: 'x'.repeat(200) })),
+    ).rejects.toMatchObject({
+      code: 'invalid-identity',
+    });
+    await expect(journal.append(request(''))).rejects.toMatchObject({ code: 'invalid-identity' });
+  });
+
+  it('refuses to be built for a host that seals its artifacts', () => {
+    const sealer = { sealBytes: () => new Uint8Array(), openBytes: () => new Uint8Array() };
+    expect(() => store({ sealing: { sealer } as never })).toThrow(ExecutionJournalStoreError);
+  });
+
+  it('is removed with its session', () => {
+    const sessions = new NodeSessionStore(baseDir, { sealing: 'plain' });
+    return (async () => {
+      await store().forSession('s1').append(request('a'));
+      expect(existsSync(join(baseDir, SESSION_JOURNALS_DIRECTORY, 's1'))).toBe(true);
+      sessions.delete('s1');
+      expect(existsSync(join(baseDir, SESSION_JOURNALS_DIRECTORY, 's1'))).toBe(false);
+    })();
+  });
+});
+
+function journalPathFor(sessionId: string): string {
+  const directory = join(baseDir, SESSION_JOURNALS_DIRECTORY, sessionId);
+  const name = Buffer.from(EXECUTION, 'utf8').toString('hex');
+  return join(directory, `${name}.jsonl`);
+}

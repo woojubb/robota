@@ -33,6 +33,7 @@ import {
   writeOwnerOnlyFile,
 } from '@robota-sdk/agent-core/node';
 
+import { removeSessionJournals } from './node-execution-journal-store.js';
 import { assertSafeSessionId, isSafeSessionId } from './session-id.js';
 import { classifyStoredSessionBytes } from './stored-session-codec.js';
 import { StoredSessionRecords, sessionSealingOf } from './stored-session-record.js';
@@ -466,6 +467,8 @@ export class NodeSessionStore implements IInteractiveSessionStore {
     const path = this.filePath(id);
     this.records.delete(id, () => {
       if (existsSync(path)) unlinkSync(path);
+      // The journals of its managed turns hold its conversation, so they go with it.
+      removeSessionJournals(this.baseDir, id);
     });
   }
 }

@@ -9,6 +9,14 @@ export type {
   TSessionExecutionResult,
 } from './session-recoverable.js';
 export { Session } from './session.js';
+export { ExecutionJournalStoreError } from './execution-journal-store.js';
+export type {
+  IExecutionJournalStore,
+  IExecutionSeal,
+  ISessionExecutionJournal,
+  TExecutionJournalStoreErrorCode,
+  TExecutionSealReason,
+} from './execution-journal-store.js';
 export type { IProviderCallTraceObservation, ISessionRunOptions } from './session-types.js';
 export type {
   ISessionOptions,
