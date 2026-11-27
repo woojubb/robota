@@ -80,6 +80,7 @@ import { createPushSink } from './push/push-sink.js';
 import { createPushSubscriptions } from './push/subscriptions.js';
 import { createVapid } from './push/vapid.js';
 import { createSideChatBook } from './side-chats.js';
+import { createConversationForgetting } from './conversation-forgetting.js';
 import { createTaskCatalogApi } from './task-catalog/api.js';
 import { VERIFIED_CONNECTOR_BINDINGS } from './task-catalog/binding-providers.js';
 import { createTaskCatalog } from './task-catalog/catalog.js';
@@ -105,6 +106,7 @@ import type { TEgressLookup } from '@robota-sdk/agent-core/node';
 import type { IBrowserPort, IChannelHub, IDeliverySink } from '@robota-sdk/agent-product/personal';
 import type { ILoopbackGuiServerOptions } from '@robota-sdk/agent-local-host';
 import type { IChannelTurns } from './channel-turns.js';
+import type { IHeldConversations } from './conversation-forgetting.js';
 import type { IPersonalAgent } from './agent.js';
 import type { IGoalRunner } from './goal-runner.js';
 import type { TPersonalApi } from './personal-api.js';
@@ -163,7 +165,11 @@ export interface IPersonalCapabilities {
    */
   attach(
     agent: IPersonalAgent,
-    options?: { readonly guiOrigins?: readonly string[] },
+    options?: {
+      readonly guiOrigins?: readonly string[];
+      /** The sessions the agent runs, which a forget in the library cleans in memory as well as on disk. */
+      readonly conversations?: IHeldConversations;
+    },
   ): Promise<void>;
   dispose(): Promise<void>;
 }
@@ -222,8 +228,12 @@ export const PERSONAL_INSTRUCTIONS = [
 export function createPersonalCapabilities(
   options: IPersonalCapabilityOptions,
 ): IPersonalCapabilities {
+  const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
+  // What the library forgets is also removed from the saved conversations that copied it.
+  const forgetting = createConversationForgetting({ stateDir: options.stateDir, sideChats });
   const wiki = new KnowledgeWiki({
     store: createFileKnowledgeStore(join(options.stateDir, 'wiki')),
+    reach: forgetting.reach,
   });
   const goalStore = createSharedFeedStore(options.stateDir);
   const supportsDurableApprovals = process.platform !== 'win32';
@@ -260,7 +270,6 @@ export function createPersonalCapabilities(
   const presence = createAgentPresence(options.stateDir);
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
-  const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
   const layout = createLayoutBook(join(options.stateDir, 'layout'));
   const caseActions = createCaseActionScope(join(options.stateDir, 'case-action-scope'));
   let caseBindings: ICaseConnectorBindings | undefined;
@@ -669,7 +678,12 @@ export function createPersonalCapabilities(
         request.method === 'POST' &&
         request.segments[0] === 'tasks' &&
         request.segments[3] === 'start';
-      if ((isCaseAnswer || isStart) && !attached)
+      // A forget reaches the sessions this agent runs, which it knows only once attached.
+      const isForget =
+        request.method === 'POST' &&
+        request.segments[0] === 'wiki' &&
+        request.segments[1] === 'forget';
+      if ((isCaseAnswer || isStart || isForget) && !attached)
         return Promise.resolve({ status: 503, body: { error: 'The agent is still starting' } });
       const task = api(request);
       return isCaseAnswer || isStart ? track(task) : task;
@@ -810,6 +824,7 @@ export function createPersonalCapabilities(
     ),
     attach: async (agent, attachOptions) => {
       guiOrigins = attachOptions?.guiOrigins ?? [];
+      if (attachOptions?.conversations !== undefined) forgetting.bind(attachOptions.conversations);
       let recoveredAnswers = false;
       await presence.enter(async () => {
         await approvals.restore();
@@ -943,6 +958,7 @@ export function createPersonalCapabilities(
     dispose: async () => {
       shuttingDown = true;
       clearInterval(deliveryTimer);
+      forgetting.dispose();
       const stopping = Promise.allSettled([
         approvals.shutdown(),
         runner?.stop(),

@@ -156,6 +156,7 @@ export async function startHarness(
     ...(options.guiPort !== undefined && { guiPort: options.guiPort }),
   });
   await capabilities.attach(local.agent, {
+    conversations: local.conversations,
     guiOrigins: local.gui === undefined ? [] : [new URL(local.gui.url).origin],
   });
   const auth = { authorization: `Bearer ${local.httpToken}` };
