@@ -50,7 +50,9 @@ export const LAUNCH_RECIPES: readonly ILaunchRecipe[] = [
  * be started yet. Reading a page is opening and viewing it; clicking, typing and sending stay out, so a
  * run can look and cannot act.
  */
-export const CAPABILITY_TOOLS: Readonly<Record<string, readonly string[]>> = {
+export type TCapabilityTools = Readonly<Record<string, readonly string[]>>;
+
+export const CAPABILITY_TOOLS: TCapabilityTools = {
   'web.read': [BROWSER_TOOL_NAMES.open, BROWSER_TOOL_NAMES.view],
 };
 
@@ -68,19 +70,26 @@ export function recipeFor(
  * a task that may draft or write needs is a later piece of work), and a tool list for every
  * capability it needs.
  */
-export function canStart(recipes: readonly ILaunchRecipe[], definition: ITaskDefinition): boolean {
+export function canStart(
+  recipes: readonly ILaunchRecipe[],
+  definition: ITaskDefinition,
+  tools: TCapabilityTools = CAPABILITY_TOOLS,
+): boolean {
   return (
     recipeFor(recipes, definition) !== undefined &&
     definition.effectCeiling === 'read-only' &&
-    definition.capabilities.every((capability) => CAPABILITY_TOOLS[capability] !== undefined)
+    definition.capabilities.every((capability) => tools[capability] !== undefined)
   );
 }
 
 /** The tools for a set of bindings, or nothing for a binding with no entry: the run then has no tools. */
-export function toolsFor(capabilities: readonly string[]): string[] | undefined {
+export function toolsFor(
+  capabilities: readonly string[],
+  table: TCapabilityTools = CAPABILITY_TOOLS,
+): string[] | undefined {
   const tools = new Set<string>();
   for (const capability of capabilities) {
-    const offered = CAPABILITY_TOOLS[capability];
+    const offered = table[capability];
     if (offered === undefined) return undefined;
     for (const tool of offered) tools.add(tool);
   }

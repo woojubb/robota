@@ -5,13 +5,26 @@
  * bindings the host issued) as plain data, and never a credential.
  */
 import type { TBindingAdapter } from '../bindings.js';
-import type { TEffectCeiling, TOutcomeState, TReadiness } from '../types.js';
+import type { TEffectCeiling, TOutcomeState, TReadiness, TSetupStep } from '../types.js';
 
-export const LAUNCH_STATUSES = ['reserved', 'launched', 'failed', 'cancelled'] as const;
+/**
+ * `setup` and `review` are the two ways a request waits before any goal exists: for the person to
+ * finish setting the task up, and for the person to look at access they have not seen. `reserved` is
+ * the request about to make its goal.
+ */
+export const LAUNCH_STATUSES = [
+  'setup',
+  'review',
+  'reserved',
+  'launched',
+  'failed',
+  'cancelled',
+] as const;
 export type TLaunchStatus = (typeof LAUNCH_STATUSES)[number];
 
 /** Where a launch stands for the person: the live states while its goal is active, else how it ended. */
-export type TLaunchProgress = 'starting' | 'running' | 'waiting' | TOutcomeState;
+export type TLaunchProgress =
+  'setup' | 'review' | 'starting' | 'running' | 'waiting' | TOutcomeState;
 
 /** The values a task asked for, by input name: plain text or numbers, bounded. */
 export type TLaunchInputs = Readonly<Record<string, string | number>>;
@@ -133,6 +146,18 @@ export interface ILaunchIntent {
   readonly bindings: readonly ILaunchBinding[];
   readonly origin: TLaunchOrigin;
   readonly status: TLaunchStatus;
+  /** The connectors the person saw named when they pressed Start: in a step still to do or in an access. */
+  readonly namedAccounts?: readonly string[];
+  /** The connectors the person chose for the task, by id. */
+  readonly chosenAccounts?: readonly string[];
+  /** Set once the access recorded at Start went missing or changed; it never clears, so only a look can start the request. */
+  readonly authorityChanged?: true;
+  /** While in review: the access the task would now run on, which the person confirms by its digest. */
+  readonly proposed?: readonly ILaunchBinding[];
+  /** While in review: the digest of `proposed`. */
+  readonly reviewDigest?: string;
+  /** When the request was reserved to make its goal; the resume window counts from here. */
+  readonly reservedAt?: string;
   /** Present once launched, and only then. */
   readonly goalId?: string;
   /** Present when failed, and only then. */
@@ -154,6 +179,8 @@ export type ILaunchView = Omit<
 /** A launch with where it stands: what the person is shown for it, read-only. */
 export interface ILaunchStatusView extends ILaunchView {
   readonly progress: TLaunchProgress;
+  /** While the request waits for setup: what is left to do, as the host works it out now. */
+  readonly steps?: readonly TSetupStep[];
   /** Plain words from the host on why it stands there. */
   readonly reason: string;
   /** The deciding run's report as plain text, bounded: the model's account, never proof. */
@@ -164,7 +191,8 @@ export interface ILaunchStatusView extends ILaunchView {
 
 export interface ILaunchStarted {
   readonly launch: ILaunchView;
-  readonly goalId: string;
+  /** Absent while the request waits for setup or a look: no goal exists until it starts. */
+  readonly goalId?: string;
   /** False when the request had been made before and this answer is its earlier outcome again. */
   readonly created: boolean;
 }

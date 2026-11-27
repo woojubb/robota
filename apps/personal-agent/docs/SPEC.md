@@ -22,9 +22,11 @@ on — in the person's own state directory.
   task again at that moment, so nothing a page showed earlier is trusted.
 - **One Start is one request and at most one goal.** The host keeps the person's request on disk before
   any goal exists, then makes the goal with the request's id as typed data on it, never as text in its
-  instructions. A retry, a second tab or a restart in between gets that same request and goal back; a
-  request that no longer rests on the task, access and values it was made from is ended, never started
-  later. The goal can use only the tools its bound capabilities allow and reach only the addresses the
+  instructions. A retry, a second tab or a restart in between gets that same request and goal back. A
+  request whose task needs setup is kept and waits; once ready it starts on the access it named, a new
+  or changed account or access waits for the person to look again, and a request that no longer rests
+  on the task, access and values it was made from, or waited too long, is ended, never started later.
+  The goal can use only the tools its bound capabilities allow and reach only the addresses the
   request named, and nothing the person typed or a page says adds a tool or an address.
 - **Completed means the host proved it.** When a started task's goal has ended, the host decides once how
   it ended: failed, cancelled, verified or unverified. Verified needs the revision's rule satisfied by

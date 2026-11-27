@@ -8,7 +8,7 @@ import { EMPTY_READINESS_CONTEXT, readinessOf, usableBindingsOf } from './readin
 import { parseOffer } from './validate-offer.js';
 
 import type { TBindingSource } from './bindings.js';
-import type { IReadinessContext } from './readiness.js';
+import type { IReadinessContext, TAccountChoice } from './readiness.js';
 import type { TOfferReaction } from './records.js';
 import type { ITaskCatalogStore } from './store.js';
 import type {
@@ -34,8 +34,12 @@ export interface ITaskCatalog {
   listDefinitions(): Promise<readonly ITaskDefinitionListing[]>;
   /** The latest revision, or the named one; absent when the catalog holds none such. */
   getDefinition(id: string, revision?: number): Promise<ITaskDefinition | undefined>;
-  /** The latest revision of a task with its readiness and bindings as the host judges them now; absent for an unknown task. */
-  assess(id: string): Promise<ITaskAssessment | undefined>;
+  /**
+   * The latest revision of a task with its readiness and bindings as the host judges them now; absent
+   * for an unknown task. `choice` is the accounts the person chose, which settle a capability several
+   * accounts could serve.
+   */
+  assess(id: string, choice?: TAccountChoice): Promise<ITaskAssessment | undefined>;
   /** Open offers first, then the rest, each newest first; an offer whose task revision left reads as withdrawn. */
   listOffers(): Promise<IOfferListing>;
   /**
@@ -69,12 +73,15 @@ export interface ITaskCatalogOptions {
    * connector signing in or a tool decision changes the next answer. Without it nothing is verified.
    */
   readonly readiness?: () => Promise<IReadinessContext>;
+  /** Whether the host has a way to start a definition; a listing says so beside its readiness. Nothing starts without one. */
+  readonly startable?: (definition: ITaskDefinition) => boolean;
 }
 
 export function createTaskCatalog(options: ITaskCatalogOptions): ITaskCatalog {
   const { store } = options;
   const builtIn = options.builtIn ?? BUILT_IN_DEFINITIONS;
   const readiness = options.readiness ?? (async () => EMPTY_READINESS_CONTEXT);
+  const startable = options.startable ?? (() => false);
   /** The built-in revisions, then the person's; a built-in id is never replaced by an installed one. */
   const held = async (): Promise<readonly ITaskDefinition[]> => {
     const taken = new Set(builtIn.map((definition) => definition.id));
@@ -96,6 +103,7 @@ export function createTaskCatalog(options: ITaskCatalogOptions): ITaskCatalog {
       return latest(await held()).map((definition) => ({
         ...definition,
         readiness: readinessOf(definition, context),
+        startable: startable(definition),
       }));
     },
     getDefinition: async (id, revision) => {
@@ -104,14 +112,14 @@ export function createTaskCatalog(options: ITaskCatalogOptions): ITaskCatalog {
         ? latest(matching)[0]
         : matching.find((definition) => definition.revision === revision);
     },
-    assess: async (id) => {
+    assess: async (id, choice) => {
       const definition = latest((await held()).filter((entry) => entry.id === id))[0];
       if (definition === undefined) return undefined;
       const context = await readiness();
       return {
         definition,
-        readiness: readinessOf(definition, context),
-        bindings: usableBindingsOf(definition, context),
+        readiness: readinessOf(definition, context, choice),
+        bindings: usableBindingsOf(definition, context, choice),
       };
     },
     listOffers: async () => {

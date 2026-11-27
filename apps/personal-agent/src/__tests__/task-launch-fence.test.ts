@@ -315,7 +315,7 @@ async function begin(
     ...change.world,
   });
   const answer = await world.launches.start(request());
-  const goal = (await world.goals.get(answer.goalId))!;
+  const goal = (await world.goals.get(answer.goalId!))!;
   const run = await world.goals.startRun(goal.id);
   const shape = (await world.launches.shape(goal, run))!;
   const tool = (name: string) => shape.scopedTools!.find((entry) => entry.getName() === name)!;
@@ -419,7 +419,7 @@ describe('the tools a launched run is given', () => {
       ...request({ inputs: { page: edited, question: QUESTION } }),
       offerId: 'offer-a1',
     });
-    const goal = (await world.goals.get(answer.goalId))!;
+    const goal = (await world.goals.get(answer.goalId!))!;
     const shape = (await world.launches.shape(goal, await world.goals.startRun(goal.id)))!;
     const open = shape.scopedTools!.find((entry) => entry.getName() === 'BrowserOpen')!;
     const call = (url: string) =>
@@ -456,7 +456,7 @@ describe('the tools a launched run is given', () => {
   it('are not offered at all when the host has no browser, so nothing reads a page unrecorded', async () => {
     const world = startWorld();
     const answer = await world.launches.start(request());
-    const goal = (await world.goals.get(answer.goalId))!;
+    const goal = (await world.goals.get(answer.goalId!))!;
     const shape = (await world.launches.shape(goal, runOf(goal)))!;
     expect(shape.onlyTools).toEqual([]);
     expect(shape.scopedTools).toBeUndefined();

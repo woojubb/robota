@@ -25,6 +25,7 @@ import { createMemoryLaunchStore } from '../task-catalog/launch/store.js';
 import { launchIntent as intent, outcomeOf, receipt } from './launch-world.js';
 
 import type { ILaunchStore } from '../task-catalog/launch/store.js';
+import type { ILaunchIntent } from '../task-catalog/launch/types.js';
 
 const directories: string[] = [];
 afterEach(() => {
@@ -274,6 +275,159 @@ describe.each(adapters)('the %s launch store', (_name, create) => {
     expect(kept.filter((entry) => entry.status === 'reserved')).toHaveLength(MAX_LAUNCHES - 1);
     // A key whose intent was dropped is free to be used again.
     expect(await store.findByKey(intent(3).idempotencyKey)).toBeUndefined();
+  }, 60_000);
+});
+
+const waiting = (n: number, change: Partial<ILaunchIntent> = {}): ILaunchIntent =>
+  intent(n, { status: 'setup', bindings: [], namedAccounts: ['connector-work'], ...change });
+
+const DIGEST = 'd'.repeat(64);
+
+describe.each(adapters)('the %s launch store, for a request that waits', (_name, create) => {
+  it('keeps one waiting for setup with no access yet, and finds it by id and by key', async () => {
+    const store = create();
+    await store.reserve(waiting(1));
+    expect(await store.get(waiting(1).id)).toMatchObject({
+      status: 'setup',
+      bindings: [],
+      namedAccounts: ['connector-work'],
+    });
+    expect(await store.findByKey(waiting(1).idempotencyKey)).toBeDefined();
+    // Only a request that reserved or made a goal must hold some access.
+    await expect(store.reserve(intent(2, { bindings: [] }))).rejects.toThrow();
+    // A request in review is reached by moving, never kept as new.
+    await expect(
+      store.reserve(intent(3, { status: 'review', proposed: [], reviewDigest: DIGEST })),
+    ).rejects.toThrow(/reserved or waiting/u);
+  });
+
+  it('moves a waiting request only along the allowed moves, and the access-changed flag never clears', async () => {
+    const store = create();
+    const binding = intent(1).bindings[0]!;
+    await store.reserve(waiting(1));
+    const review = await store.advance(waiting(1).id, {
+      status: 'review',
+      proposed: [binding],
+      reviewDigest: DIGEST,
+      authorityChanged: true,
+    });
+    expect(review).toMatchObject({ status: 'review', proposed: [binding], reviewDigest: DIGEST });
+    // Back to setup drops what was proposed; the flag stays whatever the move says.
+    const back = await store.advance(waiting(1).id, {
+      status: 'setup',
+      chosenAccounts: ['connector-work'],
+    });
+    expect(back).toMatchObject({
+      status: 'setup',
+      authorityChanged: true,
+      chosenAccounts: ['connector-work'],
+    });
+    expect(back.proposed).toBeUndefined();
+    expect(back.reviewDigest).toBeUndefined();
+    // Review again, then reserved on the access it will run on, with when it was reserved.
+    await store.advance(waiting(1).id, {
+      status: 'review',
+      proposed: [binding],
+      reviewDigest: DIGEST,
+    });
+    const reserved = await store.advance(waiting(1).id, {
+      status: 'reserved',
+      bindings: [binding],
+      reservedAt: clock.now.toISOString(),
+    });
+    expect(reserved).toMatchObject({
+      status: 'reserved',
+      bindings: [binding],
+      reservedAt: clock.now.toISOString(),
+      authorityChanged: true,
+    });
+    expect(reserved.proposed).toBeUndefined();
+    // From reserved it goes only to launched, failed or cancelled, never back to waiting.
+    for (const status of ['setup', 'review', 'reserved'] as const)
+      await expect(
+        store.advance(waiting(1).id, { status, proposed: [], reviewDigest: DIGEST }),
+      ).rejects.toThrow(/cannot become/u);
+    const launched = await store.advance(waiting(1).id, { status: 'launched', goalId: 'goal-1' });
+    expect(launched).toMatchObject({ status: 'launched', reservedAt: clock.now.toISOString() });
+    // A request that made a goal or ended does not go back.
+    await expect(store.advance(waiting(1).id, { status: 'setup' })).rejects.toThrow(
+      /already ended as launched/u,
+    );
+    await store.reserve(waiting(2));
+    await store.advance(waiting(2).id, { status: 'cancelled' });
+    await expect(store.advance(waiting(2).id, { status: 'setup' })).rejects.toThrow(
+      /already ended as cancelled/u,
+    );
+    // A waiting request ends as failed or cancelled from either state.
+    await store.reserve(waiting(3));
+    await store.reserve(waiting(4));
+    await store.advance(waiting(4).id, {
+      status: 'review',
+      proposed: [],
+      reviewDigest: DIGEST,
+    });
+    expect(
+      await store.advance(waiting(3).id, {
+        status: 'failed',
+        failure: { kind: 'stale', message: 'This task changed.' },
+      }),
+    ).toMatchObject({ status: 'failed' });
+    expect(await store.advance(waiting(4).id, { status: 'cancelled' })).toMatchObject({
+      status: 'cancelled',
+    });
+  });
+
+  it('refuses a review without its access list and digest, and a list or digest anywhere else', async () => {
+    const store = create();
+    await store.reserve(waiting(1));
+    await expect(store.advance(waiting(1).id, { status: 'review' })).rejects.toThrow(/proposed/u);
+    await expect(
+      store.advance(waiting(1).id, {
+        status: 'review',
+        proposed: [],
+        reviewDigest: 'not a digest',
+      }),
+    ).rejects.toThrow(/not in the expected form/u);
+    await expect(
+      store.advance(waiting(1).id, {
+        status: 'setup',
+        proposed: [],
+        reviewDigest: DIGEST,
+      }),
+    ).rejects.toThrow(/belongs to a launch in review/u);
+    expect((await store.get(waiting(1).id))!.status).toBe('setup');
+  });
+
+  it('bounds the connectors a request names and holds, each by its own id', async () => {
+    const store = create();
+    const many = Array.from({ length: LAUNCH_LIMITS.accounts + 1 }, (_, n) => `connector-a${n}`);
+    await expect(store.reserve(waiting(1, { namedAccounts: many }))).rejects.toThrow();
+    await expect(store.reserve(waiting(1, { chosenAccounts: ['Work mail'] }))).rejects.toThrow();
+    await expect(
+      store.reserve(waiting(1, { chosenAccounts: ['connector-work', 'connector-work'] })),
+    ).rejects.toThrow(/twice/u);
+    await expect(store.reserve(waiting(1, { authorityChanged: false as never }))).rejects.toThrow(
+      /true when present/u,
+    );
+    await store.reserve(waiting(1, { namedAccounts: many.slice(0, LAUNCH_LIMITS.accounts) }));
+    expect(await store.list()).toHaveLength(1);
+  });
+
+  it('never drops a waiting request at the bound, whichever way it waits', async () => {
+    const store = create();
+    for (let n = 1; n <= MAX_LAUNCHES; n += 1) await store.reserve(waiting(n));
+    await store.advance(waiting(2).id, { status: 'review', proposed: [], reviewDigest: DIGEST });
+    await expect(store.reserve(waiting(MAX_LAUNCHES + 1))).rejects.toThrow(
+      new RegExp(`At most ${MAX_LAUNCHES} launches`, 'u'),
+    );
+    expect(await store.list()).toHaveLength(MAX_LAUNCHES);
+    expect(await store.get(waiting(1).id)).toBeDefined();
+    expect(await store.get(waiting(2).id)).toBeDefined();
+    // Ending one makes room, and only the ended one goes.
+    await store.advance(waiting(2).id, { status: 'cancelled' });
+    await store.reserve(waiting(MAX_LAUNCHES + 1));
+    expect(await store.get(waiting(2).id)).toBeUndefined();
+    expect(await store.get(waiting(1).id)).toBeDefined();
   }, 60_000);
 });
 

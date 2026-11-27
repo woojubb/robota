@@ -164,6 +164,8 @@ export type TReadiness =
 
 export interface ITaskDefinitionListing extends ITaskDefinition {
   readonly readiness: TReadiness;
+  /** Whether the host has a way to start this task at all; a task that is not ready but startable waits for setup. */
+  readonly startable: boolean;
 }
 
 /**

@@ -43,7 +43,7 @@ export const BINDABLE_CAPABILITIES: Readonly<Record<string, readonly TBindingAda
   'calendar.read': ['connector'],
 };
 
-const CONNECTOR_ID = /^connector-[a-z0-9-]{1,60}$/u;
+export const CONNECTOR_ID = /^connector-[a-z0-9-]{1,60}$/u;
 const TOOL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const BOUNDARY_MAX = 160;
 
