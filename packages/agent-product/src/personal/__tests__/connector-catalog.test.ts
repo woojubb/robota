@@ -150,8 +150,10 @@ describe('a catalog entry', () => {
       it.each(limits)(
         'never cuts an emoji into a lone surrogate at the %s limit',
         (_name, limit, read) => {
+          const fits = read('x'.repeat(limit - 2) + '\u{1F600}');
+          expect(fits).toBe('x'.repeat(limit - 2) + '\u{1F600}');
           const clipped = read('x'.repeat(limit - 1) + '\u{1F600}');
-          expect(clipped).toBe('x'.repeat(limit - 1) + '\u{1F600}');
+          expect(clipped).toBe('x'.repeat(limit - 1));
           expect(clipped.isWellFormed()).toBe(true);
           expect(read('x'.repeat(limit) + '\u{1F600}')).toBe('x'.repeat(limit));
         },

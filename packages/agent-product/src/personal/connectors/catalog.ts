@@ -76,13 +76,19 @@ function withoutInvisibleFormatting(characters: readonly string[]): string {
 /** Text of somebody else's, as one plain line of at most `limit` characters. */
 function plain(value: unknown, limit: number): string | undefined {
   if (typeof value !== 'string') return undefined;
-  const line = withoutInvisibleFormatting(
+  const collapsed = withoutInvisibleFormatting(
     [...value].map((character) => (isControl(character) ? ' ' : character)),
   )
     .replace(/\s+/gu, ' ')
-    .trim()
-    .slice(0, limit)
     .trim();
+  // Clipped to `limit` UTF-16 units, the length the connector book checks, without cutting a
+  // character in two; a joiner the clip leaves last joins nothing.
+  let clipped = '';
+  for (const character of collapsed) {
+    if (clipped.length + character.length > limit) break;
+    clipped += character;
+  }
+  const line = clipped.replace(/[‌‍]+$/u, '').trim();
   return line === '' ? undefined : line;
 }
 
