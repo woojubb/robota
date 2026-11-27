@@ -14,6 +14,9 @@
 //
 // Progress is reported on standard error, one line each, so a test can wait on an event instead of
 // a delay: `ready`, `pid:<n>`, `grandchild:<n>`, `prompt`, `sigterm`, `cancel`, `flood-done`.
+// `flood-done` is reported only once the whole flood has left this process for the pipe: a pipe write
+// that is still queued dies with the process, so a host that ends the agent right after its reply
+// would otherwise lose the end of the flood, `flood-done` included.
 import { spawn } from 'node:child_process';
 import { writeSync } from 'node:fs';
 import { Readable, Writable } from 'node:stream';
@@ -58,6 +61,8 @@ const flood = async (bytes) => {
       await new Promise((resolve) => process.stderr.once('drain', resolve));
     }
   }
+  // Writes complete in order, so the callback of the last one means every earlier line is out too.
+  await new Promise((resolve) => process.stderr.write('flood-done\n', resolve));
 };
 
 const replyText = () => {
@@ -89,7 +94,6 @@ const app = agent({ name: 'stdio-fixture-agent' })
     const bytes = Number(valueOf('stderr-flood') ?? 0);
     if (bytes > 0) {
       await flood(bytes);
-      note('flood-done');
     }
     await say(replyText());
     return { stopReason: 'end_turn' };
