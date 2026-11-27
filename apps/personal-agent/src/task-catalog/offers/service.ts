@@ -5,23 +5,45 @@
  * installed task may have changed. The person can set an offer aside, snooze it or bring it back; an
  * offer is accepted only by the task being started from it, which the launch records here.
  *
- * Nothing here sends anything: offers are shown on the page the person opens, and an offer that fails
- * its gate is simply not shown. What an offer says is text from a source and stays text.
+ * Offers are shown on the page the person opens, and an offer that fails its gate is simply not shown.
+ * The person's own preferences come before the gate: with suggestions off, or a topic or source muted,
+ * nothing is proposed, shown or started. A new offer, once and only once and only when its task is ready,
+ * may also be handed to the shared delivery, which decides under the person's limits whether it is pushed,
+ * held for the digest or left alone; that decision is recorded apart from what the person did with the
+ * offer. What an offer says is text from a source and stays text, and only the task's own title is sent.
  */
 import { randomUUID } from 'node:crypto';
 
 import { createOfferTools } from '@robota-sdk/agent-product/personal';
 
 import { TaskCatalogRefusedError, asRecord, isoTime, oneOf, rejectUnknownKeys } from '../fields.js';
+import { createMemoryDeliveryLog } from './delivery-log.js';
 import { judgeProposal, whyNotOffered } from './gate.js';
 import { offerInstructions } from './instructions.js';
+import {
+  changePreferences,
+  createMemoryOfferPreferences,
+  sourceOf,
+  whyHeldBack,
+} from './preferences.js';
 
 import type { FunctionTool } from '@robota-sdk/agent-core';
-import type { IOfferProposer, TOfferProposal } from '@robota-sdk/agent-product/personal';
+import type {
+  IOfferDeliveryInput,
+  IOfferProposer,
+  TDelivery,
+  TOfferProposal,
+} from '@robota-sdk/agent-product/personal';
 import type { ITaskCatalog } from '../catalog.js';
 import type { ILaunchOffers } from '../launch/coordinator.js';
-import type { IOfferView, TOfferDecision } from '../types.js';
+import type { IOffer, IOfferView, ITaskDefinitionListing, TOfferDecision } from '../types.js';
+import type { IOfferDeliveryLog, IOfferDeliveryRecord, TDeliveryReason } from './delivery-log.js';
 import type { IGateReaders, IProposalContext, TSourceStanding } from './gate.js';
+import type {
+  IOfferPreferenceStore,
+  IOfferPreferences,
+  IOfferPreferencesRead,
+} from './preferences.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** How far ahead a snooze may reach. */
@@ -76,6 +98,8 @@ export interface IOfferService {
   instructions(): Promise<string>;
   /** The offers to show, which also records that they were shown. */
   list(): Promise<IOffersShown>;
+  /** Whether an offer is open and still shown to the person now; looking records nothing. */
+  stillOffered(id: string): Promise<boolean>;
   /** One offer the person may act on, recording that it was opened; absent when it is not one. */
   open(id: string): Promise<IOfferView | undefined>;
   /** Dismiss, snooze or bring back an offer. The body is checked strictly; an offer is never accepted this way. */
@@ -87,6 +111,12 @@ export interface IOfferService {
     readonly decision: TOfferDecision;
     readonly snoozedUntil?: string;
   }>;
+  /** What the person chose about offers, as it reads now; unreadable words read as off, with the issue. */
+  preferences(): IOfferPreferencesRead;
+  /** Change what the person chose: only what the body names, refused whole when any part is not valid. */
+  changePreferences(body: unknown): IOfferPreferences;
+  /** What became of a new offer as far as telling the person goes; absent when nothing was decided. */
+  deliveryOf(id: string): IOfferDeliveryRecord | undefined;
   /** What a launch asks of its offer, and tells it. */
   readonly launch: ILaunchOffers;
 }
@@ -101,6 +131,12 @@ export interface IOfferServiceOptions {
   };
   /** The checks Start makes on a value, for the values an offer suggests. */
   readonly checkInputs: IProposalContext['checkInputs'];
+  /** The person's words about offers; without them, the defaults, kept in memory. */
+  readonly preferences?: IOfferPreferenceStore;
+  /** What was decided about telling the person of each new offer; without it, kept in memory. */
+  readonly deliveryLog?: IOfferDeliveryLog;
+  /** The shared delivery's door for an offer; without it, offers are only ever shown on the page. */
+  readonly deliver?: (input: IOfferDeliveryInput) => Promise<TDelivery>;
   readonly now?: () => Date;
   readonly newId?: () => string;
 }
@@ -109,6 +145,8 @@ export function createOfferService(options: IOfferServiceOptions): IOfferService
   const { catalog } = options;
   const now = options.now ?? (() => new Date());
   const newId = options.newId ?? (() => `offer-${randomUUID().replaceAll('-', '')}`);
+  const preferenceStore = options.preferences ?? createMemoryOfferPreferences();
+  const deliveryLog = options.deliveryLog ?? createMemoryDeliveryLog();
   /** One proposal at a time, so the day's count and the store never disagree about what came first. */
   let tail: Promise<unknown> = Promise.resolve();
   const inOrder = <T>(work: () => Promise<T>): Promise<T> => {
@@ -133,11 +171,25 @@ export function createOfferService(options: IOfferServiceOptions): IOfferService
     };
   };
 
+  /** What a proposal answers, and what is left to do for it once proposals are no longer held in line. */
+  interface IProposed {
+    readonly answer: TOfferProposal;
+    readonly after?: () => Promise<void>;
+  }
+
   const propose = async (
     raw: unknown,
     run: { attempts: number; accepted: number } | undefined,
-  ): Promise<TOfferProposal> => {
+  ): Promise<IProposed> => {
     if (run !== undefined) run.attempts += 1;
+    const { preferences } = preferenceStore.read();
+    if (!preferences.enabled)
+      return {
+        answer: {
+          status: 'rejected',
+          reason: 'The person turned suggestions off. Stop proposing.',
+        },
+      };
     const at = now();
     const listing = catalog.listDefinitions();
     const { offers } = await catalog.listOffers();
@@ -155,22 +207,82 @@ export function createOfferService(options: IOfferServiceOptions): IOfferService
       },
       newId,
     });
-    if (!verdict.ok) return { status: 'rejected', reason: verdict.reason };
+    if (!verdict.ok) return { answer: { status: 'rejected', reason: verdict.reason } };
+    const definition = (await listing).find((entry) => entry.id === verdict.offer.definitionId);
+    const held = whyHeldBack(preferences, {
+      category: definition?.category,
+      source: sourceOf(verdict.offer),
+    });
+    if (held !== undefined)
+      return {
+        answer: { status: 'rejected', reason: `${held} The person does not want this proposed.` },
+      };
+    // Only an offer no one had made before is told of; a repeat observation never is.
+    const fresh = (await catalog.findOffer(verdict.offer.dedupeKey)) === undefined;
     try {
       const stored = await catalog.submitOffer(verdict.offer);
       if (run !== undefined) run.accepted += 1;
-      return { status: 'accepted', offerId: stored.id };
+      return {
+        answer: { status: 'accepted', offerId: stored.id },
+        ...(fresh && { after: () => deliverNew(stored, definition, preferences) }),
+      };
     } catch (error) {
       if (error instanceof TaskCatalogRefusedError)
-        return { status: 'rejected', reason: error.message };
+        return { answer: { status: 'rejected', reason: error.message } };
       throw error;
+    }
+  };
+
+  /**
+   * Hand a new offer to the shared delivery as the person chose, once. The decision is kept whatever it is,
+   * and an offer that has a decision already is never handed over again. Telling the person is never
+   * what the proposal depends on: a failure here leaves the offer where every offer is, on the page.
+   */
+  const deliverNew = async (
+    offer: IOffer,
+    definition: ITaskDefinitionListing | undefined,
+    preferences: IOfferPreferences,
+  ): Promise<void> => {
+    try {
+      if (deliveryLog.find(offer.id) !== undefined) return;
+      const decide = (decision: TDelivery, reason: TDeliveryReason): void =>
+        deliveryLog.record({ offerId: offer.id, decision, reason, at: now().toISOString() });
+      if (preferences.delivery === 'feed') return decide('feed', 'chosen');
+      if (options.deliver === undefined) return;
+      if (definition?.readiness.state !== 'ready') return decide('feed', 'not-ready');
+      try {
+        const decision = await options.deliver({
+          offerId: offer.id,
+          // The task's own title, which the host wrote; nothing the source or the agent said.
+          title: definition.title,
+          sourceKey: `source:${sourceOf(offer) ?? offer.id}`,
+          mode: preferences.delivery,
+        });
+        decide(
+          decision,
+          decision === 'notify'
+            ? 'pushed'
+            : decision === 'digest'
+              ? 'held-for-digest'
+              : 'not-pushed',
+        );
+      } catch {
+        // allow-fallback: telling the person is extra; the offer is on the page whether or not it was pushed.
+        decide('feed', 'failed');
+      }
+    } catch {
+      // allow-fallback: so is keeping the decision; it never fails the proposal that made the offer.
     }
   };
 
   const proposer = (settings: { readonly perRun?: boolean } = {}): IOfferProposer => {
     const run = settings.perRun === true ? { attempts: 0, accepted: 0 } : undefined;
     return {
-      propose: (candidate) => inOrder(() => propose(candidate, run)),
+      propose: async (candidate) => {
+        const proposed = await inOrder(() => propose(candidate, run));
+        await proposed.after?.();
+        return proposed.answer;
+      },
     };
   };
 
@@ -183,7 +295,9 @@ export function createOfferService(options: IOfferServiceOptions): IOfferService
     const at = now();
     const listing = await catalog.listDefinitions();
     const readers = readersFor(async () => listing);
-    const { offers, issues } = await catalog.listOffers();
+    const { offers, issues: kept } = await catalog.listOffers();
+    const { preferences, issue } = preferenceStore.read();
+    const issues = issue === undefined ? kept : [...kept, issue];
     const titles = new Map<string, Promise<string | undefined>>();
     const titleOf = (id: string): Promise<string | undefined> => {
       const known = titles.get(id) ?? options.readers.connectorTitle(id);
@@ -213,6 +327,12 @@ export function createOfferService(options: IOfferServiceOptions): IOfferService
     const setAside: IOfferView[] = [];
     for (const offer of offers) {
       if (offer.withdrawn || Date.parse(offer.expiresAt) <= at.getTime()) continue;
+      // The person's own words come first: what is off or muted is not shown, whatever its state.
+      const unwanted = whyHeldBack(preferences, {
+        category: listing.find((entry) => entry.id === offer.definitionId)?.category,
+        source: sourceOf(offer),
+      });
+      if (unwanted !== undefined) continue;
       if (offer.decision === 'open') {
         if ((await whyNotOffered(offer, { now: at, readers })) === undefined)
           shown.push(await decorate(offer, true));
@@ -296,13 +416,19 @@ export function createOfferService(options: IOfferServiceOptions): IOfferService
         return { ok: false, kind: 'unknown', reason: 'There is no such offer.' };
       if (offer.definitionId !== definition.id)
         return { ok: false, kind: 'invalid', reason: 'This offer is for another task.' };
+      const listing = await catalog.listDefinitions();
+      const held = whyHeldBack(preferenceStore.read().preferences, {
+        category: listing.find((entry) => entry.id === offer.definitionId)?.category,
+        source: sourceOf(offer),
+      });
+      if (held !== undefined)
+        return { ok: false, kind: 'conflict', reason: `${held} This offer cannot be started.` };
       if (offer.decision !== 'open')
         return {
           ok: false,
           kind: 'conflict',
           reason: NOT_OPEN[offer.decision] ?? 'This offer cannot be started.',
         };
-      const listing = await catalog.listDefinitions();
       const why = await whyNotOffered(offer, {
         now: now(),
         readers: readersFor(async () => listing),
@@ -328,6 +454,8 @@ export function createOfferService(options: IOfferServiceOptions): IOfferService
       );
       return shown;
     },
+    stillOffered: async (id) =>
+      (await assemble()).offers.some((offer) => offer.id === id && offer.decision === 'open'),
     open: async (id) => {
       const { offers, setAside } = await assemble();
       const found = [...offers, ...setAside].find((offer) => offer.id === id);
@@ -337,6 +465,13 @@ export function createOfferService(options: IOfferServiceOptions): IOfferService
       return found;
     },
     decide,
+    preferences: () => preferenceStore.read(),
+    changePreferences: (body) => {
+      const next = refused(() => changePreferences(preferenceStore.read().preferences, body));
+      preferenceStore.write(next);
+      return next;
+    },
+    deliveryOf: (id) => deliveryLog.find(id),
     launch,
   };
 }

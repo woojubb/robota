@@ -1,9 +1,9 @@
 /**
  * The task-catalog part of the personal API: the definitions the person can browse with whether each
- * can run, the offers made to them, the route that starts a task and the one that sets an offer aside,
- * snoozes it or brings it back. Those two are the only routes that change anything, and neither can
- * accept an offer on its own: that happens by the task starting. What every route answers holds no path
- * of this machine and no value of a connector.
+ * can run, the offers made to them, the routes that start a task or move one that waits, the one that sets
+ * an offer aside, snoozes it or brings it back, and the one that holds the person's preferences about
+ * offers. None of them can accept an offer on its own: that happens by the task starting. What every
+ * route answers holds no path of this machine and no value of a connector.
  */
 import { LaunchRefusedError } from './launch/types.js';
 import { LAUNCH_LIMITS } from './launch/validate.js';
@@ -24,6 +24,8 @@ const LAUNCHES_SHOWN = 50;
 const START_KEYS = ['idempotencyKey', 'inputs', 'offerId'];
 /** An offer decision is a word and a time. */
 const DECISION_BODY_LIMIT = 1024;
+/** The preferences are a few short lists: this is generous for the most they may hold. */
+const PREFERENCES_BODY_LIMIT = 8 * 1024;
 /** What each route that moves a waiting request takes: exactly these keys, and a small body. */
 const WAITING_BODY_LIMIT = 1024;
 const WAITING_KEYS: Readonly<Record<string, readonly string[]>> = {
@@ -163,6 +165,27 @@ export function createTaskCatalogApi(
         if (error instanceof OfferRefusedError) return offerRefusal(error);
         throw error;
       }
+    }
+    // The person's own words about offers: only their own request reads or changes them.
+    if (collection === 'offer-preferences' && id === undefined && action === undefined) {
+      if (method === 'GET') return ok(offers.preferences());
+      if (method === 'PUT') {
+        if (
+          typeof body !== 'object' ||
+          body === null ||
+          Array.isArray(body) ||
+          JSON.stringify(body).length > PREFERENCES_BODY_LIMIT
+        )
+          return fail(400, { error: 'The request must be a small JSON object' });
+        try {
+          offers.changePreferences(body);
+          return ok(offers.preferences());
+        } catch (error) {
+          if (error instanceof OfferRefusedError) return offerRefusal(error);
+          throw error;
+        }
+      }
+      return undefined;
     }
     if (method !== 'GET' || action !== undefined) return undefined;
     if (collection === 'definitions' && id === undefined)

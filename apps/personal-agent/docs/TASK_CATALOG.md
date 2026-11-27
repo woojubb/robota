@@ -111,12 +111,14 @@ Every eligible offer may appear in Browse and Feed. Outward interruption is a se
 optional, ready offers are feed-only by default, and the person can enable notification or digest
 delivery for chosen topics. Those deliveries share the person's daily limit, quiet hours, and digest
 budget with Case questions, with a stricter per-source cooldown for offers. They cannot use Goal
-report notifications to bypass that budget. A notification opens the exact offer and its evidence;
-pressing it does not start the task. The person can dismiss, snooze, mute a topic or source, or turn
-proactive offers off without disconnecting an account.
+report notifications to bypass that budget. A notification opens the Feed, where the new offer is the
+newest item with its evidence; pressing it does not start the task. The person can dismiss, snooze, mute a
+topic or source, or turn proactive offers off without disconnecting an account, and what is off or muted is
+not proposed, shown or started.
 
-The offer store records eligibility and delivery decisions separately from owner reactions: shown,
-opened, accepted, started, verified complete, dismissed, snoozed, and muted. Ignored or dismissed
+The delivery decision (pushed, held for the digest, or left in the Feed, and why) is recorded
+separately from owner reactions: shown, opened, accepted, started, verified complete, dismissed and
+snoozed. Muting is a standing preference of the person, not a reaction. Ignored or dismissed
 offers should reduce similar interruptions, while accepted but unfinished work must not be counted
 as success. A connector failure or lack of fresh evidence lowers confidence rather than fabricating
 a recommendation. A low-confidence candidate can stay in Browse for inspection instead of being

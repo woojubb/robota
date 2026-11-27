@@ -39,6 +39,7 @@ const TITLE_LIMIT = 100;
 const SINK_TIMEOUT_MS = 20_000;
 const FEED_POINTER = 'Open your Feed to answer.';
 const OFFER_POINTER = 'Open your Feed to look at it.';
+const OFFERS_POINTER = 'Open your Feed to look at them.';
 const SOURCE_KEY_LIMIT = 200;
 /** A source that had an offer pushed waits this long before another of its offers is pushed. */
 export const OFFER_SOURCE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -267,7 +268,7 @@ export class QuestionDelivery {
 
   /**
    * Called every minute and once at start. Sends the day's one digest when its time has come, outside
-   * quiet hours, and some held question still waits for an answer; then forgets what was held and
+   * quiet hours, and some held question or offer still waits for the person; then forgets what was held and
    * records the day, so a digest is attempted once a day.
    */
   tick(): Promise<void> {
@@ -305,7 +306,9 @@ export class QuestionDelivery {
         );
         titles.push(`${count} suggestion${count === 1 ? '' : 's'}`);
       }
-      parts.push(open.length > 0 ? FEED_POINTER : OFFER_POINTER);
+      parts.push(
+        open.length > 0 ? FEED_POINTER : offered.length > 1 ? OFFERS_POINTER : OFFER_POINTER,
+      );
       await this.options.state.write({
         ...state,
         pendingDigest: [],

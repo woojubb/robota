@@ -47,7 +47,8 @@ on — in the person's own state directory.
   bounds. Nothing the agent wrote changes the gate's answer. An offer is accepted only by the task being
   started from it, which keeps the launch beside the offer; how the run ended is recorded apart from that,
   so accepted but unfinished work is never counted as success. Offers are shown on the page the person
-  opens and interrupt nobody.
+  opens; they interrupt nobody unless the person chose to be told, and then only under the same limits as
+  questions.
 - **The catalog is the owner's and local.** Built-in definitions ship with the product; offers and
   installed definitions live in the owner-only state directory. No hosted catalog or recommendation
   service is needed to browse.
@@ -84,6 +85,15 @@ on — in the person's own state directory.
   for the key and for the comparison with an open case, so a variant spelling cannot dodge a dismissal, a
   cooldown or a case. Decisions and cooldowns are read from the stored offers, so a restart cannot reset
   them.
+- What the person chose about offers (on or off, Feed, push or digest, topics, muted topics and sources)
+  is theirs alone: only their own request changes it, no tool the agent can call reaches it, and words that
+  cannot be read count as off, so damage never undoes an opt-out. The choice comes before the gate: what is
+  off or muted is not proposed, shown or started from an offer, wherever the offer already stands, while
+  a task the person starts themselves is theirs to start. A new offer is handed to the shared delivery
+  once, and only when its task is ready; a repeat observation, a restart or a task that was not ready then
+  never tells the person later, and only the task's own title, never a word from the source or the agent,
+  is sent. What the host decided about telling the person is kept apart from the person's reactions, so a
+  held-back offer never reads as one the person met.
 - The host cannot fetch an item from a connected service by the agent's own reference, so an offer from
   one rests on the service still being connected and on the age of the observation, not on the item
   being read again; a library page is looked up by its id.

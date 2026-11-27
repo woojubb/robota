@@ -94,6 +94,8 @@ import {
   recipeFor,
 } from './task-catalog/launch/recipes.js';
 import { normalizedReference } from './task-catalog/fields.js';
+import { createFileDeliveryLog } from './task-catalog/offers/delivery-log.js';
+import { createFileOfferPreferences } from './task-catalog/offers/preferences.js';
 import { createOfferService } from './task-catalog/offers/service.js';
 import { createReadinessContextSource } from './task-catalog/readiness-context.js';
 import { createPersonalApi } from './personal-api.js';
@@ -424,6 +426,8 @@ export function createPersonalCapabilities(
   // A page the person has open takes a push only while it polls; with none open it refuses, so the push
   // is neither counted nor lost: the question is in the feed.
   const notifications = new BrowserOutbox();
+  // The offers exist after the delivery they are told through; the digest asks them once they do.
+  let offerService: IOfferService | undefined;
   const delivery = new QuestionDelivery({
     settings: deliveryStores.settings,
     state: deliveryStores.state,
@@ -435,6 +439,9 @@ export function createPersonalCapabilities(
       ...((await notificationAddress.configured()) ? [notificationAddress.sink] : []),
     ],
     feed: goals,
+    // An offer held for the digest is named in it only while it is still offered: still open, and still
+    // what the person's preferences and the gate allow.
+    offers: { stillOffered: (id) => offerService?.stillOffered(id) ?? false },
     ...(options.deliveryClock !== undefined && { now: options.deliveryClock }),
   });
   // What kind of service each question came from and whether it was answered: counts and times only.
@@ -530,6 +537,11 @@ export function createPersonalCapabilities(
   // they are then, and checks the values it suggests as Start would.
   const offers = createOfferService({
     catalog: taskCatalog,
+    preferences: createFileOfferPreferences(join(options.stateDir, 'task-catalog')),
+    deliveryLog: createFileDeliveryLog(join(options.stateDir, 'task-catalog')),
+    // A new offer the person chose to be told of goes through the same delivery as the questions, so
+    // one daily count and the quiet hours cover both.
+    deliver: (input) => delivery.onOffer(input),
     readers: {
       connector: async (id) => {
         if ((await connectorBook.get(id)) === undefined) return 'missing';
@@ -560,6 +572,7 @@ export function createPersonalCapabilities(
         new Set(options.browserAllowedHosts ?? []),
       ),
   });
+  offerService = offers;
   // A start is judged again from the same readiness the cards show, kept before its goal exists, and the
   // goal runs at once instead of at the next tick. A started run reads pages through this browser with
   // each page it returns recorded, which is what its outcome is decided from.
