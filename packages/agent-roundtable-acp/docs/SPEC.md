@@ -42,8 +42,11 @@ it cannot be loaded back once it has taken a turn: the agent's memory lives in a
 this package cannot snapshot, and rebuilding it from the public transcript would silently give a
 different agent. Nothing is ever parked for it.
 
-This package starts no process. Whatever yields the byte streams to an agent, and ends them, belongs
-to the host behind a port, and a session's connection lives and ends with its lease. Opening is
+The session core starts no process. Whatever yields the byte streams to an agent, and ends them,
+sits behind a port, and a session's connection lives and ends with its lease. One launcher for that
+port ships with the package: it starts the agent as a child process, gives it exactly the
+environment the host names and nothing inherited, and ends the whole tree it started when the
+connection closes or the agent exits, including helpers that outlive it or ignore the request. An agent that cannot be started fails the open with a typed error. Opening is
 bounded by the adapter's own startup limit because the roundtable gives opening no cancellation.
 
 It speaks version 1 of the protocol only and uses only its stable parts. An agent that answers with
@@ -56,12 +59,14 @@ final text does, and only once it is non-empty after trimming. A delta the agent
 delivered, in the order it streamed, before the turn's outcome is returned. A session runs one turn
 at a time. Releasing a session is safe to repeat and ends its connection once. The package reads no
 environment variable, home directory, working directory or product configuration: everything it
-needs is given to it.
+needs is given to it, including every variable a launched agent sees.
 
 ## Non-goals
 
-This package does not launch, sandbox or supervise an agent process, decide what an agent may do,
-meter or price what an agent spends, or recover an agent that a crash interrupted mid-turn. It is the
+This package does not sandbox an agent process, supervise it beyond ending the tree its launcher
+started, decide what an agent may do, meter or price what an agent spends, or recover an agent that
+a crash interrupted mid-turn. It does not guard against its own host dying: an agent that does not
+exit when its input ends outlives a crashed host. It is the
 client side of the protocol only, so it does not make Robota an agent for editors, and it does not
 follow a draft protocol version.
 
@@ -88,6 +93,13 @@ follow a draft protocol version.
 - The agent is reached through a launcher port rather than a command line. The adapter stays free of
   how an agent is started, whether as a child process, in a container or somewhere remote, and a
   test can run a protocol-complete agent in memory.
+- The launcher hands the agent only the environment it is given, never the host's. An agent started
+  with ambient variables would carry credentials and settings the host never chose to share, so the
+  host names what the agent needs, and a missing variable fails visibly in the agent rather than
+  leaking silently.
+- The agent runs in its own process group where the platform has one, and closing ends the group.
+  Agents routinely start helpers of their own; ending only the agent would leave them running with
+  its authority after the session is gone.
 - The working directory the agent is told to use is an explicit input. Deriving it from the current
   process would make the same configuration mean different things in different hosts.
 - The protocol SDK is a required peer at one exact version, shared with the host. The SDK shapes
