@@ -32,7 +32,7 @@ export const featureCatalog = [
       { id: 'automation', guide: 'guide/cli', tags: ['/loop', '/schedule', '/monitor', '/plan'] },
       { id: 'checkpoints', guide: 'guide/cli', tags: ['/rewind', '/memory', '/context', '/cost'] },
       { id: 'workflows', guide: 'guide/cli', tags: ['/workflows create', '/workflows run', '.workflows/'] },
-      { id: 'roundtable', guide: 'packages', tags: ['agent-roundtable', 'agent-roundtable-robota', 'agent-roundtable-acp'] },
+      { id: 'roundtable', guide: 'packages', tags: ['agent-roundtable', 'agent-roundtable-robota'] },
     ],
   },
   {
@@ -96,7 +96,7 @@ export const packageGroups = [
     id: 'assembly',
     packages: ['agent-framework', 'agent-session', 'agent-executor', 'agent-subagent-runner', 'agent-mcp', 'agent-plugin', 'agent-session-analytics', 'agent-telemetry-otel', 'agent-os', 'agent-keyring'],
   },
-  { id: 'multiAgent', packages: ['agent-roundtable', 'agent-roundtable-robota', 'agent-roundtable-acp'] },
+  { id: 'multiAgent', packages: ['agent-roundtable', 'agent-roundtable-robota'] },
   { id: 'composition', packages: ['agent-product'] },
   {
     id: 'transports',

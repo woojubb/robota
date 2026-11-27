@@ -38,7 +38,7 @@ set by how it is started and configured, which is the host's decision and outsid
 
 The participant declares that it makes no metered model calls, offers no checkpoint and no wait
 continuation. A roundtable's model-call limits and budgets therefore never bound what the agent
-spends, which only the turn and time limits and the agent's own configuration bound, and a conversation holding
+spends; only the turn and time limits and the agent's own configuration do. A conversation holding
 it cannot be loaded back once it has taken a turn: the agent's memory lives in another process that
 this package cannot snapshot, and rebuilding it from the public transcript would silently give a
 different agent. Nothing is ever parked for it.

@@ -110,20 +110,20 @@ const launcher: AcpLauncher = {
 
 ## What a participant does and does not do
 
-| Aspect              | Behavior                                                                                    |
-| ------------------- | ------------------------------------------------------------------------------------------- |
-| Prompt              | One text block with the new public messages; the purpose only on the first turn             |
-| Reply               | The concatenated text the agent says; blank text yields the turn                            |
-| Streaming           | Each text chunk goes to `onDelta` in order, before the turn's outcome is returned           |
-| Other endings       | Reaching a token or request limit, a refusal or a cancellation not asked for fails the turn |
-| Host abort          | Throws the abort reason at once, never partial text; cancels the agent, ends the session    |
-| Long reply          | A reply past `maxReplyChars` fails the turn and ends the session, like an abort             |
-| Permission requests | Refused unless the `approver` allows that one call; no client capability is advertised      |
-| Model calls         | Declared `none`: a roundtable's model-call limits do not bound this participant             |
-| Launcher            | `spawnAcpAgent`: explicit `env`, own process group, tree ended on close or agent exit       |
-| Recovery            | No checkpoint: a conversation holding it cannot be loaded back after a turn                 |
-| Platforms           | macOS and Linux supported; Windows unverified                                               |
-| Host crash          | Nothing ends the agent unless it exits when its standard input ends                         |
+| Aspect              | Behavior                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| Prompt              | One text block with the new public messages; the purpose only on the first turn                |
+| Reply               | The concatenated text the agent says; blank text yields the turn                               |
+| Streaming           | Each text chunk goes to `onDelta` in order, before the turn's outcome is returned              |
+| Other endings       | Reaching a token or request limit, a refusal or a cancellation not asked for fails the turn    |
+| Host abort          | Throws the abort reason at once, never partial text; cancels the agent, ends the session       |
+| Long reply          | A reply past `maxReplyChars` fails the turn and ends the session, like an abort                |
+| Permission requests | Refused unless the `approver` allows that one call; no client capability is advertised         |
+| Model calls         | Declared `none`: a roundtable's model-call limits do not bound this participant                |
+| Launcher            | `spawnAcpAgent`: explicit `env`, own process group on POSIX, tree ended on close or agent exit |
+| Recovery            | No checkpoint: a conversation holding it cannot be loaded back after a turn                    |
+| Platforms           | macOS and Linux supported; Windows unverified                                                  |
+| Host crash          | Nothing ends the agent unless it exits when its standard input ends                            |
 
 **The agent's spend is not bounded by model-call limits or budgets.** The participant declares
 `modelCalls: 'none'` because the protocol shows no per-call usage to meter, so a roundtable's
