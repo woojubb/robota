@@ -30,6 +30,11 @@ import {
   forgetInProcessJournal,
 } from './in-process-journal';
 import { meterRecoverableJournal } from './metering-journal';
+import {
+  assertCallsAreBounded,
+  normalizeEnforcement,
+  type RuntimeEnforcement,
+} from './enforcement';
 import { toCompletionOutcome } from './outcome';
 import { RuntimeParticipantError } from './errors';
 import { claimLease } from './resource-guard';
@@ -52,6 +57,11 @@ export interface SessionParticipantOptions {
   /** A durable journal keyed by this Session; default is an in-process one, kept for this process. */
   journal?(ctx: OpenContext & { sessionId: string }): IRecoverableExecutionJournal;
   render?: TurnRenderer;
+  /**
+   * Declares that every provider call can be bounded before dispatch. With it the participant
+   * declares `modelCalls: 'enforced'` and is admitted under a budget; without it, `'metered'`.
+   */
+  enforcement?: RuntimeEnforcement;
 }
 
 const noopSpinner: ISpinner = { stop() {}, update() {} };
@@ -121,6 +131,7 @@ function toWaitOutcome(
  */
 export function sessionParticipant(options: SessionParticipantOptions): AgentParticipant {
   const render = options.render ?? renderSharedIncrement;
+  const enforcement = options.enforcement && normalizeEnforcement(options.enforcement);
   return {
     kind: 'agent',
     id: options.id,
@@ -129,7 +140,7 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
     factory: {
       supportsContinuation: true,
       checkpointVersions: [AGENT_SESSION_CHECKPOINT_VERSION],
-      modelCalls: 'metered',
+      modelCalls: enforcement ? 'enforced' : 'metered',
       async openSession(context) {
         const restoring = context.checkpoint !== undefined;
         const openCtx: OpenContext = {
@@ -144,6 +155,15 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
           permissionClassifier: hostOptions.permissionClassifier,
           hookTypeExecutors: hostOptions.hookTypeExecutors,
         });
+        if (enforcement)
+          assertCallsAreBounded({
+            providers: [hostOptions.provider],
+            outputCap: hostOptions.maxOutputTokens,
+            outputCapField: 'maxOutputTokens',
+            automaticCompaction: hostOptions.autoCompactThreshold !== false,
+            toolNames: hostOptions.tools.map((tool) => tool.getName()),
+            enforcement,
+          });
         let state: SessionCheckpointState;
         if (context.checkpoint) {
           state = decodeSessionCheckpoint(context.checkpoint);
@@ -203,7 +223,11 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
           currentSink = deltaQueue;
           const signal = execOptions.signal;
           try {
-            const meteredJournal = meterRecoverableJournal(journal, execOptions.services);
+            const meteredJournal = meterRecoverableJournal(
+              journal,
+              execOptions.services,
+              options.enforcement,
+            );
             const result = await run(meteredJournal);
             // An aborted run can resolve instead of rejecting, the way a plain ConversationAgent agent's
             // `agent.run()` always does (see agent-participant.ts) — checking `signal.aborted`

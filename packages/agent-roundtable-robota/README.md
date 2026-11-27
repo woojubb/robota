@@ -39,11 +39,11 @@ permissions, hooks and persistence. On Node.js the package requires 22.12 or lat
 
 ## Capabilities by participant kind
 
-| Kind                                                                              | Wait continuation                                               | Checkpoint             | Model calls                                            |
-| --------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------- | ------------------------------------------------------ |
-| `sessionParticipant`                                                              | Yes — a tool call awaiting approval (`robota-session/approval`) | `robota-session/1`     | Metered (`'metered'`); a budget refuses it             |
-| `runtimeParticipant`                                                              | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`); a budget refuses it             |
-| Custom (write your own `AgentParticipant` against `@robota-sdk/agent-roundtable`) | Whatever you implement                                          | Whatever you implement | Declare `factory.modelCalls` yourself (see note below) |
+| Kind                                                                              | Wait continuation                                               | Checkpoint             | Model calls                                                             |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------- |
+| `sessionParticipant`                                                              | Yes — a tool call awaiting approval (`robota-session/approval`) | `robota-session/1`     | Metered (`'metered'`); enforced (`'enforced'`) when given `enforcement` |
+| `runtimeParticipant`                                                              | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`); enforced (`'enforced'`) when given `enforcement` |
+| Custom (write your own `AgentParticipant` against `@robota-sdk/agent-roundtable`) | Whatever you implement                                          | Whatever you implement | Declare `factory.modelCalls` yourself (see note below)                  |
 
 A custom participant needs neither this package nor agent runtime at all — `@robota-sdk/agent-roundtable`'s
 own README shows one wrapping plain code. Use `sessionParticipant` when the turn needs tools,
@@ -58,10 +58,12 @@ participant nobody metered can never end up silently governed by a limit it neve
 
 A roundtable `budget` is stricter: it admits only callers that declare `'none'` or `'enforced'` (each
 call's bound passed to `admitModelCall` before it is dispatched). `sessionParticipant`,
-`runtimeParticipant` and `runtimeSelector` declare `'metered'`, because they report what a runtime
-already reports and cannot declare a bound beforehand, so `createRoundtable` and `loadRoundtable`
-refuse a budgeted conversation that uses them with `RoundtableError('invalid-config', ...)`. Use
-them with the call-count limits and pricing, or write a custom participant that declares bounds.
+`runtimeParticipant` and `runtimeSelector` declare `'metered'` by default, because they report what a
+runtime already reports and cannot declare a bound beforehand, so `createRoundtable` and
+`loadRoundtable` refuse a budgeted conversation that uses them with
+`RoundtableError('invalid-config', ...)`. Given an `enforcement` option (below) they declare
+`'enforced'` and are admitted under a budget; otherwise use them with the call-count limits and
+pricing, or write a custom participant that declares bounds.
 
 ## Quick start
 
@@ -237,13 +239,14 @@ it settles. A `Session`-backed, checkpoint-resumable journal uses `meterRecovera
 ## Errors
 
 `RuntimeParticipantError` (`unsupported-wait`, `identity-mismatch`, `checkpoint-invalid`,
-`journal-missing`, `resource-reused`, `unmetered-caller`) is thrown by a participant's
-`runTurn`/`resumeTurn`/`openSession`.
+`journal-missing`, `resource-reused`, `unmetered-caller`, `unbounded-call`, `invalid-config`) is
+thrown by a participant's `runTurn`/`resumeTurn`/`openSession`; `invalid-config` is also thrown when a
+participant, selector or `meterJournal` wrapper is created with an invalid `enforcement`.
 `SelectorDecisionError` (`no-candidates`, `no-decision`, `multiple-decisions`, `invalid-decision`,
 `unknown-participant`) is thrown by `runtimeSelector`'s `select`, which also throws
 `RuntimeParticipantError('resource-reused')` if one selector instance is asked to decide for two
-conversations at the same time, and `RuntimeParticipantError('unmetered-caller')` for a refused
-runtime (below).
+conversations at the same time, and `RuntimeParticipantError('unmetered-caller')` or
+`RuntimeParticipantError('unbounded-call')` for a refused runtime (below).
 
 ## Refused callers
 
@@ -257,12 +260,53 @@ lease is claimed or a `Session` is constructed, so the turn fails before the ref
 provider call, and an agent built for the refused open is destroyed. It applies whether or not the conversation has
 limits.
 
+## Enforced model calls
+
+`sessionParticipant`, `runtimeParticipant` and `runtimeSelector` take an optional `enforcement` that
+declares the participant `'enforced'`, so a budgeted conversation admits it:
+
+```typescript
+sessionParticipant({
+  id: 'reviewer',
+  runtime: { id: 'product/reviewer', version: '1' },
+  enforcement: { providerAttempts: 2, requestOverheadTokens: 200, freeTools: ['read_file'] },
+  createSessionOptions: async () => ({
+    /* ..., maxOutputTokens: 1024, autoCompactThreshold: false */
+  }),
+});
+```
+
+`providerAttempts` (a positive safe integer) and `requestOverheadTokens` (a non-negative safe integer)
+have no defaults; `freeTools` names the tools whose effects spend no model tokens, each once. An invalid
+declaration throws `RuntimeParticipantError('invalid-config')` when the participant is created. A
+selector's `enforcement` carries only the first two: its one decision tool is free.
+
+The declaration is the host's word, proven when the lease opens, and every admission repeats the checks.
+An enforced runtime is refused with `RuntimeParticipantError('unbounded-call')`, before its first call,
+when it has no positive output cap (a `Session`'s `maxOutputTokens`, an agent's `defaultModel.maxTokens`),
+when a `Session` may compact its history on its own (set `autoCompactThreshold: false`; a compaction
+request carries no output cap), when its provider has hosted web tools enabled, or when a tool is in no
+list (paid tools are not supported yet, so every tool must be free). At each admission a request is
+refused the same way if it has no positive output cap, carries a part that is not text, asks for hosted
+web tools, has a bound beyond a safe integer, starts an undeclared tool effect, or arrives as a managed
+frame. A cache hit stays admission-free.
+
+The bound each call is admitted with comes from the request about to be sent: the input is the UTF-8
+size of its messages, tools, response format and tool choice plus `requestOverheadTokens`, and the
+output is its output cap, both times `providerAttempts`. A token costs at least one byte, so the encoded
+size is a ceiling on billed input, while the overhead covers text the provider adds and the attempts cover
+a client that bills retries inside one call. Cache reads are part of input already, so a host prices
+input at the highest input rate it may be charged. When `providerAttempts` is greater than one, usage
+the provider attests settles as `partial`, not `reported`, because it may describe only one attempt: the
+bound stays counted until the host settles the call with `reconcileUsage`.
+
 ## Provider SDK retries
 
 A provider SDK's own automatic retry of a failed request is invisible to this package's metering: a
 retried call still admits and reports as one call, because the adapter only ever sees the provider
-call boundary agent-core journals, not the transport underneath it. A host relying on per-call model
-limits should disable that provider SDK's automatic retries.
+call boundary agent-core journals, not the transport underneath it. A host that relies on call limits
+alone should disable that provider SDK's automatic retries; a host that budgets declares the most it
+may bill in `providerAttempts`, and the bound covers them.
 
 ## Version and compatibility
 

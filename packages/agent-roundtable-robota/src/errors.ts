@@ -7,7 +7,9 @@ export class RuntimeParticipantError extends Error {
       | 'checkpoint-invalid'
       | 'journal-missing'
       | 'resource-reused'
-      | 'unmetered-caller',
+      | 'unmetered-caller'
+      | 'unbounded-call'
+      | 'invalid-config',
     message: string,
   ) {
     super(message);

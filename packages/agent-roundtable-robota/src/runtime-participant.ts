@@ -14,6 +14,11 @@ import {
 } from './checkpoint-codec';
 import { createDeltaQueue } from './delta-queue';
 import { meterJournal } from './metering-journal';
+import {
+  assertCallsAreBounded,
+  normalizeEnforcement,
+  type RuntimeEnforcement,
+} from './enforcement';
 import { toCompletionOutcome } from './outcome';
 import { RuntimeParticipantError } from './errors';
 import { claimLease } from './resource-guard';
@@ -30,6 +35,11 @@ export interface RuntimeParticipantOptions {
   createAgent(ctx: OpenContext): ConversationAgent | Promise<ConversationAgent>;
   runOptions?: Pick<IRunOptions, 'maxExecutionRounds' | 'maxSameToolInputs'>;
   render?: TurnRenderer;
+  /**
+   * Declares that every provider call can be bounded before dispatch. With it the participant
+   * declares `modelCalls: 'enforced'` and is admitted under a budget; without it, `'metered'`.
+   */
+  enforcement?: RuntimeEnforcement;
 }
 
 /** Never persisted or read back; metering only needs somewhere to append the journaled records. */
@@ -47,6 +57,7 @@ function discardingJournal(): IExecutionJournal {
  */
 export function runtimeParticipant(options: RuntimeParticipantOptions): AgentParticipant {
   const render = options.render ?? renderSharedIncrement;
+  const enforcement = options.enforcement && normalizeEnforcement(options.enforcement);
   return {
     kind: 'agent',
     id: options.id,
@@ -54,7 +65,7 @@ export function runtimeParticipant(options: RuntimeParticipantOptions): AgentPar
     runtime: options.runtime,
     factory: {
       checkpointVersions: [RUNTIME_AGENT_CHECKPOINT_VERSION],
-      modelCalls: 'metered',
+      modelCalls: enforcement ? 'enforced' : 'metered',
       async openSession(context) {
         const restoring = context.checkpoint !== undefined;
         const openCtx: OpenContext = {
@@ -68,6 +79,14 @@ export function runtimeParticipant(options: RuntimeParticipantOptions): AgentPar
         const config = agent.getConfig();
         try {
           assertCallersAreMetered({ providers: config.aiProviders });
+          if (enforcement)
+            assertCallsAreBounded({
+              providers: config.aiProviders,
+              outputCap: config.defaultModel.maxTokens,
+              outputCapField: 'defaultModel.maxTokens',
+              toolNames: (config.tools ?? []).map((tool) => tool.getName()),
+              enforcement,
+            });
         } catch (error) {
           await agent.destroy().catch(() => {});
           throw error;
@@ -101,7 +120,11 @@ export function runtimeParticipant(options: RuntimeParticipantOptions): AgentPar
             currentSink = deltaQueue;
             const signal = execOptions.signal;
             try {
-              const meteredJournal = meterJournal(discardingJournal(), execOptions.services);
+              const meteredJournal = meterJournal(
+                discardingJournal(),
+                execOptions.services,
+                options.enforcement,
+              );
               const response = await agent.run(text, {
                 signal,
                 executionJournal: meteredJournal,
