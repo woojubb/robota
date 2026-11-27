@@ -152,8 +152,12 @@ export {
   unverifiedSessionNotice,
   SessionRenameUnavailableError,
   persistSessionRename,
+  persistSessionRedaction,
+  redactSessionRecord,
 } from './interactive/index.js';
 export type {
+  TSessionRedactionStatus,
+  TTextRedactor,
   IHostToolResultSpillStore,
   IInteractiveSessionRecord,
   IInteractiveSessionStore,

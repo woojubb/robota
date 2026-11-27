@@ -69,6 +69,7 @@ export const PROTOCOL_SESSION_EVENT_CLASSIFICATION = {
   ui_intent: 'requester-routed',
   session_renamed: 'forwarded',
   history_cleared: 'forwarded',
+  history_rewritten: 'forwarded',
   session_switched: 'forwarded',
   status_changed: 'forwarded',
 } as const satisfies Record<TInteractiveEventName, TProtocolSessionEventClassification>;
@@ -189,6 +190,8 @@ export function subscribeSessionEvents(
   const onSessionRenamed = (event: ISessionRenamedEvent): void =>
     deliver({ type: 'session_renamed', event });
   const onHistoryCleared = (): void => deliver({ type: 'history_cleared' });
+  // Redaction keeps every message but changes their text, so a surface re-reads rather than patches.
+  const onHistoryRewritten = (): void => deliver({ type: 'history_changed', rewritten: true });
   // This surface's session is now another one; it re-reads what it shows. Only surfaces
   // subscribed to the session that moved hear it: a host that binds each connection to its own session
   // sends it to the connection that switched, never to the others.
@@ -241,6 +244,7 @@ export function subscribeSessionEvents(
   session.on('ui_intent', onUiIntent);
   session.on('session_renamed', onSessionRenamed);
   session.on('history_cleared', onHistoryCleared);
+  session.on('history_rewritten', onHistoryRewritten);
   session.on('session_switched', onSessionSwitched);
   session.on('context_update', onContextUpdate);
   session.on('compact', onCompact);
@@ -272,6 +276,7 @@ export function subscribeSessionEvents(
     session.off('ui_intent', onUiIntent);
     session.off('session_renamed', onSessionRenamed);
     session.off('history_cleared', onHistoryCleared);
+    session.off('history_rewritten', onHistoryRewritten);
     session.off('session_switched', onSessionSwitched);
     session.off('context_update', onContextUpdate);
     session.off('compact', onCompact);

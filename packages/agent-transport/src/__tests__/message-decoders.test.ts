@@ -861,6 +861,12 @@ describe('completed compaction metadata', () => {
     }
   });
 
+  it('accepts a rewritten flag and refuses one that is not a boolean', () => {
+    const rewritten = { type: 'history_changed', rewritten: true };
+    expect(decodeServerMessage(rewritten)).toEqual({ ok: true, message: rewritten });
+    expect(decodeServerMessage({ type: 'history_changed', rewritten: 'yes' }).ok).toBe(false);
+  });
+
   it.each([
     null,
     [],

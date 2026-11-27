@@ -94,3 +94,6 @@ export {
   SessionRenameUnavailableError,
   persistSessionRename,
 } from './interactive-session-rename.js';
+// Forgetting text reaches a saved record and a live conversation the same way, keeping their shape.
+export { persistSessionRedaction, redactSessionRecord } from './session-record-redaction.js';
+export type { TSessionRedactionStatus, TTextRedactor } from './session-record-redaction.js';

@@ -38,6 +38,7 @@ import { buildModelListSnapshot } from '../command-api/provider/provider-model-c
 import { FallbackProvider } from '../routing/fallback-provider.js';
 import { applyModelFallback } from '../routing/model-fallback-chain.js';
 import { persistSessionRename } from './interactive-session-rename.js';
+import { redactSessionContent } from './session-record-redaction.js';
 import { loadSessionRecord, resumeRefusal } from './interactive-session-restore.js';
 import { SessionRecordClaim } from './session-record-claim.js';
 import { resolveSessionWorkspaceCwd } from './session-workspace-cwd.js';
@@ -49,6 +50,7 @@ import { SessionTerminalHandoffGate } from './interactive-session-terminal-hando
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
 import { ExternalEventIngress } from './external-event-ingress.js';
 import type { ICommand } from '../command-api/types.js';
+import type { TTextRedactor } from './session-record-redaction.js';
 import type { ExternalEventGrantHistory } from './external-event-ingress.js';
 import type { IExecutionSelfPacedLoopSummary } from '../background-tasks/index.js';
 import { PeerTurnRateLimiter } from './peer-turn-rate-limit.js';
@@ -2219,6 +2221,44 @@ export class InteractiveSession
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
     this.emit('history_cleared'); // Broadcast — every surface refreshes its transcript
+  }
+
+  /**
+   * Replaces matched text in the conversation, its display history and the session name, keeping
+   * every message, id and tool-call pairing, then saves and tells surfaces to re-read. Only an idle
+   * session is rewritten: `busy` while a turn runs, input waits, or an execution awaits recovery,
+   * since a running turn would keep appending the text it just read. The system prompt and
+   * background state are left as they are.
+   */
+  redactConversation(redact: TTextRedactor): 'redacted' | 'unchanged' | 'busy' {
+    const session = this.getSessionOrThrow();
+    if (
+      this.execCtrl.executing ||
+      this.promptRegistry.pendingCount > 0 ||
+      this.execCtrl.pendingCount() > 0 ||
+      session.getPendingExecution() !== undefined
+    ) {
+      return 'busy';
+    }
+    const messages = redactSessionContent(session.getHistory(), redact);
+    const tracked = this.histTracker.getState();
+    const display = redactSessionContent(tracked.history, redact);
+    const name = this.sessionName === undefined ? undefined : redact(this.sessionName);
+    const nameChanged = name !== this.sessionName;
+    if (!messages.changed && !display.changed && !nameChanged) return 'unchanged';
+    session.clearHistory();
+    for (const message of messages.value) session.injectRawMessage(message);
+    session.syncContextFromHistory();
+    this.histTracker.clearHistory();
+    this.histTracker.restoreState({ ...tracked, history: display.value });
+    this.sessionName = name;
+    try {
+      this.persistCurrentSession(true);
+    } finally {
+      this.emit('context_update', this.getContextState());
+      this.emit('history_rewritten');
+    }
+    return 'redacted';
   }
 
   getName(): string | undefined {
