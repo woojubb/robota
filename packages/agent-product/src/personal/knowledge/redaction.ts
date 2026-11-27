@@ -31,12 +31,19 @@ const WORD_CHARACTER = /[\p{L}\p{N}]/u;
  * Scripts where letters glued to a statement do not make it part of a different word: they are
  * written without word spaces (Han, kana, Thai, Lao, Khmer, Myanmar), or attach endings and
  * particles to the last word (Hangul: a statement ending in a verb is quoted back with a quotative
- * ending attached, and a name takes a topic particle). A boundary there would leave word-for-word copies in place, so an
- * edge in these scripts matches the literal span whatever its neighbour is. The extra matching this
- * allows is bounded by `isSpecificText`: a short statement is only searched in its own conversation.
+ * * ending attached, and a name takes a topic particle). A boundary there would leave word-for-word
+ * copies in place, so an edge in these scripts matches the literal span whatever its neighbour is.
+ * The same holds for the neighbour: a Latin or numeric edge ("010-1234-5678", a product name) is
+ * still found with such a particle attached, so only a neighbour outside these scripts counts as
+ * continuing the word. The extra matching is bounded by `isSpecificText`: a short statement is only
+ * searched in its own conversation.
  */
-const NO_EDGE_BOUNDARY =
-  /[\p{scx=Han}\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Hangul}\p{scx=Thai}\p{scx=Lao}\p{scx=Khmer}\p{scx=Myanmar}]/u;
+const NO_EDGE_CLASS =
+  '[\\p{scx=Han}\\p{scx=Hiragana}\\p{scx=Katakana}\\p{scx=Hangul}\\p{scx=Thai}\\p{scx=Lao}\\p{scx=Khmer}\\p{scx=Myanmar}]';
+const NO_EDGE_BOUNDARY = new RegExp(NO_EDGE_CLASS, 'u');
+
+/** A word character that is not in a no-boundary script: what makes a match part of a longer word. */
+const CONTINUES_WORD = `(?!${NO_EDGE_CLASS})[\\p{L}\\p{N}]`;
 
 function needsBoundary(edge: string): boolean {
   return WORD_CHARACTER.test(edge) && !NO_EDGE_BOUNDARY.test(edge);
@@ -54,8 +61,8 @@ function alternative(text: string): string | undefined {
   const last = words[words.length - 1]!;
   const firstCharacter = Array.from(first)[0]!;
   const lastCharacter = Array.from(last).at(-1)!;
-  const before = needsBoundary(firstCharacter) ? '(?<![\\p{L}\\p{N}])' : '';
-  const after = needsBoundary(lastCharacter) ? '(?![\\p{L}\\p{N}])' : '';
+  const before = needsBoundary(firstCharacter) ? `(?<!${CONTINUES_WORD})` : '';
+  const after = needsBoundary(lastCharacter) ? `(?!${CONTINUES_WORD})` : '';
   return `${before}${body}${after}`;
 }
 
