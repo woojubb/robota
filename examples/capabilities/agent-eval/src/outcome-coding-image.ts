@@ -34,9 +34,9 @@ export const FORBIDDEN_PATH_FRAGMENTS: readonly string[] = [
   'delegation-topology',
 ];
 
-/** Files whose names say they hold a credential: environment files (not their examples), keys, certificates. */
+/** Files whose names say they hold a credential: environment files (not their examples or defaults), keys, certificates. */
 export const CREDENTIAL_FILE_PATTERN =
-  /(^|\/)(\.env(\.(?!example$|sample$|template$)[^/]*)?|[^/]*\.(pem|key|p12|pfx)|id_(rsa|ed25519|ecdsa)[^/]*)$/;
+  /(^|\/)(\.env(\.(?!example$|sample$|template$|default$)[^/]*)?|[^/]*\.(pem|key|p12|pfx)|id_(rsa|ed25519|ecdsa)[^/]*)$/;
 
 /** Identifiers that occur only in the task fixtures and their solutions. */
 export const TASK_MARKERS: readonly string[] = [

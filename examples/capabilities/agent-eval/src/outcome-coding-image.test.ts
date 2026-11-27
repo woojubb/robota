@@ -7,6 +7,7 @@ import { test } from 'node:test';
 
 import {
   assembleImageContext,
+  CREDENTIAL_FILE_PATTERN,
   forbiddenTexts,
   FORBIDDEN_PATH_FRAGMENTS,
   readPnpmPin,
@@ -151,4 +152,26 @@ test('the Dockerfile pins the package manager, installs from the frozen lockfile
   assert.match(dockerfile, /--filter robota-capability-agent-eval\.\.\./);
   assert.doesNotMatch(dockerfile, /ARG|\.env|KEY|TOKEN|SECRET/);
   assert.throws(() => readPnpmPin(mkdtempSync(join(tmpdir(), 'coding-no-pin-'))));
+});
+
+test('credential-like file names are recognized, and the templates that ship in the repository are not', () => {
+  for (const name of [
+    '.env',
+    '.env.local',
+    'apps/x/.env.production',
+    'certs/server.pem',
+    'k/id_rsa',
+    'a/b.key',
+  ]) {
+    assert.ok(CREDENTIAL_FILE_PATTERN.test(name), name);
+  }
+  for (const name of [
+    '.env.example',
+    'examples/x/.env.example',
+    '.env.default',
+    'src/environment.ts',
+    'docs/keyboard.md',
+  ]) {
+    assert.ok(!CREDENTIAL_FILE_PATTERN.test(name), name);
+  }
 });
