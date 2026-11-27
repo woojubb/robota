@@ -584,9 +584,11 @@ wrote, so what it takes is bounded and a secret value is refused, judged by the 
 case is written in. A question carries only the urgency the agent suggests for it, and a suggestion decides
 nothing: which questions are also pushed to the person (on their channels, at a notification address they gave,
 on a page they have open, in a browser they subscribed while its page is closed) is decided by the person's own
-limits on what may reach them and when. A question the
-limits hold back waits for the one daily digest or stays in the feed, where every question is, so holding it
-back loses nothing, and a push counts only when something took it: a place that is not there, does not answer
+limits on what may reach them and when. A task offer the person chose to be told of shares those limits with
+questions, with one daily count between them and a stricter wait per source, so one source cannot be pushed twice
+in a day, and only the title the host verified is sent, never text from the source. A question or offer the
+limits hold back waits for the one daily digest or stays in the feed, where every one is, so holding it
+back loses nothing, the digest names an offer only while it is still offered, and a push counts only when something took it: a place that is not there, does not answer
 with success or is not being looked at takes nothing, and nothing is counted, retried or lost. The limits and
 the address are the person's words alone: no tool the agent can call, no text it reads and no urgency it
 suggests reaches them; the address may carry a token, so it is kept as a credential, shown only as its host,

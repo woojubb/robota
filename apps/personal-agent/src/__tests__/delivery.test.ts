@@ -519,7 +519,12 @@ describe('the person’s own routes to the limits', () => {
     const api = await client(started);
     expect(await api.send('GET', 'delivery')).toEqual({
       status: 200,
-      body: { settings: DEFAULTS, today: { sent: 0, limit: 3 }, waitingInDigest: 0 },
+      body: {
+        settings: DEFAULTS,
+        today: { sent: 0, limit: 3 },
+        waitingInDigest: 0,
+        offersWaitingInDigest: 0,
+      },
     });
 
     const saved = await api.send('PUT', 'delivery', {
@@ -534,7 +539,12 @@ describe('the person’s own routes to the limits', () => {
     };
     expect(saved).toEqual({
       status: 200,
-      body: { settings: expected, today: { sent: 0, limit: 5 }, waitingInDigest: 0 },
+      body: {
+        settings: expected,
+        today: { sent: 0, limit: 5 },
+        waitingInDigest: 0,
+        offersWaitingInDigest: 0,
+      },
     });
     expect((await api.send('GET', 'delivery')).body.settings).toEqual(expected);
 

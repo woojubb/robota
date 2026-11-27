@@ -104,8 +104,11 @@ export type {
   TWebhookAnswer,
   TWebhookFormat,
 } from './delivery/notification-address.js';
-export { QuestionDelivery } from './delivery/question-delivery.js';
-export type { IQuestionDeliveryOptions } from './delivery/question-delivery.js';
+export { OFFER_SOURCE_COOLDOWN_MS, QuestionDelivery } from './delivery/question-delivery.js';
+export type {
+  IOfferDeliveryInput,
+  IQuestionDeliveryOptions,
+} from './delivery/question-delivery.js';
 export { createFileDeliveryStores, createMemoryDeliveryStore } from './delivery/stores.js';
 export type {
   IDeliveryFeed,
@@ -116,6 +119,7 @@ export type {
   IDeliveryStatus,
   IDeliveryStore,
   IDigestSchedule,
+  IPendingOffer,
   IQuietHours,
   TDelivery,
 } from './delivery/types.js';
