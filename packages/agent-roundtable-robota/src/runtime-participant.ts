@@ -57,7 +57,8 @@ function discardingJournal(): IExecutionJournal {
  */
 export function runtimeParticipant(options: RuntimeParticipantOptions): AgentParticipant {
   const render = options.render ?? renderSharedIncrement;
-  const enforcement = options.enforcement && normalizeEnforcement(options.enforcement);
+  const enforcement =
+    options.enforcement !== undefined ? normalizeEnforcement(options.enforcement) : undefined;
   return {
     kind: 'agent',
     id: options.id,

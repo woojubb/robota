@@ -501,6 +501,36 @@ describe('runtimeParticipant and runtimeSelector: enforced', () => {
     expect(scripted.requests).toHaveLength(0);
   });
 
+  it('refuses a null enforcement instead of reading it as absent', () => {
+    const unused = () => {
+      throw new Error('not used');
+    };
+    const nothing = null as unknown as RuntimeEnforcement;
+    expect(() =>
+      runtimeParticipant({
+        id: 'p',
+        runtime: { id: 'f', version: '1' },
+        enforcement: nothing,
+        createAgent: unused,
+      }),
+    ).toThrow(expect.objectContaining({ code: 'invalid-config' }));
+    expect(() =>
+      runtimeSelector({
+        reference: { id: 's', version: '1' },
+        enforcement: nothing,
+        createAgent: unused,
+      }),
+    ).toThrow(expect.objectContaining({ code: 'invalid-config' }));
+    expect(() =>
+      sessionParticipant({
+        id: 'p',
+        runtime: { id: 'f', version: '1' },
+        enforcement: nothing,
+        createSessionOptions: unused,
+      }),
+    ).toThrow(expect.objectContaining({ code: 'invalid-config' }));
+  });
+
   it('declares enforced only with an enforcement option, and validates it at creation', () => {
     const unused = () => {
       throw new Error('not used');

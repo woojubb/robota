@@ -15,6 +15,7 @@ import { meterJournal } from './metering-journal';
 import {
   assertCallsAreBounded,
   normalizeEnforcement,
+  type RuntimeEnforcement,
   type SelectorEnforcement,
 } from './enforcement';
 import { quoteContent } from './render';
@@ -153,9 +154,14 @@ function toSelection(
  * there is no retry.
  */
 export function runtimeSelector(options: RuntimeSelectorOptions): TurnSelector {
-  const declared = options.enforcement && {
-    providerAttempts: options.enforcement.providerAttempts,
-    requestOverheadTokens: options.enforcement.requestOverheadTokens,
+  // Validated first, so a null or malformed declaration is refused rather than read as absent.
+  const given =
+    options.enforcement !== undefined
+      ? normalizeEnforcement(options.enforcement as RuntimeEnforcement)
+      : undefined;
+  const declared = given && {
+    providerAttempts: given.providerAttempts,
+    requestOverheadTokens: given.requestOverheadTokens,
     freeTools: [DECISION_TOOL_NAME],
   };
   const enforcement = declared && normalizeEnforcement(declared);
