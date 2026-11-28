@@ -1,0 +1,6 @@
+# The proxy's first configuration: only its admin socket, so that nothing is served and no TCP admin
+# port exists until the control plane loads the real sites through that socket.
+{
+	admin unix//run/personal-agent-host-proxy/admin.sock|0600
+	skip_install_trust
+}

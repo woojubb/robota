@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { chmod, readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -110,7 +110,30 @@ describe('a configuration the proxy refuses', () => {
     expect((await proxy.apply([alice])).hash).toBe(good.hash);
   });
 
-  it('removes a first file the proxy never accepted', async () => {
+  it('writes no file for a configuration the proxy refused, even beside a good one', async () => {
+    const { admin, proxy, configPath } = await setup();
+    await proxy.apply([alice]);
+    admin.failNext(400, 'bad');
+    await expect(proxy.apply([alice, bob])).rejects.toBeDefined();
+    expect(await readdir(join(configPath, '..'))).toEqual(['Caddyfile']);
+    expect(await readFile(configPath, 'utf8')).toBe(generateCaddyfile([alice], SETTINGS));
+  });
+
+  it('puts the proxy back on the last good configuration when the file cannot be written', async () => {
+    const { admin, proxy, configPath } = await setup();
+    await proxy.apply([alice]);
+    const dir = join(configPath, '..');
+    await chmod(dir, 0o500);
+    try {
+      await expect(proxy.apply([alice, bob])).rejects.toMatchObject({ code: 'runtime-failed' });
+    } finally {
+      await chmod(dir, 0o700);
+    }
+    expect(admin.calls.at(-1)?.body).toBe(generateCaddyfile([alice], SETTINGS));
+    expect(await readFile(configPath, 'utf8')).toBe(generateCaddyfile([alice], SETTINGS));
+  });
+
+  it('never writes a first file the proxy did not accept', async () => {
     const { admin, proxy, configPath } = await setup();
     admin.failNext(500, 'boom');
     await expect(proxy.apply([alice])).rejects.toMatchObject({ code: 'runtime-failed' });
