@@ -49,12 +49,14 @@ function run(
     encoding: 'utf8',
     timeout: 60_000,
   });
-  return {
-    signal: result.signal,
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
+  // Windows has no signals: killing a process ends it abnormally with no signal, no reply and no error text.
+  const killed =
+    result.signal === 'SIGKILL' ||
+    (process.platform === 'win32' &&
+      result.status !== 0 &&
+      result.stdout === '' &&
+      result.stderr === '');
+  return { killed, status: result.status, stderr: result.stderr };
 }
 
 async function names(root: string, ...path: string[]): Promise<string[]> {
@@ -74,7 +76,7 @@ describe('FileConversationStore after a real process kill', () => {
     'a commit killed at %s leaves no revision and a clean retry',
     async (point) => {
       const { root, claim } = await acknowledged();
-      expect(run(root, 'commit', point, claim).signal).toBe('SIGKILL');
+      expect(run(root, 'commit', point, claim).killed).toBe(true);
       const store = reopen(root);
       expect(await store.load('room')).toMatchObject({ revision: 1, state: { step: 1 } });
       expect(await store.lookupOperation('room', 'victim')).toBeUndefined();
@@ -92,7 +94,7 @@ describe('FileConversationStore after a real process kill', () => {
 
   it('a commit killed after the link is found once, by load and by receipt', async () => {
     const { root, claim } = await acknowledged();
-    expect(run(root, 'commit', 'linked', claim).signal).toBe('SIGKILL');
+    expect(run(root, 'commit', 'linked', claim).killed).toBe(true);
     const store = reopen(root);
     expect(await store.load('room')).toMatchObject({ revision: 2, state: { step: 2 } });
     const receipt = await store.lookupOperation('room', 'victim');
@@ -111,7 +113,7 @@ describe('FileConversationStore after a real process kill', () => {
     'a renewal killed at %s leaves the old claim intact and parseable',
     async (point) => {
       const { root, claim } = await acknowledged();
-      expect(run(root, 'renew', point, claim).signal).toBe('SIGKILL');
+      expect(run(root, 'renew', point, claim).killed).toBe(true);
       const store = reopen(root);
       const renewed = await store.renew(claim, 1_000);
       expect(renewed.fence).toBe(claim.fence);
@@ -126,7 +128,7 @@ describe('FileConversationStore after a real process kill', () => {
   ])('a claim killed at %s never has its fence issued twice', async (point, nextFence) => {
     const { root, claim } = await acknowledged();
     await reopen(root).release(claim);
-    expect(run(root, 'claim', point).signal).toBe('SIGKILL');
+    expect(run(root, 'claim', point).killed).toBe(true);
     let now = Date.now();
     const store = reopen(root, () => now);
     if (point === 'claim-renamed') {
@@ -144,7 +146,7 @@ describe('FileConversationStore after a real process kill', () => {
     async (operation) => {
       const { root, claim } = await acknowledged();
       if (operation === 'claim') await reopen(root).release(claim);
-      expect(run(root, operation, 'lock-held', claim).signal).toBe('SIGKILL');
+      expect(run(root, operation, 'lock-held', claim).killed).toBe(true);
       expect(await names(root)).toContain('claim.lock');
       const store = reopen(root);
       if (operation === 'commit') {
