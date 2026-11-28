@@ -214,8 +214,7 @@ A session runs one turn at a time:
   device, so an effect that starts after its admitting record was acknowledged is never absent
   from it. An execution ends by being sealed, which refuses every later append; an execution that
   holds records and was never sealed is one a crash interrupted, and its effects are unproven. A
-  journal that cannot be read in full (a partial last line, an unparsable or misnumbered record,
-  a foreign record) is refused, not repaired: nothing truncates history that may hold the only
+  journal that cannot be read in full is refused, not repaired: nothing truncates history that may hold the only
   proof of a dispatched effect. Abandoning such an execution seals it without opening it, so the
   bytes stay for inspection and it can never be resumed. A host that seals its stored artifacts
   has no sealed journal, and the store refuses to be built for it rather than write a sealed

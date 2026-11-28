@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ExecutionRecoveryError, isUniversalValueEqual } from '@robota-sdk/agent-core';
@@ -128,35 +128,44 @@ describe('NodeExecutionJournalStore', () => {
     expect(readFileSync(journalFile()).equals(before)).toBe(true);
   });
 
-  it('flushes the line before the append returns, and the directory only when it created the file', async () => {
-    const steps: string[] = [];
-    const journal = store({
-      sealing: 'plain',
-      io: {
-        writeSync: (fd, data) => {
-          steps.push('write');
-          appendFileSync(journalPathFor('s1'), data);
-          return data.length;
-        },
-        fsyncSync: () => void steps.push('fsync-file'),
-        syncDirectory: () => void steps.push('fsync-directory'),
+  function recordingIo(steps: string[]) {
+    return {
+      writeSync: (_fd: number, data: Uint8Array) => {
+        steps.push('write');
+        appendFileSync(journalPathFor('s1'), data);
+        return data.length;
       },
-    }).forSession('s1');
+      fsyncSync: () => void steps.push('fsync-file'),
+      syncDirectory: (directory: string) => void steps.push(`fsync-dir:${basename(directory)}`),
+    };
+  }
+
+  it('flushes the line before the append returns, and the directory entries once', async () => {
+    const steps: string[] = [];
+    const journal = store({ sealing: 'plain', io: recordingIo(steps) }).forSession('s1');
     await journal.append(request('a'));
+    const afterFirst = steps.slice(steps.indexOf('fsync-file') + 1);
+    expect(steps.indexOf('write')).toBeLessThan(steps.indexOf('fsync-file'));
+    // The file's own entry, then the session directory's entry in the journals root.
+    expect(afterFirst).toEqual(['fsync-dir:s1', `fsync-dir:${SESSION_JOURNALS_DIRECTORY}`]);
+    const before = steps.length;
     await journal.append(request('b'));
-    expect(steps.filter((step) => step !== 'fsync-directory')).toEqual([
-      'write',
-      'fsync-file',
-      'write',
-      'fsync-file',
-    ]);
-    const firstWrite = steps.indexOf('write');
-    expect(steps.indexOf('fsync-file')).toBeGreaterThan(firstWrite);
-    // Every directory flush belongs to a creation, and the last one follows the first file flush.
-    expect(steps.lastIndexOf('fsync-directory')).toBeGreaterThan(steps.indexOf('fsync-file'));
-    expect(
-      steps.slice(steps.indexOf('fsync-file') + 1).filter((s) => s === 'fsync-directory'),
-    ).toHaveLength(1);
+    expect(steps.slice(before)).toEqual(['write', 'fsync-file']);
+  });
+
+  it('a fresh instance flushes the directory once for a file an earlier append left behind', async () => {
+    // The earlier process may have died between its file flush and its directory flush, so that
+    // append was never acknowledged; the next acknowledged one must flush the entry itself.
+    await store().forSession('s1').append(request('a'));
+    const steps: string[] = [];
+    const journal = store({ sealing: 'plain', io: recordingIo(steps) }).forSession('s1');
+    await journal.append(request('b'));
+    await journal.append(request('c'));
+    expect(steps.filter((step) => step === 'fsync-dir:s1')).toHaveLength(1);
+    expect(steps.filter((step) => step === `fsync-dir:${SESSION_JOURNALS_DIRECTORY}`)).toHaveLength(
+      1,
+    );
+    expect(steps.filter((step) => step === 'write')).toHaveLength(2);
   });
 
   it('continues a short write', async () => {
@@ -260,6 +269,18 @@ describe('NodeExecutionJournalStore', () => {
       ExecutionRecoveryError,
     );
     expect(await journal.unresolved()).toEqual([]);
+  });
+
+  it('reports a damaged seal as a corrupt record', async () => {
+    const journal = store().forSession('s1');
+    await journal.append(request('a'));
+    await journal.seal(EXECUTION, { reason: 'completed' });
+    const directory = join(baseDir, SESSION_JOURNALS_DIRECTORY, 's1');
+    const sealed = readdirSync(directory).find((name) => name.endsWith('.sealed'))!;
+    writeFileSync(join(directory, sealed), '{"v":1,');
+    await expect(store().forSession('s1').sealOf(EXECUTION)).rejects.toMatchObject({
+      code: 'corrupt-record',
+    });
   });
 
   it('keeps files and directories owner-only', async () => {

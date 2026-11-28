@@ -32,7 +32,7 @@ import {
   statSync,
   writeSync,
 } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 
 import { ExecutionRecoveryError, isUniversalValueEqual } from '@robota-sdk/agent-core';
 import type { TExecutionJournalRecord } from '@robota-sdk/agent-core';
@@ -165,6 +165,14 @@ class SessionJournal implements ISessionExecutionJournal {
   readonly #ownedRoot: string | undefined;
   readonly #io: INodeExecutionJournalIo;
   readonly #loaded = new Map<string, ILoadedExecution>();
+  /**
+   * Executions whose file entry this instance has flushed into its directory. A file that already
+   * exists may have been created by an append that died before its directory flush and so was never
+   * acknowledged; the first acknowledged append of this instance flushes it again.
+   */
+  readonly #entrySynced = new Set<string>();
+  /** Whether the journals root's own entry for this session's directory has been flushed. */
+  #rootSynced = false;
 
   constructor(directory: string, ownedRoot: string | undefined, io: INodeExecutionJournalIo) {
     this.#directory = directory;
@@ -266,7 +274,12 @@ class SessionJournal implements ISessionExecutionJournal {
       if (isMissing(error)) return undefined;
       throw error;
     }
-    const parsed = JSON.parse(text) as Partial<IExecutionSeal> & { v?: unknown };
+    let parsed: Partial<IExecutionSeal> & { v?: unknown };
+    try {
+      parsed = JSON.parse(text) as Partial<IExecutionSeal> & { v?: unknown };
+    } catch {
+      throw new ExecutionJournalStoreError('corrupt-record', 'The execution seal is unreadable');
+    }
     if (
       parsed.v !== LINE_VERSION ||
       typeof parsed.reason !== 'string' ||
@@ -336,7 +349,15 @@ class SessionJournal implements ISessionExecutionJournal {
     } finally {
       closeSync(descriptor);
     }
-    if (created) (this.#io.syncDirectory ?? syncDirectory)(this.#directory);
+    const flush = this.#io.syncDirectory ?? syncDirectory;
+    if (created || !this.#entrySynced.has(executionId)) {
+      flush(this.#directory);
+      this.#entrySynced.add(executionId);
+    }
+    if (!this.#rootSynced) {
+      flush(dirname(this.#directory));
+      this.#rootSynced = true;
+    }
     loaded.records.push(stored);
     loaded.byId.set(stored.recordId, stored);
     loaded.size += line.length;

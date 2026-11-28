@@ -6,7 +6,7 @@
  * `-0` is not `0`, a shared object is not two equal copies, and a cycle is not an error. Each is
  * written as a tagged node, so a stored record decodes to a value `isUniversalValueEqual` accepts as
  * the original. Anything the journal contract does not carry (functions, symbols, big integers, class
- * instances, accessors, sparse arrays) is refused at encode time, so a record is never stored as
+ * instances, accessors, sparse arrays) is refused when it is appended (the clone or the encoding throws), so a record is never stored as
  * something other than what was appended.
  */
 
