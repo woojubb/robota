@@ -9,7 +9,10 @@ export class RuntimeParticipantError extends Error {
       | 'resource-reused'
       | 'unmetered-caller'
       | 'unbounded-call'
-      | 'invalid-config',
+      | 'invalid-config'
+      | 'journal-not-durable'
+      | 'recovery-unsupported'
+      | 'invalid-response',
     message: string,
   ) {
     super(message);

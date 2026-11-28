@@ -180,6 +180,26 @@ That default also only ever frees a session's records once its execution settles
 a parked wait whose conversation fails or is simply never resumed keeps its records in memory for the
 life of the process. A host that expects abandoned waits supplies its own `journal` to clean those up.
 
+### Reconcilable recovery
+
+Passing `recovery: { journal(scope) }` instead of `journal` makes a `sessionParticipant` declare
+`recovery: 'reconcilable'`, which a durable conversation requires. `journal(scope)` returns the
+`RecoveryJournal` of one conversation and participant: `append(entry)` resolves only once the entry
+survives the writer, `read()` returns every entry in append order, and `durability` is `'durable'` only
+when that holds. A journal that declares otherwise is refused with `journal-not-durable` before any
+session options are built, as are automatic compaction and hooks (`recovery-unsupported`), which write
+or run outside it. Entries are structured-cloneable values, since a journaled message holds a `Date`:
+how they reach a disk is the journal's own business, and a journal has one writer per scope.
+
+After a restart the roundtable asks the factory what its journal proves about the attempt that was
+running. A turn that never began is refunded and started again. A request journaled without a
+response is asked again, under a new call id and with its bound kept counted. A journaled final
+response completes the turn without a provider call. A turn whose end was journaled is answered from
+that, so a lost reply is not a rerun. A tool effect that started without a result is never started
+again: the turn parks a `reconciliation` request carrying the effect's identity and parameters, and the
+host settles it by answering `{ result }` (the effect completed and produced that value) or `{ error }`
+(it did not), which becomes the effect's journaled result before the run continues.
+
 ## `runtimeParticipant`: a plain agent turn, no continuation
 
 `runtimeParticipant` wraps a plain `ConversationAgent` agent the host already constructed. It metering-wraps every
@@ -239,7 +259,8 @@ it settles. A `Session`-backed, checkpoint-resumable journal uses `meterRecovera
 ## Errors
 
 `RuntimeParticipantError` (`unsupported-wait`, `identity-mismatch`, `checkpoint-invalid`,
-`journal-missing`, `resource-reused`, `unmetered-caller`, `unbounded-call`, `invalid-config`) is
+`journal-missing`, `resource-reused`, `unmetered-caller`, `unbounded-call`, `invalid-config`,
+`journal-not-durable`, `recovery-unsupported`, `invalid-response`) is
 thrown by a participant's `runTurn`/`resumeTurn`/`openSession`; `invalid-config` is also thrown when a
 participant, selector or `meterJournal` wrapper is created with an invalid `enforcement`.
 `SelectorDecisionError` (`no-candidates`, `no-decision`, `multiple-decisions`, `invalid-decision`,
@@ -312,9 +333,8 @@ A paid tool's effect is admitted before it starts, as a tool effect with the dec
 a rejection (`budget-limit`, or an effect a cost budget cannot price) means the effect never runs; a
 denied approval starts no effect and charges nothing. The effect is settled when its result arrives:
 as `reported` with zero tokens for a bound of `0`, otherwise as `unknown` and not final, so the bound
-stays counted until the host settles the effect with `reconcileUsage`. The ledger call id is
-`tool-effect:` plus the journal's action id, and an enforced runtime refuses a model call that takes
-that prefix.
+stays counted until the host settles the effect with `reconcileUsage`. Each admission takes a fresh
+call id beginning `tool-effect:`, and an enforced runtime refuses a model call that takes that prefix.
 
 ## Provider SDK retries
 

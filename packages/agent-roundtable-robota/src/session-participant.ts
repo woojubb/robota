@@ -9,6 +9,8 @@ import type {
 import type { ISessionOptions, TSessionExecutionResult } from '@robota-sdk/agent-session';
 import type {
   AgentParticipant,
+  AttemptRecovery,
+  AttemptRecoveryInput,
   JsonValue,
   ParticipantExecutionOptions,
   ParticipantOutcome,
@@ -35,6 +37,15 @@ import {
   normalizeEnforcement,
   type RuntimeEnforcement,
 } from './enforcement';
+import { classifyAttempt } from './attempt-recovery';
+import {
+  assertDurableJournal,
+  attemptJournal,
+  ScopeLog,
+  type AttemptJournal,
+  type SessionRecoveryOptions,
+} from './recovery-journal';
+import { settleReconciledEffect, type EffectSettlement } from './effect-settlement';
 import { toCompletionOutcome } from './outcome';
 import { RuntimeParticipantError } from './errors';
 import { claimLease } from './resource-guard';
@@ -56,6 +67,13 @@ export interface SessionParticipantOptions {
   createSessionOptions(ctx: OpenContext): SessionHostOptions | Promise<SessionHostOptions>;
   /** A durable journal keyed by this Session; default is an in-process one, kept for this process. */
   journal?(ctx: OpenContext & { sessionId: string }): IRecoverableExecutionJournal;
+  /**
+   * Makes the participant reconcilable: a turn a process stopped midway is recovered from this
+   * journal instead of rerun, and every call it had admitted is settled, refunded or kept counted.
+   * It replaces `journal`, and the Session may use neither automatic compaction nor hooks, which
+   * write or run outside it.
+   */
+  recovery?: SessionRecoveryOptions;
   render?: TurnRenderer;
   /**
    * Declares that every provider call can be bounded before dispatch. With it the participant
@@ -87,6 +105,27 @@ const APPROVAL_WAIT_KIND = 'robota-session/approval';
 
 interface ApprovalRequestData {
   arguments: JsonValue;
+}
+
+/**
+ * Automatic compaction writes under an execution id of its own, and hooks run before the first journal
+ * record and are skipped when a turn resumes: neither can be recovered from the journal, so a
+ * reconcilable participant refuses both before it opens anything.
+ */
+function assertRecoverableSession(hostOptions: SessionHostOptions): void {
+  if (hostOptions.autoCompactThreshold !== false)
+    throw new RuntimeParticipantError(
+      'recovery-unsupported',
+      'Automatic compaction runs outside the recovery journal; set `autoCompactThreshold: false`',
+    );
+  const hooked = Object.values(hostOptions.hooks ?? {}).some(
+    (hook) => !(Array.isArray(hook) && hook.length === 0),
+  );
+  if (hooked)
+    throw new RuntimeParticipantError(
+      'recovery-unsupported',
+      'Hooks run outside the recovery journal and are skipped when a turn resumes',
+    );
 }
 
 function freshState(cwd: string): SessionCheckpointState {
@@ -133,6 +172,12 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
   const render = options.render ?? renderSharedIncrement;
   const enforcement =
     options.enforcement !== undefined ? normalizeEnforcement(options.enforcement) : undefined;
+  if (options.recovery && options.journal)
+    throw new RuntimeParticipantError(
+      'invalid-config',
+      'A reconcilable sessionParticipant takes its journal from `recovery`, not `journal`',
+    );
+  const recovery = options.recovery;
   return {
     kind: 'agent',
     id: options.id,
@@ -142,6 +187,19 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
       supportsContinuation: true,
       checkpointVersions: [AGENT_SESSION_CHECKPOINT_VERSION],
       modelCalls: enforcement ? 'enforced' : 'metered',
+      ...(recovery
+        ? {
+            recovery: 'reconcilable' as const,
+            async reconcile(input: AttemptRecoveryInput): Promise<AttemptRecovery> {
+              const journal = recovery.journal({
+                conversationId: input.conversationId,
+                participantId: input.participantId,
+              });
+              assertDurableJournal(journal);
+              return classifyAttempt({ entries: await journal.read(), input, enforcement });
+            },
+          }
+        : {}),
       async openSession(context) {
         const restoring = context.checkpoint !== undefined;
         const openCtx: OpenContext = {
@@ -149,6 +207,12 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
           participantId: context.participantId,
           restoring,
         };
+        // Refused first: nothing below may depend on a journal that can lose what it acknowledged.
+        const recoveryJournal = recovery?.journal({
+          conversationId: context.conversationId,
+          participantId: context.participantId,
+        });
+        if (recoveryJournal) assertDurableJournal(recoveryJournal);
         const hostOptions = await options.createSessionOptions(openCtx);
         // Before the lease and before `new Session`, whose constructor fires SessionStart hooks.
         assertCallersAreMetered({
@@ -156,6 +220,7 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
           permissionClassifier: hostOptions.permissionClassifier,
           hookTypeExecutors: hostOptions.hookTypeExecutors,
         });
+        if (recoveryJournal) assertRecoverableSession(hostOptions);
         if (enforcement)
           assertCallsAreBounded({
             providers: [hostOptions.provider],
@@ -188,8 +253,9 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
         // that releases the lease on the way out, so a failure here never leaves this provider or
         // these tools permanently unusable to a later `openSession`.
         let session!: Session;
-        const usingDefaultJournal = options.journal === undefined;
-        let journal: IRecoverableExecutionJournal;
+        const usingDefaultJournal = options.journal === undefined && recoveryJournal === undefined;
+        const scopeLog = recoveryJournal ? new ScopeLog(recoveryJournal) : undefined;
+        let journal: IRecoverableExecutionJournal | undefined;
         try {
           session = new Session({
             ...hostOptions,
@@ -200,9 +266,10 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             },
           });
           if (state.history) for (const message of state.history) session.injectRawMessage(message);
-          journal =
-            options.journal?.({ ...openCtx, sessionId: state.sessionId }) ??
-            createInProcessJournal(state.sessionId);
+          if (!scopeLog)
+            journal =
+              options.journal?.({ ...openCtx, sessionId: state.sessionId }) ??
+              createInProcessJournal(state.sessionId);
         } catch (error) {
           try {
             if (session) await session.shutdown().catch(() => {});
@@ -216,7 +283,20 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
         let pendingWait: { executionId: string; requestIds: string[] } | null = state.pending;
         let releasePromise: Promise<void> | undefined;
 
+        function attemptFor(turn: ParticipantTurn): AttemptJournal | undefined {
+          return scopeLog
+            ? attemptJournal(scopeLog, {
+                attemptId: turn.attemptId,
+                sessionId: state.sessionId,
+                cwd: hostOptions.cwd,
+              })
+            : undefined;
+        }
+
         async function settle(
+          turn: ParticipantTurn,
+          phase: string,
+          attempt: AttemptJournal | undefined,
           execOptions: ParticipantExecutionOptions,
           run: (meteredJournal: IRecoverableExecutionJournal) => Promise<TSessionExecutionResult>,
         ): Promise<ParticipantOutcome> {
@@ -225,9 +305,10 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
           const signal = execOptions.signal;
           try {
             const meteredJournal = meterRecoverableJournal(
-              journal,
+              attempt ?? journal!,
               execOptions.services,
               options.enforcement,
+              attempt?.effectCalls,
             );
             const result = await run(meteredJournal);
             // An aborted run can resolve instead of rejecting, the way a plain ConversationAgent agent's
@@ -240,23 +321,35 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             // resume call that resolves on abort instead.
             if (signal.aborted) throw signal.reason;
             await deltaQueue.flush();
+            let outcome: ParticipantOutcome;
             if (result.status === 'waiting') {
-              const outcome = toWaitOutcome(result.requests);
+              outcome = toWaitOutcome(result.requests);
               firstTurnDone = true;
               pendingWait = {
                 executionId: result.requests[0]!.executionId,
                 requestIds: result.requests.map((request) => request.requestId),
               };
-              return outcome;
+            } else {
+              firstTurnDone = true;
+              pendingWait = null;
+              outcome = toCompletionOutcome(result.response);
             }
-            firstTurnDone = true;
-            pendingWait = null;
+            // The turn's end is journaled before it is returned, so a reply lost with the process is
+            // recovered as this outcome and never as a rerun.
+            if (attempt && outcome.kind !== 'failed')
+              await attempt.turnEnd({
+                kind: 'turn-end',
+                attemptId: turn.attemptId,
+                phase,
+                outcome,
+                checkpoint: await participantSession.checkpoint!(),
+              });
             // The default in-process journal never freed a settled execution's records (full
             // message arrays included) — safe exactly here, because nothing reads them back once
             // this turn settled with no wait parked; a journal a host supplied is left alone,
             // since its lifecycle is the host's to manage.
-            if (usingDefaultJournal) clearInProcessJournal(state.sessionId);
-            return toCompletionOutcome(result.response);
+            if (usingDefaultJournal && !pendingWait) clearInProcessJournal(state.sessionId);
+            return outcome;
           } catch (error) {
             if (signal.aborted) throw signal.reason ?? error;
             throw error;
@@ -276,8 +369,21 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             });
           },
           async runTurn(turn: ParticipantTurn, execOptions: ParticipantExecutionOptions) {
+            const attempt = attemptFor(turn);
+            // Recovery restores a parked execution with no request: it is this attempt's own journal,
+            // continued where it stopped, and the turn's input is not submitted again.
+            const recovered = attempt && pendingWait?.requestIds.length === 0 ? pendingWait : null;
+            if (recovered)
+              return settle(turn, 'run', attempt, execOptions, (meteredJournal) =>
+                session.resumeRecoverable({
+                  executionId: recovered.executionId,
+                  journal: meteredJournal,
+                  toolResponses: [],
+                  signal: execOptions.signal,
+                }),
+              );
             const text = render(turn, { firstTurn: !firstTurnDone });
-            return settle(execOptions, (meteredJournal) =>
+            return settle(turn, 'run', attempt, execOptions, (meteredJournal) =>
               session.runRecoverable(text, {
                 executionJournal: meteredJournal,
                 signal: execOptions.signal,
@@ -295,39 +401,65 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
                 'identity-mismatch',
                 'No approval wait is parked for this participant',
               );
-            const toolResponses = responses.map((entry) => {
-              const request = entry.request;
-              const response = entry.response;
-              if (
-                request.kind !== 'approval' ||
-                response.kind !== 'approval' ||
-                request.turnId !== turn.turnId ||
-                request.participantId !== turn.participantId ||
-                !parked.requestIds.includes(request.id)
+            const attempt = attemptFor(turn);
+            const toolResponses: {
+              requestId: string;
+              responseId: string;
+              response: { approved: boolean };
+            }[] = [];
+            const reconciled: EffectSettlement[] = [];
+            for (const entry of responses) {
+              const { request, response } = entry;
+              const belongs =
+                request.turnId === turn.turnId &&
+                request.participantId === turn.participantId &&
+                parked.requestIds.includes(request.id);
+              if (belongs && request.kind === 'approval' && response.kind === 'approval')
+                toolResponses.push({
+                  requestId: request.id,
+                  responseId: entry.responseId,
+                  response: { approved: response.approved },
+                });
+              else if (
+                belongs &&
+                attempt &&
+                request.kind === 'reconciliation' &&
+                response.kind === 'reconciliation'
               )
+                reconciled.push({
+                  requestId: request.id,
+                  request: request.data,
+                  answer: response.data,
+                });
+              else
                 throw new RuntimeParticipantError(
                   'identity-mismatch',
-                  'Approval response does not match the parked wait',
+                  'Response does not match the parked wait',
                 );
-              return {
-                requestId: request.id,
-                responseId: entry.responseId,
-                response: { approved: response.approved },
-              };
-            });
-            const priorRecords = await journal.read(parked.executionId);
+            }
+            const reader = attempt ?? journal!;
+            const priorRecords = await reader.read(parked.executionId);
             if (priorRecords.length === 0)
               throw new RuntimeParticipantError(
                 'journal-missing',
                 'No journal records were found for the parked execution',
               );
-            return settle(execOptions, (meteredJournal) =>
-              session.resumeRecoverable({
-                executionId: parked.executionId,
-                journal: meteredJournal,
-                toolResponses,
-                signal: execOptions.signal,
-              }),
+            // What the host reports about an effect that started without a result becomes that
+            // effect's journaled result, so the run continues from it and never starts the effect again.
+            for (const settlement of reconciled)
+              await settleReconciledEffect(attempt!, parked.executionId, settlement);
+            return settle(
+              turn,
+              `wait:${parked.requestIds.join(',')}`,
+              attempt,
+              execOptions,
+              (meteredJournal) =>
+                session.resumeRecoverable({
+                  executionId: parked.executionId,
+                  journal: meteredJournal,
+                  toolResponses,
+                  signal: execOptions.signal,
+                }),
             );
           },
         };

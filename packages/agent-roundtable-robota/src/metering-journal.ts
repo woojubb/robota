@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { collectAssistantUsageMetadata, verifiedProviderCallUsage } from '@robota-sdk/agent-core';
 import type {
   IExecutionJournal,
@@ -48,7 +49,7 @@ function usageTokens(
  * provenance: an unverified count attached to an unverified report reads as more trustworthy than
  * it is.
  */
-function usageReport(
+export function usageReport(
   callId: string,
   outcome: UsageReport['outcome'],
   response: TUniversalMessage,
@@ -79,14 +80,37 @@ function usageReport(
 }
 
 /**
- * A paid tool effect's ledger call id. The journal's action id is stable across a retried or
- * recovered attempt, so admission is idempotent and recovery can find the effect again; the prefix
- * keeps it apart from every model call id, which the journal derives without it.
+ * The prefix of every paid tool effect's ledger call id. It keeps those ids apart from the model
+ * call ids the journal derives, so an enforced runtime can refuse a model call that tries to take one.
  */
-const TOOL_EFFECT_CALL_PREFIX = 'tool-effect:';
+export const TOOL_EFFECT_CALL_PREFIX = 'tool-effect:';
 
-export function toolEffectCallId(actionId: string): string {
-  return `${TOOL_EFFECT_CALL_PREFIX}${actionId}`;
+export type ToolEffectStart = Extract<TExecutionJournalRecord, { kind: 'tool-effect-start' }>;
+
+/**
+ * Where a paid effect's ledger call id comes from. The journal's action id is not enough: a resumed
+ * attempt reuses it, and a call recovery refunded as never dispatched may not be admitted again under
+ * its old id. So each admission takes a fresh id, which the source records before the caller admits
+ * it, and recovery can then map every reserved call back to the action it was for.
+ */
+export interface EffectCallIds {
+  /** The same record always gets the same id, so a repeated append stays one admission. */
+  claim(record: ToolEffectStart): Promise<string>;
+}
+
+/** Ids that live as long as the wrapper using them, for a journal that keeps no recovery log. */
+export function freshEffectCallIds(): EffectCallIds {
+  const claimed = new Map<string, string>();
+  return {
+    async claim(record) {
+      let callId = claimed.get(record.actionId);
+      if (!callId) {
+        callId = `${TOOL_EFFECT_CALL_PREFIX}${randomUUID()}`;
+        claimed.set(record.actionId, callId);
+      }
+      return callId;
+    },
+  };
 }
 
 /** The paid effects a journal has admitted and not yet settled, by action id. */
@@ -99,7 +123,7 @@ type StartedEffects = Map<string, { callId: string; tokens: number }>;
  * effect's consumption is unknown to the adapter: it stays non-final, so the bound is kept until the
  * host reconciles it and a repeated result can replace it.
  */
-function effectReport(callId: string, tokens: number, succeeded: boolean): UsageReport {
+export function effectReport(callId: string, tokens: number, succeeded: boolean): UsageReport {
   if (tokens === 0)
     return {
       callId,
@@ -133,6 +157,7 @@ async function meteredAppend(
   services: TurnServices,
   enforcement: CallEnforcement | undefined,
   started: StartedEffects,
+  effectCalls: EffectCallIds,
 ): Promise<void> {
   if (enforcement && record.kind === 'managed-frame')
     throw new RuntimeParticipantError(
@@ -149,7 +174,7 @@ async function meteredAppend(
     if (tokens !== undefined) {
       // Admitted before the start record reaches the inner journal, so a refusal means the effect
       // never starts. A denied approval writes no start record and so is never charged.
-      const callId = toolEffectCallId(record.actionId);
+      const callId = await effectCalls.claim(record);
       await services.admitToolEffect({ callId, toolName: record.toolName, tokens });
       started.set(record.actionId, { callId, tokens });
     }
@@ -236,8 +261,9 @@ export function meterJournal(
 ): IExecutionJournal {
   const declared = enforcement && normalizeEnforcement(enforcement);
   const started: StartedEffects = new Map();
+  const effectCalls = freshEffectCallIds();
   return {
-    append: (record) => meteredAppend(record, inner, services, declared, started),
+    append: (record) => meteredAppend(record, inner, services, declared, started, effectCalls),
   };
 }
 
@@ -250,11 +276,12 @@ export function meterRecoverableJournal(
   inner: IRecoverableExecutionJournal,
   services: TurnServices,
   enforcement?: RuntimeEnforcement,
+  effectCalls: EffectCallIds = freshEffectCallIds(),
 ): IRecoverableExecutionJournal {
   const declared = enforcement && normalizeEnforcement(enforcement);
   const started: StartedEffects = new Map();
   return {
-    append: (record) => meteredAppend(record, inner, services, declared, started),
+    append: (record) => meteredAppend(record, inner, services, declared, started, effectCalls),
     read: (executionId) => inner.read(executionId),
   };
 }

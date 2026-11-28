@@ -22,7 +22,7 @@ services before it reaches the provider; a call an admission rejects is never di
 limit stops a runtime before it produces a result nothing asked for. A runtime configured, through
 what the adapter can see (its provider options, a routing or managed provider, a model-backed hook),
 to reach a provider by another path or to carry one admitted call on to other models is refused
-before its first call, because no limit can count calls it never sees. An enforced runtime gives each call a bound taken from the request it is about to send, large enough for every attempt the provider may bill; a call whose bound cannot be established is refused rather than sent, and a call that may have been billed more than once keeps its bound counted until the host reconciles it. A paid tool effect is admitted against the budget before it starts and is refused, never started, when the budget or its price cannot admit it; it is settled when its result arrives and, because what a tool spent is the host's to say, a model-backed one keeps its bound counted until the host reconciles it. A cache hit costs nothing to
+before its first call, because no limit can count calls it never sees. An enforced runtime gives each call a bound taken from the request it is about to send, large enough for every attempt the provider may bill; a call whose bound cannot be established is refused rather than sent, and a call that may have been billed more than once keeps its bound counted until the host reconciles it. A paid tool effect is admitted against the budget before it starts, under a call id of its own for each admission, and is refused, never started, when the budget or its price cannot admit it; it is settled when its result arrives and, because what a tool spent is the host's to say, a model-backed one keeps its bound counted until the host reconciles it. A cache hit costs nothing to
 serve, so it is reported through the ledger's admission-free cache-hit path instead, carrying its own
 identity — never spending a call-limit allowance a free hit did not need.
 
@@ -44,6 +44,12 @@ borrowed, and repeated release awaits the same teardown. Borrowing leaves provid
 with the external owner; it does not make concurrent use safe. Resources are fixed when the lease opens;
 the host must not replace them externally during a live lease.
 
+A participant that declares itself reconcilable recovers a turn a process stopped midway from its own
+durable journal, never by rerunning what the journal shows already happened: a call proven never
+dispatched is refunded, a call whose report the journal holds is settled with it, and a call it cannot
+prove either way stays counted. A turn whose end was journaled is answered from it, and an effect that
+started without a result is never started again until the host settles it.
+
 A selector backed by an agent trusts a decision only when the agent reaches it through the one
 channel offered for reaching it, unambiguously, and only when it names conversation participants that
 are actually present; every other outcome fails the selection outright, with no retry of its own — a
@@ -62,9 +68,9 @@ first is still open.
 
 This package supplies no concrete provider, transport, or command surface, and does not choose a
 runtime's model, tools or permission policy — those remain the host's `createSessionOptions` /
-`createAgent` closures. It does not recover a runtime that a process crash interrupted mid-turn, or
-reconcile an external effect a cancelled attempt may have already started; those stay the deferred
-concerns `agent-roundtable` itself declines to solve. Its callers are metered unless the host declares
+`createAgent` closures. It recovers a process-interrupted turn only from a durable journal the host supplies and
+supplies none itself, and it does not reconcile an external effect that a cancelled attempt in a living
+process may have already started; that stays the concern `agent-roundtable` itself declines to solve. Its callers are metered unless the host declares
 enforcement: a metered caller admits and reports what a runtime already reports but cannot declare a
 call's bound before dispatch, so a conversation with a budget refuses it rather than count it
 unbounded. Enforcement is the host's declaration, proven when the lease opens; a bound rests on the
@@ -78,6 +84,13 @@ Session's own `input` or `reconciliation` waits, or a durable, cross-process res
   own session id at module scope, so a parked wait reloaded through `loadRoundtable` within the same
   process resumes without a host having to plumb its own durability for that common case; it is not a
   substitute for a host's own durable journal across a process restart.
+- A reconcilable participant binds each attempt to its session and execution before the first record of
+  it is journaled: the runtime chooses the execution id, and a participant interrupted on its first
+  turn has no checkpoint to carry the session id. A paid effect takes a fresh call id for each
+  admission, written to the journal before it is admitted, because recovery refunds by call id and the
+  ledger never admits a refunded id again, while a resumed attempt reuses the journal's action id. A
+  request that never got a response is hidden from the execution that resumes, since the runtime
+  refuses to continue past it and nothing after it depended on it.
 - A parked wait's checkpoint omits private history rather than duplicating it: the live session that
   produced the wait is the runtime of record for that turn, and a settled checkpoint already carries
   history once there is a boundary safe to restore from.
