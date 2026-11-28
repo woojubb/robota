@@ -267,6 +267,19 @@ export function applyRecovery(
           answer.requests.some((request) => request?.kind !== 'reconciliation')
         )
           refuse(`An uncertain effect needs reconciliation requests: ${member.participantId}`);
+        // A host that already answered these requests before the process died is not asked again:
+        // the member continues with those committed responses, and the participant journals them.
+        const answered =
+          answer.requests.length === member.requestIds.length &&
+          answer.requests.every(
+            (request) =>
+              member.requestIds.includes(request.id) &&
+              state.responses.some((entry) => entry.value.request.id === request.id),
+          );
+        if (answered) {
+          Object.assign(member, { status: 'resumable', checkpoint });
+          break;
+        }
         member.outcome = { kind: 'wait', requests: answer.requests };
         park(state, member, answer.requests, checkpoint);
         break;

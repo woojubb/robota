@@ -72,7 +72,8 @@ wait binds the original request, correlated response and private checkpoint to t
 turn. That execution keeps its original shared view, which a loaded conversation never asks the
 context policy to assemble again, so unrelated input cannot enter before it resolves.
 Uncertain external effects require reconciliation before they can be attempted again: an effect started
-without a result is never attempted again until the host settles it. Recovery requires declared
+without a result is never attempted again until the host settles it, and an answer the host already
+committed is delivered after a restart rather than asked for again. Recovery requires declared
 capabilities, in the store, the participants and the selector, checked before any work, since a
 guarantee nothing enforces would be silently weaker than it claims.
 
