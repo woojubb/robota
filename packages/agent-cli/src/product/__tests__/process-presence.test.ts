@@ -72,6 +72,9 @@ const entries = (prefix: string): string[] =>
     ? readdirSync(presenceDirectory()).filter((name) => name.startsWith(prefix))
     : [];
 
+/** Stand-in pid for a process in another container: above every platform's maximum pid, so no spawned child can share its directory name. */
+const OTHER_NAMESPACE_PID = 4_194_305;
+
 /** A real process that stays alive until the test ends, with its identity as its own record would state it. */
 async function liveProcess(): Promise<IProcessIdentity> {
   const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
@@ -98,7 +101,7 @@ function leavePresence(prefix: string, owner: IProcessIdentity, mode?: string): 
 
 /** A presence (or marker) as a crash between creating it and writing its owner record left it, `ageMs` ago. */
 function leaveOwnerless(prefix: string, suffix: string, ageMs: number): string {
-  const directory = join(presenceDirectory(), `${prefix}4242-${suffix}`);
+  const directory = join(presenceDirectory(), `${prefix}${OTHER_NAMESPACE_PID}-${suffix}`);
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const at = new Date(Date.now() - ageMs);
   utimesSync(directory, at, at);
@@ -126,10 +129,12 @@ describe.skipIf(posixOnly)('presence at store construction', () => {
 
     expect(code).toBe(1);
     expect(errors.join('')).toContain('remain active or uncertain');
-    expect(resolveCliRuntimeContext({
-      productConfig: runtime.config,
-      environment: runtime.environment,
-    }).conversationMode).toBe('secure');
+    expect(
+      resolveCliRuntimeContext({
+        productConfig: runtime.config,
+        environment: runtime.environment,
+      }).conversationMode,
+    ).toBe('secure');
   });
 
   it('is created at the first store construction, once, naming this process', () => {
@@ -202,7 +207,7 @@ describe.skipIf(posixOnly)('presence at store construction', () => {
   it('refuses to open stores past a migration marker whose owner cannot be checked from here', () => {
     const marker = leavePresence('migration-', {
       ...readCurrentProcessIdentity(),
-      pid: 4242,
+      pid: OTHER_NAMESPACE_PID,
       pidNamespace: 'pid:[4026531999]',
     });
 
@@ -251,7 +256,7 @@ describe.skipIf(posixOnly)('presence at store construction', () => {
     const goneMigration = leavePresence('migration-', goneProcessOwner());
     const otherContainer = leavePresence('process-', {
       ...readCurrentProcessIdentity(),
-      pid: 4242,
+      pid: OTHER_NAMESPACE_PID,
       pidNamespace: 'pid:[4026531999]',
     });
 
@@ -268,7 +273,7 @@ describe.skipIf(posixOnly)('a migration marker', () => {
     const live = leavePresence('process-', await liveProcess(), 'interactive');
     const otherContainer = leavePresence('process-', {
       ...readCurrentProcessIdentity(),
-      pid: 4242,
+      pid: OTHER_NAMESPACE_PID,
       pidNamespace: 'pid:[4026531999]',
     });
     const gone = leavePresence('process-', goneProcessOwner(), 'serve');
@@ -300,7 +305,7 @@ describe.skipIf(posixOnly)('a migration marker', () => {
     // boot id of another machine mean nothing here.
     const elsewhere = leavePresence('process-', {
       ...readCurrentProcessIdentity(),
-      pid: 4242,
+      pid: OTHER_NAMESPACE_PID,
       hostname: 'another-machine.example',
     });
     const unnamed = leavePresence('process-', {
