@@ -101,7 +101,7 @@ describe('health', () => {
     const unverified = await host.plane.health();
     expect(unverified.problems.map((p) => p.kind)).toEqual(['guard']);
     host.runtime.setGuard('verified');
-    host.runtime.failNext('describe', new Error('engine unreachable'));
+    host.runtime.failNext('verifyGuard', new Error('engine unreachable'));
     const unreadable = await host.plane.health();
     expect(unreadable.problems).toHaveLength(1);
     expect(unreadable.problems[0].message).toContain('engine unreachable');
@@ -143,6 +143,21 @@ describe('health', () => {
   });
 });
 
+describe('health does not repair', () => {
+  it('reports a guard that went missing without reapplying it, which the reconcile loop then does', async () => {
+    const host = await makeHost();
+    await host.plane.add(addInput('alice'));
+    host.runtime.setGuard('unverified');
+    host.runtime.calls.length = 0;
+    const report = await host.plane.health();
+    expect(report.problems.map((p) => p.kind)).toEqual(['guard']);
+    // Verify-only: the repairing check (describe) is never asked, and no unit is touched.
+    expect(host.runtime.calls).toContain('verifyGuard:');
+    expect(host.runtime.calls).not.toContain('describe:');
+    expect(host.runtime.calls.some((c) => /^(start|stop|provision):/u.test(c))).toBe(false);
+  });
+});
+
 describe('status shows what the reconcile loop did', () => {
   it('reports the last restart, and a backoff while restarts fail', async () => {
     const host = await makeHost();
@@ -167,6 +182,12 @@ describe('status shows what the reconcile loop did', () => {
     const restarted = (await host.plane.status()).accounts[0];
     expect(restarted.lastRestartAt).toBe(new Date(host.clock.now).toISOString());
     expect(restarted.backoff).toBeNull();
+
+    // A deleted account's history does not follow a later account of the same id.
+    await host.plane.delete('alice', 'alice');
+    await host.plane.add(addInput('alice'));
+    const again = (await host.plane.status()).accounts[0];
+    expect(again.lastRestartAt).toBeNull();
   });
 });
 

@@ -90,6 +90,11 @@ export type StateArchive = AsyncIterable<Uint8Array>;
 
 export interface IRuntimePort {
   describe(): Promise<IRuntimeDescription>;
+  /**
+   * Reads whether the guard is intact right now and changes nothing, unlike `describe`, which
+   * reapplies a guard that is not. For a caller that must see a guard that went missing.
+   */
+  verifyGuard(): Promise<IRuntimeDescription['guard']>;
   /** Lets go of an image no account is recorded to run any more; never fails because it is in use. */
   releaseImage(imageId: string): Promise<void>;
   /** The image id a reference (a tag) names right now; fails when the image does not exist. */

@@ -46,6 +46,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
+import dgram from 'node:dgram';
 import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
@@ -616,6 +617,39 @@ const PROBES = {
     }
     return { spawned: children.length, failure, current, events };
   },
+
+  /** Sends one DNS query over UDP to each target; answered means a reply came back. */
+  udpdns: async ({ targets, timeoutMs = 3000 }) =>
+    Promise.all(
+      targets.map(
+        (host) =>
+          new Promise((resolve) => {
+            const socket = dgram.createSocket('udp4');
+            const labels = 'example.com'.split('.');
+            const question = Buffer.concat([
+              ...labels.map((label) =>
+                Buffer.concat([Buffer.from([label.length]), Buffer.from(label)]),
+              ),
+              Buffer.from([0, 0, 1, 0, 1]),
+            ]);
+            const query = Buffer.concat([
+              Buffer.from([0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0]),
+              question,
+            ]);
+            const finish = (outcome) => {
+              clearTimeout(timer);
+              socket.close();
+              resolve({ host, outcome });
+            };
+            const timer = setTimeout(() => finish('silent'), timeoutMs);
+            socket.once('message', () => finish('answered'));
+            socket.once('error', () => finish('error'));
+            socket.send(query, 53, host, (error) => {
+              if (error) finish('error');
+            });
+          }),
+      ),
+    ),
 
   dnshttps: async () => {
     const address = await dns.promises.lookup('example.com', { family: 4 });
@@ -1343,14 +1377,30 @@ async function isolationChecks() {
   );
 
   await check(
-    'isolation: A cannot use a public resolver directly (DNS goes only to the engine host resolvers)',
-    () =>
-      expectBlocked({
+    'isolation: plain DNS from A (port 53, TCP and UDP) goes only to the engine host resolvers; DNS over HTTPS and other ports to public addresses are not stopped',
+    async () => {
+      const resolvers = ['1.1.1.1', '8.8.8.8', '9.9.9.9'];
+      const tcp = await expectBlocked({
         from: fromA,
         control: unguarded,
-        targets: ['1.1.1.1', '8.8.8.8', '9.9.9.9'].map((host) => ({ host, port: 53 })),
+        targets: resolvers.map((host) => ({ host, port: 53 })),
         who: 'A',
-      }),
+      });
+      const udp = (from, hosts) =>
+        probe(from, 'udpdns', { targets: hosts, timeoutMs: 3000 }, { timeoutMs: 60_000 });
+      const control = await udp(unguarded, resolvers);
+      const answering = resolvers.filter((_, index) => control[index].outcome === 'answered');
+      expect(
+        answering.length > 0,
+        'the control got no UDP DNS answer from any public resolver: the probe could not have succeeded',
+      );
+      const leaked = (await udp(fromA, answering)).filter((r) => r.outcome === 'answered');
+      expect(
+        leaked.length === 0,
+        `UDP DNS answered from A by ${leaked.map((r) => r.host).join(', ')}`,
+      );
+      return `${tcp}; UDP: ${answering.length} of ${resolvers.length} public resolvers answered the control, none answered A. IPv6 is not probed (units have no IPv6 network); the rule-evaluation tests cover it`;
+    },
   );
 
   await check(
@@ -2582,6 +2632,24 @@ async function leftovers() {
     if (tables.stdout.includes(`pah_${state.installId}`))
       left.push(`firewall table pah_${state.installId}`);
   }
+  // The images the operations checks built, and the tag they were built from, must be gone, and the
+  // unit image tag must name what it named before the run.
+  for (const id of state.builtImages) {
+    if ((await docker(['image', 'inspect', id])).code === 0) left.push(`image ${id}`);
+  }
+  const bases = await dockerOk([
+    'image',
+    'ls',
+    '--format',
+    '{{.Repository}}:{{.Tag}}',
+    '--filter',
+    'reference=pah-acceptance-base',
+  ]);
+  for (const name of bases.split('\n').filter(Boolean)) left.push(`image tag ${name}`);
+  if (state.originalUnitImage !== undefined) {
+    const now = (await docker(['image', 'inspect', '--format', '{{.Id}}', UNIT_TAG])).stdout.trim();
+    if (now !== state.originalUnitImage) left.push(`${UNIT_TAG} names ${now || 'nothing'}`);
+  }
   if (state.installId !== undefined) {
     const images = await dockerOk([
       ...w('image ls --format {{.Repository}}:{{.Tag}}'),
@@ -2657,7 +2725,7 @@ async function main() {
   }
   if (!state.keep) {
     await check(
-      'teardown: nothing of the run is left (containers, volumes, networks, image retention tags, firewall table, address, state directory, settings file)',
+      'teardown: nothing of the run is left (containers, volumes, networks, image tags and built images, firewall table, address, state directory, settings file)',
       async () => {
         const left = await leftovers();
         expect(left.length === 0, `left behind: ${left.join(', ')}`);

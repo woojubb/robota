@@ -31,7 +31,11 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
   links, special files, size and hash are checked in full before anything is replaced, and a failed restore or
   restart puts the previous state back.
 - **The guard fails closed.** No unit starts unless the network guard is verified, and a reconcile that cannot
-  verify it stops every unit.
+  restore it stops every unit. A guard removed while units run leaves them unguarded until the next reconcile
+  pass, so that interval bounds the exposure.
+- **A unit never reaches what a provider reserves for its host.** Besides private, link-local, carrier-grade NAT
+  and reserved ranges, the denied destinations include a cloud provider's host-agent address that sits on a public
+  address, because the provider's own filtering does not see forwarded traffic.
 - **Only known hostnames are served, and only they get a certificate.** An account is served only while its
   record says so; a suspended account answers 503 and is never proxied, and a deleted or half-made one is
   unknown. The proxy configuration has no catch-all site, no on-demand issuance and no default certificate, so
@@ -51,7 +55,7 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
   unhealthy host each have their own code, and every refusal carries a typed error code.
 - **Health is one answer a monitor can act on.** It is true only when the guard is verified, the routes are
   current and every active account's unit is running, healthy and on its recorded image, and otherwise names each
-  problem. It reads live state and repairs nothing; the reconcile loop repairs, and status says what it did.
+  problem. It reads live state and repairs nothing, the guard included: it verifies the guard without reapplying it, so a guard that went missing is reported until the reconcile loop restores it. Only the loop repairs, and status says what it did.
 - **Strays are reported, never deleted.** A unit of this install with no record is surfaced for the operator.
 
 ## Invariants

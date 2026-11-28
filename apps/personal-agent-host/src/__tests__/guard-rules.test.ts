@@ -33,7 +33,7 @@ table inet pah_abcdef01 {
     iifname "pahabcdef*" udp dport 53 ip daddr { 10.0.0.53, 10.0.0.54 } accept
     iifname "pahabcdef*" tcp dport 53 ip daddr { 10.0.0.53, 10.0.0.54 } accept
     iifname "pahabcdef*" meta l4proto { tcp, udp } th dport { 53, 853 } drop
-    iifname "pahabcdef*" ip daddr { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.168.0.0/16, 198.18.0.0/15, 224.0.0.0/3 } drop
+    iifname "pahabcdef*" ip daddr { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 168.63.129.16/32, 172.16.0.0/12, 192.0.0.0/24, 192.168.0.0/16, 198.18.0.0/15, 224.0.0.0/3 } drop
   }
   chain output {
     type filter hook output priority -10; policy accept;
@@ -134,6 +134,7 @@ describe('network guard rules', () => {
         '172.31.255.255',
         '192.168.1.1',
         '169.254.169.254',
+        '168.63.129.16',
         '100.64.0.1',
         '100.127.255.255',
         '127.0.0.1',

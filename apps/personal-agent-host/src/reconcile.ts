@@ -52,6 +52,12 @@ export class Reconciler {
 
   constructor(private readonly deps: IReconcilerDeps) {}
 
+  /** Drops what the loop remembers of an account that was destroyed, so a later one of the same id starts clean. */
+  forget(id: string): void {
+    this.lastStart.delete(id);
+    this.retry.delete(id);
+  }
+
   /** What the loop has done about one account: its last restart and any backoff it is in. */
   accountStatus(id: string): {
     lastRestartAt: number | null;

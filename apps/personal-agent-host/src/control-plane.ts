@@ -319,6 +319,7 @@ export class ControlPlane {
     await this.deps.runtime.destroy(record.id);
     await this.deps.secrets.removeAccountKey(record.id);
     await this.deps.store.remove(record.id);
+    this.reconciler.forget(record.id);
     await this.releaseIfUnused(record.imageId);
   }
 
@@ -919,13 +920,14 @@ export class ControlPlane {
   /**
    * Whether the host is fit to serve, as one answer a monitor can act on: the guard is verified,
    * the routes are current, and every active account's unit is running, healthy and on the image it
-   * is recorded to run. It reads live state and changes nothing; the reconcile loop does the repair.
+   * is recorded to run. It reads live state and repairs nothing, not even the guard: it only
+   * verifies it, so a guard that went missing is reported until the reconcile loop reapplies it.
    */
   async health(actor = DEFAULT_ACTOR): Promise<IHealthReport> {
     return this.command('health', null, actor, async () => {
       const problems: IHealthProblem[] = [];
       try {
-        const { guard } = await this.deps.runtime.describe();
+        const guard = await this.deps.runtime.verifyGuard();
         if (guard.state !== 'verified') {
           problems.push({
             kind: 'guard',
