@@ -2181,7 +2181,11 @@ async function retained(imageId) {
  * rebuild would. The tag is put back at teardown.
  */
 async function rebuildUnitImage(lines) {
-  const dockerfile = [`FROM ${state.originalUnitImage}`, ...lines, ''].join('\n');
+  // A Dockerfile cannot start from a bare image id, so the original gets a tag of this run's own.
+  const base = `pah-acceptance-base:${RUN}`;
+  await dockerOk(['tag', state.originalUnitImage, base]);
+  state.baseTag = base;
+  const dockerfile = [`FROM ${base}`, ...lines, ''].join('\n');
   const built = await docker(['build', '-q', '-t', UNIT_TAG, '-'], {
     input: dockerfile,
     timeoutMs: 10 * 60_000,
@@ -2543,6 +2547,7 @@ async function teardown() {
   for (const network of state.networks)
     await step(`network ${network}`, () => docker(['network', 'rm', network]));
   // The images the operations checks built; the original stays, and so does everything it was built from.
+  if (state.baseTag !== undefined) await step('base tag', () => docker(['rmi', state.baseTag]));
   for (const id of new Set(state.builtImages)) await step(`image ${id}`, () => docker(['rmi', id]));
   if (state.installerRan) {
     await step('state directory', () =>
