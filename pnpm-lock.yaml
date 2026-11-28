@@ -718,6 +718,9 @@ importers:
       '@robota-sdk/agent-mcp':
         specifier: workspace:^
         version: link:../../../packages/agent-mcp
+      '@robota-sdk/agent-product':
+        specifier: workspace:^
+        version: link:../../../packages/agent-product
       '@robota-sdk/agent-provider':
         specifier: workspace:^
         version: link:../../../packages/agent-provider

@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
 import { ALL_CODING_TASKS } from './outcome-coding-tasks-repository.js';
+import type { ITrialMeasures } from './outcome-delegation-measures.js';
 import {
   serializeCodingTasks,
   taskFiles,
@@ -224,7 +225,10 @@ export function observeTree(
  * Persists an observation exactly once: the exclusive-create flag makes a second write for the
  * same path fail instead of replacing the first record.
  */
-export function writeObservationOnce(path: string, observation: ICodingObservation): void {
+export function writeObservationOnce(
+  path: string,
+  observation: ICodingObservation & { readonly measures?: ITrialMeasures },
+): void {
   writeFileSync(path, `${JSON.stringify(observation, null, 2)}\n`, { flag: 'wx', mode: 0o444 });
 }
 

@@ -223,8 +223,9 @@ keep theirs; `ALL_CODING_TASKS` lists the five and then this one, and both arms 
   them and compares (it is skipped in a shallow clone). Regenerate with
   `pnpm --filter robota-capability-agent-eval exec tsx src/outcome-coding-repository-build.ts`, then format the
   result with prettier.
-- **Verifier.** It runs the implementation file directly (Node strips the types), so it needs Node 22.18 or
-  later, and compares complete rendered outputs for the line breaks that already worked and for the ones the
+- **Verifier.** It runs the implementation file directly (Node strips the types, so it needs Node 22.18 or
+  later, and a fix written with syntax that is not erased, such as an `enum` or a constructor parameter property,
+  fails to load and fails the task), and compares complete rendered outputs for the line breaks that already worked and for the ones the
   report is about. Any correct way of quoting passes; the fix's own text is not required. It never enters the
   image or the prompt. Broken (the parent tree) fails on the behavior and solved (parent plus fix) passes, both
   through the same trusted runner and, opt in, the verifier container.
@@ -237,7 +238,9 @@ keep theirs; `ALL_CODING_TASKS` lists the five and then this one, and both arms 
 - **Fix lines and the image.** The pinned checkout that the worker image is built from already contains the fix,
   in its own package and in sibling code and tests that repeat it. `leakNeedles` holds the lines the fix added
   that the parent lacks; the image build removes every file holding one and the context and image searches look
-  for them like any other forbidden text.
+  for them like any other forbidden text. Whenever the pinned image revision moves, rerun the full-tree leak
+  check as well: search the exported tree for the fixed behaviour in any form (the logic, not only the exact
+  needles), because a later commit can repeat the fix in new files the needles do not match.
 - **Limitation.** A public fix may be in a model's training data. A pass on this task is weaker evidence than a
   pass on a task nobody published, and it says nothing about unpublished work; both arms see the same task, which
   keeps their comparison fair but does not make the absolute score meaningful.
@@ -321,3 +324,41 @@ key, and the credential reader is tested with a temporary file.
   `provider`, `model`). No real gateway has confirmed this shape. Before the first paid call the pre-run checks must
   succeed against the real gateway: the catalog lists the model, the endpoint listing parses with rates within the
   basis, the credits answer parses, and a reply carries `usage.cost`, `provider` and `model`.
+
+## Delegation arm
+
+A second arm runs the same tasks through a parent that delegates, to compare topologies at equal per-trial caps.
+It runs inside the same worker, relay and verifier; nothing about scoring changes except what the arm adds.
+
+- **Roles.** `src/outcome-delegation-roles.ts` defines three: a parent with the read tools and the subagent command
+  and no write tool, an implementer with the baseline's file tools, and a reviewer with read tools only. The
+  parent's session never registers a write tool; the children are lent theirs through the wrapped runner factory.
+  The model sees the command as the function tool `command_agent` and waits for each job with
+  `parallel --wait LABEL=AGENT:"PROMPT"`, so jobs run one at a time. Each request is trimmed by the worker to its
+  role's tools, and the relay refuses a declaration or a call outside the role's set.
+- **Child job limit.** `src/outcome-delegation-limits.ts` wraps the runtime's subagent runner factory inside the
+  worker: at most three child jobs (an implementer, a reviewer and one revision), a fourth is refused before it
+  starts and counted, and each job is timed so the idle time between jobs can be measured.
+- **Attribution.** The relay attributes every request to a role by the hash of its system message. The runtime
+  assembles a child's system message itself, so each role's prompt carries a marker, and the first time a message
+  is seen its hash is bound to the one role whose marker it contains. A message with no marker or several, and one
+  that changed for a bound role, is unattributed: the run is stopped, the request is refused, and nothing more is
+  sent.
+- **Caps for every arm.** The relay refuses the upstream attempt past the trial's call cap (`DEFAULT_TRIAL_CALL_CAP`,
+  the same for both arms) and refuses everything after it. A trial that reaches its cap ends as failed (`call-cap`)
+  and stays in the denominator.
+- **Measures by role.** Each relay log entry carries its role, the time its single upstream attempt took and the
+  token counts the answer reported, failed attempts included. `src/outcome-delegation-measures.ts` sums them by role
+  (calls, refused calls, failed calls, tokens, calls whose tokens are unknown, wall latency); coordination is what the
+  parent and the reviewer spent plus the idle time between child jobs. The measures are written into the trial's
+  observation file next to the verifier's observation, before scoring.
+- **Verdict.** Still the environment's: the verifier's exit code and the tree checks. The agent's completion and the
+  reviewer's approval are data; a reviewer that approves broken code cannot make a trial pass. The arm adds two
+  failures, `not-delegated` (no model call was attributed to a child role, so a parent that claims the work is done
+  without delegating fails) and `run-stopped`.
+- **Controls.** `src/outcome-delegation-scripts.ts` scripts a parent, an implementer and a reviewer in one flat
+  script, because the jobs are waited for serially: a pass, a reviewer approving broken code, a parent that does not
+  delegate, a parent and a reviewer that try to write, a fourth spawn, and the call past the cap. An unattributed call
+  is exercised by a trial whose implementer prompt lacks its marker. The fast tests run them through the real worker
+  as a plain process; the opt-in `coding:offline` run repeats them through the container, the relay and the
+  verifier container.
