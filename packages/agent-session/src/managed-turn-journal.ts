@@ -3,18 +3,10 @@ import type { TExecutionJournalRecord } from '@robota-sdk/agent-core';
 
 import { SessionBusyError } from './turn-claim.js';
 
+import { unresolvedExecutionMessage } from './execution-journal-store.js';
 import type { ISessionExecutionJournal } from './execution-journal-store.js';
 import type { Session } from './session.js';
 import type { ISessionRunOptions } from './session-types.js';
-
-/** What a person is told when an unfinished managed execution blocks the session. */
-export function unresolvedExecutionMessage(executionIds: readonly string[]): string {
-  return (
-    `A managed execution did not finish (${executionIds.join(', ')}). Which of its tool calls ` +
-    'already ran cannot be known, so it is not resumed and nothing new is sent behind it. ' +
-    'Abandon it to continue.'
-  );
-}
 
 /**
  * One managed turn through the session's durable journal.

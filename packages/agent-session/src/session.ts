@@ -32,7 +32,7 @@ import { requireHookTypeExecutors } from './require-hook-type-executors.js';
 import { executeResume, type TSessionResumeOptions } from './session-resume.js';
 import { sessionExecutionJournal, sessionRecoveryJournal } from './session-execution-journal.js';
 import { executeRun } from './session-run.js';
-import { unresolvedExecutionMessage } from './managed-turn-journal.js';
+import { unresolvedExecutionMessage } from './execution-journal-store.js';
 import {
   abandonedRoundResults,
   noteEffectAdmissions,

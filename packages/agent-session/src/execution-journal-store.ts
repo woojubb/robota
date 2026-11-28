@@ -64,3 +64,12 @@ export interface ISessionExecutionJournal extends IRecoverableExecutionJournal {
 export interface IExecutionJournalStore {
   forSession(sessionId: string): ISessionExecutionJournal;
 }
+
+/** What a person is told when an unfinished managed execution blocks the session. */
+export function unresolvedExecutionMessage(executionIds: readonly string[]): string {
+  return (
+    `A managed execution did not finish (${executionIds.join(', ')}). Which of its tool calls ` +
+    'already ran cannot be known, so it is not resumed and nothing new is sent behind it. ' +
+    'Abandon it to continue.'
+  );
+}
