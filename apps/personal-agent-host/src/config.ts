@@ -27,7 +27,10 @@ export interface IHostConfig {
   engineEndpoint: string;
   /** An image with the firewall tool, run briefly to apply and check the network guard. */
   guardImage?: string;
-  /** Resolvers units may reach for DNS; the engine host's own when absent. */
+  /**
+   * Resolvers units may reach for DNS; the engine host's own when absent. When set, the list must
+   * match the resolvers the engine forwards to, or units lose name resolution.
+   */
   dnsServers?: string[];
 }
 

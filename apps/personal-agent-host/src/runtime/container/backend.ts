@@ -14,6 +14,7 @@ import { networkBody, unitContainerBody, volumeBody } from './bodies.js';
 import { type EngineClient, isNotFound } from './engine-client.js';
 import { NetworkGuard } from './guard.js';
 import { runHelper } from './helper.js';
+import { conflictingRoute, parseHostRoutes } from './routes.js';
 import {
   ACCESS_CODE_FILE,
   accountNetwork,
@@ -166,7 +167,7 @@ export class ContainerRuntime implements IRuntimePort {
     return { container, volume, network };
   }
 
-  private statusOf(account: string, found: IResources): IUnitStatus {
+  private statusOf(account: string, found: IResources, lenient = false): IUnitStatus {
     const { container, volume, network } = found;
     const labelled = volume?.Labels ?? network?.Labels ?? container?.Config.Labels ?? {};
     const slot =
@@ -178,7 +179,9 @@ export class ContainerRuntime implements IRuntimePort {
           );
     const addresses =
       slot === undefined ? undefined : accountNetwork(this.options.subnetPool, slot);
-    if (!addresses) {
+    // A listing must still show a unit whose slot is not in the current pool, so a failing guard
+    // can stop it; it has no usable address.
+    if (!addresses && !lenient) {
       throw new RuntimePortError('failed', `Unit ${account} has no readable subnet slot`);
     }
     const keyConfigured = (container?.Config.Env ?? []).some(
@@ -189,7 +192,9 @@ export class ContainerRuntime implements IRuntimePort {
       account,
       state: container ? runState(container.State.Status) : 'stopped',
       healthy: container?.State.Running === true && container.State.Health?.Status === 'healthy',
-      endpoints: { host: addresses.unit, guiPort: GUI_PORT, wsPort: WS_PORT },
+      endpoints: addresses
+        ? { host: addresses.unit, guiPort: GUI_PORT, wsPort: WS_PORT }
+        : { host: '', guiPort: 0, wsPort: 0 },
       keyConfigured: container?.State.Running === true ? keyConfigured : false,
     };
   }
@@ -223,6 +228,47 @@ export class ContainerRuntime implements IRuntimePort {
     };
   }
 
+  /**
+   * A subnet must not overlap another engine network or any route of the engine host. The engine
+   * checks host routes only for subnets it picks itself, and a more specific route on an account
+   * bridge would take the host's own gateway or resolver away.
+   */
+  private async checkSubnetFree(cidr: string): Promise<void> {
+    const routes = await runHelper(
+      this.engine,
+      this.options.installId,
+      {
+        image: this.options.guardImage,
+        entrypoint: ['cat', '/proc/net/route'],
+        network: 'host',
+      },
+      this.helperMs,
+    );
+    if (routes.exitCode !== 0) {
+      throw new RuntimePortError('failed', 'Could not read the routes of the engine host');
+    }
+    const route = conflictingRoute(parseHostRoutes(routes.output), this.options.installId, cidr);
+    if (route) {
+      throw new RuntimePortError(
+        'failed',
+        `${cidr} overlaps a route of the engine host (${route.cidr} on ${route.iface}); ` +
+          'choose another subnet pool',
+      );
+    }
+    const others = await this.engine.json<IEngineNetwork[]>('GET', '/networks');
+    for (const other of others) {
+      for (const config of other.IPAM?.Config ?? []) {
+        if (config.Subnet && cidrsOverlap(config.Subnet, cidr)) {
+          throw new RuntimePortError(
+            'failed',
+            `${cidr} overlaps the engine network ${other.Name} (${config.Subnet}); ` +
+              'choose another subnet pool',
+          );
+        }
+      }
+    }
+  }
+
   async provision(spec: IUnitSpec): Promise<IUnitStatus> {
     this.checkSpec(spec);
     return this.attempt(async () => {
@@ -231,35 +277,27 @@ export class ContainerRuntime implements IRuntimePort {
       if (!address) throw new RuntimePortError('invalid-spec', 'Subnet slot is outside the pool');
       const { account } = spec;
       const created: Array<() => Promise<unknown>> = [];
+      // Everything that can refuse the subnet is asked before anything is created.
+      const network = await optional(
+        this.engine.json<IEngineNetwork>('GET', `/networks/${objectName(id, account)}`),
+      );
+      if (network) {
+        const subnet = network.IPAM?.Config?.[0]?.Subnet;
+        if (subnet !== address.cidr) {
+          throw new RuntimePortError(
+            'failed',
+            `The network of ${account} is ${subnet ?? 'unreadable'}, expected ${address.cidr}`,
+          );
+        }
+      } else {
+        await this.checkSubnetFree(address.cidr);
+      }
       try {
         if (!(await optional(this.engine.json('GET', `/volumes/${volumeName(id, account)}`)))) {
           await this.engine.json('POST', '/volumes/create', { body: volumeBody(spec) });
           created.push(() => this.engine.text('DELETE', `/volumes/${volumeName(id, account)}`));
         }
-        const network = await optional(
-          this.engine.json<IEngineNetwork>('GET', `/networks/${objectName(id, account)}`),
-        );
-        if (network) {
-          const subnet = network.IPAM?.Config?.[0]?.Subnet;
-          if (subnet !== address.cidr) {
-            throw new RuntimePortError(
-              'failed',
-              `The network of ${account} is ${subnet ?? 'unreadable'}, expected ${address.cidr}`,
-            );
-          }
-        } else {
-          const others = await this.engine.json<IEngineNetwork[]>('GET', '/networks');
-          for (const other of others) {
-            for (const config of other.IPAM?.Config ?? []) {
-              if (config.Subnet && cidrsOverlap(config.Subnet, address.cidr)) {
-                throw new RuntimePortError(
-                  'failed',
-                  `${address.cidr} overlaps the engine network ${other.Name} (${config.Subnet}); ` +
-                    'choose another subnet pool',
-                );
-              }
-            }
-          }
+        if (!network) {
           await this.engine.json('POST', '/networks/create', { body: networkBody(spec, address) });
           created.push(() => this.engine.text('DELETE', `/networks/${objectName(id, account)}`));
         }
@@ -389,7 +427,7 @@ export class ContainerRuntime implements IRuntimePort {
       for (const account of [...accounts].sort()) {
         const found = await this.resources(account);
         if (found.container || found.volume || found.network) {
-          statuses.push(this.statusOf(account, found));
+          statuses.push(this.statusOf(account, found, true));
         }
       }
       return statuses;

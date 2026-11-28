@@ -83,6 +83,10 @@ export class FakeEngine {
   guardRules: string | undefined;
   /** Makes the apply helper exit with this code and the message as its output. */
   guardApplyFailure: { code: number; output: string } | undefined;
+  /** Routes of the engine host as `/proc/net/route` shows them; the default route is always there. */
+  hostRoutes: Array<{ iface: string; cidr: string }> = [];
+  /** Reading the routes fails with this exit code. */
+  routesFailure: number | undefined;
   resolvConf = 'nameserver 192.0.2.53\nnameserver 127.0.0.11\nnameserver 192.0.2.54\n';
   /** Polls of a started unit's inspect before it reports healthy; Infinity never. */
   healthyAfterPolls = 1;
@@ -452,6 +456,10 @@ export class FakeEngine {
         env.find((e) => e.startsWith('GUARD_RULES='))?.slice('GUARD_RULES='.length) ?? '';
       return finish(0, this.listing());
     }
+    if (joined === 'cat /proc/net/route') {
+      if (this.routesFailure !== undefined) return finish(this.routesFailure, 'cat: error');
+      return finish(0, this.routeTable());
+    }
     if (joined === 'cat /etc/resolv.conf') return finish(0, this.resolvConf);
     if (joined === `cat ${ACCESS_CODE_PATH}`) {
       const source = String(container.body.HostConfig?.Mounts?.[0]?.Source);
@@ -461,6 +469,23 @@ export class FakeEngine {
         : finish(0, `${code}\n`);
     }
     finish(127, `unknown helper: ${joined}`);
+  }
+
+  private routeTable(): string {
+    const hex = (value: number): string =>
+      value.toString(16).padStart(8, '0').match(/../gu)!.reverse().join('').toUpperCase();
+    const row = (iface: string, destination: number, mask: number): string =>
+      `${iface}\t${hex(destination)}\t00000000\t0001\t0\t0\t0\t${hex(mask)}\t0\t0\t0`;
+    const rows = [
+      'Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\tMTU\tWindow\tIRTT',
+      row('eth0', 0, 0),
+    ];
+    for (const { iface, cidr } of this.hostRoutes) {
+      const [base, bits] = cidr.split('/');
+      const destination = base.split('.').reduce((acc, part) => acc * 256 + Number(part), 0);
+      rows.push(row(iface, destination, (2 ** 32 - 2 ** (32 - Number(bits))) >>> 0));
+    }
+    return `${rows.join('\n')}\n`;
   }
 
   private listing(): string {

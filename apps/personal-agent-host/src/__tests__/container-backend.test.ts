@@ -309,6 +309,68 @@ describe('rollback', () => {
     expect(fake.volumeNames()).toEqual([]);
   });
 
+  describe('host routes', () => {
+    it('refuses a subnet that overlaps a route of the engine host, creating nothing', async () => {
+      const fake = await newEngine();
+      fake.hostRoutes = [{ iface: 'eth1', cidr: '10.200.0.0/16' }];
+      const runtime = runtimeOn(fake);
+      const error = (await runtime
+        .provision(spec('alpha'))
+        .catch((e: unknown) => e)) as RuntimePortError;
+      expect(error.code).toBe('failed');
+      expect(error.message).toMatch(
+        /overlaps a route of the engine host \(10\.200\.0\.0\/16 on eth1\)/u,
+      );
+      expect(fake.hasObjects()).toBe(false);
+    });
+
+    it('refuses a narrower route inside the subnet as well', async () => {
+      const fake = await newEngine();
+      fake.hostRoutes = [{ iface: 'tun0', cidr: '10.200.0.4/32' }];
+      await expect(runtimeOn(fake).provision(spec('alpha'))).rejects.toThrow(
+        /10\.200\.0\.4\/32 on tun0/u,
+      );
+      expect(fake.hasObjects()).toBe(false);
+    });
+
+    it('accepts a subnet no route touches, whatever else the host routes', async () => {
+      const fake = await newEngine();
+      fake.hostRoutes = [
+        { iface: 'eth0', cidr: '192.168.1.0/24' },
+        { iface: 'docker0', cidr: '172.17.0.0/16' },
+      ];
+      await expect(runtimeOn(fake).provision(spec('alpha'))).resolves.toMatchObject({
+        account: 'alpha',
+      });
+    });
+
+    it('ignores the routes of its own bridges', async () => {
+      const fake = await newEngine();
+      const runtime = runtimeOn(fake);
+      await runtime.provision(spec('alpha'));
+      // The bridge of alpha now carries a route for its own subnet; beta must still be provisioned.
+      fake.hostRoutes = [{ iface: 'pahabcdef000', cidr: '10.200.0.0/29' }];
+      await expect(runtime.provision(spec('beta'))).resolves.toMatchObject({ account: 'beta' });
+    });
+
+    it('refuses when the routes cannot be read, creating nothing', async () => {
+      const fake = await newEngine();
+      fake.routesFailure = 1;
+      await expect(runtimeOn(fake).provision(spec('alpha'))).rejects.toThrow(
+        /routes of the engine host/u,
+      );
+      expect(fake.hasObjects()).toBe(false);
+    });
+
+    it('does not ask again for an account whose network already exists', async () => {
+      const fake = await newEngine();
+      const runtime = runtimeOn(fake);
+      await runtime.provision(spec('alpha'));
+      fake.routesFailure = 1;
+      await expect(runtime.provision(spec('alpha'))).resolves.toMatchObject({ account: 'alpha' });
+    });
+  });
+
   it('carries on the engine refusal of an overlap it detects itself', async () => {
     const fake = await newEngine();
     const runtime = runtimeOn(fake);
@@ -475,6 +537,26 @@ describe('lifecycle', () => {
       spec('alpha', { installId: '12345678', subnetSlot: 20 }),
     );
     expect((await runtime.list()).map((u) => u.account)).toEqual(['alpha', 'beta', 'stray']);
+  });
+
+  it('still lists a unit whose slot lies outside the current pool, so it can be stopped', async () => {
+    const { fake, runtime } = await started();
+    const client = new EngineClient({ endpoint: fake.endpoint });
+    await client.json('POST', '/volumes/create', {
+      body: {
+        Name: `pah-${INSTALL}-old-state`,
+        Labels: {
+          'robota.personal-agent-host.install': INSTALL,
+          'robota.personal-agent-host.account': 'old',
+          'robota.personal-agent-host.slot': '99999',
+        },
+      },
+    });
+    const listed = await runtime.list();
+    expect(listed.map((u) => u.account)).toEqual(['alpha', 'old']);
+    expect(listed[0]).toMatchObject({ state: 'running' });
+    expect(listed[1]).toMatchObject({ state: 'stopped', endpoints: { host: '' } });
+    await expect(runtime.inspect('old')).rejects.toMatchObject({ code: 'failed' });
   });
 
   it('refuses a unit of another install or one outside the pool', async () => {

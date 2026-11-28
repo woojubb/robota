@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-import { afterAll, describe, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { parseSubnetPool } from '../config.js';
 import { ContainerRuntime } from '../runtime/container/backend.js';
@@ -8,6 +8,7 @@ import { EngineClient } from '../runtime/container/engine-client.js';
 import { guardTableName } from '../runtime/container/guard-rules.js';
 import { runHelper } from '../runtime/container/helper.js';
 import { LABEL_INSTALL } from '../runtime/container/names.js';
+import { parseHostRoutes } from '../runtime/container/routes.js';
 import type { IRuntimePort, IUnitSpec } from '../runtime/port.js';
 import { describeRuntimePortContract, unitSpecFor } from '../runtime/testing/contract.js';
 
@@ -77,6 +78,53 @@ if (LIVE) {
         readyTimeoutMs: 120_000,
       });
     },
+  });
+
+  describe('a pool that overlaps a real route of the engine host', () => {
+    it('refuses to provision and leaves nothing', async () => {
+      const engine = new EngineClient({ endpoint: ENDPOINT });
+      const probe = await runHelper(
+        engine,
+        installId,
+        { image: GUARD_IMAGE, entrypoint: ['cat', '/proc/net/route'], network: 'host' },
+        30_000,
+      );
+      // The engine host's own subnet, not one of the engine's bridges, when there is one.
+      const candidates = parseHostRoutes(probe.output).filter(
+        (r) =>
+          typeof parseSubnetPool(`${r.cidr.split('/')[0].replace(/\.\d+$/u, '.0')}/24`) !==
+          'string',
+      );
+      const route = candidates.find((r) => !/^(docker|br-)/u.test(r.iface)) ?? candidates[0];
+      if (!route) throw new Error('the engine host has no private route to overlap');
+      const covering = parseSubnetPool(`${route.cidr.split('/')[0].replace(/\.\d+$/u, '.0')}/24`);
+      if (typeof covering === 'string') throw new Error(covering);
+      const first = route.cidr.split('/')[0].split('.').map(Number);
+      const slot = Math.floor((first[3] ?? 0) / 8);
+      const overlapping = new ContainerRuntime({
+        engine,
+        installId,
+        subnetPool: covering,
+        guardImage: GUARD_IMAGE,
+      });
+      process.stdout.write(
+        `host route ${route.cidr} on ${route.iface}; pool ${covering.cidr}; slot ${slot}\n`,
+      );
+      const error = (await overlapping
+        .provision({ ...spec('overlap'), subnetSlot: slot })
+        .catch((e: unknown) => e)) as Error;
+      process.stdout.write(`${error.message}\n`);
+      expect(error.message).toMatch(/overlaps a route of the engine host/u);
+      expect(await overlapping.list()).toEqual([]);
+      const filters = JSON.stringify({ label: [`${LABEL_INSTALL}=${installId}`] });
+      const volumes = await engine.json<{ Volumes?: unknown[] | null }>('GET', '/volumes', {
+        query: { filters },
+      });
+      const networks = await engine.json<unknown[] | null>('GET', '/networks', {
+        query: { filters },
+      });
+      expect([(volumes.Volumes ?? []).length, (networks ?? []).length]).toEqual([0, 0]);
+    });
   });
 
   afterAll(async () => {
