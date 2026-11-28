@@ -43,8 +43,9 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
 - An account id is a DNS label that is also safe in an engine object name.
 - `serve` starts only with a backend: the in-memory fake runs solely behind a setting named for tests and
   development.
-- The container backend is used for an account only when the operator has allowed it by setting; a backend that
-  is not built yet is refused.
+- The container backend is used for an account only when the operator has allowed it by setting, because
+  containers share the host's kernel and have no disk quota, so it is for trusted accounts; a backend that is not
+  built yet is refused.
 - The account record never holds a credential; a provider URL that carries one is refused.
 
 ## Non-goals
@@ -65,6 +66,18 @@ Self-signup, billing, live migration, GPU, and disk quotas on containers. Accoun
 - **The socket bind is the single-instance lock.** A socket file counts as stale only when a connection to it is
   refused; anything else at that path (a regular file, another user's socket, a listener that does not answer)
   is left alone and refused, and only one start at a time may replace a stale one.
+- **A unit's container exists only while it runs.** The engine fixes a container's environment when it is
+  created, so the key goes in at start and leaves with the container at stop; the volume and network stay, and a
+  unit that is destroyed is checked by label to leave nothing behind.
+- **The engine is spoken to through its API, not its command line.** Hardening fields are asserted in tests, no
+  client binary is needed in the control-plane image, and the same channel reaches a remote engine.
+- **The guard is applied and read back by a short-lived helper container, and counts only while it reads back
+  as applied.** The helper keeps the control plane off the host network and works against a remote engine; a table
+  this process did not apply is unverified, so every start of the control plane reapplies it. Only drops are
+  relied on, because a drop in a base chain is final whatever another firewall manager accepts.
+- **The agent keeps binding loopback, and a byte forwarder inside the unit makes it reachable.** A sidecar loses
+  its network when the unit restarts, and a bind-address option would touch the transports the single-account
+  bundle shares and drop the loopback-only property; the image runs the forwarder only when the host asks.
 - **Zero runtime dependencies.** Node built-ins only, so the root daemon has no third-party code to trust.
 - **A cleanup that cannot finish keeps the record.** The half-made account stays visible in `provisioning`
   rather than leaving an unrecorded unit behind.

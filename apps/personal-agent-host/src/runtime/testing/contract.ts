@@ -39,13 +39,16 @@ export function describeRuntimePortContract(
   options: {
     /** A runtime whose guard cannot be verified; when given, `start` must be refused on it. */
     makeUnverified?: () => IRuntimePort | Promise<IRuntimePort>;
+    /** The unit specification each account is built from, for a backend that needs a real image. */
+    specFor?: (account: string) => IUnitSpec;
   } = {},
 ): void {
+  const specFor = options.specFor ?? unitSpecFor;
   describe(`runtime port contract: ${name}`, () => {
     it('provisions idempotently', async () => {
       const port = await make();
-      const first = await port.provision(unitSpecFor('alpha'));
-      const second = await port.provision(unitSpecFor('alpha'));
+      const first = await port.provision(specFor('alpha'));
+      const second = await port.provision(specFor('alpha'));
       expect(second).toEqual(first);
       expect(await port.list()).toHaveLength(1);
       await port.destroy('alpha');
@@ -53,7 +56,7 @@ export function describeRuntimePortContract(
 
     it('reports endpoints that are not loopback', async () => {
       const port = await make();
-      const status = await port.provision(unitSpecFor('alpha'));
+      const status = await port.provision(specFor('alpha'));
       expect(status.endpoints.host).not.toMatch(LOOPBACK);
       expect(status.endpoints.guiPort).toBeGreaterThan(0);
       expect(status.endpoints.wsPort).toBeGreaterThan(0);
@@ -62,23 +65,23 @@ export function describeRuntimePortContract(
 
     it('keeps state on stop and the access code across the next start', async () => {
       const port = await make();
-      await port.provision(unitSpecFor('alpha'));
-      expect((await port.start(unitSpecFor('alpha'), {})).state).toBe('running');
+      await port.provision(specFor('alpha'));
+      expect((await port.start(specFor('alpha'), {})).state).toBe('running');
       const first = (await port.accessCode('alpha')).code;
       expect(first.length).toBeGreaterThan(0);
       await port.stop('alpha');
       expect((await port.inspect('alpha')).state).toBe('stopped');
       expect((await port.accessCode('alpha')).code).toBe(first);
-      await port.start(unitSpecFor('alpha'), {});
+      await port.start(specFor('alpha'), {});
       expect((await port.accessCode('alpha')).code).toBe(first);
       await port.destroy('alpha');
     });
 
     it('leaves nothing after destroy and drops the unit from the list', async () => {
       const port = await make();
-      await port.provision(unitSpecFor('alpha'));
-      await port.provision(unitSpecFor('beta'));
-      await port.start(unitSpecFor('alpha'), {});
+      await port.provision(specFor('alpha'));
+      await port.provision(specFor('beta'));
+      await port.start(specFor('alpha'), {});
       await port.destroy('alpha');
       expect((await port.list()).map((u) => u.account)).toEqual(['beta']);
       expect(await code(port.inspect('alpha'))).toBe('unknown-account');
@@ -87,8 +90,8 @@ export function describeRuntimePortContract(
 
     it('never shows a secret in inspect or list', async () => {
       const port = await make();
-      await port.provision(unitSpecFor('alpha'));
-      const started = await port.start(unitSpecFor('alpha'), { modelApiKey: CONTRACT_KEY });
+      await port.provision(specFor('alpha'));
+      const started = await port.start(specFor('alpha'), { modelApiKey: CONTRACT_KEY });
       const shown = JSON.stringify([started, await port.inspect('alpha'), await port.list()]);
       expect(shown).not.toContain(CONTRACT_KEY);
       expect(started.keyConfigured).toBe(true);
@@ -99,8 +102,8 @@ export function describeRuntimePortContract(
       const port = await make();
       const results = [
         await port.describe(),
-        await port.provision(unitSpecFor('alpha')),
-        await port.start(unitSpecFor('alpha'), {}),
+        await port.provision(specFor('alpha')),
+        await port.start(specFor('alpha'), {}),
         await port.inspect('alpha'),
         await port.list(),
         await port.accessCode('alpha'),
@@ -114,7 +117,7 @@ export function describeRuntimePortContract(
     it('treats destroying an absent unit as success', async () => {
       const port = await make();
       await expect(port.destroy('nobody')).resolves.toBeUndefined();
-      await port.provision(unitSpecFor('alpha'));
+      await port.provision(specFor('alpha'));
       await port.destroy('alpha');
       await expect(port.destroy('alpha')).resolves.toBeUndefined();
     });
@@ -124,7 +127,7 @@ export function describeRuntimePortContract(
       expect(await code(port.inspect('nobody'))).toBe('unknown-account');
       expect(await code(port.stop('nobody'))).toBe('unknown-account');
       expect(await code(port.accessCode('nobody'))).toBe('unknown-account');
-      expect(await code(port.start(unitSpecFor('nobody'), {}))).toBe('unknown-account');
+      expect(await code(port.start(specFor('nobody'), {}))).toBe('unknown-account');
     });
 
     if (options.makeUnverified) {
@@ -132,8 +135,8 @@ export function describeRuntimePortContract(
       it('refuses to start a unit while the guard is unverified', async () => {
         const port = await makeUnverified();
         expect((await port.describe()).guard.state).toBe('unverified');
-        await port.provision(unitSpecFor('alpha'));
-        expect(await code(port.start(unitSpecFor('alpha'), {}))).toBe('guard-unverified');
+        await port.provision(specFor('alpha'));
+        expect(await code(port.start(specFor('alpha'), {}))).toBe('guard-unverified');
         expect((await port.inspect('alpha')).state).not.toBe('running');
         await port.destroy('alpha');
       });
