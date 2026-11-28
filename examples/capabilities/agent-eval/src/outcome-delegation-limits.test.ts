@@ -9,6 +9,8 @@ import { delegationRoles, PARENT_ROLE } from './outcome-delegation-roles.js';
 type TDeps = Parameters<TSubagentRunnerFactory>[0];
 type TStart = Parameters<ReturnType<TSubagentRunnerFactory>['start']>[0];
 
+const CHILDREN = ['implementer', 'reviewer'];
+
 function job(agentType: string): TStart {
   return { taskId: `task-${agentType}`, request: { agentType } } as unknown as TStart;
 }
@@ -57,7 +59,12 @@ test('child agent definitions are the non-parent roles with their own tool lists
 
 test('the job past the limit is refused, never started, and counted', () => {
   const inner = fakeInner();
-  const limiter = createJobLimiter({ inner: inner.factory, maxJobs: 3, childOnlyTools: [] });
+  const limiter = createJobLimiter({
+    inner: inner.factory,
+    maxJobs: 3,
+    childAgents: CHILDREN,
+    childOnlyTools: [],
+  });
   const runner = limiter.factory({ tools: [] } as unknown as TDeps);
   for (const agent of ['implementer', 'reviewer', 'implementer']) runner.start(job(agent));
   assert.throws(() => runner.start(job('reviewer')), /Child job limit reached/);
@@ -74,6 +81,7 @@ test('jobs are timed from start to end so the gaps between them can be measured'
   const limiter = createJobLimiter({
     inner: inner.factory,
     maxJobs: 3,
+    childAgents: CHILDREN,
     childOnlyTools: [],
     clock: () => now,
   });
@@ -94,11 +102,56 @@ test('jobs are timed from start to end so the gaps between them can be measured'
 test('the children are lent tools the parent does not have, read live from the deps', () => {
   const inner = fakeInner();
   const lent = { getName: () => 'Write' } as never;
-  const limiter = createJobLimiter({ inner: inner.factory, maxJobs: 3, childOnlyTools: [lent] });
+  const limiter = createJobLimiter({
+    inner: inner.factory,
+    maxJobs: 3,
+    childAgents: CHILDREN,
+    childOnlyTools: [lent],
+  });
   const deps = { tools: [{ getName: () => 'Read' }] } as unknown as TDeps;
   limiter.factory(deps);
   // The session completes the deps object after the factory ran; the proxy sees the later value.
   (deps as { tools: unknown[] }).tools = [{ getName: () => 'Read' }, { getName: () => 'Glob' }];
   const names = inner.tools().map((tool) => (tool as { getName(): string }).getName());
   assert.deepEqual(names, ['Read', 'Glob', 'Write']);
+});
+
+test('an agent type that is not a child role is refused in start(), counted, and uses no job', () => {
+  const inner = fakeInner();
+  const limiter = createJobLimiter({
+    inner: inner.factory,
+    maxJobs: 3,
+    childAgents: CHILDREN,
+    childOnlyTools: [],
+  });
+  const runner = limiter.factory({ tools: [] } as unknown as TDeps);
+  assert.throws(() => runner.start(job('general-purpose')), /"general-purpose" is not available/);
+  assert.throws(() => runner.start(job('parent')), /"parent" is not available/);
+  assert.deepEqual(inner.started, []);
+  for (const agent of ['implementer', 'reviewer', 'implementer']) runner.start(job(agent));
+  const report = limiter.report();
+  assert.equal(report.jobsStarted, 3);
+  assert.equal(report.jobsRefused, 2);
+  assert.deepEqual(report.refusedAgentTypes, ['general-purpose', 'parent']);
+});
+
+test('a job window ends with the job result, which the runner resolves after its last accepted turn', async () => {
+  const inner = fakeInner();
+  let now = 0;
+  const limiter = createJobLimiter({
+    inner: inner.factory,
+    maxJobs: 3,
+    childAgents: CHILDREN,
+    childOnlyTools: [],
+    clock: () => now,
+  });
+  const runner = limiter.factory({ tools: [] } as unknown as TDeps);
+  const handle = runner.start(job('implementer'));
+  // Input sent while the job runs is passed through and does not end the window.
+  await handle.send('more');
+  now = 250;
+  assert.equal(limiter.report().jobs[0]?.endMs, null);
+  inner.finishers[0]?.();
+  await handle.result;
+  assert.equal(limiter.report().jobs[0]?.endMs, 250);
 });

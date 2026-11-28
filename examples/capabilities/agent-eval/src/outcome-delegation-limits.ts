@@ -43,6 +43,8 @@ export function childAgentDefinitions(
 export function createJobLimiter(options: {
   readonly inner: TSubagentRunnerFactory;
   readonly maxJobs: number;
+  /** The agent types a job may name: the child roles. Any other type is refused in `start()`. */
+  readonly childAgents: readonly string[];
   /** Tools the children may use that the parent session does not have. */
   readonly childOnlyTools: readonly FunctionTool[];
   readonly clock?: () => number;
@@ -51,6 +53,7 @@ export function createJobLimiter(options: {
   const origin = clock();
   const jobs: { agent: string; startMs: number; endMs: number | null }[] = [];
   let refused = 0;
+  const refusedAgentTypes: string[] = [];
 
   const factory: TSubagentRunnerFactory = (deps) => {
     // The deps object is completed after the factory runs (the session wires its live accessors
@@ -67,6 +70,15 @@ export function createJobLimiter(options: {
         ? {}
         : { preflight: (job: TJobStart) => runner.preflight?.(job) }),
       start(job: TJobStart): TJobHandle {
+        // A built-in agent type would otherwise start and only be stopped later, at attribution; it
+        // is refused here, counted like a refused spawn, and does not use one of the jobs.
+        if (!options.childAgents.includes(job.request.agentType)) {
+          refused += 1;
+          refusedAgentTypes.push(job.request.agentType);
+          throw new Error(
+            `Agent type "${job.request.agentType}" is not available in this trial: use one of ${options.childAgents.join(', ')}.`,
+          );
+        }
         if (jobs.length >= options.maxJobs) {
           refused += 1;
           throw new Error(
@@ -80,6 +92,8 @@ export function createJobLimiter(options: {
         };
         jobs.push(entry);
         const handle = runner.start(job);
+        // The runner ends a job's result only after every turn it accepted has run, and refuses
+        // input sent after that, so the window ends with the job's last child call.
         const result = handle.result.finally(() => {
           entry.endMs = clock() - origin;
         });
@@ -103,6 +117,7 @@ export function createJobLimiter(options: {
     report: () => ({
       jobsStarted: jobs.length,
       jobsRefused: refused,
+      refusedAgentTypes: [...refusedAgentTypes],
       jobs: jobs.map((entry) => ({ ...entry })),
     }),
   };

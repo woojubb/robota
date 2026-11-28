@@ -208,6 +208,7 @@ async function delegationTrials(image: string): Promise<void> {
     'parent-writes',
     'reviewer-writes',
     'fourth-spawn',
+    'built-in-agent',
     'call-cap',
   ];
   for (const behavior of behaviors) {
@@ -237,6 +238,7 @@ async function delegationTrials(image: string): Promise<void> {
       JSON.stringify(expected) === JSON.stringify(got) &&
         trial.measures.childJobsStarted === plan.childJobsStarted &&
         trial.measures.childJobsRefused === plan.childJobsRefused &&
+        trial.measures.childJobOverlap?.count === 0 &&
         trial.capReached === plan.capReached &&
         trial.relayLog.every((entry) => entry.role !== undefined) &&
         trial.cleanupError === undefined,
@@ -250,6 +252,7 @@ async function delegationTrials(image: string): Promise<void> {
           Object.entries(trial.measures.byRole).map(([role, measure]) => [role, measure.calls]),
         ),
         idleBetweenJobsMs: trial.measures.coordination.idleBetweenJobsMs,
+        childJobOverlap: trial.measures.childJobOverlap?.count,
         diagnostics: trial.diagnostics,
         ...(trial.cleanupError === undefined ? {} : { cleanupError: trial.cleanupError }),
       },

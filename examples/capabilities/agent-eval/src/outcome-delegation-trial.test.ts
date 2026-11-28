@@ -125,6 +125,7 @@ test(
     );
     assert.equal(record.measures.childJobsStarted, 2);
     assert.equal(record.measures.childJobsRefused, 0);
+    assert.equal(record.measures.childJobOverlap?.count, 0);
     assert.ok((record.measures.byRole.implementer?.calls ?? 0) >= 2);
     assert.equal(record.measures.total.calls, calls);
     assert.ok((record.measures.coordination.idleBetweenJobsMs ?? -1) >= 0);
@@ -189,6 +190,19 @@ test(
     assert.equal(record.result?.delegation?.jobsRefused, 1);
     // Three jobs ran and the tree was solved by the first: the refusal alone is not a failure.
     assert.deepEqual(record.score.failures, []);
+  },
+);
+
+test(
+  'an agent type that is not a child role is refused before it starts and uses no job',
+  options,
+  async () => {
+    const { record, planFailures } = await run('built-in-agent');
+    assert.deepEqual([...record.score.failures].sort(), [...planFailures].sort());
+    assert.equal(record.measures.childJobsStarted, 0, JSON.stringify(record.diagnostics));
+    assert.equal(record.measures.childJobsRefused, 1);
+    assert.deepEqual(record.result?.delegation?.refusedAgentTypes, ['general-purpose']);
+    assert.ok(record.relayLog.every((entry) => entry.role === 'parent'));
   },
 );
 
