@@ -17,6 +17,11 @@ export interface ICodingTaskDefinition {
   readonly allowed: readonly string[];
   /** Node ES module source that exits 0 only when the task is solved; reads the tree at /work. */
   readonly verifier: string;
+  /**
+   * Lines that occur only in the solution, for a task taken from a real fix: they must appear in
+   * no file the model can read, so the image search looks for them as well.
+   */
+  readonly leakNeedles?: readonly string[];
 }
 
 export interface ICodingTask extends ICodingTaskDefinition {
@@ -112,20 +117,24 @@ const DEFINITIONS: readonly ICodingTaskDefinition[] = [
   },
 ];
 
+/** Deep-freezes a task definition and derives its protected files. */
+export function freezeTask(definition: ICodingTaskDefinition): ICodingTask {
+  return Object.freeze({
+    ...definition,
+    files: Object.freeze({ ...definition.files }),
+    solved: Object.freeze({ ...definition.solved }),
+    allowed: Object.freeze([...definition.allowed]),
+    ...(definition.leakNeedles === undefined
+      ? {}
+      : { leakNeedles: Object.freeze([...definition.leakNeedles]) }),
+    protectedFiles: Object.freeze(
+      Object.keys(definition.files).filter((path) => !definition.allowed.includes(path)),
+    ),
+  });
+}
+
 /** Deep-frozen so a caller cannot alter a task and still pass for the frozen definition. */
-export const CODING_TASKS: readonly ICodingTask[] = Object.freeze(
-  DEFINITIONS.map((definition) =>
-    Object.freeze({
-      ...definition,
-      files: Object.freeze({ ...definition.files }),
-      solved: Object.freeze({ ...definition.solved }),
-      allowed: Object.freeze([...definition.allowed]),
-      protectedFiles: Object.freeze(
-        Object.keys(definition.files).filter((path) => !definition.allowed.includes(path)),
-      ),
-    }),
-  ),
-);
+export const CODING_TASKS: readonly ICodingTask[] = Object.freeze(DEFINITIONS.map(freezeTask));
 
 /** The tree a trial starts from (`broken`) or the exact solved control. */
 export function taskFiles(

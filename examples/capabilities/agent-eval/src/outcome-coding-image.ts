@@ -51,10 +51,22 @@ export const TASK_MARKERS: readonly string[] = [
 export function forbiddenTexts(tasks: readonly ICodingTaskDefinition[]): string[] {
   return [
     ...new Set([
-      ...tasks.flatMap((task) => [task.verifier, ...Object.values(task.solved)]),
+      ...tasks.flatMap((task) => [
+        task.verifier,
+        ...Object.values(task.solved),
+        ...(task.leakNeedles ?? []),
+      ]),
       ...TASK_MARKERS,
     ]),
   ];
+}
+
+/**
+ * Lines that exist only in a real fix. The repository at the pinned commit already contains that
+ * fix, so every file carrying one of them is removed from the exported tree before the build.
+ */
+export function leakNeedles(tasks: readonly ICodingTaskDefinition[]): string[] {
+  return [...new Set(tasks.flatMap((task) => task.leakNeedles ?? []))];
 }
 
 export interface IPnpmPin {
@@ -109,10 +121,16 @@ export function resolveCommit(source: string, revision: string): string {
   return run('git', ['-C', source, 'rev-parse', '--verify', `${revision}^{commit}`]);
 }
 
-function exportTree(source: string, commit: string, destination: string): Promise<void> {
+/** Exports a commit's tree (optionally only some paths) with no history: `git archive` piped into `tar`. */
+export function exportTree(
+  source: string,
+  commit: string,
+  destination: string,
+  paths: readonly string[] = [],
+): Promise<void> {
   mkdirSync(destination, { recursive: true });
   return new Promise((done, fail) => {
-    const archive = spawn('git', ['-C', source, 'archive', '--format=tar', commit], {
+    const archive = spawn('git', ['-C', source, 'archive', '--format=tar', commit, ...paths], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     const extract = spawn('tar', ['-x', '-C', destination], { stdio: ['pipe', 'ignore', 'pipe'] });
@@ -132,8 +150,29 @@ function exportTree(source: string, commit: string, destination: string): Promis
   });
 }
 
-/** Removes what the worker must not see from an exported tree, keeping the worker and its manifest. */
-export function pruneExport(exported: string): void {
+function* walkFiles(root: string): Generator<string> {
+  const stack = [root];
+  while (stack.length > 0) {
+    const directory = stack.pop() as string;
+    for (const entry of readdirSync(directory)) {
+      const path = join(directory, entry);
+      const stat = lstatSync(path);
+      if (stat.isDirectory()) stack.push(path);
+      else if (stat.isFile()) yield path;
+    }
+  }
+}
+
+const MAX_SEARCHED_BYTES = 16 * 1024 * 1024;
+
+/**
+ * Removes what the worker must not see from an exported tree, keeping the worker and its manifest.
+ * Any other file holding one of `excludeFilesContaining` (lines of a real fix) is removed too.
+ */
+export function pruneExport(
+  exported: string,
+  excludeFilesContaining: readonly string[] = [],
+): void {
   const example = join(exported, EXAMPLE_DIR);
   const kept = new Map<string, Buffer>();
   for (const file of [...EXAMPLE_KEPT_FILES, ...WORKER_FILES]) {
@@ -146,6 +185,12 @@ export function pruneExport(exported: string): void {
   }
   for (const directory of EXCLUDED_DIRECTORIES) {
     rmSync(join(exported, directory), { recursive: true, force: true });
+  }
+  if (excludeFilesContaining.length === 0) return;
+  for (const path of [...walkFiles(exported)]) {
+    if (lstatSync(path).size > MAX_SEARCHED_BYTES) continue;
+    const content = readFileSync(path);
+    if (excludeFilesContaining.some((needle) => content.includes(needle))) rmSync(path);
   }
 }
 
@@ -165,11 +210,13 @@ export async function assembleImageContext(options: {
   readonly revision: string;
   readonly directory: string;
   readonly nodeImage: string;
+  /** Lines of a real fix: files holding one are left out of the image (see `leakNeedles`). */
+  readonly excludeFilesContaining?: readonly string[];
 }): Promise<IImageContext> {
   const commit = resolveCommit(options.source, options.revision);
   const tree = join(options.directory, 'robota');
   await exportTree(options.source, commit, tree);
-  pruneExport(tree);
+  pruneExport(tree, options.excludeFilesContaining);
   const pin = readPnpmPin(tree);
   writeFileSync(
     join(options.directory, 'Dockerfile'),
@@ -182,21 +229,6 @@ export interface ISearchHit {
   readonly path: string;
   readonly reason: string;
 }
-
-function* walkFiles(root: string): Generator<string> {
-  const stack = [root];
-  while (stack.length > 0) {
-    const directory = stack.pop() as string;
-    for (const entry of readdirSync(directory)) {
-      const path = join(directory, entry);
-      const stat = lstatSync(path);
-      if (stat.isDirectory()) stack.push(path);
-      else if (stat.isFile()) yield path;
-    }
-  }
-}
-
-const MAX_SEARCHED_BYTES = 16 * 1024 * 1024;
 
 /** Searches a host directory for forbidden path fragments and forbidden texts. */
 export function searchTree(

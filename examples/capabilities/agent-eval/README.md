@@ -172,7 +172,7 @@ remain unmeasured rather than being reported as zero.
 
 ## Coding-task baseline fixtures
 
-`src/outcome-coding-*.ts` hold five small synthetic repository tasks (navigation, bug repair, feature,
+`src/outcome-coding-tasks.ts` holds five small synthetic repository tasks (navigation, bug repair, feature,
 multi-file change, test diagnosis) as data: prompt, initial file tree, protected files, a solved control and
 an independent verifier program the model never sees. The contents are ported unchanged from a pinned
 single-agent baseline and frozen by a SHA-256 over a canonical serialization (tasks in order, object keys
@@ -205,6 +205,42 @@ ROBOTA_EVAL_DOCKER=1 ROBOTA_EVAL_DOCKER_IMAGE=node:22 \
 To change a task on purpose, edit `src/outcome-coding-tasks.ts`, print the new digest with
 `createHash('sha256').update(serializeCodingTasks()).digest('hex')`, and replace the constant in
 `src/outcome-coding-tasks.test.ts` in the same change, stating why the frozen baseline moved.
+
+## Repository-work task from a real merged fix
+
+Beside the five synthetic tasks there is a sixth, `repository-fix`, taken from a real merged fix in this
+repository. It is frozen on its own (a separate digest in `src/outcome-coding-repository.test.ts`), so the five
+keep theirs; `ALL_CODING_TASKS` lists the five and then this one, and both arms of a comparison use the same list.
+
+- **Why this fix.** It changes one small pure function in one file (the set of characters that count as a line
+  break when text a participant shares is quoted line by line). That is single-agent sized: the model reads one
+  file and changes one line of code. Its behavior is checked by a deterministic script that needs no dependency, network
+  or credential, and the unfixed behavior is something a reader can describe from outside.
+- **Tree.** `src/outcome-coding-repository-build.ts` exports the fix's parent commit with `git archive` (a plain
+  tree: no history, no pack objects) and keeps two files, the implementation and its package manifest. The kept
+  files are byte for byte the repository's own, so their comments are too. The result is committed as
+  `src/outcome-coding-tasks-repository-data.ts`; a test rebuilds it from the two commits when the checkout has
+  them and compares (it is skipped in a shallow clone). Regenerate with
+  `pnpm --filter robota-capability-agent-eval exec tsx src/outcome-coding-repository-build.ts`, then format the
+  result with prettier.
+- **Verifier.** It runs the implementation file directly (Node strips the types), so it needs Node 22.18 or
+  later, and compares complete rendered outputs for the line breaks that already worked and for the ones the
+  report is about. Any correct way of quoting passes; the fix's own text is not required. It never enters the
+  image or the prompt. Broken (the parent tree) fails on the behavior and solved (parent plus fix) passes, both
+  through the same trusted runner and, opt in, the verifier container.
+- **Prompt.** It reports the symptom as a reader of the shared text would (a forged header after a form feed
+  comes through unquoted) and states the rule the behavior must follow, every mandatory line break of the Unicode
+  line-breaking rules. It names no file, function or constant, and not the second character the fix adds. The
+  judgment: the rule is the stated requirement, so the verifier asks for nothing the prompt does not say, and
+  naming the missing characters would hand over the change. A test pins that the prompt contains none of the
+  code's names or the fix's lines.
+- **Fix lines and the image.** The pinned checkout that the worker image is built from already contains the fix,
+  in its own package and in sibling code and tests that repeat it. `leakNeedles` holds the lines the fix added
+  that the parent lacks; the image build removes every file holding one and the context and image searches look
+  for them like any other forbidden text.
+- **Limitation.** A public fix may be in a model's training data. A pass on this task is weaker evidence than a
+  pass on a task nobody published, and it says nothing about unpublished work; both arms see the same task, which
+  keeps their comparison fair but does not make the absolute score meaningful.
 
 ## Coding worker, validating relay and offline run
 

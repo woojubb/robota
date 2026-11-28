@@ -13,8 +13,8 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
+import { ALL_CODING_TASKS } from './outcome-coding-tasks-repository.js';
 import {
-  CODING_TASKS,
   serializeCodingTasks,
   taskFiles,
   type ICodingTask,
@@ -272,7 +272,7 @@ export function runTrustedControl(
  * serialization differs from it in any field. Only frozen data can reach the host runner.
  */
 export function requireFrozenTask(candidate: ICodingTask): ICodingTask {
-  const frozen = CODING_TASKS.find((task) => task.id === candidate.id);
+  const frozen = ALL_CODING_TASKS.find((task) => task.id === candidate.id);
   if (
     frozen === undefined ||
     serializeCodingTasks([candidate]) !== serializeCodingTasks([frozen])
