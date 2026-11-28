@@ -559,6 +559,26 @@ describe('lifecycle', () => {
     await expect(runtime.inspect('old')).rejects.toMatchObject({ code: 'failed' });
   });
 
+  it('stops a running unit whose slot lies outside the current pool', async () => {
+    const fake = await newEngine();
+    const wide = runtimeOn(fake);
+    await wide.provision(spec('alpha', { subnetSlot: 100 }));
+    await wide.start(spec('alpha', { subnetSlot: 100 }), { modelApiKey: KEY });
+    const narrowPool = parseSubnetPool('10.200.0.0/24');
+    if (typeof narrowPool === 'string') throw new Error(narrowPool);
+    const narrow = runtimeOn(fake, { subnetPool: narrowPool });
+    const listed = await narrow.list();
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).toMatchObject({
+      account: 'alpha',
+      state: 'running',
+      endpoints: { host: '' },
+    });
+    await narrow.stop('alpha');
+    expect((await narrow.list())[0]).toMatchObject({ state: 'stopped' });
+    await expect(narrow.stop('nobody')).rejects.toMatchObject({ code: 'unknown-account' });
+  });
+
   it('refuses a unit of another install or one outside the pool', async () => {
     const fake = await newEngine();
     const runtime = runtimeOn(fake);

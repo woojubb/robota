@@ -135,4 +135,24 @@ describe('reconcile', () => {
     expect(report.started).toEqual(['alice']);
     expect(view.runtime).toMatchObject({ state: 'running' });
   });
+
+  it('applies the routes again on a later pass when the proxy refused them', async () => {
+    const host = await makeHost();
+    await host.plane.add(addInput('alice'));
+    host.runtime.crash('alice');
+    host.proxy.failNext();
+    const first = await host.plane.reconcile();
+    expect(first.started).toEqual(['alice']);
+    expect(first.failed).toEqual([{ account: '*', reason: expect.stringContaining('routes') }]);
+    const applied = host.proxy.history.length;
+
+    const second = await host.plane.reconcile();
+    expect(second.failed).toEqual([]);
+    expect(host.proxy.history.length).toBe(applied + 1);
+    expect(host.proxy.siteFor('alice.agents.example.test')?.kind).toBe('active');
+
+    // Once they are current, a quiet pass applies nothing.
+    await host.plane.reconcile();
+    expect(host.proxy.history.length).toBe(applied + 1);
+  });
 });

@@ -102,6 +102,48 @@ describe('configuration from the environment', () => {
     expect(loadConfig(VALID).dnsServers).toBeUndefined();
   });
 
+  it('reads the proxy settings, with the listen path defaulting to the socket the host reaches', () => {
+    const config = loadConfig({
+      ...VALID,
+      PERSONAL_AGENT_HOST_PROXY_CONFIG: '/etc/caddy/Caddyfile',
+      PERSONAL_AGENT_HOST_PROXY_ADMIN_SOCKET: '/run/caddy/admin.sock',
+    });
+    expect(config.proxy).toEqual({
+      configPath: '/etc/caddy/Caddyfile',
+      adminSocket: '/run/caddy/admin.sock',
+      adminListen: '/run/caddy/admin.sock',
+    });
+    expect(
+      loadConfig({
+        ...VALID,
+        PERSONAL_AGENT_HOST_PROXY_CONFIG: '/etc/caddy/Caddyfile',
+        PERSONAL_AGENT_HOST_PROXY_ADMIN_SOCKET: '/run/proxy/admin.sock',
+        PERSONAL_AGENT_HOST_PROXY_ADMIN_LISTEN: '/run/caddy/admin.sock',
+      }).proxy?.adminListen,
+    ).toBe('/run/caddy/admin.sock');
+    expect(loadConfig(VALID).proxy).toBeUndefined();
+  });
+
+  it('refuses a half-set or unsafe proxy setting, naming it', () => {
+    expect(
+      refusal({ ...VALID, PERSONAL_AGENT_HOST_PROXY_CONFIG: '/etc/caddy/Caddyfile' }),
+    ).toContain('PERSONAL_AGENT_HOST_PROXY_ADMIN_SOCKET');
+    expect(
+      refusal({
+        ...VALID,
+        PERSONAL_AGENT_HOST_PROXY_CONFIG: '/etc/caddy/Caddyfile',
+        PERSONAL_AGENT_HOST_PROXY_ADMIN_SOCKET: '/run/caddy/admin.sock|0777',
+      }),
+    ).toContain('PERSONAL_AGENT_HOST_PROXY_ADMIN_SOCKET');
+    expect(
+      refusal({
+        ...VALID,
+        PERSONAL_AGENT_HOST_PROXY_CONFIG: 'Caddyfile',
+        PERSONAL_AGENT_HOST_PROXY_ADMIN_SOCKET: '/run/caddy/admin.sock',
+      }),
+    ).toContain('PERSONAL_AGENT_HOST_PROXY_CONFIG');
+  });
+
   it('refuses equal HTTP and HTTPS ports', () => {
     const message = refusal({
       ...VALID,

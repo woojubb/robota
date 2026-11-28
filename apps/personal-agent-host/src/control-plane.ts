@@ -97,6 +97,7 @@ export class ControlPlane {
   private queue: Promise<unknown> = Promise.resolve();
   private known: string[] = [];
   private routesHash: string | null = null;
+  private routesFailed = false;
   private auditFailures = 0;
   private lastAuditFailure: string | null = null;
   private readonly reconciler: Reconciler;
@@ -109,6 +110,7 @@ export class ControlPlane {
       runtime: deps.runtime,
       audit: deps.audit,
       applyRoutes: () => this.applyRoutes(),
+      routesCurrent: () => this.routesHash !== null && !this.routesFailed,
       now: deps.now ?? Date.now,
       backoff: deps.backoff ?? DEFAULT_BACKOFF,
     });
@@ -203,7 +205,8 @@ export class ControlPlane {
         continue;
       }
       const unit = units.get(record.id);
-      if (unit?.state === 'running') {
+      // A unit without a reported address (its slot is outside the pool) cannot be proxied to.
+      if (unit?.state === 'running' && unit.endpoints.host !== '') {
         const { host, guiPort, wsPort } = unit.endpoints;
         sites.push({
           kind: 'active',
@@ -219,7 +222,13 @@ export class ControlPlane {
   }
 
   private async applyRoutes(replacing?: IAccountRecord): Promise<void> {
-    this.routesHash = (await this.deps.proxy.apply(await this.sites(replacing))).hash;
+    try {
+      this.routesHash = (await this.deps.proxy.apply(await this.sites(replacing))).hash;
+      this.routesFailed = false;
+    } catch (error) {
+      this.routesFailed = true;
+      throw error;
+    }
   }
 
   private nextSlot(): number {

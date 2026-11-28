@@ -33,6 +33,8 @@ export interface IReconcilerDeps {
   runtime: IRuntimePort;
   audit: AuditLog;
   applyRoutes(): Promise<void>;
+  /** Whether the last route apply succeeded; a pass that finds it did not applies them again. */
+  routesCurrent(): boolean;
   now(): number;
   backoff: IBackoff;
 }
@@ -177,7 +179,7 @@ export class Reconciler {
       }
     }
 
-    if (changed) {
+    if (changed || !this.deps.routesCurrent()) {
       try {
         await this.deps.applyRoutes();
       } catch (error) {
