@@ -26,6 +26,9 @@ export const HTTP_STATUS: Record<HostErrorCode, number> = {
 
 export const MAX_BODY_BYTES = 64 * 1024;
 
+/** Backup and restore carry an archive, not JSON: the one place the socket streams bytes. */
+export const TAR_TYPE = 'application/x-tar';
+
 /**
  * Exit codes a script can rely on: 0 done; 1 something broke; 2 usage; 3 the request was turned
  * down; 4 no such account; 5 the control plane is not reachable.

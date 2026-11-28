@@ -24,6 +24,12 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
 - **An account runs the image recorded for it.** The configured unit image is resolved to an image id when an
   account is added or upgraded, so rebuilding a tag never changes a running account. An upgrade is proven
   healthy before it is recorded; otherwise the previous image is started again and the account stays on it.
+- **A backup is a consistent copy that never holds a key, and a restore changes nothing until the whole archive
+  is proven.** Only a stopped unit gives a consistent copy, so the unit is stopped for it and started again from
+  its recorded image. The archive is the account's state plus a manifest with a content hash; restore targets an
+  existing account, keeps its stored key, and refuses another account's backup without an explicit flag. Paths,
+  links, special files, size and hash are checked in full before anything is replaced, and a failed restore or
+  restart puts the previous state back.
 - **The guard fails closed.** No unit starts unless the network guard is verified, and a reconcile that cannot
   verify it stops every unit.
 - **Only known hostnames are served, and only they get a certificate.** An account is served only while its
@@ -89,6 +95,12 @@ Self-signup, billing, live migration, GPU, and disk quotas on containers. Accoun
 - **A rollback leaves the record on the previous image.** The reconcile loop restarts from the record, so an
   upgrade that could not be proven never becomes what a restart runs; the access-code helper likewise uses the
   recorded image, never one tied to when the volume was made, which an upgrade may have pruned.
+- **The runtime port streams state archives, the one exception to plain JSON.** State is large, so a remote
+  adapter maps the stream to a streamed body instead of buffering it.
+- **Archives wait in a private spool inside the state directory.** The manifest comes first and carries a hash of
+  the entries, and a restore must see all of an archive before replacing anything, so neither can be done in one
+  pass over a pipe; the spool is private, size-limited (`PERSONAL_AGENT_HOST_BACKUP_MAX_BYTES`) and emptied by the
+  server that holds the single-instance lock.
 - **Zero runtime dependencies.** Node built-ins only, so the root daemon has no third-party code to trust.
 - **A cleanup that cannot finish keeps the record.** The half-made account stays visible in `provisioning`
   rather than leaving an unrecorded unit behind.

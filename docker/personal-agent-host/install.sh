@@ -18,7 +18,7 @@ repo_ref="${PERSONAL_AGENT_HOST_REF:-main}"
 install_dir="${PERSONAL_AGENT_HOST_DIR:-/opt/robota}"
 bin_dir="${PERSONAL_AGENT_HOST_BIN_DIR:-/usr/local/bin}"
 container='personal-agent-host-control-plane'
-settings='BASE_DOMAIN TLS ALLOW_CONTAINER HTTP_PORT HTTPS_PORT SUBNET_POOL DNS_SERVERS MEMORY_MB CPUS PIDS STATE_PATH ENGINE_SOCKET'
+settings='BASE_DOMAIN TLS ALLOW_CONTAINER HTTP_PORT HTTPS_PORT SUBNET_POOL DNS_SERVERS MEMORY_MB CPUS PIDS BACKUP_MAX_BYTES STATE_PATH ENGINE_SOCKET'
 
 dry_run=0
 
@@ -167,8 +167,10 @@ cat >"$wrapper.new" <<EOF
 #!/bin/sh
 # Runs the personal-agent-host CLI inside the control plane, against its admin socket.
 # It needs the container engine, so run it as root: sudo personal-agent-host list
+# A terminal is allocated only when both ends are one (for the hidden key prompt): a pseudo-terminal
+# rewrites line endings, which would damage the archive that backup writes and restore reads.
 set -eu
-if [ -t 0 ]; then exec docker exec -it $container personal-agent-host "\$@"; fi
+if [ -t 0 ] && [ -t 1 ]; then exec docker exec -it $container personal-agent-host "\$@"; fi
 exec docker exec -i $container personal-agent-host "\$@"
 EOF
 chmod 755 "$wrapper.new"

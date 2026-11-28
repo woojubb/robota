@@ -1,5 +1,7 @@
 import { request as httpRequest, type IncomingMessage, type RequestOptions } from 'node:http';
 import { request as httpsRequest } from 'node:https';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 /** The oldest Engine API version the backend relies on. */
 export const API_FLOOR = '1.41';
@@ -89,6 +91,20 @@ export interface IEngineClientOptions {
   /** `unix:///path/to.sock`, `https://host:port`, or `http://` on loopback. */
   endpoint: string;
   timeoutMs?: number;
+}
+
+function failureOf(method: string, path: string, status: number, text: string): EngineError {
+  let reason = text.trim();
+  try {
+    const parsed = JSON.parse(text) as { message?: unknown };
+    if (typeof parsed.message === 'string') reason = parsed.message;
+  } catch {
+    // Not JSON: the raw text stands in.
+  }
+  return new EngineError(
+    `Engine ${method} ${path} failed (${status}): ${reason.slice(0, 400)}`,
+    status,
+  );
 }
 
 /**
@@ -182,17 +198,84 @@ export class EngineClient {
     const version = await this.apiVersion();
     const { status, text } = await this.send(method, `/v${version}${path}`, call);
     if (status >= 200 && status < 300) return text;
-    let reason = text.trim();
-    try {
-      const parsed = JSON.parse(text) as { message?: unknown };
-      if (typeof parsed.message === 'string') reason = parsed.message;
-    } catch {
-      // Not JSON: the raw text stands in.
+    throw failureOf(method, path, status, text);
+  }
+
+  private open(
+    method: string,
+    path: string,
+    call: IEngineCall & { source?: AsyncIterable<Uint8Array>; contentType?: string },
+  ): Promise<IncomingMessage> {
+    const query = new URLSearchParams(call.query ?? {}).toString();
+    const timeout = call.timeoutMs ?? this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const requestFn = this.target.secure ? httpsRequest : httpRequest;
+    return new Promise((resolve, reject) => {
+      const fail = (error: Error): void =>
+        reject(
+          error instanceof EngineError
+            ? error
+            : new EngineError(
+                `Cannot reach the engine at ${this.options.endpoint}: ${error.message}`,
+                undefined,
+              ),
+        );
+      const req = requestFn(
+        {
+          ...this.target.options,
+          method,
+          path: query === '' ? path : `${path}?${query}`,
+          agent: false,
+          headers: {
+            accept: 'application/x-tar, application/json',
+            ...(call.source ? { 'content-type': call.contentType ?? 'application/x-tar' } : {}),
+          },
+        },
+        resolve,
+      );
+      // An idle timeout: a long stream that keeps moving is not cut.
+      req.setTimeout(timeout, () =>
+        req.destroy(
+          new EngineError(`The engine did not answer ${method} ${path} in time`, undefined),
+        ),
+      );
+      req.on('error', fail);
+      if (call.source) {
+        pipeline(Readable.from(call.source), req).catch((error: Error) => {
+          req.destroy();
+          fail(error);
+        });
+      } else {
+        req.end();
+      }
+    });
+  }
+
+  /** A successful call whose answer is a byte stream; the caller reads it to the end. */
+  async download(method: string, path: string, call: IEngineCall = {}): Promise<IncomingMessage> {
+    const version = await this.apiVersion();
+    const res = await this.open(method, `/v${version}${path}`, call);
+    const status = res.statusCode ?? 0;
+    if (status >= 200 && status < 300) return res;
+    const chunks: Buffer[] = [];
+    for await (const chunk of res) chunks.push(chunk as Buffer);
+    throw failureOf(method, path, status, Buffer.concat(chunks).toString('utf8').slice(0, 4096));
+  }
+
+  /** Sends a byte stream as the body, without holding it in memory. */
+  async upload(
+    method: string,
+    path: string,
+    source: AsyncIterable<Uint8Array>,
+    call: IEngineCall = {},
+  ): Promise<void> {
+    const version = await this.apiVersion();
+    const res = await this.open(method, `/v${version}${path}`, { ...call, source });
+    const chunks: Buffer[] = [];
+    for await (const chunk of res) chunks.push(chunk as Buffer);
+    const status = res.statusCode ?? 0;
+    if (status < 200 || status >= 300) {
+      throw failureOf(method, path, status, Buffer.concat(chunks).toString('utf8').slice(0, 4096));
     }
-    throw new EngineError(
-      `Engine ${method} ${path} failed (${status}): ${reason.slice(0, 400)}`,
-      status,
-    );
   }
 
   async json<T>(method: string, path: string, call: IEngineCall = {}): Promise<T> {

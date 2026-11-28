@@ -146,9 +146,19 @@ changes isolation. A desktop VM is not a server: the run on a real server stays 
   accounts; units keep running and keep the image they were recorded with until you `upgrade` them.
   A host installed before accounts recorded image ids has a version 1 store, which the control plane
   refuses by design: delete its accounts and add them again after the re-run.
-- **Backup and restore are not available yet.** Copy the state directory and the account volumes
-  (`pah-<install id>-<account>-state`) yourself if the data matters; a copy taken while a unit runs may be
-  inconsistent.
+- **Backup and restore.** `sudo personal-agent-host backup <id> > alice.tar` writes a consistent copy of one
+  account's state to a file; `sudo personal-agent-host restore <id> < alice.tar` replaces the state with it. Both
+  refuse a terminal (redirect a file). The unit is stopped for a moment (a suspended account stays suspended), the
+  state is read or replaced through the engine, and an account that was running is started again from its
+  recorded image, guard first and health checked. Keep the file like a secret (`chmod 600`): it holds the
+  account's **access code and connector tokens**, but not the model key, which a backup never contains. Restore
+  targets an existing account and keeps that account's stored key. To restore onto a new account, `add` it first
+  (the key comes from stdin as usual), then `restore <new id> --from-other-account < alice.tar`; without the flag
+  a backup of another account is refused. A restore checks the whole archive first (relative paths only, no
+  `..`, no links that leave the state, no devices, a size limit, the content hash) and refuses a damaged or
+  tampered one before anything is touched; it also copies today's state aside and puts it back if the restore or
+  the restart fails. While an archive is checked it waits in a private `spool/` directory under the state
+  directory, so keep that much disk free; the limit is `PERSONAL_AGENT_HOST_BACKUP_MAX_BYTES` (default 1 GiB).
 - **Removing it.** Delete every account first (`delete`), then `docker compose down` in the bundle directory,
   and remove `/var/lib/personal-agent-host`, the compose volumes, `/usr/local/bin/personal-agent-host` and the
   firewall table the host leaves behind (`nft delete table inet pah_<install id>`; `nft list tables` shows it).

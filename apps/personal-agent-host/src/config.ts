@@ -27,6 +27,8 @@ export interface IProxyConfig {
 
 export interface IHostConfig {
   stateDir: string;
+  /** The most bytes a backup archive may have, taken or restored. */
+  backupMaxBytes: number;
   baseDomain: string;
   tls: TlsMode;
   allowContainer: boolean;
@@ -63,6 +65,7 @@ const DEFAULTS = {
   memoryMb: 2048,
   cpus: 1,
   pids: 512,
+  backupMaxBytes: 1024 ** 3,
 };
 
 function ipToInt(ip: string): number | undefined {
@@ -272,6 +275,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): IHostConfig {
     pids: integer(env, problems, 'PIDS', DEFAULTS.pids, 16, 1_000_000) ?? 0,
   };
   const allowContainer = flag(env, problems, 'ALLOW_CONTAINER');
+  const backupMaxBytes =
+    integer(env, problems, 'BACKUP_MAX_BYTES', DEFAULTS.backupMaxBytes, 1024 * 1024, 1024 ** 4) ??
+    DEFAULTS.backupMaxBytes;
 
   if (problems.lines.length > 0 || typeof pool === 'string') {
     throw new HostError(
@@ -281,6 +287,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): IHostConfig {
   }
   return {
     stateDir,
+    backupMaxBytes,
     baseDomain,
     tls,
     allowContainer,

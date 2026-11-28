@@ -81,6 +81,13 @@ export class RuntimePortError extends Error {
   }
 }
 
+/**
+ * A tar of a unit's state directory: entries relative to it (no leading `./`, no wrapping
+ * directory), only files, directories, symbolic links and hard links. Owners are the runtime's
+ * business: an export carries none that matter and an import sets the unit's own.
+ */
+export type StateArchive = AsyncIterable<Uint8Array>;
+
 export interface IRuntimePort {
   describe(): Promise<IRuntimeDescription>;
   /** Lets go of an image no account is recorded to run any more; never fails because it is in use. */
@@ -103,4 +110,16 @@ export interface IRuntimePort {
    * is recorded to run.
    */
   accessCode(spec: IUnitSpec): Promise<IAccessCode>;
+  /**
+   * The unit's whole state as an archive. The one operation that is not plain JSON: state is large,
+   * so a remote adapter maps the stream to a streamed body. Refused while the unit runs, because
+   * only a stopped unit gives a consistent copy.
+   */
+  exportState(spec: IUnitSpec): Promise<StateArchive>;
+  /**
+   * Replaces the unit's whole state with the archive: what was there is gone before the first
+   * entry is written, and the result belongs to the unit's own user. The caller has already
+   * validated the archive. Refused while the unit runs.
+   */
+  importState(spec: IUnitSpec, archive: StateArchive): Promise<void>;
 }

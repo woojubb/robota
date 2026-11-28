@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { type IRuntimePort, type IUnitSpec, RuntimePortError } from '../port.js';
+import { encodeEntry, readTar, TAR_TRAILER } from '../../archive/tar.js';
+import { type IRuntimePort, type IUnitSpec, RuntimePortError, type StateArchive } from '../port.js';
 
 /** A unit image as the engine names it: an id, never a tag. */
 export const TEST_IMAGE_ID = `sha256:${'1'.repeat(64)}`;
@@ -18,6 +19,42 @@ export function unitSpecFor(account: string, overrides: Partial<IUnitSpec> = {})
     provider: { type: 'anthropic' },
     ...overrides,
   };
+}
+
+/** A state archive in the port's form: relative paths, regular files only. */
+function stateOf(files: Record<string, string>): StateArchive {
+  const parts = Object.entries(files).map(([path, text]) =>
+    encodeEntry(
+      {
+        path,
+        kind: 'file',
+        flag: '0',
+        mode: 0o644,
+        uid: 0,
+        gid: 0,
+        size: 0,
+        mtime: 0,
+        linkname: '',
+      },
+      Buffer.from(text),
+    ),
+  );
+  return (async function* () {
+    for (const part of parts) yield part;
+    yield TAR_TRAILER;
+  })();
+}
+
+/** The regular files of an exported archive, by path. */
+async function filesOf(archive: StateArchive): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for await (const entry of readTar(archive)) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of entry.body()) chunks.push(chunk);
+    if (entry.header.kind === 'file')
+      out[entry.header.path] = Buffer.concat(chunks).toString('utf8');
+  }
+  return out;
 }
 
 const LOOPBACK = /^(?:127\.|0\.0\.0\.0$|localhost$|::1$|\[::1\]$)/u;
@@ -147,6 +184,54 @@ export function describeRuntimePortContract(
       expect(await code(port.stop('nobody'))).toBe('unknown-account');
       expect(await code(port.accessCode(specFor('nobody')))).toBe('unknown-account');
       expect(await code(port.start(specFor('nobody'), {}))).toBe('unknown-account');
+    });
+
+    it('exports the state of a stopped unit, access code included', async () => {
+      const port = await make();
+      await port.provision(specFor('alpha'));
+      await port.start(specFor('alpha'), {});
+      const code = (await port.accessCode(specFor('alpha'))).code;
+      await port.stop('alpha');
+      const files = await filesOf(await port.exportState(specFor('alpha')));
+      expect(files['server-access-code']?.trim()).toBe(code);
+      await port.destroy('alpha');
+    });
+
+    it('replaces the whole state on import, keeping nothing of what was there', async () => {
+      const port = await make();
+      await port.provision(specFor('alpha'));
+      await port.start(specFor('alpha'), {});
+      await port.stop('alpha');
+      await port.importState(
+        specFor('alpha'),
+        stateOf({ 'a.txt': 'first', 'dir/b.txt': 'second', 'server-access-code': 'x'.repeat(40) }),
+      );
+      expect(await filesOf(await port.exportState(specFor('alpha')))).toEqual({
+        'a.txt': 'first',
+        'dir/b.txt': 'second',
+        'server-access-code': 'x'.repeat(40),
+      });
+      await port.importState(specFor('alpha'), stateOf({ 'c.txt': 'third' }));
+      expect(await filesOf(await port.exportState(specFor('alpha')))).toEqual({ 'c.txt': 'third' });
+      // The unit still starts and the restored access code is the one it reports.
+      await port.importState(specFor('alpha'), stateOf({ 'server-access-code': 'y'.repeat(40) }));
+      await port.start(specFor('alpha'), {});
+      expect((await port.accessCode(specFor('alpha'))).code).toBe('y'.repeat(40));
+      await port.destroy('alpha');
+    });
+
+    it('refuses to export or import while the unit runs, and for an unknown account', async () => {
+      const port = await make();
+      await port.provision(specFor('alpha'));
+      await port.start(specFor('alpha'), {});
+      expect(await code(port.exportState(specFor('alpha')))).toBe('failed');
+      expect(await code(port.importState(specFor('alpha'), stateOf({ 'a.txt': 'x' })))).toBe(
+        'failed',
+      );
+      await port.stop('alpha');
+      expect(await code(port.exportState(specFor('nobody')))).toBe('unknown-account');
+      expect(await code(port.importState(specFor('nobody'), stateOf({})))).toBe('unknown-account');
+      await port.destroy('alpha');
     });
 
     if (options.makeUnverified) {

@@ -7,7 +7,12 @@ export interface ICliIo {
     isTTY?: boolean;
     setRawMode?(mode: boolean): unknown;
   };
-  stdout: { write(text: string): unknown };
+  /** Text for people; the archive a backup writes is bytes, and it never goes to a terminal. */
+  stdout: {
+    write(chunk: string | Uint8Array): unknown;
+    isTTY?: boolean;
+    once?(event: 'drain', listener: () => void): unknown;
+  };
   stderr: { write(text: string): unknown };
   /** Where `serve` listens for SIGTERM and SIGINT; the process itself unless a test supplies one. */
   signals?: Pick<NodeJS.EventEmitter, 'once'>;

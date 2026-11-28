@@ -5,6 +5,7 @@ import { createAdminServer } from './admin/server.js';
 import { bindAdminSocket } from './admin/socket.js';
 import { SecretStore } from './accounts/secret-store.js';
 import { AccountStore } from './accounts/store.js';
+import { Spool } from './archive/spool.js';
 import { AuditLog } from './audit.js';
 import { ALLOW_CONTAINER_SETTING, type IHostConfig, loadConfig } from './config.js';
 import { ControlPlane } from './control-plane.js';
@@ -143,7 +144,8 @@ export async function startServe(
   const { runtime, proxy } = chooseBackend(env, config, store.installId, options, log);
   const secrets = await SecretStore.open(config.stateDir);
   const audit = await AuditLog.open(join(config.stateDir, 'audit.log'));
-  const plane = new ControlPlane({ config, store, secrets, audit, runtime, proxy });
+  const spool = await Spool.open(config.stateDir);
+  const plane = new ControlPlane({ config, store, secrets, audit, runtime, proxy, spool });
 
   let open!: () => void;
   const ready = new Promise<void>((resolve) => {
@@ -151,6 +153,8 @@ export async function startServe(
   });
   const server = createAdminServer({ plane, audit, ready });
   const bound = await bindAdminSocket(server, paths);
+  // Holding the lock, nothing in the spool can belong to a running server: it is what a crash left.
+  await spool.clear();
 
   let stopping = false;
   let timer: NodeJS.Timeout | undefined;

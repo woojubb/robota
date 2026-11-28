@@ -35,13 +35,15 @@ export interface ITestHost {
   socket: string;
   /** Appends to everything a client or the socket ever showed, for key-absence checks. */
   seen: string[];
-  cli(args: string[], stdin?: string | Readable): Promise<ICliResult>;
+  cli(args: string[], stdin?: string | Buffer | Readable): Promise<ICliResult>;
   audit(): Promise<string>;
 }
 
 export interface ICliResult {
   code: number;
   out: string;
+  /** Everything written to stdout, as bytes: an archive is not text. */
+  bytes: Buffer;
   err: string;
 }
 
@@ -58,20 +60,28 @@ export function ttyStdin(): Readable & { isTTY: boolean; setRawMode(mode: boolea
 export async function runCli(
   env: NodeJS.ProcessEnv,
   args: string[],
-  stdin: string | Readable = '',
+  stdin: string | Buffer | Readable = '',
   signals?: ICliIo['signals'],
+  stdoutIsTty = false,
 ): Promise<ICliResult> {
-  let out = '';
+  const written: Buffer[] = [];
   let err = '';
-  const input = typeof stdin === 'string' ? Readable.from(stdin === '' ? [] : [stdin]) : stdin;
+  const input =
+    typeof stdin === 'string' || Buffer.isBuffer(stdin)
+      ? Readable.from(stdin.length === 0 ? [] : [stdin])
+      : stdin;
   const io: ICliIo = {
     stdin: input,
-    stdout: { write: (text) => (out += text) },
+    stdout: {
+      write: (chunk) => written.push(Buffer.from(chunk)),
+      ...(stdoutIsTty ? { isTTY: true } : {}),
+    },
     stderr: { write: (text) => (err += text) },
     ...(signals ? { signals } : {}),
   };
   const code = await main(args, env, io);
-  return { code, out, err };
+  const bytes = Buffer.concat(written);
+  return { code, out: bytes.toString('utf8'), bytes, err };
 }
 
 export async function startHost(
