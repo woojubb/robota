@@ -12,6 +12,7 @@ import {
   transcript,
   type HostMode,
   type MatrixScenario,
+  type SettledEffect,
   type Reference,
 } from './kill-matrix-harness';
 
@@ -54,7 +55,10 @@ const reached = {
   refundedCalls: 0,
   retainedModelCalls: 0,
   retainedEffects: 0,
+  /** A recovery was killed after it had killed once before. */
   twoKills: 0,
+  /** The host settled a parked effect and the process died before the participant journaled it. */
+  settledThenKilled: 0,
 };
 
 /** One restart, or a chain of them: each generation but the last is killed by its plan. */
@@ -65,16 +69,20 @@ async function recover(
   mode: HostMode,
 ): Promise<Recovered> {
   const world = new World();
+  // Everything the host settled, in every generation, killed or not.
+  const settled: SettledEffect[] = [];
   let gen = world.generation(plans[0]);
   let room = createIn(scenario, gen);
-  let out = await drive(world, gen, room, mode);
+  let out = await drive(world, gen, room, mode, settled);
   expect(out.killed).toBe(true);
+  if (settled.length > 0) reached.settledThenKilled++;
   for (const plan of [...plans.slice(1), undefined]) {
     // What the dead process left of its effects is all a restart may count on.
     const before = Object.fromEntries(world.effects);
     gen = world.generation(plan);
     room = await loadIn(scenario, gen);
-    out = await drive(world, gen, room, mode, (requests) => {
+    const settledBefore = settled.length;
+    out = await drive(world, gen, room, mode, settled, (requests) => {
       // An effect that started without a result is never run again until the host settles it.
       for (const request of requests) {
         if (request.kind !== 'reconciliation') continue;
@@ -84,6 +92,8 @@ async function recover(
     });
     // A second kill point past what recovery needs simply lets recovery finish.
     if (!out.killed) break;
+    reached.twoKills++;
+    if (settled.length > settledBefore) reached.settledThenKilled++;
   }
   if (out.killed) throw new Error('The final generation was killed');
   // Let the abandoned processes' leftovers be collected: a microtask-only chain never ends the job.
@@ -92,7 +102,7 @@ async function recover(
   // Completed or not, the conversation ends as the uninterrupted one did.
   expect(out.result).toMatchObject({ status: 'completed', reason: 'done' });
   const view = room.snapshot();
-  const failed = new Set(out.settled.filter((s) => s.answer === 'failure').map((s) => s.effect));
+  const failed = new Set(settled.filter((s) => s.answer === 'failure').map((s) => s.effect));
   const expectedEffects = Object.fromEntries(
     Object.entries(ref.effects).filter(([effect]) => !failed.has(effect)),
   );
@@ -126,23 +136,22 @@ async function recover(
       record.outcome !== 'completed' &&
       record.outcome !== 'not-dispatched',
   );
-  expect(retained).toHaveLength(out.settled.length);
+  expect(retained).toHaveLength(settled.length);
   const wanted = [...ref.completed];
   for (const call of completedCalls(view.usage)) {
     const at = wanted.indexOf(call);
     if (at >= 0) wanted.splice(at, 1);
   }
-  expect(wanted).toEqual(out.settled.map(() => 'tool-effect:0/0'));
+  expect(wanted).toEqual(settled.map(() => 'tool-effect:0/0'));
   for (const record of view.usage) {
     if (record.status !== 'settled') continue;
     if (record.outcome === 'not-dispatched') reached.refundedCalls++;
     else if (record.outcome !== 'completed')
       reached[record.kind === 'model' ? 'retainedModelCalls' : 'retainedEffects']++;
   }
-  reached.parked += out.settled.length;
-  if (plans.length > 1) reached.twoKills++;
+  reached.parked += settled.length;
   await room.dispose();
-  return { settled: out.settled };
+  return { settled };
 }
 
 const references = new Map<MatrixScenario, Reference>(
@@ -151,42 +160,56 @@ const references = new Map<MatrixScenario, Reference>(
   ),
 );
 
-/** Kill points of a recovery itself: what a restart writes and appends before it finishes. */
-async function recoveryPoints(scenario: MatrixScenario, first: KillPlan): Promise<KillPlan[]> {
+/**
+ * The full first x second product is behind `KILL_MATRIX_FULL=1`. Each recovery leaves a little
+ * memory behind, so the full product needs a larger worker heap: `VITEST_WORKER_HEAP_MB=6144`.
+ *
+ * CI sweeps the recoveries of two kinds of first kill: three sampled ones spread over the run (every
+ * other kill point of their recovery, plus the early ones below), and every first kill whose recovery parks an effect that the host then settles. For the second kind the
+ * second kill is taken at the recovery's first few writes and appends, where it reconciles, takes the
+ * host's answer and hands it to the participant: a kill there leaves the host's answer committed
+ * while the participant has not yet journaled it.
+ */
+const FULL = process.env.KILL_MATRIX_FULL === '1';
+const EARLY_WRITES = 3;
+const EARLY_APPENDS = 2;
+
+/** The kill points of a recovery itself: what a restart writes and appends before it finishes. */
+async function recoveryPoints(
+  scenario: MatrixScenario,
+  first: KillPlan,
+  mode: HostMode,
+): Promise<KillPlan[]> {
   const world = new World();
   const gen = world.generation(first);
-  await drive(world, gen, createIn(scenario, gen), 'value');
-  const probe = world.generation();
-  await drive(world, probe, await loadIn(scenario, probe), 'value');
-  return plansFor(probe);
+  await drive(world, gen, createIn(scenario, gen), mode, []);
+  const restart = world.generation();
+  await drive(world, restart, await loadIn(scenario, restart), mode, []);
+  return plansFor(restart);
 }
 
 /** First kills spread over the run, each landing at a different stage of the conversation. */
-function firstKills(plans: readonly KillPlan[]): KillPlan[] {
-  return [0.25, 0.5, 0.75].map((at) => plans[Math.floor(plans.length * at)]!);
+function sampledFirstKills(plans: readonly KillPlan[]): Set<KillPlan> {
+  return new Set([0.25, 0.5, 0.75].map((at) => plans[Math.floor(plans.length * at)]!));
 }
 
-/** Every pair of a first kill and a kill of the recovery that follows it. */
-async function pairsFor(scenario: MatrixScenario, plans: readonly KillPlan[]) {
-  const pairs: (readonly [KillPlan, KillPlan])[] = [];
-  for (const first of firstKills(plans))
-    for (const second of await recoveryPoints(scenario, first)) pairs.push([first, second]);
-  return pairs;
-}
+const early = (plan: KillPlan): boolean =>
+  plan.at === 'commit' ? plan.n < EARLY_WRITES : plan.k < EARLY_APPENDS;
 
-const pairs = new Map<MatrixScenario, (readonly [KillPlan, KillPlan])[]>(
-  await Promise.all(
-    scenarios.map(
-      async (scenario) =>
-        [scenario, await pairsFor(scenario, plansFor(references.get(scenario)!))] as const,
-    ),
-  ),
-);
-
-async function both(scenario: MatrixScenario, ref: Reference, kills: readonly KillPlan[]) {
-  const first = await recover(scenario, ref, kills, 'value');
-  // Where the host had to settle an effect, it can also say the effect failed.
-  if (first.settled.length > 0) await recover(scenario, ref, kills, 'failure');
+/** Kills the recovery of one first kill at each of its own points, under one host answer. */
+async function sweepSecondKills(
+  scenario: MatrixScenario,
+  ref: Reference,
+  first: KillPlan,
+  mode: HostMode,
+  breadth: 'all' | 'alternate' | 'early',
+): Promise<void> {
+  const points = await recoveryPoints(scenario, first, mode);
+  for (const [index, second] of points.entries()) {
+    const wanted =
+      breadth === 'all' || early(second) || (breadth === 'alternate' && index % 2 === 0);
+    if (wanted) await recover(scenario, ref, [first, second], mode);
+  }
 }
 
 describe.each(scenarios.map((scenario) => [scenario.name, scenario] as const))(
@@ -194,6 +217,7 @@ describe.each(scenarios.map((scenario) => [scenario.name, scenario] as const))(
   (_name, scenario) => {
     const ref = references.get(scenario)!;
     const plans = plansFor(ref);
+    const sampled = sampledFirstKills(plans);
 
     it('has kill points to sweep', () => {
       expect(ref.writes).toBeGreaterThan(2);
@@ -201,28 +225,30 @@ describe.each(scenarios.map((scenario) => [scenario.name, scenario] as const))(
     });
 
     it.each(plans.map((plan) => [label(plan), plan] as const))(
-      'recovers a process killed %s',
+      'recovers a process killed %s, and the recovery killed again',
       async (_label, plan) => {
-        await both(scenario, ref, [plan]);
+        const value = await recover(scenario, ref, [plan], 'value');
+        // Where the host had to settle an effect, it can also say the effect failed.
+        const settles = value.settled.length > 0;
+        if (settles) await recover(scenario, ref, [plan], 'failure');
+        if (!FULL && !settles && !sampled.has(plan)) return;
+        const breadth = FULL ? 'all' : sampled.has(plan) ? 'alternate' : 'early';
+        await sweepSecondKills(scenario, ref, plan, 'value', breadth);
+        // What the failure answer writes can differ from a value's, so its kill points are its own.
+        if (settles) await sweepSecondKills(scenario, ref, plan, 'failure', breadth);
       },
+      FULL ? 900_000 : 120_000,
     );
-
-    it.each(
-      pairs
-        .get(scenario)!
-        .map((pair) => [`${label(pair[0])}, then ${label(pair[1])}`, pair] as const),
-    )('recovers a process killed %s', async (_label, [first, second]) => {
-      await both(scenario, ref, [first, second]);
-    });
   },
 );
 
 describe('kill matrix: coverage', () => {
-  it('reaches every recovery path the adapter classifies', () => {
+  it('reaches every recovery path the adapter classifies, and their combinations', () => {
     expect(reached.parked).toBeGreaterThan(0);
     expect(reached.refundedCalls).toBeGreaterThan(0);
     expect(reached.retainedModelCalls).toBeGreaterThan(0);
     expect(reached.retainedEffects).toBeGreaterThan(0);
     expect(reached.twoKills).toBeGreaterThan(0);
+    expect(reached.settledThenKilled).toBeGreaterThan(0);
   });
 });

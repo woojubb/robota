@@ -190,8 +190,7 @@ export function loadIn(scenario: MatrixScenario, gen: Generation): Promise<Round
   });
 }
 
-export type Driven =
-  { killed: true } | { killed: false; result: RunResult; settled: SettledEffect[] };
+export type Driven = { killed: true } | { killed: false; result: RunResult };
 
 /** An effect the host settled after a restart, and how. */
 export interface SettledEffect {
@@ -221,6 +220,7 @@ function abandon(room: Roundtable): { killed: true } {
 /**
  * Runs the conversation as its host would: approves every approval, settles every reconciliation
  * from what the outside world shows, and runs again until it stops waiting or the process dies.
+ * `settled` collects what the host settled, which survives the process being killed after it did.
  * `waitingAt` sees each wait before the host answers it.
  */
 export async function drive(
@@ -228,15 +228,15 @@ export async function drive(
   gen: Generation,
   room: Roundtable,
   mode: HostMode,
+  settled: SettledEffect[],
   waitingAt?: (requests: readonly { kind: string; data?: unknown }[]) => void,
 ): Promise<Driven> {
-  const settled: SettledEffect[] = [];
   for (let rounds = 0; ; rounds++) {
     if (rounds > 12) throw new Error('The conversation keeps waiting after the host answered it');
     const ran = await until(gen, room.run());
     if ('killed' in ran) return abandon(room);
     const { done: result } = ran;
-    if (result.status !== 'waiting') return { killed: false, result, settled };
+    if (result.status !== 'waiting') return { killed: false, result };
     waitingAt?.(result.requests);
     for (const request of result.requests) {
       let response;
@@ -295,7 +295,7 @@ export async function reference(scenario: MatrixScenario): Promise<Reference> {
   const world = new World();
   const gen = world.generation();
   const room = createIn(scenario, gen);
-  const out = await drive(world, gen, room, 'value');
+  const out = await drive(world, gen, room, 'value', []);
   if (out.killed) throw new Error('The uninterrupted run was killed');
   if (out.result.status !== 'completed')
     throw new Error(`The reference ended ${JSON.stringify(out.result)}`);
