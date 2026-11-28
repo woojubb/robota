@@ -239,6 +239,11 @@ describe('refusal of unvalidated values', () => {
     '*:7360',
     '1.2.3:7360',
     'unit.example.test:',
+    '127.0.0.1:7360',
+    '127.8.9.10:7360',
+    '0.0.0.0:7360',
+    'localhost:7360',
+    'unit:7360',
   ])('refuses the upstream %j', (upstream) => {
     expectRefused(() => generateCaddyfile([{ ...alice, guiUpstream: upstream }], INTERNAL));
     expectRefused(() => generateCaddyfile([{ ...alice, wsUpstream: upstream }], INTERNAL));

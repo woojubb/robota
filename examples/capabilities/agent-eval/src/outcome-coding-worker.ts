@@ -12,18 +12,27 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 
-import { createAgentRuntime, runEval } from '@robota-sdk/agent-framework';
+import {
+  buildRuntimeSession,
+  createAgentRuntime,
+  createInProcessSubagentRunner,
+  runEval,
+} from '@robota-sdk/agent-framework';
 import {
   createNodeFrameworkHost,
   createNodeWorkspaceTrustService,
 } from '@robota-sdk/agent-framework/node';
+import { createAgentCommandModule } from '@robota-sdk/agent-product/command';
 import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import OpenAI from 'openai';
 
+import { childAgentDefinitions, createJobLimiter } from './outcome-delegation-limits.js';
+import { roleByMarker } from './outcome-delegation-roles.js';
 import {
   encodeWorkerLine,
   parseHostLine,
+  type IDelegationInit,
   type IRelayReply,
   type IWorkerInit,
   type IWorkerRequest,
@@ -69,8 +78,16 @@ function listen(): { init: Promise<IWorkerInit>; reply: (id: number) => Promise<
  * turns off. The model-visible tool set is the baseline's, so the declaration is cut down to the
  * allow-list before the request leaves; the host's relay still refuses anything that remains.
  */
-function visibleToolsOnly(body: TJson, allowed: readonly string[]): TJson {
+function visibleToolsOnly(
+  body: TJson,
+  fallback: readonly string[],
+  delegation: IDelegationInit | undefined,
+): TJson {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) return body;
+  // In the delegation arm each role sees only its own tools; a request of no known role gets the
+  // session's set and is refused by the host's attribution.
+  const allowed =
+    delegation === undefined ? fallback : (roleByMarker(delegation.roles, body)?.tools ?? fallback);
   const { tools, ...rest } = body as { readonly [key: string]: TJson };
   if (!Array.isArray(tools)) return body;
   const kept = tools.filter((tool) => {
@@ -123,6 +140,7 @@ async function main(): Promise<void> {
         body: visibleToolsOnly(
           JSON.parse(String(options?.body ?? 'null')) as TJson,
           init.allowedTools,
+          init.delegation,
         ),
       });
       const answer = await waiting;
@@ -161,16 +179,39 @@ async function main(): Promise<void> {
   });
   // The embedding host authorizes this one disposable project, never a user's checkout.
   const projectAccess = await trust.grant(init.projectDir);
+  // The parent has no write tool: its session never registers one. The children are lent theirs
+  // through the wrapped runner factory instead.
+  const parentRegistersNoWrites = init.delegation !== undefined;
+  const WRITE_TOOLS = ['Write', 'Edit'];
+  const childOnlyTools = createDefaultTools({ cwd: init.projectDir }).filter((tool) =>
+    WRITE_TOOLS.includes(tool.getName()),
+  );
+  const limiter =
+    init.delegation === undefined
+      ? undefined
+      : createJobLimiter({
+          inner: createInProcessSubagentRunner,
+          maxJobs: init.delegation.maxJobs,
+          childOnlyTools,
+        });
   const runtime = createAgentRuntime({
-    host: createNodeFrameworkHost({ createDefaultTools }),
+    host: createNodeFrameworkHost({
+      createDefaultTools: (options) =>
+        createDefaultTools(options).filter(
+          (tool) => !(parentRegistersNoWrites && WRITE_TOOLS.includes(tool.getName())),
+        ),
+    }),
     cwd: init.projectDir,
     provider,
     projectAccess,
     userSettingsSources: [],
     backgroundTaskRunners: [],
     sessionStore: undefined,
+    ...(limiter === undefined
+      ? {}
+      : { commandModules: [createAgentCommandModule()], subagentRunnerFactory: limiter.factory }),
   });
-  const session = runtime.createSession({
+  const sessionOptions: Parameters<typeof runtime.createSession>[0] = {
     bare: true,
     model: init.model,
     maxTurns: init.maxTurns,
@@ -179,7 +220,18 @@ async function main(): Promise<void> {
     allowedTools: [...init.allowedTools],
     deniedTools: [...init.deniedTools],
     systemPrompt: init.systemPrompt,
-  });
+  };
+  const session =
+    init.delegation === undefined
+      ? runtime.createSession(sessionOptions)
+      : buildRuntimeSession({
+          ...runtime.sessionRecipe(sessionOptions),
+          agentDefinitions: childAgentDefinitions(
+            init.delegation.roles,
+            init.delegation.parent,
+            init.model,
+          ),
+        });
 
   const started = performance.now();
   const timer = setTimeout(() => session.abort(), init.abortAfterMs);
@@ -203,6 +255,7 @@ async function main(): Promise<void> {
       toolNames: run.toolSummaries.map((summary) => summary.name),
       usage: (run.usage ?? null) as unknown as TJson,
       elapsedMs: performance.now() - started,
+      ...(limiter === undefined ? {} : { delegation: limiter.report() }),
     };
   } catch (error) {
     result = {
@@ -215,6 +268,7 @@ async function main(): Promise<void> {
       usage: null,
       elapsedMs: performance.now() - started,
       error: error instanceof Error ? error.message : String(error),
+      ...(limiter === undefined ? {} : { delegation: limiter.report() }),
     };
   } finally {
     clearTimeout(timer);

@@ -29,7 +29,7 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
   an unknown name fails the TLS handshake.
 - **Nothing unvalidated reaches the proxy configuration.** Every hostname, address, port, email and path is
   checked first and a bad value is refused, never escaped, so no input can add a directive to it. A
-  configuration the proxy does not accept is rolled back to the last good one.
+  configuration the proxy does not accept is never written and the proxy keeps the last good one.
 - **A failed command leaves nothing half-made.** Every step of an add is undone on failure; a crash leaves at
   most a `provisioning` or `deleting` record, finished by removal at the next start and audited as recovered.
 - **Commands arrive over an owner-only Unix socket and nothing else.** No port is opened, so only the
@@ -91,10 +91,17 @@ Self-signup, billing, live migration, GPU, and disk quotas on containers. Accoun
 - **Certificates are issued per listed hostname, not on demand.** Accounts are created by the operator, so
   every hostname is known when the configuration is generated and no approval endpoint is needed; a wildcard
   certificate stays a later, owner-chosen mode because it needs DNS-provider credentials.
-- **The proxy is configured through its admin socket, never a TCP port.** The control plane writes the
-  configuration atomically and owner-only, then loads it through that socket; the generator is the only author
-  of the file.
+- **The proxy is configured through its admin socket, never a TCP port.** On a host-network proxy a TCP admin
+  port is reachable by every local process and every container, and whoever reaches it can reroute any account
+  or obtain certificates; an owner-only socket limits that to the control plane. The proxy loads a
+  configuration first and the file is written only once it was accepted, so the file is always one the proxy has
+  proven; the generator is the only author of the file.
+- **Units stay out of the compose project that installs the host.** An image built by compose carries the
+  project's labels and a container inherits them, so units and helpers blank those labels; otherwise stopping
+  the bundle would treat them as its own services. The proxy mounts only its own subdirectory of the state, so
+  the internet-facing process never sees a key.
 - **Live streams outlive a reload.** Closing a WebSocket delays by minutes after a reload, so adding or deleting
   one account does not cut the others' sessions.
 - **A route is built only from a reported address.** A running unit with no address is served as unavailable
-  rather than proxied to a placeholder.
+  rather than proxied to a placeholder, and an upstream that is loopback, unspecified or a single label is
+  refused, so no route can reach a service on the proxy's own host.

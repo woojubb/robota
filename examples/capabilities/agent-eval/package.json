@@ -17,6 +17,7 @@
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-framework": "workspace:^",
     "@robota-sdk/agent-mcp": "workspace:^",
+    "@robota-sdk/agent-product": "workspace:^",
     "@robota-sdk/agent-provider": "workspace:^",
     "@robota-sdk/agent-provider-replay": "workspace:^",
     "@robota-sdk/agent-tools": "workspace:^",

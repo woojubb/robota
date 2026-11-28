@@ -166,7 +166,12 @@ describe('the unit as the engine is asked to build it', () => {
     expect(fake.containerNames()).toEqual([NAME]);
     expect(fake.networkNames()).toEqual([NAME]);
     expect(fake.volumeNames()).toEqual([`${NAME}-state`]);
-    expect(fake.container(NAME)?.Labels).toEqual(labels);
+    expect(fake.container(NAME)?.Labels).toEqual({
+      ...labels,
+      'com.docker.compose.project': '',
+      'com.docker.compose.service': '',
+      'com.docker.compose.version': '',
+    });
     expect(fake.network(NAME)?.Labels).toEqual(labels);
     expect(fake.volume(`${NAME}-state`)).toEqual(labels);
   });

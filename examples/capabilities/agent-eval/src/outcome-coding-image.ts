@@ -22,7 +22,12 @@ import type { ICodingTaskDefinition } from './outcome-coding-tasks.js';
 const EXAMPLE_DIR = 'examples/capabilities/agent-eval';
 /** The only example files that reach the image: its manifest and the worker with its protocol. */
 const EXAMPLE_KEPT_FILES = ['package.json', 'tsconfig.json'];
-const WORKER_FILES = ['src/outcome-coding-worker.ts', 'src/outcome-coding-protocol.ts'];
+const WORKER_FILES = [
+  'src/outcome-coding-worker.ts',
+  'src/outcome-coding-protocol.ts',
+  'src/outcome-delegation-limits.ts',
+  'src/outcome-delegation-roles.ts',
+];
 /** Directories removed from the export entirely. */
 const EXCLUDED_DIRECTORIES = ['research'];
 
@@ -31,6 +36,8 @@ export const FORBIDDEN_PATH_FRAGMENTS: readonly string[] = [
   'outcome-coding-tasks',
   'outcome-coding-verify',
   'outcome-coding-score',
+  'outcome-delegation-scripts',
+  'outcome-delegation-measures',
   'delegation-topology',
 ];
 

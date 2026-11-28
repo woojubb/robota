@@ -1,5 +1,5 @@
 import type { EngineClient } from './engine-client.js';
-import { LABEL_INSTALL, LABEL_KIND } from './names.js';
+import { DETACH_FROM_COMPOSE, LABEL_INSTALL, LABEL_KIND } from './names.js';
 
 const MB = 1024 * 1024;
 const OUTPUT_LIMIT = 64 * 1024;
@@ -43,7 +43,7 @@ export async function runHelper(
       ...(run.cmd ? { Cmd: run.cmd } : {}),
       ...(run.env ? { Env: run.env } : {}),
       Tty: true,
-      Labels: { [LABEL_INSTALL]: installId, [LABEL_KIND]: 'helper' },
+      Labels: { [LABEL_INSTALL]: installId, [LABEL_KIND]: 'helper', ...DETACH_FROM_COMPOSE },
       HostConfig: {
         Privileged: false,
         CapDrop: ['ALL'],

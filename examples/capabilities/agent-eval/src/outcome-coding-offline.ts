@@ -37,6 +37,7 @@ import {
   type TScriptedBehavior,
 } from './outcome-coding-scripts.js';
 import { BASELINE_SETTINGS, forcedRequestFields } from './outcome-coding-settings.js';
+import { planDelegationTrial, type TDelegationBehavior } from './outcome-delegation-scripts.js';
 import { CODING_TASKS, type ICodingTask } from './outcome-coding-tasks.js';
 import { ALL_CODING_TASKS } from './outcome-coding-tasks-repository.js';
 import { CONTAINER_PATHS, createDockerLauncher, runTrial } from './outcome-coding-trial.js';
@@ -191,6 +192,71 @@ async function scriptedTrials(image: string): Promise<void> {
   );
 }
 
+/**
+ * The delegation arm's scripted controls through the real container, relay and verifier: the roles
+ * are attributed by their system messages, the job and call limits hold, and the verdict is the tree.
+ */
+async function delegationTrials(image: string): Promise<void> {
+  const launch = createDockerLauncher(image);
+  const verify = (task: ICodingTask, tree: string) =>
+    runContainerVerifier(task, tree, { image: verifierImage });
+  const task = CODING_TASKS[1] as ICodingTask;
+  const behaviors: TDelegationBehavior[] = [
+    'pass',
+    'broken-approved',
+    'no-delegation',
+    'parent-writes',
+    'reviewer-writes',
+    'fourth-spawn',
+    'call-cap',
+  ];
+  for (const behavior of behaviors) {
+    const plan = planDelegationTrial(task, behavior, CONTAINER_PATHS.projectDir);
+    if (plan === undefined) {
+      record(`scripted delegation ${behavior}`, false, { reason: 'no plan for this task' });
+      continue;
+    }
+    const upstream = createScriptedUpstream(plan.steps);
+    const trial = await runTrial({
+      task,
+      model: flags.model,
+      endpoint: flags.endpoint,
+      upstream,
+      launch,
+      verify,
+      baseDir,
+      deadlineMs: 120_000,
+      delegation: {},
+      ...(plan.maxCalls === undefined ? {} : { maxCalls: plan.maxCalls }),
+      trialName: `robota-eval-trial-delegation-${behavior}-${process.pid}`,
+    });
+    const expected = [...plan.expectedFailures].sort();
+    const got = [...trial.score.failures].sort();
+    record(
+      `scripted delegation ${behavior}: expected ${expected.length === 0 ? 'pass' : expected.join(',')}`,
+      JSON.stringify(expected) === JSON.stringify(got) &&
+        trial.measures.childJobsStarted === plan.childJobsStarted &&
+        trial.measures.childJobsRefused === plan.childJobsRefused &&
+        trial.capReached === plan.capReached &&
+        trial.relayLog.every((entry) => entry.role !== undefined) &&
+        trial.cleanupError === undefined,
+      {
+        failures: got,
+        childJobsStarted: trial.measures.childJobsStarted,
+        childJobsRefused: trial.measures.childJobsRefused,
+        capReached: trial.capReached,
+        calls: trial.measures.total.calls,
+        byRole: Object.fromEntries(
+          Object.entries(trial.measures.byRole).map(([role, measure]) => [role, measure.calls]),
+        ),
+        idleBetweenJobsMs: trial.measures.coordination.idleBetweenJobsMs,
+        diagnostics: trial.diagnostics,
+        ...(trial.cleanupError === undefined ? {} : { cleanupError: trial.cleanupError }),
+      },
+    );
+  }
+}
+
 async function main(): Promise<void> {
   if (spawnSync('docker', ['version', '--format', '{{.Server.Version}}']).status !== 0) {
     throw new Error('A local Docker daemon is required');
@@ -262,6 +328,7 @@ async function main(): Promise<void> {
     record('isolation canaries', canaries.failures.length === 0, { checks: canaries.checks });
 
     await scriptedTrials(tag);
+    await delegationTrials(tag);
 
     const leftover = docker(['ps', '-aq', '--filter', 'label=robota.eval']);
     record('no worker or verifier container left behind', leftover === '', { leftover });

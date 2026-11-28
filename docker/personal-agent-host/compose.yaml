@@ -1,0 +1,102 @@
+# The personal-agent host: a control plane that runs one isolated agent per account, and the reverse
+# proxy that publishes each account at its own HTTPS address. See README.md.
+#
+#   cp example.env .env && $EDITOR .env        # install.sh does this and the steps below for you
+#   docker compose --profile build build       # the control-plane, unit and guard images
+#   docker compose up -d
+#
+# Accounts are never services here. Only the control plane starts a unit, after it has applied and
+# verified the network guard, and a unit has no restart policy: a reboot restarts the control plane
+# (which guards first, then starts what should run) and never a unit on its own.
+services:
+  control-plane:
+    build:
+      context: ../..
+      dockerfile: docker/personal-agent-host/control-plane/Dockerfile
+    image: personal-agent-host:local
+    container_name: personal-agent-host-control-plane
+    command: ['serve']
+    init: true
+    # No network at all: the control plane is driven over a Unix socket and reaches units only
+    # through the container engine's API.
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PERSONAL_AGENT_HOST_BASE_DOMAIN: ${PERSONAL_AGENT_HOST_BASE_DOMAIN:?set PERSONAL_AGENT_HOST_BASE_DOMAIN in .env}
+      PERSONAL_AGENT_HOST_TLS: ${PERSONAL_AGENT_HOST_TLS:?set PERSONAL_AGENT_HOST_TLS in .env (an email, or internal for a test)}
+      PERSONAL_AGENT_HOST_ALLOW_CONTAINER: ${PERSONAL_AGENT_HOST_ALLOW_CONTAINER:?set PERSONAL_AGENT_HOST_ALLOW_CONTAINER=true in .env; containers are for trusted accounts only}
+      PERSONAL_AGENT_HOST_HTTP_PORT: ${PERSONAL_AGENT_HOST_HTTP_PORT:-}
+      PERSONAL_AGENT_HOST_HTTPS_PORT: ${PERSONAL_AGENT_HOST_HTTPS_PORT:-}
+      PERSONAL_AGENT_HOST_SUBNET_POOL: ${PERSONAL_AGENT_HOST_SUBNET_POOL:-}
+      PERSONAL_AGENT_HOST_DNS_SERVERS: ${PERSONAL_AGENT_HOST_DNS_SERVERS:-}
+      PERSONAL_AGENT_HOST_MEMORY_MB: ${PERSONAL_AGENT_HOST_MEMORY_MB:-}
+      PERSONAL_AGENT_HOST_CPUS: ${PERSONAL_AGENT_HOST_CPUS:-}
+      PERSONAL_AGENT_HOST_PIDS: ${PERSONAL_AGENT_HOST_PIDS:-}
+      PERSONAL_AGENT_HOST_STATE_DIR: /var/lib/personal-agent-host
+      PERSONAL_AGENT_HOST_ENGINE_ENDPOINT: unix:///var/run/docker.sock
+      PERSONAL_AGENT_HOST_UNIT_IMAGE: personal-agent:local
+      PERSONAL_AGENT_HOST_GUARD_IMAGE: personal-agent-host-guard:local
+      # The proxy's configuration and admin socket sit in a subdirectory of the state directory that
+      # the proxy also mounts, as /run/personal-agent-host-proxy.
+      PERSONAL_AGENT_HOST_PROXY_CONFIG: /var/lib/personal-agent-host/proxy/Caddyfile
+      PERSONAL_AGENT_HOST_PROXY_ADMIN_SOCKET: /var/lib/personal-agent-host/proxy/admin.sock
+      PERSONAL_AGENT_HOST_PROXY_ADMIN_LISTEN: /run/personal-agent-host-proxy/admin.sock
+    # The engine socket is root on the host: that is why the container backend is for trusted
+    # accounts only, and why nothing else is mounted.
+    volumes:
+      - ${PERSONAL_AGENT_HOST_ENGINE_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+      - ${PERSONAL_AGENT_HOST_STATE_PATH:-/var/lib/personal-agent-host}:/var/lib/personal-agent-host
+    restart: unless-stopped
+  proxy:
+    image: caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
+    container_name: personal-agent-host-proxy
+    # --resume restarts from the last configuration the control plane loaded (kept in the config
+    # volume), so a proxy that restarts alone keeps serving every account instead of falling back to
+    # the bootstrap file, which has no sites.
+    command:
+      ['caddy', 'run', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile', '--resume']
+    # The host's network: it must see each unit's private address and keep the visitor's Host
+    # header. It binds ports 80 and 443 and nothing else.
+    network_mode: host
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./proxy.Caddyfile:/etc/caddy/Caddyfile:ro
+      # Only the subdirectory with the proxy's own files, never the state itself.
+      - ${PERSONAL_AGENT_HOST_STATE_PATH:-/var/lib/personal-agent-host}/proxy:/run/personal-agent-host-proxy
+      - proxy-data:/data
+      - proxy-config:/config
+    restart: unless-stopped
+  # Build-only: `docker compose --profile build build` makes the images the control plane starts
+  # units and the guard from. These services are never run, so they cannot start an account.
+  unit-image:
+    profiles: [build]
+    build:
+      context: ../..
+      dockerfile: docker/personal-agent/Dockerfile
+    image: personal-agent:local
+    entrypoint: ['/bin/false']
+    network_mode: none
+  guard-image:
+    profiles: [build]
+    build:
+      context: guard
+    image: personal-agent-host-guard:local
+    entrypoint: ['/bin/false']
+    network_mode: none
+volumes:
+  proxy-data:
+  proxy-config:
