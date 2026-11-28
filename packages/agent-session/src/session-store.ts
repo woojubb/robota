@@ -33,6 +33,7 @@ import {
   writeOwnerOnlyFile,
 } from '@robota-sdk/agent-core/node';
 
+import { removeSessionJournals } from './node-execution-journal-store.js';
 import { assertSafeSessionId, isSafeSessionId } from './session-id.js';
 import { classifyStoredSessionBytes } from './stored-session-codec.js';
 import { StoredSessionRecords, sessionSealingOf } from './stored-session-record.js';
@@ -466,6 +467,11 @@ export class NodeSessionStore implements IInteractiveSessionStore {
     const path = this.filePath(id);
     this.records.delete(id, () => {
       if (existsSync(path)) unlinkSync(path);
+      // The journals of its managed turns hold its conversation, so they go with it. They go after
+      // the session file on purpose: a crash between the two leaves journals with no session, which
+      // nothing reads, whereas the reverse order could leave a session whose unfinished execution
+      // was erased and would then be resumed as if it had never been open.
+      removeSessionJournals(this.baseDir, id);
     });
   }
 }

@@ -4,6 +4,16 @@ export { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 // platform-neutral (ARCHITECTURE.md "Runtime platforms") and takes each of these by injection.
 
 export { NodeSessionStore, SESSION_CLAIMS_DIRECTORY } from './session-store.js';
+// The durable journal of managed turns, kept beside the session records.
+export {
+  NodeExecutionJournalStore,
+  SESSION_JOURNALS_DIRECTORY,
+  removeSessionJournals,
+} from './node-execution-journal-store.js';
+export type {
+  INodeExecutionJournalIo,
+  INodeExecutionJournalStoreOptions,
+} from './node-execution-journal-store.js';
 export type { INodeSessionStoreOptions } from './session-store.js';
 // Sealed session records: the one object both session stores write and read through, so the user's
 // directory and the trusted project's cannot disagree about what a sealed or plain file means. A store
