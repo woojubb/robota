@@ -284,7 +284,7 @@ limits.
 A model-backed tool (an advisor, a subagent tool) is not refused, but its inner provider calls are
 not journaled: an enforced participant must declare it in `paidTools` (an undeclared tool is
 refused), and a metered participant counts only its effect, not those calls. Automatic compaction is
-an allowed, metered caller for a non-durable participant, journaled under its own execution id.
+an allowed, metered caller for a metered (not enforced), non-durable participant, journaled under its own execution id.
 A durable (`recovery`) participant routes approvals through conversation wait requests and refuses
 `ask`, `permissionHandler` and `promptForApproval`, whose in-process wait a restart would lose.
 

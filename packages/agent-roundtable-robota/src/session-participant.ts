@@ -131,7 +131,7 @@ function assertRecoverableSession(hostOptions: SessionHostOptions): void {
     if (hostOptions[option] !== undefined)
       throw new RuntimeParticipantError(
         'recovery-unsupported',
-        `\`${option}\` waits for an answer outside the conversation, which a restarted process loses; approvals and questions reach a recoverable participant as conversation wait requests`,
+        `\`${option}\` waits for an answer outside the conversation, which a restarted process loses; approvals reach a recoverable participant as conversation wait requests`,
       );
 }
 
