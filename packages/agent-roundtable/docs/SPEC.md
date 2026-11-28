@@ -78,8 +78,9 @@ capabilities, in the store, the participants and the selector, checked before an
 guarantee nothing enforces would be silently weaker than it claims.
 
 A file-backed store is offered for one host. It keeps every acknowledged commit, fence and receipt through the death
-of the writing process, because publishing a revision is one create-only step that two writers cannot both win, and it
-reports a damaged file rather than repairing it, since a silent repair could hide a lost commit or reissue a fence. It
+of the writing process, because publishing a revision or a claim generation is one create-only step that two writers
+cannot both win, with no lock whose failure could let two owners in. It reports a damaged file rather than repairing it,
+since a silent repair could hide a lost commit or reissue a fence. It
 lives in a Node-only subpath so the package root stays neutral and dependency-free. Its durability against power loss is
 only what the platform's `fsync` gives.
 

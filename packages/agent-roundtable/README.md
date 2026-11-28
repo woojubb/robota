@@ -190,10 +190,11 @@ const store = new FileConversationStore({ root: '/var/lib/my-app/conversations' 
 Durable here means that a commit, a claim's fence and an operation receipt that were acknowledged
 survive the death of the writing process: each commit is an immutable revision file that is flushed and
 then published with a create-only hard link, which is also what makes two racing writers unable to both
-take the same revision. Claims and their fence are one small record replaced atomically under a
-per-conversation lock file; a lock whose process is gone, or whose expiry passed (`lockTtlMs`), is broken,
-and a call waits at most `lockWaitMs` for a live holder before failing with `busy`. Every file read is
-validated, and a damaged one throws `FileStoreCorruptionError` rather than being repaired. Directories
+take the same revision. Claims are published the same way, as numbered generations that carry the
+fence: every claim, renewal and release links the next generation create-only, the highest one is the
+state, and a writer that loses the race re-reads and decides again against the state that won, so a fence
+is never issued twice. There is no lock and nothing to break after a crash; older generations are pruned.
+Every file read is validated, and a damaged one throws `FileStoreCorruptionError` rather than being repaired. Directories
 are created `0700` and files `0600`. The instance remembers nothing it cannot re-read, so any number of
 instances, in one process or several, may share a directory.
 
@@ -202,11 +203,12 @@ Limits:
 - One host. The directory must be on a local file system that supports hard links; a network file system
   is outside the guarantee.
 - Lease expiry compares the clocks of the processes sharing the directory, so their skew must be small
-  against the lease. The lock's own expiry (`lockTtlMs`) assumes a holder never stalls past it.
+  against the lease. A commit checks its claim just before it publishes, and that window is covered by
+  the lease and the bounded skew, not by exclusion.
 - Old revisions are kept, because a retried commit must get its original receipt back; nothing prunes
   them. Conversation ids are at most 120 UTF-8 bytes.
 - `fsync` of a directory is not available on Windows, so there the newest acknowledged entry can be lost
-  to a power cut; a rename over an existing file is retried a bounded number of times there. On macOS
+  to a power cut. On macOS
   `fsync` does not force the drive's cache, so a power cut can lose the newest acknowledged write too.
   A process death alone loses nothing on any platform.
 

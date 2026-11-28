@@ -17,14 +17,12 @@ import {
   errorCode,
   isTempName,
   linkExclusive,
-  renameOver,
   syncDirectory,
   sweepDeadTemps,
   tempPath,
   writeSyncedTemp,
 } from './file-store-io';
 import type { CheckpointHook } from './file-store-io';
-import { DirectoryLock } from './file-store-lock';
 import type { JsonValue } from './json-value';
 import type {
   ConversationClaim,
@@ -38,10 +36,6 @@ export interface FileConversationStoreOptions {
   root: string;
   /** UTC Unix milliseconds; defaults to `Date.now`. Governs claim leases only. */
   now?: () => number;
-  /** How long a process may hold a conversation's claim lock before another may break it. */
-  lockTtlMs?: number;
-  /** How long a call waits for a live lock holder before failing with `busy`. */
-  lockWaitMs?: number;
   /** Test seam: called at each named step of a write, where a test can end the process. */
   checkpoint?: CheckpointHook;
 }
@@ -52,23 +46,21 @@ interface Known {
   receipts: Map<string, { revision: number; fingerprint: string }>;
 }
 
-const DEFAULT_LOCK_TTL_MS = 30_000;
-const DEFAULT_LOCK_WAIT_MS = 10_000;
+/** How many times a claim change re-reads after losing the race for a generation before it gives up. */
+const MAX_CLAIM_ATTEMPTS = 64;
 
 /**
  * A durable `ConversationStore` over a local directory, for one host. Each commit is an immutable
  * `revisions/<n>.json` published with a create-only hard link, which is the compare-and-set: of two
- * writers racing for revision n exactly one links it. Claims and the fence they carry are one small
- * record replaced atomically under a per-conversation lock file. Every file read is validated and a
- * damaged one is an error, never repaired. Old revisions are kept, because a retried commit must
+ * writers racing for revision n exactly one links it. Claims are published the same way, as numbered
+ * generations `claims/<g>.json` that carry the fence; the highest generation is the state, so no lock
+ * is needed for safety. Every file read is validated and a damaged one is an error, never repaired. Old revisions are kept, because a retried commit must
  * get its original receipt back.
  */
 export class FileConversationStore implements ConversationStore {
   readonly durability = 'durable' as const;
   private readonly root: string;
   private readonly now: () => number;
-  private readonly lockTtlMs: number;
-  private readonly lockWaitMs: number;
   private readonly checkpoint?: CheckpointHook;
   private readonly known = new Map<string, Known>();
   private rootReady = false;
@@ -77,8 +69,6 @@ export class FileConversationStore implements ConversationStore {
     if (!options.root) throw new RoundtableError('invalid-config', 'Store root is required');
     this.root = options.root;
     this.now = options.now ?? Date.now;
-    this.lockTtlMs = options.lockTtlMs ?? DEFAULT_LOCK_TTL_MS;
-    this.lockWaitMs = options.lockWaitMs ?? DEFAULT_LOCK_WAIT_MS;
     this.checkpoint = options.checkpoint;
   }
 
@@ -88,6 +78,7 @@ export class FileConversationStore implements ConversationStore {
     await this.ensureRoot();
     await this.makeDirectory(directory, this.root);
     await this.makeDirectory(join(directory, 'revisions'), directory);
+    await this.makeDirectory(join(directory, 'claims'), directory);
     const record: RevisionRecord = {
       schemaVersion: 1,
       conversationId,
@@ -115,38 +106,38 @@ export class FileConversationStore implements ConversationStore {
     await this.requireConversation(conversationId);
     this.expiry(leaseMs);
     if (!ownerId) throw new RoundtableError('invalid-config', 'Claim owner id is required');
-    return this.locked(conversationId, async () => {
-      const current = await this.readClaim(conversationId);
+    return this.changeClaim(conversationId, (current) => {
       if (current.claim && current.claim.expiresAt > this.now()) {
         throw new RoundtableError('busy', 'Conversation has an unexpired owner');
       }
-      const next = { ownerId, expiresAt: this.expiry(leaseMs) };
-      await this.writeClaim(conversationId, {
-        ...EMPTY_CLAIM,
-        fence: current.fence + 1,
-        claim: next,
-      });
-      return { conversationId, ownerId, fence: current.fence + 1, expiresAt: next.expiresAt };
+      const fence = current.fence + 1;
+      const expiresAt = this.expiry(leaseMs);
+      return {
+        next: { fence, claim: { ownerId, expiresAt } },
+        result: { conversationId, ownerId, fence, expiresAt },
+      };
     });
   }
 
   async renew(claim: ConversationClaim, leaseMs: number): Promise<ConversationClaim> {
     const id = claim.conversationId;
     await this.requireConversation(id);
-    return this.locked(id, async () => {
-      const current = await this.assertOwned(claim);
+    return this.changeClaim(id, (current) => {
+      this.assertOwned(claim, current);
       const expiresAt = this.expiry(leaseMs);
-      await this.writeClaim(id, { ...current, claim: { ownerId: claim.ownerId, expiresAt } });
-      return { ...claim, expiresAt };
+      return {
+        next: { fence: current.fence, claim: { ownerId: claim.ownerId, expiresAt } },
+        result: { ...claim, expiresAt },
+      };
     });
   }
 
   async release(claim: ConversationClaim): Promise<void> {
     const id = claim.conversationId;
     await this.requireConversation(id);
-    await this.locked(id, async () => {
-      const current = await this.assertOwned(claim);
-      await this.writeClaim(id, { ...current, claim: null });
+    await this.changeClaim(id, (current) => {
+      this.assertOwned(claim, current);
+      return { next: { fence: current.fence, claim: null }, result: undefined };
     });
   }
 
@@ -159,29 +150,28 @@ export class FileConversationStore implements ConversationStore {
     const directory = this.directory(id);
     const replay = await this.receiptFor(id, change.operationId, fingerprint);
     if (replay) return replay;
-    return this.locked(id, async () => {
-      const known = await this.requireConversation(id);
-      const again = await this.receiptFor(id, change.operationId, fingerprint);
-      if (again) return again;
-      await this.assertOwned(change.claim);
-      if (known.head.revision !== change.expectedRevision) {
-        throw new RoundtableError('conflict', 'Conversation revision changed');
-      }
-      const record: RevisionRecord = {
-        schemaVersion: 1,
-        conversationId: id,
-        revision: change.expectedRevision + 1,
-        state: change.state,
-        operationId: change.operationId,
-        fingerprint,
-      };
-      if ((await this.publishRevision(directory, record)) === 'exists') {
-        throw new RoundtableError('conflict', 'Conversation revision changed');
-      }
-      known.head = record;
-      known.receipts.set(change.operationId, { revision: record.revision, fingerprint });
-      return envelopeOf(record);
-    });
+    const known = await this.requireConversation(id);
+    this.assertOwned(change.claim, await this.readClaim(id));
+    if (known.head.revision !== change.expectedRevision) {
+      throw new RoundtableError('conflict', 'Conversation revision changed');
+    }
+    const record: RevisionRecord = {
+      schemaVersion: 1,
+      conversationId: id,
+      revision: change.expectedRevision + 1,
+      state: change.state,
+      operationId: change.operationId,
+      fingerprint,
+    };
+    if ((await this.publishRevision(directory, record)) === 'exists') {
+      // A writer that linked first may be the same operation retried; its receipt is the answer.
+      const winner = await this.receiptFor(id, change.operationId, fingerprint);
+      if (winner) return winner;
+      throw new RoundtableError('conflict', 'Conversation revision changed');
+    }
+    known.head = record;
+    known.receipts.set(change.operationId, { revision: record.revision, fingerprint });
+    return envelopeOf(record);
   }
 
   async lookupOperation(
@@ -246,7 +236,11 @@ export class FileConversationStore implements ConversationStore {
     let known = this.known.get(conversationId);
     const numbers = await this.listRevisions(revisions, directory, known !== undefined);
     if (numbers === undefined) return undefined;
-    if (!known) await Promise.all([sweepDeadTemps(directory), sweepDeadTemps(revisions)]);
+    if (!known) {
+      await Promise.all(
+        [directory, revisions, join(directory, 'claims')].map((path) => sweepDeadTemps(path)),
+      );
+    }
     const top = numbers[numbers.length - 1];
     if (known && top < known.head.revision) {
       throw new FileStoreCorruptionError(revisions, 'a known revision disappeared');
@@ -295,7 +289,10 @@ export class FileConversationStore implements ConversationStore {
         numbers.push(n);
       }
       numbers.sort((a, b) => a - b);
-      if (numbers.length === 0) return undefined;
+      if (numbers.length === 0) {
+        if (mustExist) throw new FileStoreCorruptionError(revisions, 'known revisions disappeared');
+        return undefined;
+      }
       if (numbers.every((n, i) => n === i)) return numbers;
       // A listing taken while a writer links can race it once; a gap that persists is damage.
       if (attempt > 0) throw new FileStoreCorruptionError(revisions, 'revision numbers have a gap');
@@ -343,28 +340,44 @@ export class FileConversationStore implements ConversationStore {
     return known;
   }
 
-  private locked<T>(conversationId: string, action: () => Promise<T>): Promise<T> {
-    const lock = new DirectoryLock(join(this.directory(conversationId), 'claim.lock'), {
-      ttlMs: this.lockTtlMs,
-      waitMs: this.lockWaitMs,
-      checkpoint: this.checkpoint,
-    });
-    return lock.run(action);
-  }
-
+  /** The highest published claim generation, or the empty state when none exists. */
   private async readClaim(conversationId: string): Promise<ClaimRecord> {
-    const path = join(this.directory(conversationId), 'claim.json');
-    try {
-      return parseClaim(await readFile(path, 'utf8'), path);
-    } catch (error) {
-      if (errorCode(error) === 'ENOENT') return EMPTY_CLAIM;
-      throw error;
+    const claims = join(this.directory(conversationId), 'claims');
+    for (;;) {
+      const top = (await this.listClaims(claims)).at(-1);
+      if (top === undefined) return EMPTY_CLAIM;
+      const path = join(claims, `${top}.json`);
+      try {
+        return parseClaim(await readFile(path, 'utf8'), path, top);
+      } catch (error) {
+        // A newer generation was published and this one pruned between the listing and the read.
+        if (errorCode(error) !== 'ENOENT') throw error;
+      }
     }
   }
 
-  /** The claim must be the current, unexpired one; must run under the conversation lock to stay true. */
-  private async assertOwned(claim: ConversationClaim): Promise<ClaimRecord> {
-    const current = await this.readClaim(claim.conversationId);
+  private async listClaims(claims: string): Promise<number[]> {
+    let names: string[];
+    try {
+      names = await readdir(claims);
+    } catch (error) {
+      if (errorCode(error) === 'ENOENT') return [];
+      throw error;
+    }
+    const generations: number[] = [];
+    for (const name of names) {
+      if (isTempName(name)) continue;
+      const n = revisionNumber(name);
+      if (n === undefined || n < 1) {
+        throw new FileStoreCorruptionError(join(claims, name), 'unexpected file');
+      }
+      generations.push(n);
+    }
+    return generations.sort((a, b) => a - b);
+  }
+
+  /** The claim must be the current, unexpired one. */
+  private assertOwned(claim: ConversationClaim, current: ClaimRecord): void {
     if (
       !current.claim ||
       current.fence !== claim.fence ||
@@ -373,26 +386,62 @@ export class FileConversationStore implements ConversationStore {
     ) {
       throw new RoundtableError('stale-claim', 'Conversation claim expired or changed owner');
     }
-    return current;
   }
 
-  private async writeClaim(conversationId: string, record: ClaimRecord): Promise<void> {
+  /**
+   * Applies a change to the claim state as the next generation. Of two writers that read the same
+   * generation exactly one links the next one; the other re-reads and decides again against the
+   * state that won, so a fence is never issued twice and no lock is needed.
+   */
+  private async changeClaim<T>(
+    conversationId: string,
+    decide: (current: ClaimRecord) => { next: Pick<ClaimRecord, 'fence' | 'claim'>; result: T },
+  ): Promise<T> {
+    for (let attempt = 0; attempt < MAX_CLAIM_ATTEMPTS; attempt++) {
+      const current = await this.readClaim(conversationId);
+      const { next, result } = decide(current);
+      const record: ClaimRecord = { schemaVersion: 1, generation: current.generation + 1, ...next };
+      if ((await this.publishClaim(conversationId, record)) === 'created') return result;
+    }
+    throw new RoundtableError('busy', 'Conversation claim is contended');
+  }
+
+  /**
+   * Publishes `claims/<g>.json` create-only. Afterwards the generation must still be the highest: a
+   * writer that stalled can link a name an earlier prune freed, below a newer generation, and that
+   * file is withdrawn rather than believed. Generations below the winner are then pruned.
+   */
+  private async publishClaim(
+    conversationId: string,
+    record: ClaimRecord,
+  ): Promise<'created' | 'exists'> {
     const directory = this.directory(conversationId);
-    const temp = tempPath(directory, 'claim-');
+    const claims = join(directory, 'claims');
+    await this.makeDirectory(claims, directory);
+    const temp = tempPath(claims, 'claim-');
     await writeSyncedTemp(
       temp,
       JSON.stringify(record),
       { written: 'claim-write', synced: 'claim-synced' },
       this.checkpoint,
     );
+    const final = join(claims, `${record.generation}.json`);
     try {
-      await renameOver(temp, join(directory, 'claim.json'));
-    } catch (error) {
+      if ((await linkExclusive(temp, final)) === 'exists') return 'exists';
+      await this.checkpoint?.('claim-linked');
+      await syncDirectory(claims);
+      const generations = await this.listClaims(claims);
+      if (generations[generations.length - 1] !== record.generation) {
+        await unlink(final).catch(() => undefined);
+        return 'exists';
+      }
+      for (const older of generations.slice(0, -1)) {
+        await unlink(join(claims, `${older}.json`)).catch(() => undefined);
+      }
+      return 'created';
+    } finally {
       await unlink(temp).catch(() => undefined);
-      throw error;
     }
-    await this.checkpoint?.('claim-renamed');
-    await syncDirectory(directory);
   }
 
   private expiry(leaseMs: number): number {

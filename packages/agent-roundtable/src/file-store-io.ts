@@ -4,12 +4,7 @@ import { join } from 'node:path';
 
 /** Named points in a file write at which a test can end the process. */
 export type FileStoreCheckpoint =
-  | 'temp-write'
-  | 'temp-synced'
-  | 'linked'
-  | 'claim-write'
-  | 'claim-synced'
-  | 'claim-linked';
+  'temp-write' | 'temp-synced' | 'linked' | 'claim-write' | 'claim-synced' | 'claim-linked';
 
 export type CheckpointHook = (point: FileStoreCheckpoint) => void | Promise<void>;
 

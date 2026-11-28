@@ -20,7 +20,7 @@ afterEach(async () => {
 async function acknowledged() {
   const root = await mkdtemp(join(tmpdir(), 'roundtable-crash-'));
   roots.push(root);
-  const store = new FileConversationStore({ root, lockWaitMs: 2_000 });
+  const store = new FileConversationStore({ root });
   await store.create('room', { step: 0 });
   const claim = await store.claim('room', 'parent', 600_000);
   await store.commit({ claim, expectedRevision: 0, operationId: 'one', state: { step: 1 } });
@@ -28,7 +28,7 @@ async function acknowledged() {
 }
 
 function reopen(root: string, now: () => number = Date.now) {
-  return new FileConversationStore({ root, now, lockWaitMs: 2_000 });
+  return new FileConversationStore({ root, now });
 }
 
 function run(
@@ -109,58 +109,37 @@ describe('FileConversationStore after a real process kill', () => {
     expect(await names(root, 'revisions')).toEqual(['0.json', '1.json', '2.json']);
   });
 
-  it.each<FileStoreCheckpoint>(['claim-write', 'claim-synced'])(
-    'a renewal killed at %s leaves the old claim intact and parseable',
+  it.each<FileStoreCheckpoint>(['claim-write', 'claim-synced', 'claim-linked'])(
+    'a renewal killed at %s leaves the highest generation authoritative',
     async (point) => {
       const { root, claim } = await acknowledged();
       expect(run(root, 'renew', point, claim).killed).toBe(true);
       const store = reopen(root);
       const renewed = await store.renew(claim, 1_000);
       expect(renewed.fence).toBe(claim.fence);
-      expect(await names(root)).toEqual(['claim.json', 'revisions']);
+      expect(await names(root)).toEqual(['claims', 'revisions']);
+      expect((await names(root, 'claims')).length).toBe(1);
     },
   );
 
   it.each<[FileStoreCheckpoint, number]>([
     ['claim-write', 2],
     ['claim-synced', 2],
-    ['claim-renamed', 3],
+    ['claim-linked', 3],
   ])('a claim killed at %s never has its fence issued twice', async (point, nextFence) => {
     const { root, claim } = await acknowledged();
     await reopen(root).release(claim);
     expect(run(root, 'claim', point).killed).toBe(true);
     let now = Date.now();
     const store = reopen(root, () => now);
-    if (point === 'claim-renamed') {
+    if (point === 'claim-linked') {
       // The child's claim reached disk with fence 2, so it is still owned until its lease ends.
       await expect(store.claim('room', 'parent', 1_000)).rejects.toMatchObject({ code: 'busy' });
       now += 200_000;
     }
     const next = await store.claim('room', 'parent', 1_000);
     expect(next.fence).toBe(nextFence);
-    expect(await names(root)).toEqual(['claim.json', 'revisions']);
+    expect(await names(root)).toEqual(['claims', 'revisions']);
+    expect((await names(root, 'claims')).length).toBe(1);
   });
-
-  it.each<['claim' | 'commit']>([['claim'], ['commit']])(
-    'a %s killed while holding the lock does not wedge the store',
-    async (operation) => {
-      const { root, claim } = await acknowledged();
-      if (operation === 'claim') await reopen(root).release(claim);
-      expect(run(root, operation, 'lock-held', claim).killed).toBe(true);
-      expect(await names(root)).toContain('claim.lock');
-      const store = reopen(root);
-      if (operation === 'commit') {
-        const committed = await store.commit({
-          claim,
-          expectedRevision: 1,
-          operationId: 'after',
-          state: { step: 2 },
-        });
-        expect(committed.revision).toBe(2);
-      } else {
-        expect((await store.claim('room', 'parent', 1_000)).fence).toBe(2);
-      }
-      expect(await names(root)).not.toContain('claim.lock');
-    },
-  );
 });
