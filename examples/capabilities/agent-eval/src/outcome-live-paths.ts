@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 /**
  * Where a paid run may keep its ledger and evidence. A ledger or an observation inside the
@@ -22,14 +22,18 @@ export function resolveThroughLinks(path: string): string {
     missing.unshift(basename(current));
     current = parent;
   }
-  const real = existsSync(current) ? realpathSync(current) : current;
+  // The native form reports the true casing, so a case variant of a path cannot slip past on a case-insensitive disk.
+  const real = existsSync(current) ? realpathSync.native(current) : current;
   return join(real, ...missing);
 }
 
 /** True when `inner` is `outer` or below it. Both must already be resolved. */
 export function isInside(outer: string, inner: string): boolean {
   const difference = relative(outer, inner);
-  return difference === '' || (!difference.startsWith('..') && !isAbsolute(difference));
+  return (
+    difference === '' ||
+    (difference !== '..' && !difference.startsWith(`..${sep}`) && !isAbsolute(difference))
+  );
 }
 
 function git(directory: string, args: string[]): string | undefined {

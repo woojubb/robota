@@ -259,6 +259,15 @@ test('classification: a refused admission is a counted failure that halts the ru
   assert.equal(verdict.halt, 'admission-refused');
 });
 
+test('classification: a refused admission halts the run without changing a trial that passed', () => {
+  const verdict = classifyTrial({
+    record: { score: { passed: true, failures: [] }, capReached: false },
+    admissionRefusals: ['cap: the call cap is reached'],
+  });
+  assert.equal(verdict.outcome, 'pass');
+  assert.equal(verdict.halt, 'admission-refused');
+});
+
 test('the summary counts finished trials only and keeps smoke and infrastructure stops apart', () => {
   const smoke = SLOTS[0] as ISlot;
   const counted = SLOTS[2] as ISlot;

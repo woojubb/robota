@@ -261,12 +261,14 @@ interface ITally {
   readonly refusals: string[];
 }
 
-function tallyGate(inner: IRelayGate, tally: ITally): IRelayGate {
+function tallyGate(inner: IRelayGate, tally: ITally, ledger: SpendLedger): IRelayGate {
   return {
     admit(request) {
       const admission = inner.admit(request);
       if (!admission.ok) {
         tally.refusals.push(admission.detail);
+        // A refused admission stops the run at once, in the ledger too.
+        ledger.stop(`admission refused: ${admission.detail}`);
         return admission;
       }
       tally.admitted += 1;
@@ -332,7 +334,12 @@ export function verifyCleanup(input: ICleanupInput): ICleanupCheck[] {
     checks.push({
       name: `no ${kind.slice(0, -1)} left behind`,
       ok: left.length === 0,
-      detail: { added: left },
+      detail: {
+        added: left,
+        ...(kind === 'images'
+          ? { note: 'the image build never pulls, so base images are never added by the run' }
+          : {}),
+      },
     });
   }
   const workDirGone = input.workDir === undefined || !existsSync(input.workDir);
@@ -343,14 +350,22 @@ export function verifyCleanup(input: ICleanupInput): ICleanupCheck[] {
     ok: leftover.length === 0,
     detail: { count: leftover.length },
   });
+  // Scan what could still hold a copy: the working directory and any trial folder left behind.
+  const places = [
+    ...(input.workDir === undefined ? [] : [input.workDir]),
+    ...leftover.map((name) => join(input.baseDir, name)),
+  ].filter((place) => existsSync(place));
   const copies =
-    input.secret === undefined || input.workDir === undefined || !existsSync(input.workDir)
+    input.secret === undefined
       ? 0
-      : countLeaksInPath(input.secret, input.workDir).leaks;
+      : places.reduce(
+          (sum, place) => sum + countLeaksInPath(input.secret as string, place).leaks,
+          0,
+        );
   checks.push({
     name: 'no credential copy left',
     ok: copies === 0,
-    detail: { copies },
+    detail: { copies, placesScanned: places.length },
   });
   return checks;
 }
@@ -398,6 +413,23 @@ export async function runDriver(config: IDriverConfig, deps: IDriverDeps): Promi
     throw new DriverConfigError(
       'The evidence folder already holds a ledger; use --resume, or a new folder for a new run',
     );
+  }
+
+  // A dry run's ledger and events are never carried on by a real run, and the other way round.
+  for (const earlier of readEvents(eventsPath)) {
+    if (earlier.type === 'note' && typeof earlier.dryRun === 'boolean') {
+      if (earlier.dryRun !== config.dryRun) {
+        throw new DriverConfigError(
+          `The evidence folder belongs to a ${earlier.dryRun ? 'dry' : 'real'} run; a ${config.dryRun ? 'dry' : 'real'} run cannot use it`,
+        );
+      }
+    }
+  }
+  if (
+    config.resume &&
+    !readEvents(eventsPath).some((e) => e.type === 'note' && e.dryRun !== undefined)
+  ) {
+    throw new DriverConfigError('The evidence folder records no run mode; it cannot be resumed');
   }
 
   mkdirSync(join(evidenceDir, OBSERVATIONS_DIR), { recursive: true });
@@ -701,7 +733,7 @@ export async function runDriver(config: IDriverConfig, deps: IDriverDeps): Promi
           endpoint,
           ...(config.routeOptions === undefined ? {} : { routeOptions: config.routeOptions }),
           upstream,
-          gate: tallyGate(baseGate, tally),
+          gate: tallyGate(baseGate, tally, ledger as SpendLedger),
           launch: (input) => {
             const launched = activeRuntime.launch(input);
             if (deps.dryRun !== undefined) {

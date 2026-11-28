@@ -219,8 +219,9 @@ export function classifyTrial(input: IClassifyInput): ITrialClassification {
     };
   }
   if (input.admissionRefusals.length > 0) {
+    // The verdict stays the environment's: a refused admission ends the run, not the trial's result.
     return {
-      outcome: 'fail',
+      outcome: record.score.passed ? 'pass' : 'fail',
       halt: 'admission-refused',
       reason: input.admissionRefusals[0] as string,
     };

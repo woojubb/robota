@@ -733,3 +733,63 @@ test('the run’s working directory is removed and no work entry is left in the 
     assert.deepEqual(readdirSync(harness.base), []);
   });
 });
+
+test('a refused admission stops the ledger at once, and a trial that passed stays a pass', async () => {
+  await withHarness(async (harness) => {
+    const { result } = await go(harness, () => ({ calls: [{}] }), { callCap: 3 });
+    assert.equal(result.summary.halt?.kind, 'admission-refused');
+    assert.match(
+      String((result.summary.ledger?.state as { stopReason?: string }).stopReason),
+      /admission refused/,
+    );
+    // The stub's trial passes by the verifier's verdict although its call was refused.
+    const last = ends(harness).at(-1) as ITrialEnd;
+    assert.equal(last.outcome, 'pass');
+  });
+});
+
+test('a real run and a dry run never share an evidence folder', async () => {
+  for (const firstDry of [true, false]) {
+    await withHarness(async (harness) => {
+      const modePatch = (dry: boolean): Partial<IDriverConfig> => ({
+        dryRun: dry,
+        ...(dry ? { decisionRuleUrl: undefined } : {}),
+      });
+      const first = await go(
+        harness,
+        (index) => (index === 2 ? { throws: 'stop' } : { calls: [{}] }),
+        modePatch(firstDry),
+      );
+      assert.equal(first.result.exitCode, 1);
+      await assert.rejects(
+        go(harness, undefined, { resume: true, ...modePatch(!firstDry) }),
+        /cannot use it/,
+      );
+      // The same mode resumes normally.
+      const same = await go(harness, undefined, { resume: true, ...modePatch(firstDry) });
+      assert.equal(same.result.exitCode, 0);
+    });
+  }
+});
+
+test('the credential-copy check scans a trial folder left behind', () => {
+  const base = mkdtempSync(join(realpathSync(tmpdir()), 'cleanup-copy-test-'));
+  try {
+    mkdirSync(join(base, '.coding-trial-left'));
+    writeFileSync(join(base, '.coding-trial-left', 'copy.txt'), SECRET);
+    const snapshot = { containers: [], images: [], networks: [], volumes: [] };
+    const checks = verifyCleanup({
+      before: snapshot,
+      after: snapshot,
+      workDir: undefined,
+      baseDir: base,
+      workEntriesBefore: [],
+      secret: SECRET,
+    });
+    const copy = checks.find((check) => check.name === 'no credential copy left');
+    assert.equal(copy?.ok, false);
+    assert.equal(copy?.detail?.copies, 1);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});

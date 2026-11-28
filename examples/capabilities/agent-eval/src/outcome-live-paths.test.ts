@@ -133,3 +133,29 @@ test('the guard error never repeats the path it refused', () => {
     assert.ok(!(error as Error).message.includes('secret-looking-name'));
   }
 });
+
+test(
+  'a case variant of a path inside the repository is refused on a case-insensitive disk',
+  { skip: process.platform !== 'darwin' },
+  () => {
+    const [root] = repositoryRoots(exampleDir);
+    assert.ok(root !== undefined);
+    for (const variant of [root.toLowerCase(), root.toUpperCase()]) {
+      // Only a case-insensitive volume resolves a variant; on a case-sensitive one it does not exist.
+      if (!existsSync(variant)) continue;
+      assert.throws(
+        () => assertEvidencePath(join(variant, 'evidence'), 'evidence folder', real),
+        /outside the repository/,
+      );
+      assert.throws(
+        () => assertCredentialPath(join(variant, 'credentials.env'), real),
+        /outside the repository/,
+      );
+    }
+  },
+);
+
+test('a name that starts with two dots is inside; a real parent step is not', () => {
+  assert.equal(isInside('/a/b', '/a/b/..hidden'), true);
+  assert.equal(isInside('/a/b', '/a/b/../c'), false);
+});
