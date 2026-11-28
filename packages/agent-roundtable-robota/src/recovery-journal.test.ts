@@ -236,6 +236,100 @@ describe('attemptJournal', () => {
   });
 });
 
+describe('a sealed attempt journal', () => {
+  const refused = expect.objectContaining({ code: 'attempt-sealed' });
+
+  it('refuses appends, effect-call claims and its turn end, and writes nothing', async () => {
+    const { entries, journal } = memory();
+    const attempts = attemptJournal(new ScopeLog(journal), attempt);
+    await attempts.append(request('c1'));
+    const before = entries.length;
+    attempts.seal();
+    await expect(attempts.append(response('c1'))).rejects.toEqual(refused);
+    await expect(attempts.effectCalls.claim(start('act-1') as never)).rejects.toEqual(refused);
+    await expect(
+      attempts.turnEnd({
+        kind: 'turn-end',
+        attemptId: 'a1',
+        phase: 'run',
+        outcome: { kind: 'yield' },
+        checkpoint: { version: '1', data: null },
+      }),
+    ).rejects.toEqual(refused);
+    expect(entries).toHaveLength(before);
+  });
+
+  it('refuses a claim it already answered, so a stray caller cannot reuse the id', async () => {
+    const { journal } = memory();
+    const attempts = attemptJournal(new ScopeLog(journal), attempt);
+    await attempts.effectCalls.claim(start('act-1') as never);
+    attempts.seal();
+    await expect(attempts.effectCalls.claim(start('act-1') as never)).rejects.toEqual(refused);
+  });
+
+  it('still reads, so the attempt can be reconciled', async () => {
+    const { journal } = memory();
+    const attempts = attemptJournal(new ScopeLog(journal), attempt);
+    await attempts.append(request('c1'));
+    await attempts.append(response('c1'));
+    attempts.seal();
+    expect((await attempts.read('e1')).map((record) => record.recordId)).toEqual([
+      'c1:request',
+      'c1:response',
+    ]);
+  });
+
+  it('refuses a write that was queued behind a slow one when the seal came meanwhile', async () => {
+    const { entries, journal } = memory();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const slow: RecoveryJournal = {
+      ...journal,
+      append: async (entry) => {
+        if (entry.kind === 'binding') await gate;
+        return journal.append(entry);
+      },
+    };
+    const attempts = attemptJournal(new ScopeLog(slow), attempt);
+    const first = attempts.append(request('c1'));
+    const second = attempts.append(response('c1'));
+    first.catch(() => {});
+    attempts.seal();
+    release();
+    await expect(first).rejects.toEqual(refused);
+    await expect(second).rejects.toEqual(refused);
+    expect(entries).toEqual([]);
+  });
+
+  it('is sealed for the Session the instant its run is stopped, but not for the adapter', async () => {
+    const { entries, journal } = memory();
+    const stop = new AbortController();
+    const attempts = attemptJournal(new ScopeLog(journal), attempt, stop.signal);
+    await attempts.append(request('c1'));
+    stop.abort();
+    await expect(attempts.append(response('c1'))).rejects.toEqual(refused);
+    await expect(attempts.effectCalls.claim(start('act-1') as never)).rejects.toEqual(refused);
+    // What the turn returned, if the Session did return, is still written.
+    await attempts.turnEnd({
+      kind: 'turn-end',
+      attemptId: 'a1',
+      phase: 'run',
+      outcome: { kind: 'yield' },
+      checkpoint: { version: '1', data: null },
+    });
+    expect(entries.map((entry) => entry.kind)).toEqual(['binding', 'record', 'turn-end']);
+  });
+
+  it('does not seal another attempt of the same scope', async () => {
+    const { journal } = memory();
+    const log = new ScopeLog(journal);
+    attemptJournal(log, attempt).seal();
+    await expect(
+      attemptJournal(log, { ...attempt, attemptId: 'a2' }).append(request('c1')),
+    ).resolves.toBeUndefined();
+  });
+});
+
 describe('assertDurableJournal', () => {
   it('refuses a journal that can lose what it acknowledged', () => {
     expect(() => assertDurableJournal(memory('volatile').journal)).toThrow(

@@ -151,6 +151,34 @@ function answerCalls(
 }
 
 /**
+ * A call an interrupted selection may have dispatched is kept counted; only the host can settle it,
+ * since a selector has no journal to prove otherwise.
+ */
+export function retainSelectorCalls(
+  state: ConversationState,
+  revision: number,
+  options: { runId: string; selectorId: string; attemptId: string; pricing?: PricePolicy },
+): void {
+  const principal: UsagePrincipal = { kind: 'selector', id: options.selectorId };
+  for (const record of reserved(state, principal, options.attemptId)) {
+    applyCallSettlement(
+      state,
+      revision,
+      {
+        conversationId: state.snapshot.conversationId,
+        runId: options.runId,
+        principal,
+        turnId: null,
+        groupId: null,
+        attemptId: options.attemptId,
+      },
+      { kind: 'uncertain', callId: record.callId },
+      options.pricing,
+    );
+  }
+}
+
+/**
  * The pure mutator of the one commit that settles every interrupted call and moves every interrupted
  * member forward. Any refusal throws before anything is stored, so recovery commits whole or not at
  * all.
@@ -171,18 +199,12 @@ export function applyRecovery(
   const base = { conversationId: state.snapshot.conversationId, runId: options.runId };
   if (plan.reselect) {
     if (phase.kind !== 'selecting') refuse('Saved selection changed during recovery');
-    // A call the interrupted selection may have dispatched is kept counted; only the host can
-    // settle it, since a selector has no journal to prove otherwise.
-    const principal: UsagePrincipal = { kind: 'selector', id: options.selectorId };
-    for (const record of reserved(state, principal, phase.attemptId)) {
-      applyCallSettlement(
-        state,
-        revision,
-        { ...base, principal, turnId: null, groupId: null, attemptId: phase.attemptId },
-        { kind: 'uncertain', callId: record.callId },
-        options.pricing,
-      );
-    }
+    retainSelectorCalls(state, revision, {
+      runId: options.runId,
+      selectorId: options.selectorId,
+      attemptId: phase.attemptId,
+      ...(options.pricing ? { pricing: options.pricing } : {}),
+    });
     state.phase = { kind: 'ready' };
     return;
   }

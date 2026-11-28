@@ -48,7 +48,12 @@ A participant that declares itself reconcilable recovers a turn a process stoppe
 durable journal, never by rerunning what the journal shows already happened: a call proven never
 dispatched is refunded, a call whose report the journal holds is settled with it, and a call it cannot
 prove either way stays counted. A turn whose end was journaled is answered from it, and an effect that
-started without a result is never started again until the host settles it.
+started without a result is never started again until the host settles it. A run stopped inside a
+living process leaves the journal as a process death at that instant would: from the moment of the stop
+the Session writes nothing, so what it does while unwinding is never taken for what happened outside,
+and once an attempt's turn settles or its session is released the attempt refuses every write while
+staying readable for reconciliation. A turn the Session finished before a stop was observed is journaled
+and returned, never discarded.
 
 A selector backed by an agent trusts a decision only when the agent reaches it through the one
 channel offered for reaching it, unambiguously, and only when it names conversation participants that
@@ -61,16 +66,16 @@ Tool traces and a runtime's private message history never enter the shared trans
 own final text does, and only once that text is non-empty after trimming. A checkpoint never carries a
 live credential, a callable value, or anything that is not the runtime's own conversation content. A
 delta a runtime streamed is always delivered, in the order it streamed, before the turn's outcome is
-returned to the caller. A resource this package leases is never handed to a second lease while the
+returned to the caller, unless the run was stopped while it was being delivered. A resource this package leases is never handed to a second lease while the
 first is still open.
 
 ## Non-goals
 
 This package supplies no concrete provider, transport, or command surface, and does not choose a
 runtime's model, tools or permission policy — those remain the host's `createSessionOptions` /
-`createAgent` closures. It recovers a process-interrupted turn only from a durable journal the host supplies and
-supplies none itself, and it does not reconcile an external effect that a cancelled attempt in a living
-process may have already started; that stays the concern `agent-roundtable` itself declines to solve. Its callers are metered unless the host declares
+`createAgent` closures. It recovers an interrupted turn, whether the process died or the run was only stopped, only from a durable journal the host supplies and
+supplies none itself; without one, an external effect that a cancelled attempt may have already started
+is not reconciled, which stays the concern `agent-roundtable` itself declines to solve. Its callers are metered unless the host declares
 enforcement: a metered caller admits and reports what a runtime already reports but cannot declare a
 call's bound before dispatch, so a conversation with a budget refuses it rather than count it
 unbounded. Enforcement is the host's declaration, proven when the lease opens; a bound rests on the
