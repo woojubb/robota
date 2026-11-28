@@ -49,6 +49,12 @@ on — in the person's own state directory.
   so accepted but unfinished work is never counted as success. Offers are shown on the page the person
   opens; they interrupt nobody unless the person chose to be told, and then only under the same limits as
   questions.
+- **Forgetting a fact also removes its words from the saved conversations, and says how far that went.**
+  What the library forgets is replaced by a marker in every chat, messenger conversation, goal run and
+  side-chat title that holds the same words, with each conversation otherwise intact and still
+  resumable. A conversation another writer holds, one waiting on an execution, or one that cannot be
+  read is never written to and is reported as not reached; one that is running is cleaned when its turn
+  ends. The answer to the person names what was reached and what stays.
 - **The catalog is the owner's and local.** Built-in definitions ship with the product; offers and
   installed definitions live in the owner-only state directory. No hosted catalog or recommendation
   service is needed to browse.
@@ -97,3 +103,4 @@ on — in the person's own state directory.
 - The host cannot fetch an item from a connected service by the agent's own reference, so an offer from
   one rests on the service still being connected and on the age of the observation, not on the item
   being read again; a library page is looked up by its id.
+- A forget cleans a conversation the agent is running only when it is idle, and owes the rest: a turn keeps its whole conversation in memory and saves it whole, so a cleaned file would be rewritten with the fact by that turn's next save. Until it ends, what the turn saves is cleaned on the way to disk and the text is held only in memory; deleting the conversation was rejected because it takes everything else the person said, and keeping the forgotten text to clean later would keep the fact. The wiki is cleaned first and the reach follows, so a reach that fails is reported and never brings the fact back.

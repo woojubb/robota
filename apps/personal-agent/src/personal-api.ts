@@ -20,6 +20,7 @@ import {
 } from '@robota-sdk/agent-product/personal';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 
+import { FORGET_STAYS } from './conversation-forgetting.js';
 import { LayoutRefusedError } from './layout.js';
 import { SideChatRefusedError } from './side-chats.js';
 import { loadConfig, saveConfig } from './config.js';
@@ -199,8 +200,18 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       const pageId = text(body, 'pageId', true);
       if ((claimId === undefined) === (pageId === undefined))
         throw new BadRequest('give exactly one of claimId and pageId');
-      const removed = await wiki.forget(claimId !== undefined ? { claimId } : { pageId: pageId! });
-      return ok({ removed });
+      const result = await wiki.forgetWithReport(
+        claimId !== undefined ? { claimId } : { pageId: pageId! },
+      );
+      // Nothing was removed, so there was nothing to look for in the conversations.
+      if (result.forgotten === 0) return ok({ removed: 0 });
+      return ok({
+        removed: result.forgotten,
+        // What the saved conversations were cleaned of, and the chats the statement was learned in.
+        ...(result.conversations !== undefined && { conversations: result.conversations }),
+        ...(result.reachFailed === true && { reachFailed: true }),
+        stays: FORGET_STAYS,
+      });
     }
     if (area === 'wiki' && collection === 'log' && method === 'GET')
       return ok({ entries: await wiki.log() });

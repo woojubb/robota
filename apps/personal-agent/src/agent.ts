@@ -25,6 +25,7 @@ import { createPersonalGoalSessionStore, createPersonalSessionStore } from './se
 
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type { IAgentRuntime, SessionRecipe } from '@robota-sdk/agent-framework';
+import type { IOwedRedactions } from './owed-redactions.js';
 
 /**
  * Tools a personal agent withholds from the model entirely: every way to run a host command
@@ -60,6 +61,8 @@ export interface IPersonalAgentOptions {
   /** Text appended to the system prompt, such as the pack's own instructions. */
   readonly instructions?: string;
   readonly permissionMode?: TPermissionMode;
+  /** What a forget still owes the sessions this agent runs, paid on each record they save. */
+  readonly owedRedactions?: IOwedRedactions;
 }
 
 export type TPersonalSession = ReturnType<IAgentRuntime['createSession']>;
@@ -75,6 +78,8 @@ export interface IPersonalAgent {
    * more tools and add instructions, never offer more.
    */
   openSession(extra: IExtraSessionOptions): TPersonalSession;
+  /** The sessions opened that way and not yet collected: goal runs and messenger conversations. */
+  liveSessions(): readonly TPersonalSession[];
 }
 
 export interface IExtraSessionOptions {
@@ -114,7 +119,7 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
     host,
     cwd: workspace,
     provider: options.provider,
-    sessionStore: createPersonalSessionStore(options.stateDir),
+    sessionStore: createPersonalSessionStore(options.stateDir, options.owedRedactions),
     // Naming a chat is the one session command a personal agent offers: the others change its
     // working folder or open other sessions, which its boundaries and menus own.
     commandModules: [createSessionCommandModule({ only: ['rename'] })],
@@ -130,7 +135,18 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
       deniedTools: [...PERSONAL_WITHHELD_TOOLS, ...PERSONAL_RUN_ONLY_TOOLS],
       ...(options.instructions !== undefined && { appendSystemPrompt: options.instructions }),
     });
-  const goalSessionStore = createPersonalGoalSessionStore(options.stateDir);
+  const goalSessionStore = createPersonalGoalSessionStore(options.stateDir, options.owedRedactions);
+  /** Sessions `openSession` made that may still be running; weak, so a finished one is simply gone. */
+  const opened = new Set<WeakRef<TPersonalSession>>();
+  const liveSessions = (): readonly TPersonalSession[] => {
+    const live: TPersonalSession[] = [];
+    for (const ref of opened) {
+      const session = ref.deref();
+      if (session === undefined) opened.delete(ref);
+      else live.push(session);
+    }
+    return live;
+  };
   /** Every tool the agent has, by name: the host's own and the pack's. */
   const toolNames = [
     ...createDefaultTools({ cwd: workspace }).map((tool) => tool.getName()),
@@ -191,7 +207,7 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
         ...extra.scopedTools,
       ];
     }
-    return runtime.createSession({
+    const session = runtime.createSession({
       ...base,
       ...(additionalTools !== undefined && { additionalTools: [...additionalTools] }),
       sessionStore: extra.keepWith === 'chats' ? runtime.sessionStore : goalSessionStore,
@@ -208,6 +224,8 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
         .filter((text) => text !== undefined)
         .join('\n\n'),
     });
+    opened.add(new WeakRef(session));
+    return session;
   };
-  return { runtime, chatRecipe, workspace, openSession };
+  return { runtime, chatRecipe, workspace, openSession, liveSessions };
 }

@@ -30,6 +30,14 @@ export function originLabel(claim: IClaimView): string {
   return `Read from ${origin}${reference === undefined ? '' : ` · ${reference}`}`;
 }
 
+/**
+ * What forgetting reaches, said as far as it goes: the library, and the saved conversations and chat
+ * titles that hold the same words. Rewording, what a service sent, the feed and cases, and anything
+ * already sent to the model provider stay.
+ */
+const FORGET_SCOPE =
+  'It is removed from the library, and its exact words from your saved conversations and their titles, where they can be found: a short statement is looked for only in the chat it came from. The same thing said differently, what services sent, the feed and cases, and anything already sent to the model provider stay.';
+
 function day(iso: string): string {
   return iso.slice(0, 10);
 }
@@ -300,7 +308,7 @@ function PageDetail({
             onClick={() => {
               if (
                 window.confirm(
-                  `Forget everything on "${page.title}"? It is removed everywhere and cannot be restored.`,
+                  `Forget everything on "${page.title}"? ${FORGET_SCOPE} It cannot be restored.`,
                 )
               ) {
                 void run(() => api.forgetPage(page.id), onGone);
@@ -363,9 +371,7 @@ function PageDetail({
                       tone="danger"
                       onClick={() => {
                         if (
-                          window.confirm(
-                            'Forget this fact? It is removed everywhere and cannot be restored.',
-                          )
+                          window.confirm(`Forget this fact? ${FORGET_SCOPE} It cannot be restored.`)
                         ) {
                           void run(
                             () => api.forgetClaim(claim.id),
