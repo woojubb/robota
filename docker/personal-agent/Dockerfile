@@ -32,9 +32,14 @@ COPY --from=build --chown=root:root /out /opt/personal-agent
 RUN chmod -R a-w /opt/personal-agent \
   && ln -s /opt/personal-agent/bin/personal-agent.mjs /usr/local/bin/personal-agent
 
+# The root filesystem is read-only, so nothing under $HOME is writable. Chromium keeps its crash-report
+# database under $XDG_CONFIG_HOME and font cache under $XDG_CACHE_HOME; with those unwritable its crash
+# handler starts without a database and the browser aborts at launch. They live in the state volume.
 ENV HOME=/home/node \
     PERSONAL_AGENT_STATE_DIR=/home/node/.personal \
-    PERSONAL_AGENT_CHROMIUM=/usr/bin/chromium
+    PERSONAL_AGENT_CHROMIUM=/usr/bin/chromium \
+    XDG_CONFIG_HOME=/home/node/.personal/xdg/config \
+    XDG_CACHE_HOME=/home/node/.personal/xdg/cache
 
 RUN mkdir -p /home/node/.personal && chown node:node /home/node/.personal && chmod 0700 /home/node/.personal
 
