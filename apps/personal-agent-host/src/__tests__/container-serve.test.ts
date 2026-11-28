@@ -65,7 +65,7 @@ describe('serve with the container backend', () => {
     const lines: string[] = [];
     const { engine, host } = await serveOnFakeEngine(lines);
     expect(lines.join('\n')).toMatch(/Container backend: .*trusted people only/u);
-    expect(lines.join('\n')).toContain('no proxy is built');
+    expect(lines.join('\n')).toContain('no proxy is configured');
 
     const view = await host.plane.add(addInput('alice'));
     expect(view.id).toBe('alice');

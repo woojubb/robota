@@ -363,7 +363,12 @@ export class ContainerRuntime implements IRuntimePort {
 
   async stop(account: string): Promise<void> {
     await this.attempt(async () => {
-      await this.existing(account);
+      // Not through `existing`: a unit whose slot lies outside the current pool is listed with no
+      // address, and the guard path must still be able to stop it.
+      const found = await this.resources(account);
+      if (!found.container && !found.volume && !found.network) {
+        throw new RuntimePortError('unknown-account', `No unit for account ${account}`);
+      }
       await this.removeContainer(objectName(this.options.installId, account));
     });
   }

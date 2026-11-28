@@ -1,6 +1,7 @@
 import { isAbsolute } from 'node:path';
 
 import { HostError } from './errors.js';
+import { validateSocketPath } from './proxy/validate.js';
 import type { IUnitLimits } from './runtime/port.js';
 
 export type TlsMode = { mode: 'internal' } | { mode: 'acme'; email: string };
@@ -12,6 +13,16 @@ export interface ISubnetPool {
   prefix: number;
   /** How many /29 account networks the pool holds. */
   slots: number;
+}
+
+/** Where the real proxy is configured and reached; absent means no proxy is configured. */
+export interface IProxyConfig {
+  /** The generated configuration file, written by this process. */
+  configPath: string;
+  /** The proxy's admin Unix socket, as this process reaches it. */
+  adminSocket: string;
+  /** The same socket as the proxy itself sees it, when the two sit at different paths. */
+  adminListen: string;
 }
 
 export interface IHostConfig {
@@ -32,6 +43,7 @@ export interface IHostConfig {
    * match the resolvers the engine forwards to, or units lose name resolution.
    */
   dnsServers?: string[];
+  proxy?: IProxyConfig;
 }
 
 const PREFIX = 'PERSONAL_AGENT_HOST_';
@@ -220,6 +232,32 @@ export function loadConfig(env: NodeJS.ProcessEnv): IHostConfig {
     }
   }
 
+  let proxy: IProxyConfig | undefined;
+  const proxyConfig = get('PROXY_CONFIG');
+  const proxySocket = get('PROXY_ADMIN_SOCKET');
+  const proxyListen = get('PROXY_ADMIN_LISTEN');
+  if (proxyConfig !== '' || proxySocket !== '' || proxyListen !== '') {
+    for (const [name, value] of [
+      ['PROXY_CONFIG', proxyConfig],
+      ['PROXY_ADMIN_SOCKET', proxySocket],
+      ['PROXY_ADMIN_LISTEN', proxyListen || proxySocket],
+    ] as const) {
+      try {
+        validateSocketPath(value, name === 'PROXY_CONFIG' ? 'config path' : 'admin socket');
+      } catch {
+        problems.add(
+          name,
+          'is required with the other proxy settings and must be an absolute path of letters, digits, dots, hyphens and slashes',
+        );
+      }
+    }
+    proxy = {
+      configPath: proxyConfig,
+      adminSocket: proxySocket,
+      adminListen: proxyListen || proxySocket,
+    };
+  }
+
   const httpPort = integer(env, problems, 'HTTP_PORT', undefined, 1, 65535);
   const httpsPort = integer(env, problems, 'HTTPS_PORT', undefined, 1, 65535);
   if (httpPort !== undefined && httpPort === httpsPort) {
@@ -252,6 +290,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): IHostConfig {
     engineEndpoint: engine,
     ...(guardImage !== '' ? { guardImage } : {}),
     ...(dnsServers.length > 0 ? { dnsServers } : {}),
+    ...(proxy ? { proxy } : {}),
   };
 }
 

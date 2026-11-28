@@ -9,6 +9,7 @@ import { AuditLog } from './audit.js';
 import { ALLOW_CONTAINER_SETTING, type IHostConfig, loadConfig } from './config.js';
 import { ControlPlane } from './control-plane.js';
 import { errorMessage, HostError } from './errors.js';
+import { CaddyProxy, unixSocketTransport } from './proxy/caddy.js';
 import { FakeProxy } from './proxy/fake.js';
 import type { IProxyPort } from './proxy/port.js';
 import { FakeRuntime } from './runtime/fake.js';
@@ -58,6 +59,31 @@ function fakeAllowed(env: NodeJS.ProcessEnv): boolean {
   throw new HostError('config-invalid', `${FAKE_RUNTIME_SETTING} must be true or false`);
 }
 
+/** The configured proxy when the operator named one, else the in-memory fake that serves nothing. */
+function chooseProxy(
+  config: IHostConfig,
+  options: IServeOptions,
+  log: (line: string) => void,
+): IProxyPort {
+  if (options.proxy) return options.proxy;
+  if (config.proxy) {
+    const { configPath, adminSocket, adminListen } = config.proxy;
+    log(`Proxy: configuration ${configPath}, admin socket ${adminSocket}`);
+    return new CaddyProxy({
+      configPath,
+      transport: unixSocketTransport(adminSocket),
+      settings: {
+        tls: config.tls,
+        adminListen,
+        ...(config.httpPort !== undefined ? { httpPort: config.httpPort } : {}),
+        ...(config.httpsPort !== undefined ? { httpsPort: config.httpsPort } : {}),
+      },
+    });
+  }
+  log('WARNING: no proxy is configured; accounts run but no site is served');
+  return new FakeProxy();
+}
+
 function chooseBackend(
   env: NodeJS.ProcessEnv,
   config: IHostConfig,
@@ -66,7 +92,7 @@ function chooseBackend(
   log: (line: string) => void,
 ): { runtime: IRuntimePort; proxy: IProxyPort } {
   if (options.runtime) {
-    return { runtime: options.runtime, proxy: options.proxy ?? new FakeProxy() };
+    return { runtime: options.runtime, proxy: chooseProxy(config, options, log) };
   }
   if (!fakeAllowed(env)) {
     // Containers share the host's kernel, so the backend runs only when the operator has said the
@@ -76,9 +102,6 @@ function chooseBackend(
         `Container backend: accounts share this engine's kernel and are for trusted people only; ` +
           `engine ${config.engineEndpoint}`,
       );
-      if (!options.proxy) {
-        log('WARNING: no proxy is built into this version; accounts run but no site is served');
-      }
       return {
         runtime: new ContainerRuntime({
           engine: new EngineClient({ endpoint: config.engineEndpoint }),
@@ -87,7 +110,7 @@ function chooseBackend(
           guardImage: config.guardImage,
           ...(config.dnsServers ? { resolvers: config.dnsServers } : {}),
         }),
-        proxy: options.proxy ?? new FakeProxy(),
+        proxy: chooseProxy(config, options, log),
       };
     }
     throw new HostError(
@@ -100,7 +123,7 @@ function chooseBackend(
   log(
     `WARNING: ${FAKE_RUNTIME_SETTING} is set; units are in-memory fakes and nothing is isolated or proxied`,
   );
-  return { runtime: new FakeRuntime(), proxy: options.proxy ?? new FakeProxy() };
+  return { runtime: new FakeRuntime(), proxy: chooseProxy(config, options, log) };
 }
 
 /**
