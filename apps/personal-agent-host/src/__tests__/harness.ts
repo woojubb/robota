@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { AccountStore } from '../accounts/store.js';
+import { Spool } from '../archive/spool.js';
 import { SecretStore } from '../accounts/secret-store.js';
 import { AuditLog, type IAuditEntry } from '../audit.js';
 import { type IHostConfig, loadConfig } from '../config.js';
@@ -66,6 +67,7 @@ export async function makeHost(
   const runtime = options.runtime ?? new FakeRuntime();
   const proxy = options.proxy ?? new FakeProxy();
   const clock = { now: Date.UTC(2026, 0, 1) };
+  const spool = await Spool.open(dir);
   const plane = new ControlPlane({
     config,
     store,
@@ -73,6 +75,7 @@ export async function makeHost(
     audit,
     runtime,
     proxy,
+    spool,
     now: () => clock.now,
     backoff: { baseMs: 1_000, maxMs: 8_000 },
   });

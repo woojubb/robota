@@ -34,6 +34,36 @@ describe('reconcile', () => {
     ).toBe(true);
   });
 
+  it('releases the retention of an unrecorded image it stopped, and keeps one another account uses', async () => {
+    const host = await makeHost();
+    await host.plane.add(addInput('alice'));
+    await host.plane.add(addInput('bob'));
+    const aliceRecord = host.store.get('alice');
+    if (!aliceRecord) throw new Error('no record');
+    const recorded = aliceRecord.imageId;
+    const stray = `sha256:${'b'.repeat(64)}`;
+    const onImage = (image: string) =>
+      unitSpecFor('alice', {
+        installId: host.store.installId,
+        image,
+        subnetSlot: aliceRecord.subnetSlot,
+      });
+
+    await host.runtime.start(onImage(stray), { modelApiKey: KEY });
+    await host.plane.reconcile();
+    expect(host.runtime.calls).toContain(`releaseImage:${stray}`);
+    expect(host.runtime.calls).not.toContain(`releaseImage:${recorded}`);
+
+    // Bob moves to a rebuilt image; alice's unit running that image is still not hers to keep.
+    const rebuilt = host.runtime.rebuildImage('personal-agent:test');
+    await host.plane.upgrade('bob');
+    expect(host.store.get('bob')?.imageId).toBe(rebuilt);
+    host.runtime.calls.length = 0;
+    await host.runtime.start(onImage(rebuilt), { modelApiKey: KEY });
+    await host.plane.reconcile();
+    expect(host.runtime.calls).not.toContain(`releaseImage:${rebuilt}`);
+  });
+
   it('does nothing when every unit is where its record says', async () => {
     const host = await makeHost();
     await host.plane.add(addInput('alice'));

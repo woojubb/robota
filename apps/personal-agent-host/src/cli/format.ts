@@ -1,4 +1,9 @@
-import type { IAccountView, IStatusReport, IUpgradeResult } from '../control-plane.js';
+import type {
+  IAccountView,
+  IRestoreResult,
+  IStatusReport,
+  IUpgradeResult,
+} from '../control-plane.js';
 
 function pad(value: string, width: number): string {
   return value.padEnd(width);
@@ -99,4 +104,14 @@ export function formatUpgrade(result: IUpgradeResult): string {
     lines.push('No accounts.');
   }
   return `${lines.join('\n')}\n`;
+}
+
+export function formatRestore(result: IRestoreResult): string {
+  const { from } = result;
+  const other = from.account === result.account ? '' : ` (a backup of ${from.account})`;
+  return (
+    `Restored ${result.account} from a backup taken ${from.createdAt}${other}: ` +
+    `${from.entries} entries, ${from.bytes} bytes.\n` +
+    (result.restarted ? 'The unit was started again from its recorded image.\n' : '')
+  );
 }

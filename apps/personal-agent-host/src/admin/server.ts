@@ -1,13 +1,23 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 import type { AuditLog } from '../audit.js';
 import type { ControlPlane } from '../control-plane.js';
 import { errorMessage, HostError } from '../errors.js';
-import { HTTP_STATUS, type IAdminErrorBody, MAX_BODY_BYTES } from './protocol.js';
+import { HTTP_STATUS, type IAdminErrorBody, MAX_BODY_BYTES, TAR_TYPE } from './protocol.js';
 
 const ACTOR = 'operator';
 const ROUTE_ID = /^[a-z0-9-]{1,63}$/u;
-const ACTIONS = ['suspend', 'resume', 'access-code', 'upgrade', 'delete'] as const;
+const ACTIONS = [
+  'suspend',
+  'resume',
+  'access-code',
+  'upgrade',
+  'delete',
+  'backup',
+  'restore',
+] as const;
 type Action = (typeof ACTIONS)[number];
 
 /** A request rejected before it became a command; the HTTP status says which kind. */
@@ -105,9 +115,31 @@ interface IRoute {
   /** Whether the route reads a JSON body. */
   body: boolean;
   run(body: Json | undefined): Promise<unknown>;
+  /** A route that streams bytes owns its request and response; the others answer with JSON. */
+  raw?(req: IncomingMessage, res: ServerResponse, begin: () => void): Promise<void>;
+  /** The query parameters the route reads; any other route refuses a query string. */
+  query?: readonly string[];
 }
 
-function route(plane: ControlPlane, method: string, path: string): IRoute {
+/** Reads the one flag restore takes: `from-other-account=true`, nothing else. */
+function restoreFlags(search: URLSearchParams): { fromOtherAccount: boolean } {
+  let fromOtherAccount = false;
+  for (const [name, value] of search) {
+    if (name !== 'from-other-account' || value !== 'true') {
+      throw new RequestError('The only query parameter restore takes is from-other-account=true');
+    }
+    fromOtherAccount = true;
+  }
+  return { fromOtherAccount };
+}
+
+function route(
+  plane: ControlPlane,
+  audit: AuditLog,
+  method: string,
+  path: string,
+  search: URLSearchParams,
+): IRoute {
   const parts = path.split('/').filter((part, index) => index > 0 || part !== '');
   if (parts[0] !== 'v1') throw new RequestError('No such route', 404);
   const [, collection, id, action, ...rest] = parts;
@@ -194,6 +226,62 @@ function route(plane: ControlPlane, method: string, path: string): IRoute {
           return { deleted: id };
         },
       };
+    case 'backup':
+      return {
+        body: false,
+        run: () => Promise.reject(new RequestError('No such route', 404)),
+        raw: async (req, res, begin) => {
+          await readJson(req, false);
+          begin();
+          const handle = await plane.backup(id, ACTOR);
+          try {
+            // The length is known up front, so a client can tell a cut-off archive from a whole one.
+            res.writeHead(200, {
+              'content-type': TAR_TYPE,
+              'content-length': handle.size,
+              'cache-control': 'no-store',
+              connection: 'close',
+            });
+            await pipeline(Readable.from(handle.stream()), res);
+          } finally {
+            await handle.release();
+          }
+        },
+      };
+    case 'restore':
+      return {
+        body: false,
+        query: ['from-other-account'],
+        run: () => Promise.reject(new RequestError('No such route', 404)),
+        raw: async (req, res, begin) => {
+          const options = restoreFlags(search);
+          if (!/^application\/x-tar(?:\s*;.*)?$/iu.test(req.headers['content-type'] ?? '')) {
+            throw new RequestError(`The request body must be ${TAR_TYPE}`, 415);
+          }
+          begin();
+          let staged;
+          try {
+            staged = await plane.stageUpload(req);
+          } catch (error) {
+            // Refused before it became a command, so it is audited here.
+            await audit
+              .append({
+                actor: ACTOR,
+                command: 'restore',
+                account: id,
+                result: 'refused',
+                reason: errorMessage(error),
+              })
+              .catch(() => undefined);
+            throw error;
+          }
+          try {
+            send(res, 200, { result: await plane.restore(id, staged, options, ACTOR) });
+          } finally {
+            await staged.remove();
+          }
+        },
+      };
   }
 }
 
@@ -231,9 +319,18 @@ export function createAdminServer({ plane, audit, ready }: IAdminServerDeps): Se
     try {
       await ready;
       const url = new URL(req.url ?? '/', 'http://admin.invalid');
-      if (url.search !== '') throw new RequestError('Query strings are not accepted');
       const method = req.method ?? 'GET';
-      const target = route(plane, method, url.pathname);
+      const target = route(plane, audit, method, url.pathname, url.searchParams);
+      if (url.search !== '' && target.query === undefined) {
+        throw new RequestError('Query strings are not accepted');
+      }
+      if (target.raw) {
+        // The route says when the request has become a command; a refusal before that is audited here.
+        await target.raw(req, res, () => {
+          reached = true;
+        });
+        return;
+      }
       const body = await readJson(req, target.body);
       reached = true;
       send(res, 200, { result: await target.run(body) });
@@ -258,7 +355,9 @@ export function createAdminServer({ plane, audit, ready }: IAdminServerDeps): Se
       else res.destroy();
     }
   };
-  return createServer((req, res) => {
+  // An archive upload can take longer than the default request timeout; only the operator's own
+  // user can reach this socket, so a slow client is not a threat to guard against.
+  return createServer({ requestTimeout: 0 }, (req, res) => {
     void handle(req, res);
   });
 }

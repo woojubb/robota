@@ -1,7 +1,8 @@
 import { request } from 'node:http';
+import { pipeline } from 'node:stream/promises';
 
 import { HostError, type HostErrorCode } from '../errors.js';
-import type { IAdminErrorBody, IAdminResultBody } from './protocol.js';
+import { type IAdminErrorBody, type IAdminResultBody, TAR_TYPE } from './protocol.js';
 
 /** The control plane could not be reached at all, as opposed to answering with a refusal. */
 export class UnreachableError extends Error {
@@ -84,13 +85,129 @@ export function adminRequest<T>(
         });
       },
     );
-    req.on('error', (error: NodeJS.ErrnoException) => {
-      const down = ['ENOENT', 'ECONNREFUSED', 'EACCES', 'EPERM', 'ENOTSOCK'].includes(
-        error.code ?? '',
-      );
-      reject(down ? new UnreachableError(socket, error.code ?? 'error') : error);
-    });
+    req.on('error', (error: NodeJS.ErrnoException) => reject(transportError(socket, error)));
     if (payload !== undefined) req.write(payload);
     req.end();
+  });
+}
+
+function transportError(socket: string, error: NodeJS.ErrnoException): Error {
+  const down = ['ENOENT', 'ECONNREFUSED', 'EACCES', 'EPERM', 'ENOTSOCK'].includes(error.code ?? '');
+  return down ? new UnreachableError(socket, error.code ?? 'error') : error;
+}
+
+/** Where downloaded bytes go: a stream such as stdout, or anything with the same two calls. */
+export interface IByteSink {
+  write(chunk: Uint8Array): unknown;
+  once?(event: 'drain', listener: () => void): unknown;
+}
+
+async function writeTo(sink: IByteSink, chunk: Uint8Array): Promise<void> {
+  const flushed = sink.write(chunk);
+  if (flushed === false && sink.once) {
+    await new Promise<void>((resolve) => sink.once?.('drain', resolve));
+  }
+}
+
+function readText(res: AsyncIterable<Buffer>): Promise<string> {
+  return (async () => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of res) chunks.push(chunk);
+    return Buffer.concat(chunks).toString('utf8');
+  })();
+}
+
+/**
+ * A POST whose answer is an archive, written to `sink` as it arrives. The answer carries its
+ * length, so a transfer that stops early is an error, never a short file that looks finished.
+ */
+export function adminDownload(socket: string, path: string, sink: IByteSink): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
+    const req = request(
+      {
+        socketPath: socket,
+        path,
+        method: 'POST',
+        headers: { connection: 'close', 'content-length': 0 },
+      },
+      (res) => {
+        void (async () => {
+          const status = res.statusCode ?? 0;
+          if (status !== 200) {
+            reject(parseFailure(await readText(res).catch(() => ''), status));
+            return;
+          }
+          const expected = Number(res.headers['content-length']);
+          let received = 0;
+          try {
+            for await (const chunk of res) {
+              received += (chunk as Buffer).length;
+              await writeTo(sink, chunk as Buffer);
+            }
+          } catch {
+            reject(
+              new HostError(
+                'runtime-failed',
+                'The transfer was cut off; the archive is incomplete',
+              ),
+            );
+            return;
+          }
+          if (!res.complete || received !== expected) {
+            reject(
+              new HostError(
+                'runtime-failed',
+                'The transfer was cut off; the archive is incomplete',
+              ),
+            );
+            return;
+          }
+          resolve(received);
+        })();
+      },
+    );
+    req.on('error', (error: NodeJS.ErrnoException) => reject(transportError(socket, error)));
+    req.end();
+  });
+}
+
+/** A POST whose body is an archive read from `source`; the answer is JSON as for any command. */
+export function adminUpload<T>(
+  socket: string,
+  path: string,
+  source: NodeJS.ReadableStream,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let answered = false;
+    const req = request(
+      {
+        socketPath: socket,
+        path,
+        method: 'POST',
+        headers: { connection: 'close', 'content-type': TAR_TYPE },
+      },
+      (res) => {
+        answered = true;
+        void readText(res).then((text) => {
+          const status = res.statusCode ?? 0;
+          if (status !== 200) {
+            reject(parseFailure(text, status));
+            return;
+          }
+          try {
+            resolve((JSON.parse(text) as IAdminResultBody<T>).result);
+          } catch {
+            reject(new HostError('runtime-failed', 'The control plane sent an unreadable answer'));
+          }
+        });
+      },
+    );
+    req.on('error', (error: NodeJS.ErrnoException) => {
+      // The control plane may refuse and hang up while the rest is still being sent.
+      if (!answered) reject(transportError(socket, error));
+    });
+    pipeline(source, req).catch((error: NodeJS.ErrnoException) => {
+      if (!answered) reject(transportError(socket, error));
+    });
   });
 }

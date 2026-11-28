@@ -1,11 +1,16 @@
 import { parseArgs } from 'node:util';
 
 import { adminPaths } from '../admin/paths.js';
-import { adminRequest, UnreachableError } from '../admin/client.js';
+import { adminDownload, adminRequest, adminUpload, UnreachableError } from '../admin/client.js';
 import { EXIT, exitCodeFor } from '../admin/protocol.js';
-import type { IAccountView, IStatusReport, IUpgradeResult } from '../control-plane.js';
+import type {
+  IAccountView,
+  IRestoreResult,
+  IStatusReport,
+  IUpgradeResult,
+} from '../control-plane.js';
 import { errorMessage, HostError } from '../errors.js';
-import { formatAccount, formatList, formatStatus, formatUpgrade } from './format.js';
+import { formatAccount, formatList, formatRestore, formatStatus, formatUpgrade } from './format.js';
 import { type ICliIo, readAll, readHidden, readLine } from './io.js';
 
 export const USAGE = `Usage: personal-agent-host <command>
@@ -25,6 +30,12 @@ Commands:
   access-code <id>            Print the account's access code
   upgrade <id> | --all        Move accounts to the unit image now configured; each new image
                               is proven healthy first, else the previous one is restored
+  backup <id> > file          Write a consistent copy of an account's state to stdout (the unit is
+                              stopped for a moment). The file holds the access code and connector
+                              tokens, not the model key: keep it like a secret.
+  restore <id> < file         Replace an account's state with a backup read from stdin; the archive
+      [--from-other-account]  is checked first and the previous state is put back on any failure.
+                              A backup of another account needs --from-other-account.
   list | show <id> | status   Inspect accounts and the host
 
 Options: --json prints the machine-readable result. The state directory comes from
@@ -42,6 +53,8 @@ const CLIENT_COMMANDS = [
   'delete',
   'access-code',
   'upgrade',
+  'backup',
+  'restore',
   'list',
   'show',
   'status',
@@ -64,6 +77,7 @@ const OPTIONS = {
   pids: { type: 'string' },
   confirm: { type: 'string' },
   all: { type: 'boolean' },
+  'from-other-account': { type: 'boolean' },
 } as const;
 
 const ALLOWED: Record<ClientCommand, readonly string[]> = {
@@ -83,6 +97,8 @@ const ALLOWED: Record<ClientCommand, readonly string[]> = {
   resume: ['json'],
   'access-code': ['json'],
   upgrade: ['json', 'all'],
+  backup: [],
+  restore: ['json', 'from-other-account'],
   list: ['json'],
   show: ['json'],
   status: ['json'],
@@ -94,6 +110,8 @@ const NEEDS_ID: ReadonlySet<ClientCommand> = new Set<ClientCommand>([
   'resume',
   'delete',
   'access-code',
+  'backup',
+  'restore',
   'show',
 ]);
 
@@ -181,7 +199,7 @@ async function execute(
   values: Record<string, unknown>,
   socket: string,
   io: ICliIo,
-): Promise<{ result: unknown; text: string }> {
+): Promise<{ result: unknown; text: string; to?: 'stderr' }> {
   const path = `/v1/accounts/${id ?? ''}`;
   const account = (result: unknown): { result: unknown; text: string } => ({
     result,
@@ -211,6 +229,32 @@ async function execute(
       );
       return { result, text: formatUpgrade(result) };
     }
+    case 'backup': {
+      // The archive is the output, so nothing else may be written to stdout.
+      if (io.stdout.isTTY === true) {
+        throw new UsageError(
+          `backup writes an archive; redirect it to a file: personal-agent-host backup ${id} > ${id}.tar`,
+        );
+      }
+      const bytes = await adminDownload(socket, `${path}/backup`, io.stdout);
+      return {
+        result: { account: id, bytes },
+        text:
+          `Backed up ${id}: ${bytes} bytes. The archive holds the account's access code and ` +
+          'connector tokens, so keep it like a secret.\n',
+        to: 'stderr',
+      };
+    }
+    case 'restore': {
+      if (io.stdin.isTTY === true) {
+        throw new UsageError(
+          `restore reads an archive from stdin; redirect a file: personal-agent-host restore ${id} < ${id}.tar`,
+        );
+      }
+      const flag = values['from-other-account'] === true ? '?from-other-account=true' : '';
+      const result = await adminUpload<IRestoreResult>(socket, `${path}/restore${flag}`, io.stdin);
+      return { result, text: formatRestore(result) };
+    }
     case 'access-code': {
       const result = await adminRequest<{ code: string }>(socket, 'POST', `${path}/access-code`);
       return { result, text: `${result.code}\n` };
@@ -236,8 +280,10 @@ export async function runClient(
   try {
     const { id, values } = parse(command, args);
     const { socket } = adminPaths(env);
-    const { result, text } = await execute(command, id, values, socket, io);
-    io.stdout.write(values.json === true ? `${JSON.stringify(result, null, 2)}\n` : text);
+    const { result, text, to } = await execute(command, id, values, socket, io);
+    (to === 'stderr' ? io.stderr : io.stdout).write(
+      values.json === true ? `${JSON.stringify(result, null, 2)}\n` : text,
+    );
     return EXIT.ok;
   } catch (error) {
     if (error instanceof UsageError) {

@@ -1,3 +1,4 @@
+import { TarError } from '../../archive/tar.js';
 import { IMAGE_ID, type ISubnetPool } from '../../config.js';
 import { errorMessage, scrub } from '../../errors.js';
 import {
@@ -8,8 +9,10 @@ import {
   type IUnitSpec,
   type IUnitStatus,
   RuntimePortError,
+  type StateArchive,
   type UnitRunState,
 } from '../port.js';
+import { createArchiveHelper, fromEngineArchive, toEngineArchive } from './archive.js';
 import { networkBody, unitContainerBody, volumeBody } from './bodies.js';
 import { type EngineClient, isNotFound } from './engine-client.js';
 import { NetworkGuard } from './guard.js';
@@ -27,6 +30,7 @@ import {
   objectName,
   retainReference,
   slotOfAddress,
+  STATE_PATH,
   volumeName,
   WS_PORT,
 } from './names.js';
@@ -521,6 +525,77 @@ export class ContainerRuntime implements IRuntimePort {
         throw new RuntimePortError('failed', `Unit ${account} holds an unreadable access code`);
       }
       return { code };
+    });
+  }
+
+  /** The unit's volume, once it is known that nothing is running from it. */
+  private async idleVolume(spec: IUnitSpec): Promise<IEngineVolume> {
+    const { found } = await this.existing(spec.account);
+    if (!found.volume) {
+      throw new RuntimePortError('unknown-account', `Unit ${spec.account} has no state volume`);
+    }
+    if (found.container?.State.Running) {
+      throw new RuntimePortError('failed', `Unit ${spec.account} is running; stop it first`);
+    }
+    return found.volume;
+  }
+
+  async exportState(spec: IUnitSpec): Promise<StateArchive> {
+    this.checkSpec(spec);
+    const volume = await this.attempt(() => this.idleVolume(spec));
+    return this.exportStream(spec, volume);
+  }
+
+  /** The helper exists only while the archive is read, and only once someone starts reading. */
+  private async *exportStream(spec: IUnitSpec, volume: IEngineVolume): AsyncGenerator<Buffer> {
+    let helper: Awaited<ReturnType<typeof createArchiveHelper>> | undefined;
+    try {
+      helper = await createArchiveHelper(this.engine, this.options.installId, {
+        image: spec.image,
+        volume: volume.Name,
+        writable: false,
+      });
+      // The `/.` form names the directory's contents, so entries come as `./…` with no wrapper.
+      const response = await this.engine.download('GET', `/containers/${helper.id}/archive`, {
+        query: { path: `${STATE_PATH}/.` },
+      });
+      yield* fromEngineArchive(response);
+    } catch (error) {
+      if (error instanceof RuntimePortError || error instanceof TarError) throw error;
+      throw new RuntimePortError('failed', errorMessage(error));
+    } finally {
+      await helper?.remove();
+    }
+  }
+
+  async importState(spec: IUnitSpec, archive: StateArchive): Promise<void> {
+    this.checkSpec(spec);
+    await this.attempt(async () => {
+      const volume = await this.idleVolume(spec);
+      const { installId } = this.options;
+      const name = objectName(installId, spec.account);
+      // The volume is replaced, not merged into: an extraction only adds, so the old state goes
+      // first. A stopped unit leaves no container using it, but an exited one may.
+      await this.removeContainer(name);
+      await this.engine.text('DELETE', `/volumes/${volume.Name}`);
+      await this.engine.json('POST', '/volumes/create', { body: volumeBody(spec) });
+      const helper = await createArchiveHelper(this.engine, installId, {
+        image: spec.image,
+        volume: volume.Name,
+        writable: true,
+      });
+      try {
+        await this.engine.upload(
+          'PUT',
+          `/containers/${helper.id}/archive`,
+          toEngineArchive(archive),
+          {
+            query: { path: STATE_PATH },
+          },
+        );
+      } finally {
+        await helper.remove();
+      }
     });
   }
 }
