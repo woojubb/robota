@@ -9,8 +9,9 @@ import {
   type TurnSelector,
 } from '@robota-sdk/agent-roundtable';
 import { FileConversationStore } from '@robota-sdk/agent-roundtable/node';
+// Public imports: '@robota-sdk/agent-roundtable-robota/node' and '@robota-sdk/agent-roundtable-robota/session'.
 import { createFileRecoveryJournals } from '../node';
-import { sessionParticipant } from '../session-participant';
+import { sessionParticipant } from '../session';
 
 // A durable conversation that survives a restart. It lives in two places on disk: the conversation
 // itself in a `FileConversationStore`, and each Session participant's private journal in

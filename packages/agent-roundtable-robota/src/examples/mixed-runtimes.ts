@@ -6,7 +6,8 @@ import {
   type AgentParticipant,
 } from '@robota-sdk/agent-roundtable';
 import { runtimeParticipant } from '../index';
-import { sessionParticipant } from '../session-participant';
+// Public import: '@robota-sdk/agent-roundtable-robota/session'.
+import { sessionParticipant } from '../session';
 
 // Mixed runtimes: one conversation whose participants run on different runtimes and different
 // providers. The roundtable only sees participants and the messages they publish; what stands behind

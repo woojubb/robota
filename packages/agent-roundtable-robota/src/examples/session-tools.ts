@@ -5,7 +5,8 @@ import {
   MemoryConversationStore,
   summarizeUsage,
 } from '@robota-sdk/agent-roundtable';
-import { sessionParticipant } from '../session-participant';
+// Public import: '@robota-sdk/agent-roundtable-robota/session'.
+import { sessionParticipant } from '../session';
 
 // A `sessionParticipant` that uses tools: a free `lookup`, and a paid `charge` that the host must
 // approve before it runs. The conversation has a token budget, so every model call and every paid
