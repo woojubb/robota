@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { PassThrough } from 'node:stream';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -13,6 +14,7 @@ import { CODING_TASKS } from './outcome-coding-tasks.js';
 import {
   buildWorkerContainerArgs,
   materializeWorkerTree,
+  readBoundedLines,
   runTrial,
   type ILaunchInput,
   type IWorkerLaunch,
@@ -165,6 +167,95 @@ test(
       assert.ok(record.score.failures.includes('not-completed'));
     } finally {
       rmSync(base, { recursive: true, force: true });
+    }
+  },
+);
+
+test('a worker line past the bound is dropped and the worker is stopped, never buffered', async () => {
+  const task = CODING_TASKS.find((candidate) => candidate.id === 'bug-repair') as ICodingTask;
+  const base = mkdtempSync(join(tmpdir(), 'coding-trial-test-'));
+  try {
+    const record = await runTrial({
+      task,
+      model,
+      endpoint,
+      upstream: createScriptedUpstream([]),
+      launch: launchProcess(
+        ['-e', "process.stdout.write('x'.repeat(5_000_000)); setTimeout(() => {}, 60_000);"],
+        localPaths,
+      ),
+      verify: observeOnly,
+      baseDir: base,
+      deadlineMs: 30_000,
+      policy: { maxBodyBytes: 1_000 },
+      trialName: 'local-long-line',
+    });
+    assert.equal(record.result, undefined);
+    assert.ok(record.diagnostics.some((line) => line.includes('exceeded the bound')));
+    assert.equal(record.upstreamAttempts, 0);
+    assert.ok(record.elapsedMs < 25_000);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('the bounded line reader passes whole lines and drops an overlong one with a single report', async () => {
+  const stream = new PassThrough();
+  const lines: string[] = [];
+  let overflows = 0;
+  readBoundedLines(
+    stream,
+    10,
+    (line) => lines.push(line),
+    () => {
+      overflows += 1;
+    },
+  );
+  stream.write('short\nthis line is far too long');
+  stream.write(' and keeps going');
+  stream.write('\nnext\r\nsplit-');
+  stream.write('line\nlast');
+  stream.end();
+  await new Promise<void>((resolve) => stream.on('end', () => resolve()));
+  assert.deepEqual(lines, ['short', 'next', 'split-line', 'last']);
+  assert.equal(overflows, 1);
+});
+
+test(
+  'on a rate-limit or server error answer the runtime makes no second request: one admission, one upstream attempt',
+  { skip: process.platform === 'win32', timeout: 120_000 },
+  async () => {
+    const task = CODING_TASKS.find((candidate) => candidate.id === 'bug-repair') as ICodingTask;
+    for (const status of [429, 503]) {
+      const base = mkdtempSync(join(tmpdir(), 'coding-trial-test-'));
+      let calls = 0;
+      try {
+        const record = await runTrial({
+          task,
+          model,
+          endpoint,
+          upstream: async () => {
+            calls += 1;
+            return {
+              status,
+              body: { error: { message: 'rate limit exceeded: timeout', type: 'upstream' } },
+            };
+          },
+          launch: launchProcess(['--import', 'tsx', 'src/outcome-coding-worker.ts'], localPaths),
+          verify: observeOnly,
+          baseDir: base,
+          deadlineMs: 90_000,
+          trialName: `local-retry-${status}`,
+        });
+        // The session's chat path reaches the provider directly: the conversation service that
+        // retries on 429 and timeouts is not on it, and the client is built without retries.
+        assert.equal(calls, 1, `status ${status}`);
+        assert.equal(record.upstreamAttempts, 1);
+        assert.equal(record.relayLog.length, 1);
+        assert.equal(record.result?.completed, false);
+      } finally {
+        rmSync(base, { recursive: true, force: true });
+      }
     }
   },
 );

@@ -34,7 +34,9 @@ export type TRefusalCode =
   | 'content'
   | 'tool-type'
   | 'tool'
-  | 'size';
+  | 'size'
+  | 'admission'
+  | 'stopped';
 
 export type TRelayDecision =
   | { readonly ok: true; readonly body: TJsonObject; readonly encoded: string }
@@ -189,9 +191,39 @@ export type TUpstream = (call: {
   readonly signal: AbortSignal;
 }) => Promise<{ readonly status: number; readonly body: TJson }>;
 
+/**
+ * Admission control in front of the reply source, for a paid upstream. It sees each request that
+ * passed validation, once, before anything leaves: a refusal means nothing is sent. An accepted
+ * request comes back with a ticket that is settled exactly once with whatever the single upstream
+ * attempt produced (`undefined` when the attempt threw or timed out). A settlement may stop the
+ * run: the reply is then a failure, and every later request is refused without an upstream attempt.
+ */
+export interface IRelayGate {
+  admit(request: {
+    readonly id: number;
+    readonly encoded: string;
+    readonly bytes: number;
+    readonly body: TJsonObject;
+  }): IGateAdmission;
+}
+
+export type IGateAdmission =
+  | { readonly ok: true; readonly settle: (answer: IUpstreamAnswer | undefined) => IGateVerdict }
+  | { readonly ok: false; readonly detail: string };
+
+export interface IGateVerdict {
+  /** When set, the run stops for this reason. */
+  readonly stop?: string;
+}
+
+export interface IUpstreamAnswer {
+  readonly status: number;
+  readonly body: TJson;
+}
+
 export interface IRelayLogEntry {
   readonly id: number;
-  readonly outcome: 'refused' | 'forwarded' | 'upstream-failed';
+  readonly outcome: 'refused' | 'forwarded' | 'upstream-failed' | 'stopped';
   readonly code?: TRefusalCode;
   readonly status: number;
   readonly requestBytes: number;
@@ -206,8 +238,10 @@ export interface ICodingRelay {
     readonly body: TJson;
   }): Promise<IRelayReply>;
   readonly log: readonly IRelayLogEntry[];
-  /** Total upstream attempts made; equals the number of forwarded requests. */
+  /** Total upstream attempts made; equals the number of requests that were not refused. */
   readonly upstreamAttempts: () => number;
+  /** Why the run stopped, once a gate has stopped it. */
+  readonly stopReason: () => string | undefined;
 }
 
 function reply(id: number, status: number, body: TJson): IRelayReply {
@@ -222,34 +256,43 @@ export function createCodingRelay(
   policy: IRelayPolicy,
   upstream: TUpstream,
   now: () => number = Date.now,
+  gate?: IRelayGate,
 ): ICodingRelay {
   const log: IRelayLogEntry[] = [];
   let attempts = 0;
+  let stopped: string | undefined;
+  const refused = (id: number, code: TRefusalCode, detail: string): IRelayReply => {
+    log.push({ id, outcome: 'refused', code, status: 403, requestBytes: 0, upstreamAttempts: 0 });
+    return reply(id, 403, failureBody('relay_refusal', detail, code));
+  };
   return {
     log,
     upstreamAttempts: () => attempts,
+    stopReason: () => stopped,
     async handle(request) {
+      if (stopped !== undefined)
+        return refused(request.id, 'stopped', `the run is stopped: ${stopped}`);
       const decision = validateRelayRequest(policy, request, now());
-      if (!decision.ok) {
-        log.push({
-          id: request.id,
-          outcome: 'refused',
-          code: decision.code,
-          status: 403,
-          requestBytes: 0,
-          upstreamAttempts: 0,
-        });
-        return reply(request.id, 403, failureBody('relay_refusal', decision.detail, decision.code));
-      }
+      if (!decision.ok) return refused(request.id, decision.code, decision.detail);
       const requestBytes = Buffer.byteLength(decision.encoded);
+      const admission = gate?.admit({
+        id: request.id,
+        encoded: decision.encoded,
+        bytes: requestBytes,
+        body: decision.body,
+      });
+      if (admission !== undefined && !admission.ok) {
+        return refused(request.id, 'admission', admission.detail);
+      }
       attempts += 1;
       const remaining = Math.max(1, policy.deadlineAt - now());
       const timeoutMs = Math.min(policy.upstreamTimeoutMs, remaining);
       const controller = new AbortController();
       let timer: NodeJS.Timeout | undefined;
+      let answer: IUpstreamAnswer | undefined;
       try {
         // The one and only attempt: a failure or a timeout is reported, never repeated.
-        const answer = await Promise.race([
+        answer = await Promise.race([
           upstream({ url: policy.endpoint, body: decision.encoded, signal: controller.signal }),
           new Promise<never>((_, reject) => {
             timer = setTimeout(() => {
@@ -258,15 +301,37 @@ export function createCodingRelay(
             }, timeoutMs);
           }),
         ]);
+      } catch {
+        answer = undefined;
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+      }
+      let verdict: IGateVerdict | undefined;
+      if (admission !== undefined && admission.ok) {
+        try {
+          verdict = admission.settle(answer);
+        } catch (error) {
+          verdict = {
+            stop: `the gate could not settle the call: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      }
+      if (verdict?.stop !== undefined) {
+        stopped = verdict.stop;
         log.push({
           id: request.id,
-          outcome: 'forwarded',
-          status: answer.status,
+          outcome: 'stopped',
+          status: 502,
           requestBytes,
           upstreamAttempts: 1,
         });
-        return reply(request.id, answer.status, answer.body);
-      } catch {
+        return reply(
+          request.id,
+          502,
+          failureBody('run_stopped', 'the run was stopped by the spend gate'),
+        );
+      }
+      if (answer === undefined) {
         log.push({
           id: request.id,
           outcome: 'upstream-failed',
@@ -279,9 +344,15 @@ export function createCodingRelay(
           502,
           failureBody('upstream_failure', 'the single upstream attempt failed'),
         );
-      } finally {
-        if (timer !== undefined) clearTimeout(timer);
       }
+      log.push({
+        id: request.id,
+        outcome: 'forwarded',
+        status: answer.status,
+        requestBytes,
+        upstreamAttempts: 1,
+      });
+      return reply(request.id, answer.status, answer.body);
     },
   };
 }
