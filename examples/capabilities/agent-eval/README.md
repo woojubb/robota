@@ -227,7 +227,8 @@ decides what leaves the machine.
 - **Image.** `src/outcome-coding-image.ts` builds from an export of a commit (no history, no pack objects),
   removes the example's tasks, verifiers and scoring and the `research/` tree, and searches the build context and
   the built image for every solved file, every verifier, the task identifiers and credential-like file names. A
-  single hit fails the run.
+  single hit fails the run. The search matches exact text: a solution that was re-encoded (compressed, base64,
+  split or reformatted) is not detected, so the image's protection rests on never copying those files in.
 
 The fast `test` script covers all of this without Docker, including the worker end to end through the relay with
 a scripted reply source. The opt-in offline run needs a local Docker daemon and takes several minutes; run it
@@ -243,3 +244,44 @@ refused, an escaping symlink detected), the image search, and scripted trials wi
 worker and the relay, including one whose requests the relay must refuse without reaching the reply source.
 Flags: `--source`, `--revision`, `--node-image`, `--verifier-image`, `--model`, `--endpoint`, `--base` (host
 directory the daemon can mount, default the home directory), `--image` (reuse a built tag), `--keep-image`.
+
+## Spend ledger and the live path (no paid call here)
+
+The relay's reply source can be a live gateway, but only behind an append-only spend ledger. Nothing in the fast
+tests reaches a real gateway or reads a real credential: they run against a loopback fake gateway with a fake
+key, and the credential reader is tested with a temporary file.
+
+- **Ledger.** `src/outcome-coding-ledger.ts` keeps integer micro-dollars in a hash-chained, fsynced file at a path
+  given at runtime, outside the repository. Its header (ceiling, call cap, rate basis, commit, route, output cap,
+  template allowance) is created exclusively and has no way to change; an edited header, a missing or reordered
+  line, or a torn tail is refused, and the file is never repaired or truncated. The ceiling and the call cap are
+  inputs; the defaults are the approved ceiling of two dollars and a cap of 400 calls. Only one process may hold a
+  ledger.
+- **Reservation and receipt.** Admission reserves a call's maximum cost durably before anything is sent: the bytes
+  actually sent upstream plus a fixed per-request token allowance for provider templates, and the output cap, at the
+  header's basis rates. The provider's receipt swaps in the real cost; a call without a receipt keeps its
+  reservation. Admission refuses past the call cap and one micro-dollar over the ceiling.
+- **Basis.** `src/outcome-coding-pricing.ts` reads the pinned provider's prices from the gateway's endpoint listing
+  and takes the highest of each kind across all its regions, not the model's headline price. The header's basis is
+  chosen at or above that, and `basisCovers` re-checks it before a run.
+- **Stops.** `src/outcome-coding-gate.ts` stops the run, with no retry and no further admission, when a call gets no
+  answer or no usable receipt (the reservation stays), when a receipt names another provider or model than the
+  pinned route, when its output tokens exceed the cap, or when its cost exceeds its reservation (recorded at the
+  real cost, against the ceiling). A stop is persisted; `resume` lifts it only when no call is unsettled, and calls
+  left unsettled by an earlier process block admission until each is reconciled explicitly.
+- **One request per admission.** `src/outcome-coding-gateway.ts` makes exactly one HTTP request per call: no retry,
+  no redirects, no connection reuse; plain HTTP is accepted only for a loopback address. The worker's own client is
+  built without retries, and the runtime's conversation service, which retries on rate limits and timeouts, is not
+  on the session's chat path, so one admission is one upstream request end to end. A test runs the real worker
+  against replies of 429 and 503 and counts the attempts.
+- **Credential.** `src/outcome-coding-credential.ts` reads the value of one named line of a file the caller names,
+  keeps it in memory in an object that prints as redacted, and passes it only to the host's upstream client. The
+  worker container gets no environment variable and no mount for it. The leak scan counts occurrences of a secret
+  (plain, base64, hex, URL-encoded) in evidence texts and directories and reports the count, never the secret.
+- **Checks before a run.** `catalogListsModel` (the pinned model is still listed), `fetchEndpointListing` and
+  `checkCredits` (the remaining credit covers the next reservation) read the gateway once each. The gateway shape
+  they assume is `GET <base>/models`, `GET <base>/models/<model>/endpoints`, `GET <base>/credits` and
+  `POST <base>/chat/completions`, with the receipt in the reply (`usage.cost` in dollars, `usage.completion_tokens`,
+  `provider`, `model`). No real gateway has confirmed this shape. Before the first paid call the pre-run checks must
+  succeed against the real gateway: the catalog lists the model, the endpoint listing parses with rates within the
+  basis, the credits answer parses, and a reply carries `usage.cost`, `provider` and `model`.

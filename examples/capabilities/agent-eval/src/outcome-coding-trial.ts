@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { createInterface } from 'node:readline';
+import { StringDecoder } from 'node:string_decoder';
 import type { Readable, Writable } from 'node:stream';
 
 import {
@@ -14,6 +14,7 @@ import {
 import {
   createCodingRelay,
   type IRelayLogEntry,
+  type IRelayGate,
   type IRelayPolicy,
   type TUpstream,
 } from './outcome-coding-relay.js';
@@ -188,6 +189,8 @@ export interface ITrialSpec {
   /** Provider routing fields, merged into every forwarded request. */
   readonly routeOptions?: TJsonObject;
   readonly upstream: TUpstream;
+  /** Admission control for a paid upstream (the spend ledger); absent offline. */
+  readonly gate?: IRelayGate;
   readonly launch: (input: ILaunchInput) => IWorkerLaunch;
   readonly verify: (task: ICodingTask, tree: string) => Promise<ICodingObservation>;
   /** Host directory (mountable by the container daemon) that holds the trial's directory. */
@@ -208,6 +211,8 @@ export interface ITrialRecord {
   readonly result: IWorkerResult | undefined;
   readonly relayLog: readonly IRelayLogEntry[];
   readonly upstreamAttempts: number;
+  /** Why the spend gate stopped the run, when it did. */
+  readonly stopReason?: string;
   readonly elapsedMs: number;
   /** Worker output that was not protocol messages, bounded. */
   readonly diagnostics: readonly string[];
@@ -215,13 +220,61 @@ export interface ITrialRecord {
 }
 
 const MAX_BODY_BYTES = 160_000;
+/** What a protocol line carries besides the request body: prefix, ids, url and framing. */
+const LINE_OVERHEAD_BYTES = 16_384;
+const STDERR_LINE_LIMIT = 65_536;
 const KILL_GRACE_MS = 15_000;
 const MAX_DIAGNOSTICS = 8;
 const MAX_DIAGNOSTIC_CHARS = 1_500;
 
-function collectLines(stream: Readable, onLine: (line: string) => void): void {
-  const lines = createInterface({ input: stream });
-  lines.on('line', onLine);
+/**
+ * Splits a stream into lines without ever holding more than `limit` characters of one line. A
+ * longer line is dropped as a whole (to its newline) and reported once through `onOverflow`; the
+ * partial text is never passed on, so a worker cannot grow the host's memory by never ending a line.
+ */
+export function readBoundedLines(
+  stream: Readable,
+  limit: number,
+  onLine: (line: string) => void,
+  onOverflow: () => void,
+): void {
+  const decoder = new StringDecoder('utf8');
+  let pending = '';
+  let dropping = false;
+  const consume = (text: string): void => {
+    let rest = text;
+    for (;;) {
+      const newline = rest.indexOf('\n');
+      if (newline === -1) {
+        if (dropping) return;
+        pending += rest;
+        if (pending.length > limit) {
+          pending = '';
+          dropping = true;
+          onOverflow();
+        }
+        return;
+      }
+      const head = rest.slice(0, newline);
+      rest = rest.slice(newline + 1);
+      if (dropping) {
+        dropping = false;
+        continue;
+      }
+      const line = pending + head;
+      pending = '';
+      if (line.length > limit) onOverflow();
+      else onLine(line.endsWith('\r') ? line.slice(0, -1) : line);
+    }
+  };
+  stream.on('data', (chunk: Buffer | string) => {
+    consume(typeof chunk === 'string' ? chunk : decoder.write(chunk));
+  });
+  stream.on('end', () => {
+    const tail = decoder.end();
+    if (tail.length > 0) consume(tail);
+    if (pending.length > 0 && !dropping) onLine(pending);
+  });
   stream.on('error', () => undefined);
 }
 
@@ -256,7 +309,10 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
         upstreamTimeoutMs: Math.min(60_000, deadlineMs),
       },
       spec.upstream,
+      Date.now,
+      spec.gate,
     );
+    const stdoutLineLimit = (spec.policy?.maxBodyBytes ?? MAX_BODY_BYTES) + LINE_OVERHEAD_BYTES;
     const init: IWorkerInit = {
       kind: 'init',
       prompt: spec.task.prompt,
@@ -289,23 +345,35 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
         finish(undefined);
       }, deadlineMs + KILL_GRACE_MS);
       let chain: Promise<void> = Promise.resolve();
-      collectLines(worker.stdout, (line) => {
-        const message = parseWorkerLine(line);
-        if (message === undefined) {
-          noteDiagnostic(line);
-        } else if (message.kind === 'result') {
-          finish(message);
-        } else {
-          // Requests are answered one at a time, in order.
-          chain = chain
-            .then(async () => {
-              const answer = await relay.handle(message);
-              if (!finished) worker.stdin.write(encodeHostLine(answer));
-            })
-            .catch((error: unknown) => noteDiagnostic(`relay failure: ${String(error)}`));
-        }
-      });
-      collectLines(worker.stderr, noteDiagnostic);
+      readBoundedLines(
+        worker.stdout,
+        stdoutLineLimit,
+        (line) => {
+          const message = parseWorkerLine(line);
+          if (message === undefined) {
+            noteDiagnostic(line);
+          } else if (message.kind === 'result') {
+            finish(message);
+          } else {
+            // Requests are answered one at a time, in order.
+            chain = chain
+              .then(async () => {
+                const answer = await relay.handle(message);
+                if (!finished) worker.stdin.write(encodeHostLine(answer));
+              })
+              .catch((error: unknown) => noteDiagnostic(`relay failure: ${String(error)}`));
+          }
+        },
+        () => {
+          // A worker that writes past the bound is not speaking the protocol: stop it.
+          noteDiagnostic('worker output line exceeded the bound; worker stopped');
+          worker.kill();
+          finish(undefined);
+        },
+      );
+      readBoundedLines(worker.stderr, STDERR_LINE_LIMIT, noteDiagnostic, () =>
+        noteDiagnostic('worker diagnostic line exceeded the bound; dropped'),
+      );
       // Output already written may still be queued when the exit is reported.
       void worker.exited.then(() => setTimeout(() => finish(undefined), 100));
       worker.stdin.write(encodeHostLine(init));
@@ -332,6 +400,7 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
       result,
       relayLog: [...relay.log],
       upstreamAttempts: relay.upstreamAttempts(),
+      ...(relay.stopReason() === undefined ? {} : { stopReason: relay.stopReason() as string }),
       elapsedMs: Date.now() - started,
       diagnostics,
     };
