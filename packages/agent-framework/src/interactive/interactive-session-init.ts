@@ -269,6 +269,7 @@ export async function initializeInteractiveSessionAsync(
     host: options.host,
     cwd: options.cwd,
     provider: options.provider,
+    ...(options.helperProvider !== undefined ? { helperProvider: options.helperProvider } : {}),
     ...(options.resumeAdmissionSignal !== undefined
       ? { resumeAdmissionSignal: options.resumeAdmissionSignal }
       : {}),

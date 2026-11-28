@@ -10,6 +10,8 @@ export type {
 } from './session-recoverable.js';
 export { Session } from './session.js';
 export { ExecutionJournalStoreError } from './execution-journal-store.js';
+export { abandonUnresolvedExecutions, runJournaledTurn } from './managed-turn-journal.js';
+export type { IAbandonedExecutions } from './managed-turn-journal.js';
 export type {
   IExecutionJournalStore,
   IExecutionSeal,

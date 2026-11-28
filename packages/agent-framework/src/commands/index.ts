@@ -267,6 +267,8 @@ export {
   resolvePluginCommandAdapter,
 } from '../command-api/plugin/plugin-command-api.js';
 export {
+  abandonUnresolvedCommandExecutions,
+  ABANDON_EXECUTION_COMMAND_DESCRIPTION,
   clearConversationHistory,
   createShowSessionPickerIntent,
   createSessionRenameHostAction,

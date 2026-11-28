@@ -33,7 +33,7 @@ import type {
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore } from '../memory/types.js';
-import type { TAutoCompactThreshold } from '@robota-sdk/agent-session';
+import type { IAbandonedExecutions, TAutoCompactThreshold } from '@robota-sdk/agent-session';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IContextWindowState, IUserInteraction } from '@robota-sdk/agent-core';
 import type {
@@ -56,6 +56,12 @@ export interface ICommandHostSessionAccess {
   /** Read the active response style id for the command listing. */
   getActiveOutputStyleId(): string;
   clearConversationHistory(): void;
+  /**
+   * Give up every unfinished managed execution so the session accepts input again, and report what
+   * was abandoned. The host owns the journal and the session; it seals the journal first, so the
+   * execution can never be resumed.
+   */
+  abandonUnresolvedExecutions(): Promise<IAbandonedExecutions>;
   /**
    * Write a COPY of the live conversation as a new session record (fresh id, distinct
    * name, the parent's messages and assembled system message) and return its identity. A role-port

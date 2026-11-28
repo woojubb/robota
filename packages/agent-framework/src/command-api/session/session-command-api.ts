@@ -3,9 +3,20 @@ import { loadSessionLogEntries, validateSessionReplayLogEntries } from '@robota-
 import type { TCommandHostAction, TCommandUiIntent } from '../effects.js';
 import type { ICommandHostSessionAccess } from '../host-context.js';
 import type { ICommandSessionReplayValidationReport } from '../host-context.js';
-import type { ISessionLogSource } from '@robota-sdk/agent-session';
+import type { IAbandonedExecutions, ISessionLogSource } from '@robota-sdk/agent-session';
 
 export const CLEAR_COMMAND_DESCRIPTION = 'Clear conversation history';
+/**
+ * Written for the model although the command is user-only: it states what the command does and why
+ * the model does not run it, so the model neither offers it as routine nor attempts it. It discards
+ * an unfinished managed execution whose effects nobody can confirm; only the person decides that.
+ */
+export const ABANDON_EXECUTION_COMMAND_DESCRIPTION =
+  'Abandon a managed execution that did not finish (a crash or failure left it unresolved). ' +
+  'Use it only when the session refuses new input because an earlier managed execution is unresolved. ' +
+  'It records the abandonment, closes the open tool calls as failed, and returns what was abandoned ' +
+  'and a warning that its tool calls may already have changed files or reached outside the session. ' +
+  'The execution is never resumed or re-run. Only the user runs it: it discards an execution whose effects cannot be confirmed.';
 export const RENAME_COMMAND_DESCRIPTION = 'Rename the current session';
 export const RENAME_COMMAND_USAGE = 'Usage: rename <name>';
 export const RESUME_COMMAND_DESCRIPTION = 'Resume a previous session';
@@ -30,6 +41,13 @@ export interface ICommandSessionInfo {
  */
 export function clearConversationHistory(context: ICommandHostSessionAccess): void {
   context.clearConversationHistory();
+}
+
+/** One path: the host owns the journal and the session, so it abandons and says what happened. */
+export function abandonUnresolvedCommandExecutions(
+  context: ICommandHostSessionAccess,
+): Promise<IAbandonedExecutions> {
+  return context.abandonUnresolvedExecutions();
 }
 
 export function parseSessionNameArgument(args: string): string | undefined {

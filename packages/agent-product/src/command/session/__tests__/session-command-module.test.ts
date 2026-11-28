@@ -96,6 +96,7 @@ describe('createSessionCommandModule', () => {
 
     expect(module.commandSources?.[0]?.getCommands().map((item) => item.name)).toEqual([
       'clear',
+      'abandon-execution',
       'rename',
       'cd',
       'resume',
@@ -104,6 +105,7 @@ describe('createSessionCommandModule', () => {
     ]);
     expect(module.systemCommands?.map((item) => item.name)).toEqual([
       'clear',
+      'abandon-execution',
       'rename',
       'cd',
       'resume',
@@ -205,6 +207,65 @@ describe('createSessionCommandModule', () => {
         modelInvocable: false,
       }),
     );
+  });
+
+  it('/abandon-execution is described for the model and deliberately never model-invocable', () => {
+    const module = createSessionCommandModule();
+    const entry = module.commandSources?.[0]
+      ?.getCommands()
+      .find((item) => item.name === 'abandon-execution');
+    const command = module.systemCommands?.find((item) => item.name === 'abandon-execution');
+
+    expect(entry).toEqual(
+      expect.objectContaining({ source: 'session', modelInvocable: false, userInvocable: true }),
+    );
+    expect(entry?.description).toMatch(/unresolved/);
+    expect(entry?.description).toMatch(/may already have changed files/);
+    expect(entry?.description).toMatch(/Only the user runs it/);
+    expect(command).toEqual(
+      expect.objectContaining({ lifecycle: 'inline', userInvocable: true, modelInvocable: false }),
+    );
+    const executor = new SystemCommandExecutor([...(module.systemCommands ?? [])]);
+    expect(executor.isModelInvocable('abandon-execution')).toBe(false);
+    expect(executor.listModelInvocableCommands().map((item) => item.name)).not.toContain(
+      'abandon-execution',
+    );
+  });
+
+  it('/abandon-execution reports what the host abandoned, and asks first where a human is attached', async () => {
+    const abandonUnresolvedExecutions = vi.fn(async () => ({
+      executionIds: ['exec_1'],
+      message: 'Abandoned managed execution exec_1.',
+    }));
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+    const declined = {
+      ...createCommandContext(),
+      abandonUnresolvedExecutions,
+      getUserInteraction: () => ({
+        ask: async () => ({ type: 'answer' as const, values: ['no'] }),
+      }),
+    };
+    expect((await executor.execute('abandon-execution', declined, ''))?.message).toBe(
+      'Abandon cancelled.',
+    );
+    expect(abandonUnresolvedExecutions).not.toHaveBeenCalled();
+
+    const confirmed = {
+      ...createCommandContext(),
+      abandonUnresolvedExecutions,
+      getUserInteraction: () => ({
+        ask: async () => ({ type: 'answer' as const, values: ['yes'] }),
+      }),
+    };
+    expect(await executor.execute('abandon-execution', confirmed, '')).toEqual({
+      success: true,
+      message: 'Abandoned managed execution exec_1.',
+    });
+    const headless = { ...createCommandContext(), abandonUnresolvedExecutions };
+    await executor.execute('abandon-execution', headless, '');
+    expect(abandonUnresolvedExecutions).toHaveBeenCalledTimes(2);
   });
 
   it('clears conversation history through the session command API', async () => {

@@ -32,6 +32,7 @@ import { requireHookTypeExecutors } from './require-hook-type-executors.js';
 import { executeResume, type TSessionResumeOptions } from './session-resume.js';
 import { sessionExecutionJournal, sessionRecoveryJournal } from './session-execution-journal.js';
 import { executeRun } from './session-run.js';
+import { unresolvedExecutionMessage } from './execution-journal-store.js';
 import {
   abandonedRoundResults,
   noteEffectAdmissions,
@@ -514,6 +515,21 @@ export class Session extends SessionBase {
     }
   }
 
+  /**
+   * Executions the host's durable journal holds open that this session cannot see in its own
+   * history, because the process that ran them ended mid-turn. Memory only: the journal is the
+   * authority, read again whenever a host starts the session, so nothing here is saved.
+   */
+  private unresolvedExecutions: readonly string[] = [];
+  /** Refuse new input while those executions stand: their effects are unproven, so nothing queues behind them. */
+  holdUnresolvedExecutions(executionIds: readonly string[]): void {
+    this.unresolvedExecutions = [...executionIds];
+  }
+  /** Lift the hold once the host has sealed those executions as abandoned. */
+  releaseUnresolvedExecutions(): void {
+    this.unresolvedExecutions = [];
+  }
+
   /** Refuse admission before callers resolve input or change scheduling state. */
   assertInputAllowed(): void {
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
@@ -522,6 +538,11 @@ export class Session extends SessionBase {
       throw new ExecutionRecoveryError(
         'EXECUTION_RECOVERY_REQUIRED',
         'Resume or abandon the pending Session execution before submitting new input',
+      );
+    if (this.unresolvedExecutions.length > 0)
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_REQUIRED',
+        unresolvedExecutionMessage(this.unresolvedExecutions),
       );
   }
   private assertProviderRunnable(allowManaged = false): void {

@@ -27,7 +27,7 @@ type TStandardSessionOptions = Extract<
   TInteractiveSessionOptions,
   { cwd: string; provider: unknown }
 >;
-type TTestProvider = TStandardSessionOptions['provider'];
+type TTestProvider = Extract<TStandardSessionOptions['provider'], { chat: unknown }>;
 type TResolvedConfig = NonNullable<TStandardSessionOptions['config']>;
 
 const AUTH_FAILURE_MESSAGE =

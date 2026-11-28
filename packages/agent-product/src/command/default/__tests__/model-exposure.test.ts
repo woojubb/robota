@@ -149,6 +149,8 @@ const USER_ONLY_COMMANDS = [
   // Exits and destructive session changes.
   'exit',
   'clear',
+  // Discards an unfinished managed execution whose effects cannot be confirmed.
+  'abandon-execution',
   'reset',
   'rewind',
   'resume',

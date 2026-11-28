@@ -472,6 +472,9 @@ export class SessionExecutionController {
         ...(turnOptions.signal ? { signal: turnOptions.signal } : {}),
         ...(traceContext ? { traceContext } : {}),
         getSession: () => this.callbacks.getSessionOrThrow(),
+        ...(this.callbacks.getExecutionJournal !== undefined
+          ? { getExecutionJournal: this.callbacks.getExecutionJournal }
+          : {}),
         getCwd: () => this.callbacks.getCwd(),
         getProjectAccess: () => this.callbacks.getProjectAccess(),
         getHistory: () => this.histTracker.getHistory(),

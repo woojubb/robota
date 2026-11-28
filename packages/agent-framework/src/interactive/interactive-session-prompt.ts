@@ -6,12 +6,14 @@
  */
 
 import {
+  isManagedRunProvider,
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
+import { runJournaledTurn } from '@robota-sdk/agent-session';
 
 import {
   isAbortError,
@@ -32,7 +34,7 @@ import type { IPromptFileReferenceRecord } from '../context/prompt-file-referenc
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry, IRunTraceContext } from '@robota-sdk/agent-core';
-import type { Session } from '@robota-sdk/agent-session';
+import type { ISessionExecutionJournal, Session } from '@robota-sdk/agent-session';
 import type {
   ISpanCollector,
   ISpanCollectorOptions,
@@ -81,6 +83,8 @@ export interface IPromptTurnContext {
   /** Trusted trace context for this prompt's provider calls; absent unless the host configured it. */
   traceContext?: IRunTraceContext;
   getSession: () => Session;
+  /** The durable journal managed turns go through; absent when the host keeps none. */
+  getExecutionJournal?: () => ISessionExecutionJournal | undefined;
   getCwd: () => string;
   getProjectAccess: () => TWorkspaceProjectAccess;
   getHistory: () => IHistoryEntry[];
@@ -186,12 +190,26 @@ export async function executePromptTurn(
       ...(noTools ? { toolChoice: 'none' as const } : {}),
       ...(peerTurn ? { peerTurn: true } : {}),
     };
+    const session = ctx.getSession();
+    const executionProvider = session.getExecutionProvider?.();
+    const journal =
+      executionProvider !== undefined && isManagedRunProvider(executionProvider)
+        ? ctx.getExecutionJournal?.()
+        : undefined;
+    // A managed provider runs the whole turn itself, so it is admitted only through the durable
+    // journal; without one the session's own `run` refuses it. A model-step turn never touches it.
     const response =
-      Object.keys(runOptions).length > 0
-        ? await ctx
-            .getSession()
-            .run(preparedPrompt.modelInput, preparedPrompt.hookInput, runOptions)
-        : await ctx.getSession().run(preparedPrompt.modelInput, preparedPrompt.hookInput);
+      journal !== undefined
+        ? await runJournaledTurn(
+            session,
+            journal,
+            preparedPrompt.modelInput,
+            runOptions,
+            preparedPrompt.hookInput,
+          )
+        : Object.keys(runOptions).length > 0
+          ? await session.run(preparedPrompt.modelInput, preparedPrompt.hookInput, runOptions)
+          : await session.run(preparedPrompt.modelInput, preparedPrompt.hookInput);
     ctx.flushStreaming();
     pushToolSummaryToHistory({ activeTools: ctx.getActiveTools(), history });
     ctx.clearStreaming();
