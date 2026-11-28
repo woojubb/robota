@@ -175,6 +175,8 @@ export interface IResumeToolCallsOptions {
    * project away provider parts or metadata; in that case receipt recovery refuses the history.
    */
   includeReceipts?: boolean;
+  /** Session the resumed calls belong to; each resumed tool context carries it. */
+  sessionId?: string;
   signal?: AbortSignal;
   /** Observe newly committed recovery history using the ordinary history-mutation contract. */
   onExecutionEvent?: (event: string, data: Record<string, unknown>) => void;

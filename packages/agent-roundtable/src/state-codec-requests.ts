@@ -192,7 +192,8 @@ export function validateRequestState(
       );
       requireState(member.status === 'waiting' ? outstanding.length > 0 : outstanding.length === 0);
     }
-    if (member.status === 'pending' || member.status === 'prepared') requireState(ids.length === 0);
+    if (['pending', 'prepared', 'recovering'].includes(String(member.status)))
+      requireState(ids.length === 0);
     for (const id of ids) {
       const request =
         pending.find((candidate) => candidate.id === id) ??

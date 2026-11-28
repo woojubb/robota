@@ -168,7 +168,7 @@ export async function main(
           `http://localhost:${new URL(local.gui.url).port}`,
           ...(server !== undefined ? [new URL(server.publicOrigin).origin] : []),
         ];
-  await capabilities.attach(local.agent, { guiOrigins });
+  await capabilities.attach(local.agent, { guiOrigins, conversations: local.conversations });
   if (local.gui !== undefined && server !== undefined) {
     process.stdout.write(
       `Personal agent is published at ${server.publicOrigin} (loopback ${local.gui.url})\nAccess code: ${local.gui.accessCode}\n`,

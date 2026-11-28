@@ -41,7 +41,9 @@ decision was not saved. A retry restores private state from the participant's ch
 provides one, as loading would, so that state does not depend on whether the process restarted. A
 participant without checkpoints keeps its live session, since discarding it would lose memory nothing
 can restore, and may therefore retain the abandoned attempt. Only a turn stored as running, which no
-process saw settle, requires reconciliation before the conversation continues. Cancellation does not
+process saw settle, requires reconciliation before the conversation continues, which a durable
+conversation does itself, under its claim and in one commit, from what each participant's own journal
+proves, and refuses whole when an answer cannot be used. Cancellation does not
 establish that an external effect never happened, nor that a model call cost nothing: a call never fully
 reported keeps its bound counted until the host reconciles it, since a refund on a guess would let a
 budget be overspent. Of the calls never fully reported, only one that recovery proved never dispatched
@@ -69,7 +71,10 @@ Prepared contributions retain their identity and are published without executing
 wait binds the original request, correlated response and private checkpoint to the same participant and
 turn. That execution keeps its original shared view, which a loaded conversation never asks the
 context policy to assemble again, so unrelated input cannot enter before it resolves.
-Uncertain external effects require reconciliation before they can be attempted again.
+Uncertain external effects require reconciliation before they can be attempted again: an effect started
+without a result is never attempted again until the host settles it. Recovery requires declared
+capabilities, in the store, the participants and the selector, checked before any work, since a
+guarantee nothing enforces would be silently weaker than it claims.
 
 ## Non-goals
 

@@ -24,6 +24,13 @@ export interface ISideChatBook {
     readonly title: string;
   }): ISideChat;
   remove(id: string): boolean;
+  /**
+   * Replace text in the titles the person was shown for their side chats; `redactFor` gives the
+   * replacement for one chat's title, or nothing to leave it. Returns the ids whose title changed.
+   */
+  redactTitles(
+    redactFor: (id: string) => ((value: string) => string) | undefined,
+  ): readonly string[];
 }
 
 const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/u;
@@ -83,6 +90,18 @@ export function createSideChatBook(
       if (rest.length === chats.length) return false;
       write(rest);
       return true;
+    },
+    redactTitles: (redactFor) => {
+      const changed: string[] = [];
+      const chats = read().map((chat) => {
+        const redact = redactFor(chat.id);
+        const next = redact === undefined ? chat.title : redact(chat.title);
+        if (next === chat.title) return chat;
+        changed.push(chat.id);
+        return { ...chat, title: next };
+      });
+      if (changed.length > 0) write(chats);
+      return changed;
     },
   };
 }

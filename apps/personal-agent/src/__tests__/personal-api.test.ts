@@ -88,12 +88,16 @@ describe('the personal API behind the web UI', () => {
     ]);
 
     const busan = after.claims.find((claim: any) => claim.text === 'Mina lives in Busan').id;
-    expect((await api.send('POST', 'wiki/forget', { claimId: busan })).body).toEqual({
+    const first = (await api.send('POST', 'wiki/forget', { claimId: busan })).body;
+    expect(first).toMatchObject({
       removed: 1,
+      conversations: { cleaned: 0, pending: 0, notReached: 0, sources: [] },
     });
+    // Every answer says what a forget leaves in place.
+    expect(first.stays.length).toBeGreaterThan(3);
     expect((await api.get('search?q=busan')).body.results).toEqual([]);
 
-    expect((await api.send('POST', 'wiki/forget', { pageId: 'mina' })).body).toEqual({
+    expect((await api.send('POST', 'wiki/forget', { pageId: 'mina' })).body).toMatchObject({
       removed: 2,
     });
     expect((await api.get('wiki/pages/mina')).status).toBe(404);

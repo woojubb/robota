@@ -183,9 +183,16 @@ export function decodeConversation(
       );
       requireState(
         !byMessage.has(member.messageId) &&
-          ['pending', 'running', 'settled', 'prepared', 'waiting', 'resumable', 'failed'].includes(
-            String(member.status),
-          ),
+          [
+            'pending',
+            'running',
+            'settled',
+            'prepared',
+            'waiting',
+            'resumable',
+            'recovering',
+            'failed',
+          ].includes(String(member.status)),
       );
       requireState(member.error === null || typeof member.error === 'string');
       checkpoint(member.checkpoint);
@@ -243,6 +250,8 @@ export function decodeConversation(
       if (member.status === 'prepared') requireState(record(member.outcome).kind !== 'wait');
       if (member.status === 'pending')
         requireState(member.outcome === null && member.checkpoint === null);
+      if (member.status === 'recovering')
+        requireState(member.outcome === null && member.checkpoint !== null);
     }
   }
   const byTurn = new Set<string>(

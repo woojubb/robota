@@ -1,0 +1,5 @@
+---
+'@robota-sdk/agent-roundtable': minor
+---
+
+`recovery: 'durable'` is now supported. It requires a store that declares `durability: 'durable'`, agent factories that declare `recovery: 'reconcilable'` with `reconcile`, continuation and checkpoint versions, and a reconcilable selector with a version reference; the built-in round-robin selector is both reconcilable and `idempotentDecision`. All of this is checked in `invalid-config` before the store, the registry or any session is touched, and a saved durable conversation is refused by `loadRoundtable` with a store that is not durable. After a restart the first `run()` reconciles under the claim in one commit: each interrupted member's factory answers with `AttemptRecovery` (`not-started`, `resume`, `settled` or `uncertain`) and a `CallSettlement` for every reserved call. A call proven never dispatched is refunded exactly, an effect started without a result parks a `reconciliation` request and is never attempted again until the host settles it, and an unusable answer rejects with `recovery-required` and commits nothing. A resumed attempt keeps its attempt id under the new member status `recovering`.

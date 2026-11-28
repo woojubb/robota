@@ -27,6 +27,9 @@ import { boundGuiPort, loadGuiPort, saveGuiPort } from './gui-port.js';
 import { startLoopbackGuiServer } from '@robota-sdk/agent-local-host';
 
 import { GUI_LABELS, guiHeadHtml, resolveGuiRoot } from './gui-server.js';
+import { createOwedRedactions } from './owed-redactions.js';
+
+import type { IHeldConversations, ILiveConversation } from './conversation-forgetting.js';
 
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type { Server } from 'node:http';
@@ -95,12 +98,16 @@ export interface ILocalMode {
   /** The bearer every HTTP API request presents. */
   readonly httpToken: string;
   readonly gui?: ILoopbackGuiServer;
+  /** The sessions this process runs and what their saves owe a forget: what the library's forget reaches. */
+  readonly conversations: IHeldConversations;
   stop(): Promise<void>;
 }
 
 export async function startLocalMode(options: ILocalModeOptions): Promise<ILocalMode> {
+  const owed = createOwedRedactions();
   const agent = createPersonalAgent({
     stateDir: options.stateDir,
+    owedRedactions: owed,
     provider: options.provider,
     ...(options.model !== undefined && { model: options.model }),
     ...(options.tools !== undefined && { tools: options.tools }),
@@ -119,6 +126,7 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
   let pageHeadHtml: string | undefined;
   let pendingGuiPort: { port: number; replace: boolean } | undefined;
   let primary: InteractiveSession;
+  let pool: SessionPool<InteractiveSession> | undefined;
   try {
     if (options.gui !== false) {
       const webRoot = options.webRoot ?? resolveGuiRoot();
@@ -177,7 +185,6 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
       SessionSlot<InteractiveSession>
     >();
     let stopping = false;
-    let pool: SessionPool<InteractiveSession> | undefined;
     const publicUrl =
       options.server === undefined ? undefined : new URL(options.server.publicOrigin);
     const ws = new WsTransport({
@@ -277,6 +284,14 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
     httpUrl,
     httpToken,
     ...(gui !== undefined && { gui }),
+    conversations: {
+      owed,
+      live: () => {
+        const sessions = new Set<ILiveConversation>(agent.liveSessions());
+        for (const entry of pool?.listLive() ?? []) sessions.add(entry.session);
+        return [...sessions];
+      },
+    },
     async stop() {
       if (stopped) return;
       stopped = true;

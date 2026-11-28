@@ -85,6 +85,12 @@ export function reserveModelCall(
   const usage = state.snapshot.usage;
   const existing = usage.find((record) => record.callId === call.callId);
   if (existing) {
+    // A refund is final: admitting the id again would reserve nothing and let the effect run unbudgeted.
+    if (existing.status === 'settled' && existing.outcome === 'not-dispatched')
+      throw new RoundtableError(
+        'conflict',
+        'A call refunded as never dispatched cannot be admitted again',
+      );
     if (!sameIdentity(existing, ctx, call, kind))
       throw new RoundtableError('conflict', 'Model call id was already used by another call');
     if (canonicalJson(existing.bound ?? null) !== canonicalJson(call.bound ?? null))

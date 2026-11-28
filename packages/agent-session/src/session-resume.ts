@@ -14,6 +14,7 @@ export async function executeResume(
 ): Promise<string> {
   const response = await ctx.agent.resume({
     ...options,
+    sessionId: ctx.sessionId,
     ...createRunObservers(ctx, options.traceContext),
   });
   ctx.contextTracker.updateFromHistory(ctx.agent.getHistory());

@@ -4,6 +4,7 @@ import { assembleContext, requireContextPolicy } from './context-policy';
 import type { ConversationState, StoredMember, TerminalResult } from './conversation-state';
 import { errorMessage, RoundtableError } from './errors';
 import { executeGroup } from './group';
+import { applyRecovery, gatherRecovery, needsRecovery } from './conversation-recovery';
 import {
   acceptMemberResponse,
   inputFingerprint,
@@ -48,6 +49,12 @@ import type {
   ResumeRequest,
   ResponseReceipt,
 } from './types';
+
+function dispatchable(member: StoredMember): boolean {
+  return (
+    member.status === 'pending' || member.status === 'resumable' || member.status === 'recovering'
+  );
+}
 
 /** A limit that stops a run while work is in flight; the next run continues from saved state. */
 type RunLimit = 'time' | 'model-calls' | 'budget';
@@ -350,7 +357,9 @@ export class Conversation implements Roundtable {
   ): Promise<RunResult> {
     const owner = await this.persistence.begin();
     try {
-      return await this.execute(AbortSignal.any([signal, owner.signal]), owner, runId);
+      const owned = AbortSignal.any([signal, owner.signal]);
+      await this.recover(owned, owner, runId);
+      return await this.execute(owned, owner, runId);
     } catch (error) {
       // A turn stored as running was never seen to settle (the process stopped mid-turn), so it is
       // neither rerun nor finished until the host reconciles it.
@@ -364,6 +373,38 @@ export class Conversation implements Roundtable {
     } finally {
       await this.persistence.end();
     }
+  }
+
+  /**
+   * A durable conversation settles what the process stopped midway before anything runs, under the
+   * claim and in one commit: every interrupted call is answered and every interrupted member moves
+   * forward, or none does and the run is refused with `recovery-required`.
+   */
+  private async recover(signal: AbortSignal, owner: StoreOwner, runId: string): Promise<void> {
+    const state = this.persistence.snapshot();
+    if (state.definition.recovery !== 'durable' || !needsRecovery(state)) return;
+    const plan = await gatherRecovery({
+      state,
+      participants: this.participants,
+      selector: this.selector,
+      admit: async () => {
+        await owner.admit();
+        signal.throwIfAborted();
+      },
+    });
+    await owner.admit();
+    signal.throwIfAborted();
+    await this.persistence.update((draft, revision) => {
+      applyRecovery(draft, revision, plan, {
+        runId,
+        selectorId: this.selector.reference?.id ?? 'selector',
+        ...(this.options.pricing ? { pricing: this.options.pricing } : {}),
+        participants: this.participants,
+        newAttemptId: () => crypto.randomUUID(),
+      });
+    });
+    // A session that survived in this process holds the abandoned attempt; reopen from the saved state.
+    for (const id of plan.answers.keys()) await this.discardSession(id);
   }
 
   /** Cancellation, disposal and limits end this run at a safe point, never the conversation. */
@@ -418,9 +459,7 @@ export class Conversation implements Roundtable {
       let view = this.snapshot();
       const phase = this.persistence.snapshot().phase;
       if (phase.kind === 'group') {
-        attempted += phase.members.filter(
-          (member) => member.status === 'pending' || member.status === 'resumable',
-        ).length;
+        attempted += phase.members.filter((member) => dispatchable(member)).length;
         const refused = await this.continueGroup(signal, owner, runId);
         if (refused) return { status: 'limited', reason: refused, revision: view.revision };
         view = this.snapshot();
@@ -582,7 +621,8 @@ export class Conversation implements Roundtable {
     if (phase.kind !== 'group') throw new RoundtableError('conflict', 'Active group is missing');
     if (
       phase.members.some(
-        (member) => !['pending', 'prepared', 'waiting', 'resumable'].includes(member.status),
+        (member) =>
+          !['pending', 'prepared', 'waiting', 'resumable', 'recovering'].includes(member.status),
       )
     ) {
       throw new RoundtableError(
@@ -590,9 +630,7 @@ export class Conversation implements Roundtable {
         'Unsettled execution requires runtime reconciliation',
       );
     }
-    const pending = phase.members.filter(
-      (member) => member.status === 'pending' || member.status === 'resumable',
-    );
+    const pending = phase.members.filter((member) => dispatchable(member));
     const resumeState = this.persistence.snapshot();
     const selected = pending.map((member) => this.participants.get(member.participantId));
     if (selected.some((participant) => participant?.kind !== 'agent'))
@@ -635,8 +673,13 @@ export class Conversation implements Roundtable {
         try {
           await this.persistence.update((draft) => {
             const saved = pending.find((candidate) => candidate.turn.turnId === turn.turnId)!;
+            // A recovered attempt keeps its id: its runtime's journal is keyed by it.
             Object.assign(this.member(draft, turn), structuredClone(saved), {
-              turn: { ...saved.turn, attemptId: crypto.randomUUID() },
+              turn: {
+                ...saved.turn,
+                attemptId:
+                  saved.status === 'recovering' ? saved.turn.attemptId : crypto.randomUUID(),
+              },
             });
           });
         } finally {
@@ -839,7 +882,7 @@ export class Conversation implements Roundtable {
       state.phase.kind === 'group'
         ? state.phase.members.find((candidate) => candidate.participantId === participantId)
         : undefined;
-    return member?.requestIds.length
+    return member?.requestIds.length || member?.checkpoint
       ? member.checkpoint
       : state.participants.find((p) => p.id === participantId)?.checkpoint;
   }
@@ -888,6 +931,30 @@ export class Conversation implements Roundtable {
       throw new RoundtableError('busy', 'Conversation already has an active scheduler');
   }
 
+  /** Checked before any store, registry or session is touched, so nothing is created half-recoverable. */
+  private requireDurable(): void {
+    const refuse = (message: string): never => {
+      throw new RoundtableError('invalid-config', `Durable execution requires ${message}`);
+    };
+    if (this.options.store?.durability !== 'durable') refuse('a store that declares durability');
+    const { reference, recovery } = this.selector;
+    if (recovery !== 'reconcilable' || !reference)
+      refuse('a reconcilable selector with a version reference');
+    for (const participant of this.options.participants) {
+      if (participant.kind !== 'agent') continue;
+      const { factory } = participant;
+      if (
+        factory.recovery !== 'reconcilable' ||
+        typeof factory.reconcile !== 'function' ||
+        factory.supportsContinuation !== true ||
+        !factory.checkpointVersions?.length
+      )
+        refuse(
+          `every agent factory to be reconcilable with continuation and checkpoint versions: ${participant.id}`,
+        );
+    }
+  }
+
   private validate(): void {
     const ids = this.options.participants.map((p) => p.id);
     if (
@@ -902,11 +969,7 @@ export class Conversation implements Roundtable {
       );
     }
     requireContextPolicy(this.contextPolicy);
-    if (this.options.recovery === 'durable')
-      throw new RoundtableError(
-        'invalid-config',
-        'Durable execution requires runtime recovery support',
-      );
+    if (this.options.recovery === 'durable') this.requireDurable();
     for (const value of [
       this.concurrency,
       this.options.limits.maxTurnsPerRun,
