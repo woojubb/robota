@@ -338,7 +338,9 @@ It runs inside the same worker, relay and verifier; nothing about scoring change
   role's tools, and the relay refuses a declaration or a call outside the role's set.
 - **Child job limit.** `src/outcome-delegation-limits.ts` wraps the runtime's subagent runner factory inside the
   worker: at most three child jobs (an implementer, a reviewer and one revision), a fourth is refused before it
-  starts and counted, and each job is timed so the idle time between jobs can be measured.
+  starts and counted, and each job is timed so the idle time between jobs can be measured. A job for an agent type
+  that is not a child role (a built-in type, for instance) is refused inside `start()` with a recorded failure,
+  counted like a refused spawn, and does not use one of the three jobs.
 - **Attribution.** The relay attributes every request to a role by the hash of its system message. The runtime
   assembles a child's system message itself, so each role's prompt carries a marker, and the first time a message
   is seen its hash is bound to the one role whose marker it contains. A message with no marker or several, and one
@@ -350,7 +352,12 @@ It runs inside the same worker, relay and verifier; nothing about scoring change
 - **Measures by role.** Each relay log entry carries its role, the time its single upstream attempt took and the
   token counts the answer reported, failed attempts included. `src/outcome-delegation-measures.ts` sums them by role
   (calls, refused calls, failed calls, tokens, calls whose tokens are unknown, wall latency); coordination is what the
-  parent and the reviewer spent plus the idle time between child jobs. The measures are written into the trial's
+  parent and the reviewer spent plus the idle time between child jobs. Serial waiting is asked for in the parent's
+  prompt, not enforced, and idle time counts an overlap as zero, so the measures also record the child jobs whose
+  windows overlapped (a count and the pairs, by start order): an observation that makes a trial that was not serial
+  visible, never part of the verdict. A job's window ends when its result resolves, which the runner does only after
+  every turn the job accepted has run (input sent later is refused), so follow-up input sent to a running job is
+  inside its window and the window needs no extra tracking. The measures are written into the trial's
   observation file next to the verifier's observation, before scoring.
 - **Verdict.** Still the environment's: the verifier's exit code and the tree checks. The agent's completion and the
   reviewer's approval are data; a reviewer that approves broken code cannot make a trial pass. The arm adds two

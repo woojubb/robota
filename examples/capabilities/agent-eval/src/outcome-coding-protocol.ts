@@ -38,6 +38,8 @@ export interface IDelegationInit {
 export interface IDelegationReport {
   readonly jobsStarted: number;
   readonly jobsRefused: number;
+  /** The agent types refused because they are not a child role (each also counts in `jobsRefused`). */
+  readonly refusedAgentTypes?: readonly string[];
   readonly jobs: readonly {
     readonly agent: string;
     readonly startMs: number;
