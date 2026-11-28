@@ -289,15 +289,21 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
         let firstTurnDone = state.firstTurnDone;
         let pendingWait: { executionId: string; requestIds: string[] } | null = state.pending;
         let releasePromise: Promise<void> | undefined;
+        // Attempts that may still write; each is sealed when its turn settles, the rest on release.
+        const writable = new Set<AttemptJournal>();
 
-        function attemptFor(turn: ParticipantTurn): AttemptJournal | undefined {
-          return scopeLog
-            ? attemptJournal(scopeLog, {
-                attemptId: turn.attemptId,
-                sessionId: state.sessionId,
-                cwd: hostOptions.cwd,
-              })
-            : undefined;
+        function attemptFor(
+          turn: ParticipantTurn,
+          signal: AbortSignal,
+        ): AttemptJournal | undefined {
+          if (!scopeLog) return undefined;
+          const attempt = attemptJournal(
+            scopeLog,
+            { attemptId: turn.attemptId, sessionId: state.sessionId, cwd: hostOptions.cwd },
+            signal,
+          );
+          writable.add(attempt);
+          return attempt;
         }
 
         async function settle(
@@ -318,16 +324,12 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
               attempt?.effectCalls,
             );
             const result = await run(meteredJournal);
-            // An aborted run can resolve instead of rejecting, the way a plain ConversationAgent agent's
-            // `agent.run()` always does (see agent-participant.ts) — checking `signal.aborted`
-            // only in `catch` below would miss that path, letting a cancelled turn's partial text
-            // (or even a stray 'waiting' status racing the abort) be published or parked as if
-            // the cancellation never happened. `Session`'s own executeRun already turns that same
-            // case into a rejection before it reaches here, so this guard is not what this
-            // specific call depends on today, but it keeps the same guarantee for any run or
-            // resume call that resolves on abort instead.
-            if (signal.aborted) throw signal.reason;
-            await deltaQueue.flush();
+            // A Session that returned finished its turn, whatever stop was observed meanwhile: its
+            // outcome is journaled and returned, never discarded. The deltas a stop kept from being
+            // delivered are not part of what the turn produced.
+            await deltaQueue.flush().catch((error: unknown) => {
+              if (!signal.aborted) throw error;
+            });
             let outcome: ParticipantOutcome;
             if (result.status === 'waiting') {
               outcome = toWaitOutcome(result.requests);
@@ -362,6 +364,11 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             throw error;
           } finally {
             currentSink = undefined;
+            // Whatever the turn did, nothing of this attempt may write once it has settled.
+            if (attempt) {
+              attempt.seal();
+              writable.delete(attempt);
+            }
           }
         }
 
@@ -376,7 +383,7 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             });
           },
           async runTurn(turn: ParticipantTurn, execOptions: ParticipantExecutionOptions) {
-            const attempt = attemptFor(turn);
+            const attempt = attemptFor(turn, execOptions.signal);
             // Recovery restores a parked execution with no request: it is this attempt's own journal,
             // continued where it stopped, and the turn's input is not submitted again.
             const recovered = attempt && pendingWait?.requestIds.length === 0 ? pendingWait : null;
@@ -408,7 +415,7 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
                 'identity-mismatch',
                 'No approval wait is parked for this participant',
               );
-            const attempt = attemptFor(turn);
+            const attempt = attemptFor(turn, execOptions.signal);
             const toolResponses: {
               requestId: string;
               responseId: string;
@@ -475,6 +482,8 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
           session: participantSession,
           async release() {
             releasePromise ??= (async () => {
+              for (const attempt of writable) attempt.seal();
+              writable.clear();
               try {
                 if (usingDefaultJournal && !pendingWait) forgetInProcessJournal(state.sessionId);
                 await session.shutdown();

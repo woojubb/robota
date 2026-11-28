@@ -4,7 +4,12 @@ import { assembleContext, requireContextPolicy } from './context-policy';
 import type { ConversationState, StoredMember, TerminalResult } from './conversation-state';
 import { errorMessage, RoundtableError } from './errors';
 import { executeGroup } from './group';
-import { applyRecovery, gatherRecovery, needsRecovery } from './conversation-recovery';
+import {
+  applyRecovery,
+  gatherRecovery,
+  needsRecovery,
+  retainSelectorCalls,
+} from './conversation-recovery';
 import {
   acceptMemberResponse,
   inputFingerprint,
@@ -368,7 +373,7 @@ export class Conversation implements Roundtable {
       const { phase } = this.persistence.snapshot();
       const memberFailed =
         phase.kind === 'group' && phase.members.some((member) => member.status === 'failed');
-      if (signal.aborted && !memberFailed) return await this.stop(owner, limited());
+      if (signal.aborted && !memberFailed) return await this.stop(owner, limited(), runId);
       return await this.fail(owner, error);
     } finally {
       await this.persistence.end();
@@ -408,12 +413,26 @@ export class Conversation implements Roundtable {
   }
 
   /** Cancellation, disposal and limits end this run at a safe point, never the conversation. */
-  private async stop(owner: StoreOwner, limited: RunLimit | undefined): Promise<RunResult> {
+  private async stop(
+    owner: StoreOwner,
+    limited: RunLimit | undefined,
+    runId: string,
+  ): Promise<RunResult> {
     if (!owner.signal.aborted && this.persistence.snapshot().phase.kind === 'selecting') {
-      // The selector call settled without a saved decision, so the next run asks again. If this
-      // write fails, the stored attempt stays and loading requires reconciliation.
+      // The selector call settled without a saved decision, so the next run asks again. A durable
+      // conversation also answers the calls that selection left reserved, so none outlives it under
+      // an attempt id nothing looks up again. If this write fails, the stored attempt stays and
+      // loading requires reconciliation.
+      const durable = this.persistence.snapshot().definition.recovery === 'durable';
       await this.persistence
-        .update((draft) => {
+        .update((draft, revision) => {
+          if (durable && draft.phase.kind === 'selecting')
+            retainSelectorCalls(draft, revision, {
+              runId,
+              selectorId: this.selector.reference?.id ?? 'selector',
+              attemptId: draft.phase.attemptId,
+              ...(this.options.pricing ? { pricing: this.options.pricing } : {}),
+            });
           draft.phase = { kind: 'ready' };
         })
         .catch(() => {});
@@ -670,6 +689,13 @@ export class Conversation implements Roundtable {
         const { status } = this.member(this.persistence.snapshot(), turn);
         // A result prepared or parked before the abort was settled work; keep it and its session.
         if (status === 'prepared' || status === 'waiting') return;
+        if (entered && this.persistence.snapshot().definition.recovery === 'durable') {
+          // Its runtime may have acted, and only the runtime's own journal can say how far. The member
+          // stays as a process stop would have left it, under the same attempt id, and the next run
+          // reconciles it; the session that held the attempt is discarded.
+          await this.discardSession(turn.participantId);
+          return;
+        }
         try {
           await this.persistence.update((draft) => {
             const saved = pending.find((candidate) => candidate.turn.turnId === turn.turnId)!;

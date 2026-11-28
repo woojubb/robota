@@ -12,6 +12,7 @@ export class RuntimeParticipantError extends Error {
       | 'invalid-config'
       | 'journal-not-durable'
       | 'recovery-unsupported'
+      | 'attempt-sealed'
       | 'invalid-response',
     message: string,
   ) {

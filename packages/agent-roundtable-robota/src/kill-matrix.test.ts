@@ -2,15 +2,16 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { clearRegisteredToolProfiles } from '@robota-sdk/agent-core';
 import { World, type KillPlan } from './recovery-drill';
 import {
-  completedCalls,
   createIn,
   drive,
+  expectRecovered,
   label,
   loadIn,
   plansFor,
   reference,
   transcript,
   type HostMode,
+  scenarios,
   type MatrixScenario,
   type SettledEffect,
   type Reference,
@@ -19,30 +20,6 @@ import {
 afterEach(() => {
   clearRegisteredToolProfiles();
 });
-
-const scenarios: MatrixScenario[] = [
-  { name: 'a plain text turn', members: ['solo'], turns: 1, effectsOf: () => 0 },
-  { name: 'a turn with one paid effect', members: ['solo'], turns: 1, effectsOf: () => 1 },
-  {
-    name: 'a turn with two paid effects in sequence',
-    members: ['solo'],
-    turns: 1,
-    effectsOf: () => 2,
-  },
-  {
-    name: 'a conversation of two members',
-    members: ['alice', 'bob'],
-    turns: 3,
-    effectsOf: (id) => (id === 'alice' ? 1 : 0),
-  },
-  {
-    name: 'a turn that parks an approval wait and continues it',
-    members: ['solo'],
-    turns: 1,
-    effectsOf: () => 1,
-    approval: true,
-  },
-];
 
 interface Recovered {
   /** Effects the host had to settle, by how. */
@@ -110,56 +87,11 @@ async function recover(
   await new Promise((resolve) => setImmediate(resolve));
 
   // Completed or not, the conversation ends as the uninterrupted one did.
-  expect(out.result).toMatchObject({ status: 'completed', reason: 'done' });
-  const view = room.snapshot();
-  const failed = new Set(settled.filter((s) => s.answer === 'failure').map((s) => s.effect));
-  const expectedEffects = Object.fromEntries(
-    Object.entries(ref.ran).filter(([effect]) => !failed.has(effect)),
-  );
-  // Every effect ran at most once, and every effect the reference completed ran exactly once.
-  for (const count of world.effects.values()) expect(count).toBe(1);
-  expect(Object.fromEntries(world.effects)).toEqual(expectedEffects);
-  // The transcript is the uninterrupted one, except where the host said an effect failed.
-  const expected = ref.messages.map(([who, text]) => [
-    who,
-    [...failed].reduce(
-      (said, effect) => said.replace(`paid:${effect}`, `declined:${effect}`),
-      text!,
-    ),
-  ]);
-  expect(transcript(room)).toEqual(expected);
-  expect(view.requests).toEqual([]);
-
-  // Every reserved call ends settled, refunded or retained; each is answered once, under its own id.
-  expect(new Set(view.usage.map((record) => record.callId)).size).toBe(view.usage.length);
-  for (const record of view.usage) {
-    expect(record.status).toBe('settled');
-    if (record.status === 'settled' && record.outcome === 'not-dispatched')
-      expect(record.tokens).toBeUndefined();
-  }
-  // The ledger holds every call the reference completed, except an effect the host had to settle:
-  // its consumption is the host's to say, so that call stays retained at its bound.
-  const retained = view.usage.filter(
-    (record) =>
-      record.kind === 'tool-effect' &&
-      record.status === 'settled' &&
-      record.outcome !== 'completed' &&
-      record.outcome !== 'not-dispatched',
-  );
-  expect(retained).toHaveLength(settled.length);
-  const wanted = [...ref.completed];
-  for (const call of completedCalls(view.usage)) {
-    const at = wanted.indexOf(call);
-    if (at >= 0) wanted.splice(at, 1);
-  }
-  expect(wanted).toEqual(settled.map(() => 'tool-effect:0/0'));
-  for (const record of view.usage) {
-    if (record.status !== 'settled') continue;
-    if (record.outcome === 'not-dispatched') reached.refundedCalls++;
-    else if (record.outcome !== 'completed')
-      reached[record.kind === 'model' ? 'retainedModelCalls' : 'retainedEffects']++;
-  }
-  reached.parked += settled.length;
+  const counted = expectRecovered({ ref, world, room, result: out.result, settled });
+  reached.refundedCalls += counted.refundedCalls;
+  reached.retainedModelCalls += counted.retainedModelCalls;
+  reached.retainedEffects += counted.retainedEffects;
+  reached.parked += counted.parked;
   await room.dispose();
   await endCase(world);
   return { settled };
