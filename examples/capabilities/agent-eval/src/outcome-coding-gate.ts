@@ -11,7 +11,7 @@ import type { IRelayGate } from './outcome-coding-relay.js';
  * - no answer, or an answer that is not a success (an unknown or failed paid call: the reservation
  *   stays, because the provider may still have charged it);
  * - a success without a readable cost (also unknown, same reservation);
- * - a receipt whose provider or model differs from the pinned route, ;
+ * - a receipt whose provider or model differs from the pinned route;
  * - a success whose generation record (the only place the serving provider is named) cannot be read
  *   (also unknown, same reservation);
  * - a receipt whose output tokens exceed the output cap;
