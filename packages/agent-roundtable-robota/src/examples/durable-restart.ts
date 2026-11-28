@@ -213,7 +213,7 @@ export async function runDurableRestart(directory: string) {
     interrupted,
     effectsBeforeRestart,
     result,
-    effects: Object.fromEntries(world),
+    effectRuns: Object.fromEntries(world),
     transcript: snapshot.messages.map((message) => `${message.participantId}: ${message.content}`),
     usage: summarizeUsage(snapshot.usage),
   };
