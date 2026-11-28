@@ -201,7 +201,7 @@ test(
     assert.equal(record.capReached, true);
     assert.equal(calls, plan?.maxCalls);
     assert.equal(record.upstreamAttempts, plan?.maxCalls);
-    assert.ok(record.score.failures.includes('call-cap'));
+    assert.deepEqual([...record.score.failures].sort(), [...(plan?.expectedFailures ?? [])].sort());
     assert.equal(record.score.passed, false);
     assert.ok(record.relayLog.some((entry) => entry.code === 'cap'));
   },

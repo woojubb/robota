@@ -148,7 +148,14 @@ export function planDelegationTrial(
         ...base,
         maxCalls: 3,
         capReached: true,
-        expectedFailures: ['not-completed', 'not-delegated', 'call-cap', 'verifier-failed'],
+        // The refused request ends the run with an error, which the worker reports with no tool calls.
+        expectedFailures: [
+          'no-tools-used',
+          'not-completed',
+          'not-delegated',
+          'call-cap',
+          'verifier-failed',
+        ],
         childJobsStarted: 0,
         steps: Array.from({ length: 6 }, () => read(first)),
       };
