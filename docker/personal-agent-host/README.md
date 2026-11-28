@@ -97,6 +97,29 @@ curl --cacert local-ca.crt --resolve alice.agents.example.test:8443:127.0.0.1 ht
 
 Never use `internal` for people: browsers will not trust it.
 
+## Checking the isolation: the acceptance script
+
+`acceptance.mjs` proves the isolation claims above on a real engine. It installs this bundle with `install.sh`
+in local-CA mode (ports 18080 and 18443, a state directory and a base domain of its own), adds accounts with
+fake keys, and runs every probe from inside the engine's network: from a unit, from the proxy's host network, from
+an unguarded container. It prints one `PASS`, `FAIL` or `SKIP` line per check and exits non-zero on any `FAIL`,
+then removes everything it made, also when a check fails (containers, volumes, networks, the firewall table, the
+state directory; images stay). Every negative check has a control that proves the probe could have succeeded.
+
+```sh
+node docker/personal-agent-host/acceptance.mjs          # add --keep to leave the install up for a look
+```
+
+It needs a Linux engine (a desktop's Linux VM does), API 1.41 or newer, cgroup v2, `nf_tables`, outbound internet for
+one DNS lookup and one HTTPS fetch, and free ports 18080 and 18443 (`ACCEPTANCE_HTTP_PORT` and
+`ACCEPTANCE_HTTPS_PORT` change them). It stops at once if another install is on that engine. The first run builds
+the images, so allow a quarter of an hour. No real model key or credential is used: each account gets a random fake
+key and the model is a local stand-in on an engine network of its own at a public-looking documentation address, so
+units reach it through the path the firewall allows for any public address and nothing is loosened for it.
+
+It is not part of CI (a heavy image and a privileged firewall helper); record each run on the pull request that
+changes isolation. A desktop VM is not a server: the run on a real server stays a separate step.
+
 ## Operations
 
 - **Reboot.** Units have no restart policy and are not services in the compose file. After a reboot the
