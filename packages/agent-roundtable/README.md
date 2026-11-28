@@ -113,6 +113,7 @@ is invalid, incomplete or thrown rejects `run()` with `recovery-required` and co
 | `createRoundtable(options)` | Validates configuration and returns a `Roundtable` handle; `run()` executes it.                                                                                                                                                                                                                         |
 | `loadRoundtable(options)`   | Reopens a conversation from a `ConversationStore`, resolving saved runtime, selector and context policy references through a `RoundtableRegistry`.                                                                                                                                                      |
 | `MemoryConversationStore`   | The in-memory `ConversationStore`; no durability, so it cannot back `recovery: 'durable'`.                                                                                                                                                                                                              |
+| `FileConversationStore`     | From `@robota-sdk/agent-roundtable/node` (Node.js only): a durable `ConversationStore` over a local directory (see "File-backed store").                                                                                                                                                                |
 | `externalParticipant(def)`  | Declares a participant answered through `submitInput`/`resume` instead of a factory.                                                                                                                                                                                                                    |
 | `increments()`              | The default `ContextPolicy`: no model calls; a participant is offered every message it has not seen and did not write (see "Context policy").                                                                                                                                                           |
 | `roundRobin()`              | The default `TurnSelector`: no model calls; cycles through participants in order after the last speaker, forever — it never finishes on its own, so a run's own limits (`maxTurnsPerRun`, `timeoutMs`, a model-call limit) are what stop it.                                                            |
@@ -173,6 +174,44 @@ Passing either suite checks these storage behaviors under the supplied test cloc
 durability across process death or a crash beyond what the fixture's `restart()` exercises (a new client
 over shared storage in the same process does not), production clock bounds, multi-region consistency, or
 exactly-once external effects. A store that passes it is what `recovery: 'durable'` asks for.
+
+## File-backed store (Node.js)
+
+`@robota-sdk/agent-roundtable/node` exports `FileConversationStore`, a `ConversationStore` that declares
+`durability: 'durable'` over a local directory. It uses Node built-ins only and is absent from browser
+builds; the package root stays platform-neutral.
+
+```typescript
+import { FileConversationStore } from '@robota-sdk/agent-roundtable/node';
+
+const store = new FileConversationStore({ root: '/var/lib/my-app/conversations' });
+```
+
+Durable here means that a commit, a claim's fence and an operation receipt that were acknowledged
+survive the death of the writing process: each commit is an immutable revision file that is flushed and
+then published with a create-only hard link, which is also what makes two racing writers unable to both
+take the same revision. Claims are published the same way, as numbered generations that carry the
+fence: every claim, renewal and release links the next generation create-only, the highest one is the
+state, and a writer that loses the race re-reads and decides again against the state that won, so a fence
+is never issued twice. There is no lock and nothing to break after a crash; older generations are pruned.
+Every file read is validated, and a damaged one throws `FileStoreCorruptionError` rather than being repaired. Directories
+are created `0700` and files `0600`. The instance remembers nothing it cannot re-read, so any number of
+instances, in one process or several, may share a directory.
+
+Limits:
+
+- One host. The directory must be on a local file system that supports hard links; a network file system
+  is outside the guarantee.
+- Lease expiry compares the clocks of the processes sharing the directory, so their skew must be small
+  against the lease. A commit checks its claim just before it publishes, and nothing excludes a
+  takeover in between: the remaining lease must cover the time from that check to the publish, so a
+  host that can stall for longer must renew first or keep the lease long.
+- Old revisions are kept, because a retried commit must get its original receipt back; nothing prunes
+  them. Conversation ids are at most 120 UTF-8 bytes.
+- `fsync` of a directory is not available on Windows, so there the newest acknowledged entry can be lost
+  to a power cut. On macOS
+  `fsync` does not force the drive's cache, so a power cut can lose the newest acknowledged write too.
+  A process death alone loses nothing on any platform.
 
 ## Run results
 
@@ -342,7 +381,7 @@ with a failed member is never published or run again automatically.
 ## Supported environments
 
 The build is platform-neutral ESM and CommonJS with type declarations and has no runtime
-dependencies. It needs only standard globals: `AbortController`, `AbortSignal.any`,
+dependencies; only the `./node` subpath (the file-backed store) needs Node.js. It needs only standard globals: `AbortController`, `AbortSignal.any`,
 `structuredClone`, `crypto.randomUUID` and `setTimeout`. That covers Node.js 22.12 or later and
 current browsers.
 
