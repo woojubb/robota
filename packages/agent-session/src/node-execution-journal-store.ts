@@ -34,7 +34,12 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
-import { ExecutionRecoveryError, isUniversalValueEqual } from '@robota-sdk/agent-core';
+import {
+  ExecutionRecoveryError,
+  decodeJournalValue,
+  encodeJournalValue,
+  isUniversalValueEqual,
+} from '@robota-sdk/agent-core';
 import type { TExecutionJournalRecord } from '@robota-sdk/agent-core';
 import {
   OWNER_ONLY_FILE_MODE,
@@ -43,7 +48,6 @@ import {
   writeOwnerOnlyFile,
 } from '@robota-sdk/agent-core/node';
 
-import { decodeJournalValue, encodeJournalValue } from './execution-journal-value-codec.js';
 import { ExecutionJournalStoreError } from './execution-journal-store.js';
 import { assertSafeSessionId } from './session-id.js';
 import { sessionSealingOf } from './stored-session-record.js';

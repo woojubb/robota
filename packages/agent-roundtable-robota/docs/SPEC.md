@@ -49,12 +49,18 @@ durable journal, never by rerunning what the journal shows already happened: a c
 dispatched is refunded, a call whose report the journal holds is settled with it, and a call it cannot
 prove either way stays counted. A turn whose end was journaled is answered from it, and an effect that
 started without a result is never started again until the host settles it. A `Session` it wraps may use nothing that writes or waits outside that journal — automatic compaction, hooks, or an in-process prompt handler, whose wait a restart loses — and is refused before it opens; approvals reach it only as conversation waits. A run stopped inside a
-living process leaves the journal as a process death at that instant would: from the moment of the stop
-the Session writes nothing but a provider's response, so what it does while unwinding is never taken
-for what happened outside, while the tokens a response cost are still reported,
+living process leaves the journal as a process death at that instant would, except that a response the
+provider still returns is journaled so its tokens are reported; what the Session does while unwinding
+is never taken for what happened outside,
 and once an attempt's turn settles or its session is released the attempt refuses every write while
 staying readable for reconciliation. A turn the Session finished before a stop was observed is journaled
 and returned, never discarded.
+
+The journal this package ships for files (`./node`, Node built-ins and agent-core only) keeps one
+append-only file per scope and acknowledges an append only after the line and, for a new file, its
+directory entry are flushed. It refuses damage (a partial last line, a gap, an unreadable line) on every
+read and append and never repairs it, because a dropped tail would be a guess made on the only history
+there is; it has one writer per scope, which the conversation claim does not enforce.
 
 A selector backed by an agent trusts a decision only when the agent reaches it through the one
 channel offered for reaching it, unambiguously, and only when it names conversation participants that
@@ -90,6 +96,10 @@ Session's own `input` or `reconciliation` waits, or a durable, cross-process res
   own session id at module scope, so a parked wait reloaded through `loadRoundtable` within the same
   process resumes without a host having to plumb its own durability for that common case; it is not a
   substitute for a host's own durable journal across a process restart.
+- The file journal is its own subpath and does not use agent-session's per-execution store: a recovery
+  journal is one ordered log per conversation and participant, and agent-session pulls a native
+  dependency that a journal has no use for. Both encode execution records with agent-core's one value
+  codec, so a record means the same on either disk.
 - A reconcilable participant binds each attempt to its session and execution before the first record of
   it is journaled: the runtime chooses the execution id, and a participant interrupted on its first
   turn has no checkpoint to carry the session id. A paid effect takes a fresh call id for each

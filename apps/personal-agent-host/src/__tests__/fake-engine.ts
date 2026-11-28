@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 
+import { encodeEntry, type ITarHeader, readTar, TAR_TRAILER } from '../archive/tar.js';
 import { cidrsOverlap } from '../runtime/container/names.js';
 import { tempDir } from './harness.js';
 
@@ -28,6 +29,8 @@ interface IFakeVolume {
   Name: string;
   Labels: Record<string, string>;
   files: Map<string, string>;
+  /** Symbolic links: path to target. */
+  links: Map<string, string>;
 }
 
 interface IFakeNetwork {
@@ -98,6 +101,10 @@ export class FakeEngine {
   retained = new Set<string>();
   /** The id each image name currently resolves to; a name not listed gets a derived one. */
   imageIds = new Map<string, string>();
+  /** The headers of the last archive extracted into a container, as the engine received them. */
+  lastPut: ITarHeader[] = [];
+  /** The `path` query of every archive call, in order. */
+  archivePaths: string[] = [];
 
   /** The id a name resolves to. */
   imageIdOf(name: string): string {
@@ -153,6 +160,15 @@ export class FakeEngine {
     return this.volumes.get(name)?.Labels;
   }
 
+  /** Files in a volume, as a test sees what the unit would. */
+  volumeFiles(name: string): Map<string, string> | undefined {
+    return this.volumes.get(name)?.files;
+  }
+
+  volumeLinks(name: string): Map<string, string> | undefined {
+    return this.volumes.get(name)?.links;
+  }
+
   /** Every request body, serialized: the text secrets must never appear in outside the unit's environment. */
   recordedBodies(): string {
     return JSON.stringify(this.requests.map((r) => r.body ?? null));
@@ -198,6 +214,12 @@ export class FakeEngine {
     return filter.every(([key, value]) => labels[key] === value);
   }
 
+  private async rawBody(req: IncomingMessage): Promise<Buffer> {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(chunk as Buffer);
+    return Buffer.concat(chunks);
+  }
+
   private async body(req: IncomingMessage): Promise<Json | undefined> {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk as Buffer);
@@ -209,9 +231,16 @@ export class FakeEngine {
     const url = new URL(req.url ?? '/', 'http://engine');
     const method = req.method ?? 'GET';
     const path = url.pathname.replace(/^\/v\d+\.\d+/u, '');
-    const body = await this.body(req);
+    const isTar = (req.headers['content-type'] ?? '').startsWith('application/x-tar');
+    const raw = isTar ? await this.rawBody(req) : undefined;
+    const body = isTar ? undefined : await this.body(req);
     this.requests.push({ method, path, body });
     const send = (status: number, payload?: unknown, raw = false): void => {
+      if (Buffer.isBuffer(payload)) {
+        res.writeHead(status, { 'content-type': 'application/x-tar' });
+        res.end(payload);
+        return;
+      }
       res.writeHead(status, { 'content-type': raw ? 'text/plain' : 'application/json' });
       res.end(payload === undefined ? '' : raw ? String(payload) : JSON.stringify(payload));
     };
@@ -227,7 +256,7 @@ export class FakeEngine {
         const [hit] = this.failures.splice(failure, 1);
         throw new Refusal(hit.status, hit.message);
       }
-      await this.route(method, path, url, body, send);
+      await this.route(method, path, url, body, send, raw);
     } catch (error) {
       if (error instanceof Refusal) send(error.status, { message: error.message });
       else send(500, { message: error instanceof Error ? error.message : String(error) });
@@ -240,6 +269,7 @@ export class FakeEngine {
     url: URL,
     body: Json | undefined,
     send: (status: number, payload?: unknown, raw?: boolean) => void,
+    upload?: Buffer,
   ): Promise<void> {
     const is = (m: string, pattern: RegExp): RegExpExecArray | null =>
       method === m ? pattern.exec(path) : null;
@@ -283,6 +313,7 @@ export class FakeEngine {
         Name: name,
         Labels: (body?.Labels ?? {}) as Record<string, string>,
         files: new Map<string, string>(),
+        links: new Map<string, string>(),
       };
       this.volumes.set(name, volume);
       return send(201, { Name: volume.Name, Labels: volume.Labels });
@@ -405,6 +436,100 @@ export class FakeEngine {
       this.containers.delete(container.Id);
       return send(204);
     }
+    if ((match = is('GET', /^\/containers\/([^/]+)\/archive$/u))) {
+      const container = this.need(match[1]);
+      const volume = this.archiveVolume(container, url.searchParams.get('path') ?? '', false);
+      {
+        const entries: Buffer[] = [
+          encodeEntry({
+            path: './',
+            kind: 'dir',
+            flag: '5',
+            mode: 0o700,
+            uid: 1000,
+            gid: 1000,
+            size: 0,
+            mtime: 0,
+            linkname: '',
+          }),
+        ];
+        const made = new Set<string>();
+        const paths = [...volume.files.keys(), ...volume.links.keys()].sort();
+        for (const file of paths) {
+          const parts = file.split('/');
+          for (let depth = 1; depth < parts.length; depth += 1) {
+            const dir = parts.slice(0, depth).join('/');
+            if (made.has(dir)) continue;
+            made.add(dir);
+            entries.push(
+              encodeEntry({
+                path: `./${dir}/`,
+                kind: 'dir',
+                flag: '5',
+                mode: 0o755,
+                uid: 1000,
+                gid: 1000,
+                size: 0,
+                mtime: 0,
+                linkname: '',
+              }),
+            );
+          }
+          const link = volume.links.get(file);
+          entries.push(
+            link !== undefined
+              ? encodeEntry({
+                  path: `./${file}`,
+                  kind: 'symlink',
+                  flag: '2',
+                  mode: 0o777,
+                  uid: 1000,
+                  gid: 1000,
+                  size: 0,
+                  mtime: 0,
+                  linkname: link,
+                })
+              : encodeEntry(
+                  {
+                    path: `./${file}`,
+                    kind: 'file',
+                    flag: '0',
+                    mode: 0o644,
+                    uid: 1000,
+                    gid: 1000,
+                    size: 0,
+                    mtime: 0,
+                    linkname: '',
+                  },
+                  Buffer.from(volume.files.get(file) ?? ''),
+                ),
+          );
+        }
+        entries.push(TAR_TRAILER);
+        return send(200, Buffer.concat(entries));
+      }
+    }
+    if ((match = is('PUT', /^\/containers\/([^/]+)\/archive$/u))) {
+      const container = this.need(match[1]);
+      const volume = this.archiveVolume(container, url.searchParams.get('path') ?? '', true);
+      this.lastPut = [];
+      const incoming = upload ?? Buffer.alloc(0);
+      for await (const entry of readTar(
+        (async function* () {
+          yield incoming;
+        })(),
+      )) {
+        const chunks: Buffer[] = [];
+        for await (const chunk of entry.body()) chunks.push(chunk);
+        const { header } = entry;
+        this.lastPut.push(header);
+        const name = header.path.replace(/^\.\//u, '').replace(/\/$/u, '');
+        if (name === '' || name === '.') continue;
+        if (header.kind === 'file') volume.files.set(name, Buffer.concat(chunks).toString('utf8'));
+        else if (header.kind === 'symlink') volume.links.set(name, header.linkname);
+      }
+      return send(200);
+    }
     if (is('GET', /^\/containers\/json$/u)) {
       const filter = this.labelFilter(url);
       const rows = [...this.containers.values()]
@@ -413,6 +538,22 @@ export class FakeEngine {
       return send(200, rows.length > 0 ? rows : null);
     }
     throw new Refusal(404, `page not found: ${method} ${path}`);
+  }
+
+  /** The volume behind an archive path, which must be the mount itself (`/.` form for reading). */
+  private archiveVolume(container: IFakeContainer, path: string, write: boolean): IFakeVolume {
+    this.archivePaths.push(path);
+    const mount = container.body.HostConfig?.Mounts?.[0];
+    const target = String(mount?.Target);
+    if (path !== (write ? target : `${target}/.`)) {
+      throw new Refusal(404, `Could not find the file ${path} in container ${container.name}`);
+    }
+    if (write && mount?.ReadOnly) {
+      throw new Refusal(403, 'mounted volume is marked read-only');
+    }
+    const volume = this.volumes.get(String(mount?.Source));
+    if (!volume) throw new Refusal(404, `no such volume: ${String(mount?.Source)}`);
+    return volume;
   }
 
   private need(idOrName: string): IFakeContainer {

@@ -68,6 +68,12 @@ export class Reconciler {
     }
   }
 
+  /** Best effort, as in the control plane: an image that cannot be released only costs disk. */
+  private async releaseIfUnused(imageId: string): Promise<void> {
+    if (this.deps.store.list().some((r) => r.imageId === imageId)) return;
+    await this.deps.runtime.releaseImage(imageId).catch(() => undefined);
+  }
+
   private async stopEverything(report: IReconcileReport): Promise<void> {
     let units: IUnitStatus[] = [];
     try {
@@ -143,6 +149,8 @@ export class Reconciler {
           changed = true;
           current = undefined;
           await this.record('reconcile-stop', account.id, 'ok', 'unit runs an unrecorded image');
+          // Its retention tag was put on when it started and no account is recorded on it.
+          await this.releaseIfUnused(unit.imageId);
         } catch (error) {
           const reason = errorMessage(error);
           report.failed.push({ account: account.id, reason });

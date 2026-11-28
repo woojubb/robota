@@ -34,7 +34,9 @@ The package root (`runtimeParticipant`, `runtimeSelector`, `meterJournal`) is pl
 no Node built-in and runs wherever `@robota-sdk/agent-core` and `@robota-sdk/agent-roundtable` run. The
 `/session` subpath is Node-only (its manifest maps `browser` to `null`): `sessionParticipant` uses
 `node:crypto` and the peer `@robota-sdk/agent-session`, which reads and writes the filesystem for
-permissions, hooks and persistence. On Node.js the package requires 22.12 or later, matching
+permissions, hooks and persistence. The `/node` subpath
+is Node-only too (`browser` is `null`) and needs only Node built-ins and `@robota-sdk/agent-core`: it holds the
+file recovery journal below, without agent-session or its native dependency. On Node.js the package requires 22.12 or later, matching
 `@robota-sdk/agent-core` and `@robota-sdk/agent-session`.
 
 ## Capabilities by participant kind
@@ -199,6 +201,32 @@ that, so a lost reply is not a rerun. A tool effect that started without a resul
 again: the turn parks a `reconciliation` request carrying the effect's identity and parameters, and the
 host settles it by answering `{ result }` (the effect completed and produced that value) or `{ error }`
 (it did not), which becomes the effect's journaled result before the run continues.
+
+### The file journal
+
+`createFileRecoveryJournals(root)` from `@robota-sdk/agent-roundtable-robota/node` returns a
+`SessionRecoveryOptions` backed by files, so a host gets a durable journal without writing one:
+
+```ts
+import { createFileRecoveryJournals } from '@robota-sdk/agent-roundtable-robota/node';
+
+sessionParticipant({ /* ... */ recovery: createFileRecoveryJournals('/var/lib/my-host/recovery') });
+```
+
+Each scope is one append-only file, `<root>/<hex(conversationId)>/<hex(participantId)>.jsonl`, written
+owner-only (0700 directories, 0600 files; the root and everything below it are made owner-only, so give
+it a directory of its own). An append resolves after the line is flushed and, for a new file, so are the
+directory entries above it. Damage is refused, never repaired: a partial last line (a write that was
+cut off), a gap in the numbering, or an unreadable line fails the next read and append with a
+`FileRecoveryJournalError`, and the file stays as it is for you to inspect. Limits:
+
+- One writer per scope. The conversation claim does not fence the journal; two processes appending to
+  one scope corrupt it, and the second is refused only when it next reads.
+- Windows has no directory flush, so a new file's directory entry is not forced to disk there.
+- macOS `fsync` does not flush the drive's own cache, so a power cut can lose the newest acknowledged
+  entry; a process crash cannot.
+- Entries hold the participant's private history, and the files grow with turns times history; protect
+  and prune them like a session store.
 
 ## `runtimeParticipant`: a plain agent turn, no continuation
 

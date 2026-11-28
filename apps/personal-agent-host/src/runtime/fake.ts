@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 
+import { encodeEntry, readTar, TAR_TRAILER } from '../archive/tar.js';
 import {
   type GuardState,
   type IAccessCode,
@@ -10,6 +11,7 @@ import {
   type IUnitSpec,
   type IUnitStatus,
   RuntimePortError,
+  type StateArchive,
   type UnitRunState,
 } from './port.js';
 
@@ -23,8 +25,13 @@ export type FakeStep =
   | 'destroy'
   | 'inspect'
   | 'list'
-  | 'accessCode';
+  | 'accessCode'
+  | 'exportState'
+  | 'importState'
+  /** After the old state is gone and before the new one is complete. */
+  | 'importStateWiped';
 
+const ACCESS_CODE_FILE = 'server-access-code';
 const GUI_PORT = 8360;
 const WS_PORT = 8361;
 const FIRST_HOST = 10;
@@ -34,7 +41,8 @@ interface IFakeUnit {
   spec: IUnitSpec;
   state: UnitRunState;
   host: string;
-  accessCode?: string;
+  /** The state directory: relative path to file content, which is also where the access code lives. */
+  files: Map<string, Buffer>;
   startedWithKey?: string;
 }
 
@@ -144,7 +152,12 @@ export class FakeRuntime implements IRuntimePort {
     if (!unit) {
       if (this.nextHost > LAST_HOST)
         throw new RuntimePortError('failed', 'Fake address range is full');
-      unit = { spec, state: 'provisioned', host: `198.51.100.${this.nextHost++}` };
+      unit = {
+        spec,
+        state: 'provisioned',
+        host: `198.51.100.${this.nextHost++}`,
+        files: new Map(),
+      };
       this.units.set(spec.account, unit);
     }
     return this.status(spec.account, unit);
@@ -159,7 +172,9 @@ export class FakeRuntime implements IRuntimePort {
     unit.spec = spec;
     unit.state = 'running';
     unit.startedWithKey = secrets.modelApiKey;
-    unit.accessCode ??= randomBytes(12).toString('base64url');
+    if (!unit.files.has(ACCESS_CODE_FILE)) {
+      unit.files.set(ACCESS_CODE_FILE, Buffer.from(randomBytes(12).toString('base64url')));
+    }
     return this.status(spec.account, unit);
   }
 
@@ -190,9 +205,71 @@ export class FakeRuntime implements IRuntimePort {
   async accessCode(spec: IUnitSpec): Promise<IAccessCode> {
     this.enter('accessCode', spec.account);
     const unit = this.unit(spec.account);
-    if (!unit.accessCode) {
+    const code = unit.files.get(ACCESS_CODE_FILE);
+    if (!code) {
       throw new RuntimePortError('no-access-code', `Unit ${spec.account} has not started yet`);
     }
-    return { code: unit.accessCode };
+    return { code: code.toString('utf8') };
+  }
+
+  async exportState(spec: IUnitSpec): Promise<StateArchive> {
+    this.enter('exportState', spec.account);
+    const unit = this.unit(spec.account);
+    if (unit.state === 'running') {
+      throw new RuntimePortError('failed', `Unit ${spec.account} is running; stop it first`);
+    }
+    const files = [...unit.files.entries()].sort(([a], [b]) => a.localeCompare(b));
+    return (async function* () {
+      for (const [path, data] of files) {
+        yield encodeEntry(
+          {
+            path,
+            kind: 'file',
+            flag: '0',
+            mode: 0o600,
+            uid: 1000,
+            gid: 1000,
+            size: data.length,
+            mtime: 0,
+            linkname: '',
+          },
+          data,
+        );
+      }
+      yield TAR_TRAILER;
+    })();
+  }
+
+  async importState(spec: IUnitSpec, archive: StateArchive): Promise<void> {
+    this.enter('importState', spec.account);
+    const unit = this.unit(spec.account);
+    if (unit.state === 'running') {
+      throw new RuntimePortError('failed', `Unit ${spec.account} is running; stop it first`);
+    }
+    unit.files = new Map();
+    for await (const entry of readTar(archive)) {
+      const chunks: Buffer[] = [];
+      for await (const chunk of entry.body()) chunks.push(chunk);
+      if (entry.header.kind === 'file') {
+        unit.files.set(entry.header.path, Buffer.concat(chunks));
+      } else if (entry.header.kind === 'hardlink') {
+        const target = unit.files.get(entry.header.linkname);
+        if (target) unit.files.set(entry.header.path, target);
+      }
+      this.enter('importStateWiped', spec.account);
+    }
+  }
+
+  /** Writes a file into a unit's state, as the agent running in it would. */
+  writeState(account: string, path: string, content: string): void {
+    this.unit(account).files.set(path, Buffer.from(content));
+  }
+
+  readState(account: string, path: string): string | undefined {
+    return this.units.get(account)?.files.get(path)?.toString('utf8');
+  }
+
+  stateFiles(account: string): string[] {
+    return [...(this.units.get(account)?.files.keys() ?? [])].sort();
   }
 }

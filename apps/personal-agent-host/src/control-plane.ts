@@ -1,3 +1,6 @@
+import { createReadStream, createWriteStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+
 import type { SecretStore } from './accounts/secret-store.js';
 import type { AccountStore } from './accounts/store.js';
 import type { IAccountRecord, KeySource } from './accounts/types.js';
@@ -10,6 +13,16 @@ import {
   validateLimits,
   validateProvider,
 } from './accounts/validate.js';
+import type { ISpoolFile, Spool } from './archive/spool.js';
+import {
+  ArchiveError,
+  archiveSize,
+  archiveStream,
+  type IBackupManifest,
+  stateEntries,
+  storeState,
+  verifyArchive,
+} from './archive/state-archive.js';
 import type { AuditLog } from './audit.js';
 import { ALLOW_CONTAINER_SETTING, type IHostConfig, publicOrigin } from './config.js';
 import { errorMessage, HostError, REFUSAL_CODES, scrub } from './errors.js';
@@ -34,6 +47,7 @@ export interface IControlPlaneDeps {
   audit: AuditLog;
   runtime: IRuntimePort;
   proxy: IProxyPort;
+  spool: Spool;
   now?: () => number;
   backoff?: IBackoff;
 }
@@ -73,6 +87,23 @@ export interface IUpgradeResult {
   current: string[];
   /** Accounts not touched, with the reason (a suspended account cannot be proven healthy). */
   skipped: Array<{ id: string; reason: string }>;
+}
+
+/** A finished backup waiting to be read; the reader must call `release` when done with it. */
+export interface IBackupHandle {
+  manifest: IBackupManifest;
+  /** The archive's byte length, known before it is streamed. */
+  size: number;
+  stream(): AsyncIterable<Buffer>;
+  release(): Promise<void>;
+}
+
+export interface IRestoreResult {
+  account: string;
+  /** What the archive said about itself. */
+  from: IBackupManifest;
+  /** Whether the unit was running and has been started again. */
+  restarted: boolean;
 }
 
 export interface IStatusReport {
@@ -536,6 +567,261 @@ export class ControlPlane {
       await this.deps.store.put({ ...record, state: 'deleting', updatedAt: this.timestamp() });
       await this.applyRoutes();
       await this.removeEverything(record);
+    });
+  }
+
+  private archiveLimits(): { maxBytes: number } {
+    return { maxBytes: this.deps.config.backupMaxBytes };
+  }
+
+  /** Copies a runtime's state archive to a file as it is, refusing one past the backup limit. */
+  private async copyOut(archive: AsyncIterable<Uint8Array>, path: string): Promise<void> {
+    const { maxBytes } = this.archiveLimits();
+    let size = 0;
+    await pipeline(
+      archive,
+      async function* (source: AsyncIterable<Uint8Array>) {
+        for await (const chunk of source) {
+          size += chunk.length;
+          if (size > maxBytes) {
+            throw new HostError(
+              'refused',
+              `The state is larger than the backup limit of ${maxBytes} bytes; raise PERSONAL_AGENT_HOST_BACKUP_MAX_BYTES`,
+            );
+          }
+          yield chunk;
+        }
+      },
+      createWriteStream(path, { flags: 'wx', mode: 0o600 }),
+    );
+  }
+
+  private async stopUnit(id: string): Promise<void> {
+    await this.deps.runtime.stop(id).catch((error: unknown) => {
+      if (error instanceof RuntimePortError && error.code === 'unknown-account') return;
+      throw error;
+    });
+  }
+
+  /**
+   * Runs `work` with the account's unit stopped, then starts it again from the recorded image if it
+   * was meant to run (guard first, health checked). A suspended account stays suspended. If the
+   * unit cannot be started again and `putBack` is given (the work replaced state), the previous
+   * state is put back and the unit started once more; either way the account stays recorded active,
+   * so the reconcile loop keeps trying, and the failure says what was left.
+   */
+  private async whileStopped<T>(
+    record: IAccountRecord,
+    work: () => Promise<T>,
+    putBack?: () => Promise<void>,
+  ): Promise<T> {
+    const wasActive = record.state === 'active';
+    const spec = unitSpecOf(record, this.deps.config, this.deps.store.installId);
+    let secrets: Awaited<ReturnType<SecretStore['resolve']>> | undefined;
+    if (wasActive) {
+      await this.requireGuard();
+      secrets = await this.deps.secrets.resolve(record);
+      this.track(secrets.modelApiKey);
+      await this.stopUnit(record.id);
+    }
+    let result: T | undefined;
+    let failure: unknown;
+    try {
+      result = await work();
+    } catch (error) {
+      failure = error;
+    }
+    if (wasActive) {
+      const start = async (): Promise<void> => {
+        await this.deps.runtime.provision(spec);
+        await this.deps.runtime.start(spec, secrets ?? {});
+      };
+      try {
+        await start();
+      } catch (error) {
+        const note = await this.recoverStart(record.id, error, failure, start, putBack);
+        await this.applyRoutes().catch(() => undefined);
+        throw new HostError('runtime-failed', note);
+      }
+    }
+    await this.applyRoutes().catch(() => undefined);
+    if (failure !== undefined) throw failure;
+    return result as T;
+  }
+
+  private async recoverStart(
+    id: string,
+    startError: unknown,
+    failure: unknown,
+    start: () => Promise<void>,
+    putBack: (() => Promise<void>) | undefined,
+  ): Promise<string> {
+    const first = `The unit of ${id} could not be started again (${errorMessage(startError)})`;
+    if (failure !== undefined) {
+      return `${first}; the operation itself failed first: ${errorMessage(failure)}. The account stays active and the reconcile loop keeps trying`;
+    }
+    if (putBack === undefined) {
+      return `${first}; the account stays active and the reconcile loop keeps trying`;
+    }
+    try {
+      await this.stopUnit(id);
+      await putBack();
+    } catch (error) {
+      return `${first}, and the previous state could not be put back (${errorMessage(error)}); the account stays active and its state is incomplete, so restore a backup again`;
+    }
+    try {
+      await start();
+    } catch (error) {
+      return `${first}; the previous state is back but the unit does not start from it either (${errorMessage(error)}); the account stays active and the reconcile loop keeps trying`;
+    }
+    return `${first}; the previous state is back and the unit is running again`;
+  }
+
+  /**
+   * Takes a consistent copy of an account's state: the unit is stopped, its state read and checked
+   * into a private file, the unit started again, and only then is the archive handed over. If the
+   * unit cannot be started again the command fails and no archive is handed over.
+   */
+  async backup(id: string, actor = DEFAULT_ACTOR): Promise<IBackupHandle> {
+    return this.command('backup', id, actor, async () => {
+      const record = this.require(id);
+      if (record.state === 'provisioning' || record.state === 'deleting') {
+        throw new HostError('busy', `Account ${id} is ${record.state}`);
+      }
+      const spec = unitSpecOf(record, this.deps.config, this.deps.store.installId);
+      const file = this.deps.spool.file('backup');
+      try {
+        const stored = await this.whileStopped(record, async () => {
+          try {
+            return await storeState(
+              await this.deps.runtime.exportState(spec),
+              file.path,
+              this.archiveLimits(),
+            );
+          } catch (error) {
+            if (error instanceof ArchiveError) throw new HostError('refused', error.message);
+            throw error;
+          }
+        });
+        const fields = {
+          account: record.id,
+          hostname: record.hostname,
+          imageId: record.imageId,
+          createdAt: this.timestamp(),
+        };
+        const handle: IBackupHandle = {
+          manifest: {
+            format: 1,
+            ...fields,
+            contentSha256: stored.contentSha256,
+            entries: stored.entries,
+            bytes: stored.bytes,
+          },
+          size: archiveSize(stored, fields),
+          stream: () => archiveStream(file.path, stored, fields),
+          release: () => file.remove(),
+        };
+        return handle;
+      } catch (error) {
+        await file.remove();
+        throw error;
+      }
+    });
+  }
+
+  /** Receives an upload into a private file, refusing one past the backup limit. Not a command. */
+  async stageUpload(source: AsyncIterable<Uint8Array>): Promise<ISpoolFile> {
+    const file = this.deps.spool.file('upload');
+    const { maxBytes } = this.archiveLimits();
+    let size = 0;
+    try {
+      await pipeline(
+        source,
+        async function* (chunks: AsyncIterable<Uint8Array>) {
+          for await (const chunk of chunks) {
+            size += chunk.length;
+            if (size > maxBytes) {
+              throw new HostError(
+                'invalid-input',
+                `The archive is larger than the limit of ${maxBytes} bytes`,
+              );
+            }
+            yield chunk;
+          }
+        },
+        createWriteStream(file.path, { flags: 'wx', mode: 0o600 }),
+      );
+      return file;
+    } catch (error) {
+      await file.remove();
+      throw error;
+    }
+  }
+
+  /**
+   * Replaces an account's state with a backup. The archive is checked in full first; then the unit
+   * is stopped, today's state copied aside, the backup put in place and the unit started again. A
+   * failure at any step puts the previous state back, so the account is never left half-restored.
+   * The stored key is kept: a backup never holds one.
+   */
+  async restore(
+    id: string,
+    upload: ISpoolFile,
+    options: { fromOtherAccount: boolean },
+    actor = DEFAULT_ACTOR,
+  ): Promise<IRestoreResult> {
+    return this.command('restore', id, actor, async () => {
+      const record = this.require(id);
+      if (record.state === 'provisioning' || record.state === 'deleting') {
+        throw new HostError('busy', `Account ${id} is ${record.state}`);
+      }
+      let manifest: IBackupManifest;
+      try {
+        manifest = await verifyArchive(upload.path, this.archiveLimits());
+      } catch (error) {
+        if (error instanceof ArchiveError) {
+          throw new HostError('invalid-input', `The archive is refused: ${error.message}`);
+        }
+        throw error;
+      }
+      if (manifest.account !== record.id && !options.fromOtherAccount) {
+        throw new HostError(
+          'refused',
+          `This backup is of account ${manifest.account}, not ${record.id}; ` +
+            "restoring another account's state needs --from-other-account",
+        );
+      }
+      const spec = unitSpecOf(record, this.deps.config, this.deps.store.installId);
+      const previous = this.deps.spool.file('previous');
+      const putBack = async (): Promise<void> => {
+        await this.deps.runtime.importState(spec, createReadStream(previous.path));
+      };
+      try {
+        await this.whileStopped(
+          record,
+          async () => {
+            await this.deps.runtime.provision(spec);
+            await this.copyOut(await this.deps.runtime.exportState(spec), previous.path);
+            try {
+              await this.deps.runtime.importState(spec, stateEntries(upload.path));
+            } catch (error) {
+              const outcome = await putBack().then(
+                () => 'the previous state is back in place',
+                (back: unknown) =>
+                  `the previous state could not be put back either (${errorMessage(back)}); the account's state is incomplete, so restore a backup again`,
+              );
+              throw new HostError(
+                'runtime-failed',
+                `Restoring ${id} failed (${errorMessage(error)}); ${outcome}`,
+              );
+            }
+          },
+          putBack,
+        );
+      } finally {
+        await previous.remove();
+      }
+      return { account: record.id, from: manifest, restarted: record.state === 'active' };
     });
   }
 

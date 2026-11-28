@@ -7,7 +7,9 @@ export default defineConfig({
   // kept out of the `index` entry so a consumer who only wants `runtimeParticipant`/`runtimeSelector`
   // never resolves `@robota-sdk/agent-session` (and, through it, the native koffi binary of
   // `@robota-sdk/agent-os`'s file authority) just by importing this package's root.
-  entry: { index: 'src/index.ts', session: 'src/session.ts' },
+  // `node` is the `./node` subpath: the file recovery journal, which needs only Node built-ins and
+  // agent-core, so choosing files costs no native dependency.
+  entry: { index: 'src/index.ts', node: 'src/node.ts', session: 'src/session.ts' },
   format: { esm: {}, cjs: {} },
   outDir: 'dist',
   platform: 'neutral',
