@@ -1,7 +1,7 @@
 /**
  * The recovery journal on disk.
  *
- * Layout: `<root>/<hex(conversationId)>/<hex(participantId)>.jsonl`, one line per entry:
+ * Layout: `<root>/recovery-journal/<hex(conversationId)>/<hex(participantId)>.jsonl`, one line per entry:
  * `{"v":1,"n":<index>,"e":<encoded entry>}`. The entry is written with agent-core's journal value
  * codec, so the dates inside an execution record come back as dates.
  *
@@ -14,7 +14,11 @@
  * acknowledged, and it still stops the scope: the reader cannot tell it from an entry the writer was
  * about to act on, and dropping it would be a guess made on the only history there is. The same holds
  * for a line that does not parse, a gap in the numbering, or an entry that is not one of the
- * adapter's. The file is left as it is for whoever must find out what happened.
+ * adapter's, or one that lacks the fields its kind is read by. The file is left as it is for whoever
+ * must find out what happened.
+ *
+ * The journal owns the `recovery-journal` directory under the root it is given and makes it and
+ * everything below it owner-only; the root itself is the host's and is never changed.
  *
  * One writer per scope. The conversation claim does not fence this file: two processes appending to
  * one scope interleave lines, and the second is refused only when it next reads a size it did not
@@ -49,7 +53,44 @@ const LINE_VERSION = 1;
 const JOURNAL_SUFFIX = '.jsonl';
 /** An id is a path component after hex-encoding; this keeps every name under 255 bytes. */
 const MAX_ID_BYTES = 96;
-const ENTRY_KINDS: ReadonlySet<string> = new Set(['binding', 'effect-call', 'turn-end', 'record']);
+/** The directory the journal owns under the root a host passes, so a shared root is never chmodded. */
+const JOURNAL_DIRECTORY = 'recovery-journal';
+const OUTCOME_KINDS: ReadonlySet<string> = new Set(['speak', 'yield', 'wait']);
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+const hasStrings = (value: Record<string, unknown>, fields: readonly string[]): boolean =>
+  fields.every((field) => typeof value[field] === 'string');
+
+/** Why a value is not an adapter entry, or undefined when it has the fields its kind is read by. */
+function entryProblem(entry: unknown): string | undefined {
+  if (!isObject(entry)) return 'not an adapter entry';
+  switch (entry.kind) {
+    case 'binding':
+      return hasStrings(entry, ['attemptId', 'sessionId', 'executionId', 'cwd'])
+        ? undefined
+        : 'binding entry is missing a field';
+    case 'effect-call':
+      return hasStrings(entry, ['attemptId', 'actionId', 'callId'])
+        ? undefined
+        : 'effect-call entry is missing a field';
+    case 'turn-end':
+      return hasStrings(entry, ['attemptId', 'phase']) &&
+        isObject(entry.outcome) &&
+        OUTCOME_KINDS.has(entry.outcome.kind as string) &&
+        isObject(entry.checkpoint) &&
+        typeof entry.checkpoint.version === 'string' &&
+        'data' in entry.checkpoint
+        ? undefined
+        : 'turn-end entry is missing a field';
+    case 'record':
+      return isObject(entry.record) && hasStrings(entry.record, ['recordId', 'executionId', 'kind'])
+        ? undefined
+        : 'record entry is missing a field';
+    default:
+      return 'not an adapter entry';
+  }
+}
 
 /** Raised by the file recovery journal; the file is never modified to make a refusal go away. */
 export class FileRecoveryJournalError extends Error {
@@ -121,7 +162,7 @@ class Root {
   readonly synced = new Set<string>();
 
   constructor(directory: string, io: FileRecoveryJournalIo) {
-    this.directory = resolve(directory);
+    this.directory = join(resolve(directory), JOURNAL_DIRECTORY);
     this.io = io;
   }
 
@@ -218,8 +259,8 @@ class FileJournal implements RecoveryJournal {
       } catch {
         return damaged('value does not decode');
       }
-      if (typeof entry !== 'object' || entry === null || !ENTRY_KINDS.has(entry.kind))
-        return damaged('not an adapter entry');
+      const problem = entryProblem(entry);
+      if (problem) return damaged(problem);
       return entry;
     });
     return { entries, size: bytes.length };
@@ -230,8 +271,12 @@ class FileJournal implements RecoveryJournal {
   }
 
   async append(entry: RecoveryJournalEntry): Promise<void> {
-    if (typeof entry !== 'object' || entry === null || !ENTRY_KINDS.has(entry.kind))
-      throw new FileRecoveryJournalError('corrupt-entry', 'Not a recovery journal entry');
+    const problem = entryProblem(entry);
+    if (problem)
+      throw new FileRecoveryJournalError(
+        'corrupt-entry',
+        `Not a recovery journal entry (${problem})`,
+      );
     const loaded = this.#load();
     const stored = structuredClone(entry);
     const line = Buffer.from(
@@ -270,8 +315,9 @@ class FileJournal implements RecoveryJournal {
 }
 
 /**
- * The recovery journals of one directory, for `SessionRecoveryOptions`. The directory belongs to the
- * journal: it and everything below it are made owner-only. A scope's journal is one object per
+ * The recovery journals under one directory, for `SessionRecoveryOptions`. The journal owns a
+ * `recovery-journal` subdirectory of it, which and everything below it are made owner-only; the
+ * directory passed in is left as the host made it. A scope's journal is one object per
  * instance, so a scope has one writer inside a process; across processes that is the host's rule.
  */
 export function createFileRecoveryJournals(
