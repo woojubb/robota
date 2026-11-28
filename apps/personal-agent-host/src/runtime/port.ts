@@ -81,6 +81,8 @@ export class RuntimePortError extends Error {
 
 export interface IRuntimePort {
   describe(): Promise<IRuntimeDescription>;
+  /** Lets go of an image no account is recorded to run any more; never fails because it is in use. */
+  releaseImage(imageId: string): Promise<void>;
   /** The image id a reference (a tag) names right now; fails when the image does not exist. */
   resolveImage(reference: string): Promise<string>;
   /** Creates the unit's volume, network and container without starting it. Idempotent. */

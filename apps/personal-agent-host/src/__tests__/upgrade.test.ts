@@ -202,3 +202,35 @@ describe('upgrade --all', () => {
     expect(host.runtime.imageOf('carol')).toBe(old);
   });
 });
+
+describe('image retention', () => {
+  it('releases the previous image after an upgrade and the image of a deleted account', async () => {
+    const host = await twoAccounts();
+    const first = host.store.get('alice')?.imageId ?? '';
+    host.runtime.rebuildImage(IMAGE);
+    host.runtime.calls.length = 0;
+    await host.plane.upgrade('alice');
+    // bob still runs the first image, so it is kept.
+    expect(host.runtime.calls.filter((c) => c.startsWith('releaseImage:'))).toEqual([]);
+    await host.plane.upgrade('bob');
+    expect(host.runtime.calls).toContain(`releaseImage:${first}`);
+
+    host.runtime.calls.length = 0;
+    await host.plane.delete('alice', 'alice');
+    expect(host.runtime.calls.filter((c) => c.startsWith('releaseImage:'))).toEqual([]);
+    await host.plane.delete('bob', 'bob');
+    expect(host.runtime.calls.filter((c) => c.startsWith('releaseImage:'))).toHaveLength(1);
+  });
+
+  it('keeps the previous image when the upgrade is rolled back, and ignores a failed release', async () => {
+    const host = await makeHost();
+    await host.plane.add(addInput('alice'));
+    host.runtime.rebuildImage(IMAGE);
+    host.runtime.failNext('start', new Error('broken'));
+    await refusal(host.plane.upgrade('alice'));
+    expect(host.runtime.calls.some((c) => c.startsWith('releaseImage:'))).toBe(false);
+
+    host.runtime.failNext('releaseImage', new Error('image is in use'));
+    await expect(host.plane.upgrade('alice')).resolves.toMatchObject({ moved: [{ id: 'alice' }] });
+  });
+});

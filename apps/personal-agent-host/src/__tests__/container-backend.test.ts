@@ -783,4 +783,29 @@ describe('image identity', () => {
       'robota.personal-agent-host.image',
     );
   });
+
+  it('keeps the image alive with a retaining reference at start and lets go of it on release', async () => {
+    const fake = await newEngine();
+    const id = `sha256:${'f'.repeat(64)}`;
+    const runtime = runtimeOn(fake);
+    await runtime.provision(spec('alpha', { image: id }));
+    await runtime.start(spec('alpha', { image: id }), {});
+    expect(fake.requests).toContainEqual(
+      expect.objectContaining({ method: 'POST', path: `/images/${id}/tag` }),
+    );
+    expect([...fake.retained]).toEqual([`pah-${INSTALL}-images:ffffffffffff`]);
+    await runtime.releaseImage(id);
+    expect([...fake.retained]).toEqual([]);
+    await expect(runtime.releaseImage(id)).resolves.toBeUndefined();
+  });
+
+  it('refuses to start from an image the engine does not have', async () => {
+    const fake = await newEngine();
+    fake.images.add('guard:test');
+    const runtime = runtimeOn(fake);
+    await runtime.provision(spec('alpha'));
+    await expect(
+      runtime.start(spec('alpha', { image: `sha256:${'9'.repeat(64)}` }), {}),
+    ).rejects.toThrow(/does not exist on the engine/u);
+  });
 });

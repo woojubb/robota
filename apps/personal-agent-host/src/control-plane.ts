@@ -258,6 +258,13 @@ export class ControlPlane {
     await this.deps.runtime.destroy(record.id);
     await this.deps.secrets.removeAccountKey(record.id);
     await this.deps.store.remove(record.id);
+    await this.releaseIfUnused(record.imageId);
+  }
+
+  /** Best effort: an image that cannot be released only costs disk. */
+  private async releaseIfUnused(imageId: string): Promise<void> {
+    if (this.deps.store.list().some((r) => r.imageId === imageId)) return;
+    await this.deps.runtime.releaseImage(imageId).catch(() => undefined);
   }
 
   // ---- commands ----------------------------------------------------------------------------
@@ -490,6 +497,7 @@ export class ControlPlane {
       await this.deps.runtime.provision(next);
       await this.deps.runtime.start(next, secrets);
       await this.deps.store.put({ ...record, imageId, updatedAt: this.timestamp() });
+      await this.releaseIfUnused(record.imageId);
     } catch (error) {
       const reason = errorMessage(error);
       try {

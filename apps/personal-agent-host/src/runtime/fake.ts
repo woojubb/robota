@@ -16,6 +16,7 @@ import {
 export type FakeStep =
   | 'describe'
   | 'resolveImage'
+  | 'releaseImage'
   | 'provision'
   | 'start'
   | 'stop'
@@ -130,6 +131,10 @@ export class FakeRuntime implements IRuntimePort {
   async resolveImage(reference: string): Promise<string> {
     this.enter('resolveImage', reference);
     return this.images.get(reference) ?? this.rebuildImage(reference);
+  }
+
+  async releaseImage(imageId: string): Promise<void> {
+    this.enter('releaseImage', imageId);
   }
 
   async provision(spec: IUnitSpec): Promise<IUnitStatus> {

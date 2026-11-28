@@ -37,6 +37,15 @@ export function objectName(installId: string, account: string): string {
   return `pah-${installId}-${account}`;
 }
 
+/**
+ * The engine reference that keeps an image an account is recorded to run alive. An image known only
+ * by its id is removed with its last container once its tag has moved, and a rollback or a restart
+ * needs it to still exist.
+ */
+export function retainReference(installId: string, imageId: string): string {
+  return `pah-${installId}-images:${imageId.replace(/^sha256:/u, '').slice(0, 12)}`;
+}
+
 export function volumeName(installId: string, account: string): string {
   return `${objectName(installId, account)}-state`;
 }

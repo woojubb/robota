@@ -25,6 +25,7 @@ import {
   LABEL_INSTALL,
   LABEL_SLOT,
   objectName,
+  retainReference,
   slotOfAddress,
   volumeName,
   WS_PORT,
@@ -268,6 +269,29 @@ export class ContainerRuntime implements IRuntimePort {
     }
   }
 
+  /** Tags the image so it outlives every container made from it; idempotent. */
+  private async retainImage(imageId: string): Promise<void> {
+    const [repo, tag] = retainReference(this.options.installId, imageId).split(':');
+    try {
+      await this.engine.text('POST', `/images/${imageId}/tag`, { query: { repo, tag } });
+    } catch (error) {
+      if (isNotFound(error)) {
+        throw new RuntimePortError('failed', `The image ${imageId} does not exist on the engine`);
+      }
+      throw error;
+    }
+  }
+
+  async releaseImage(imageId: string): Promise<void> {
+    await this.attempt(async () => {
+      // Only the retaining reference is removed; the engine deletes the image when nothing else
+      // (a tag, a container) still uses it, and refuses while a unit runs from it.
+      await optional(
+        this.engine.text('DELETE', `/images/${retainReference(this.options.installId, imageId)}`),
+      ).catch(() => undefined);
+    });
+  }
+
   async resolveImage(reference: string): Promise<string> {
     return this.attempt(async () => {
       try {
@@ -353,6 +377,7 @@ export class ContainerRuntime implements IRuntimePort {
       }
       const name = objectName(this.options.installId, spec.account);
       if (found.container?.State.Running) return this.statusOf(spec.account, found);
+      await this.retainImage(spec.image);
       if (found.container) await this.removeContainer(name);
       await this.engine.json('POST', '/containers/create', {
         query: { name },

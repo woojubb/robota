@@ -94,6 +94,8 @@ export class FakeEngine {
   startExit: number | undefined;
   /** Images the engine knows by name; empty accepts any. */
   images = new Set<string>();
+  /** Retaining references the control plane has put on images, as `repo:tag`. */
+  retained = new Set<string>();
   /** The id each image name currently resolves to; a name not listed gets a derived one. */
   imageIds = new Map<string, string>();
 
@@ -254,6 +256,24 @@ export class FakeEngine {
         throw new Refusal(404, `No such image: ${name}`);
       }
       return send(200, { Id: this.imageIdOf(name) });
+    }
+
+    if ((match = is('POST', /^\/images\/(.+)\/tag$/u))) {
+      const id = decodeURIComponent(match[1]);
+      if (
+        this.images.size > 0 &&
+        !this.images.has(id) &&
+        ![...this.images].some((n) => this.imageIdOf(n) === id)
+      ) {
+        throw new Refusal(404, `No such image: ${id}`);
+      }
+      this.retained.add(`${url.searchParams.get('repo')}:${url.searchParams.get('tag')}`);
+      return send(201);
+    }
+    if ((match = is('DELETE', /^\/images\/(.+)$/u))) {
+      const name = decodeURIComponent(match[1]);
+      if (!this.retained.delete(name)) throw new Refusal(404, `No such image: ${name}`);
+      return send(200, []);
     }
 
     // ---- volumes ----
