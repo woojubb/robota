@@ -697,16 +697,17 @@ describe('the guard as the backend uses it', () => {
 
   it('verifies the guard without reapplying it, and says so when it went missing', async () => {
     const { fake, runtime } = await started();
-    expect((await runtime.verifyGuard()).state).toBe('verified');
+    const verify = async () => (await runtime.describe({ repair: false })).guard;
+    expect((await verify()).state).toBe('verified');
     fake.flushGuard();
-    const missing = await runtime.verifyGuard();
+    const missing = await verify();
     expect(missing).toMatchObject({ state: 'unverified', detail: 'the guard table is missing' });
     expect(fake.guardRules).toBeUndefined();
     // The repairing check puts it back, and the verify-only one then agrees.
     expect((await runtime.describe()).guard.state).toBe('verified');
-    expect((await runtime.verifyGuard()).state).toBe('verified');
+    expect((await verify()).state).toBe('verified');
     fake.tamperGuard();
-    expect((await runtime.verifyGuard()).detail).toMatch(/differs/u);
+    expect((await verify()).detail).toMatch(/differs/u);
     expect(fake.guardRules).toContain('# edited');
   });
 

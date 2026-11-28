@@ -32,7 +32,8 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
   restart puts the previous state back.
 - **The guard fails closed.** No unit starts unless the network guard is verified, and a reconcile that cannot
   restore it stops every unit. A guard removed while units run leaves them unguarded until the next reconcile
-  pass, so that interval bounds the exposure.
+  pass: normally within one interval after the previous pass, and longer while a backup, restore or upgrade holds
+  the control plane, which health also waits behind.
 - **A unit never reaches what a provider reserves for its host.** Besides private, link-local, carrier-grade NAT
   and reserved ranges, the denied destinations include a cloud provider's host-agent address that sits on a public
   address, because the provider's own filtering does not see forwarded traffic.
@@ -55,7 +56,7 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
   unhealthy host each have their own code, and every refusal carries a typed error code.
 - **Health is one answer a monitor can act on.** It is true only when the guard is verified, the routes are
   current and every active account's unit is running, healthy and on its recorded image, and otherwise names each
-  problem. It reads live state and repairs nothing, the guard included: it verifies the guard without reapplying it, so a guard that went missing is reported until the reconcile loop restores it. Only the loop repairs, and status says what it did.
+  problem. It reads live state and repairs nothing, the guard included, and so does status: they verify the guard without reapplying it, so a guard that went missing is reported until it is restored. Only the reconcile loop and the guard-first step of a start reapply the guard, and status says what the loop did.
 - **Strays are reported, never deleted.** A unit of this install with no record is surfaced for the operator.
 
 ## Invariants

@@ -101,7 +101,7 @@ describe('health', () => {
     const unverified = await host.plane.health();
     expect(unverified.problems.map((p) => p.kind)).toEqual(['guard']);
     host.runtime.setGuard('verified');
-    host.runtime.failNext('verifyGuard', new Error('engine unreachable'));
+    host.runtime.failNext('describe', new Error('engine unreachable'));
     const unreadable = await host.plane.health();
     expect(unreadable.problems).toHaveLength(1);
     expect(unreadable.problems[0].message).toContain('engine unreachable');
@@ -152,9 +152,20 @@ describe('health does not repair', () => {
     const report = await host.plane.health();
     expect(report.problems.map((p) => p.kind)).toEqual(['guard']);
     // Verify-only: the repairing check (describe) is never asked, and no unit is touched.
-    expect(host.runtime.calls).toContain('verifyGuard:');
+    expect(host.runtime.calls).toContain('describe:verify');
     expect(host.runtime.calls).not.toContain('describe:');
     expect(host.runtime.calls.some((c) => /^(start|stop|provision):/u.test(c))).toBe(false);
+  });
+});
+
+describe('status does not repair either', () => {
+  it('shows an unverified guard and leaves it for the reconcile loop', async () => {
+    const host = await makeHost();
+    await host.plane.add(addInput('alice'));
+    host.runtime.setGuard('unverified');
+    host.runtime.calls.length = 0;
+    expect((await host.plane.status()).runtime.guard).toBe('unverified');
+    expect(host.runtime.calls).not.toContain('describe:');
   });
 });
 

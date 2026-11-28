@@ -880,7 +880,7 @@ export class ControlPlane {
 
   async status(actor = DEFAULT_ACTOR): Promise<IStatusReport> {
     return this.command('status', null, actor, async () => {
-      const description = await this.deps.runtime.describe();
+      const description = await this.deps.runtime.describe({ repair: false });
       const units = new Map((await this.deps.runtime.list()).map((u) => [u.account, u]));
       const records = this.deps.store.list();
       const recorded = new Set(records.map((r) => r.id));
@@ -927,7 +927,7 @@ export class ControlPlane {
     return this.command('health', null, actor, async () => {
       const problems: IHealthProblem[] = [];
       try {
-        const guard = await this.deps.runtime.verifyGuard();
+        const { guard } = await this.deps.runtime.describe({ repair: false });
         if (guard.state !== 'verified') {
           problems.push({
             kind: 'guard',

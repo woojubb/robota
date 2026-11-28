@@ -89,12 +89,12 @@ export class RuntimePortError extends Error {
 export type StateArchive = AsyncIterable<Uint8Array>;
 
 export interface IRuntimePort {
-  describe(): Promise<IRuntimeDescription>;
   /**
-   * Reads whether the guard is intact right now and changes nothing, unlike `describe`, which
-   * reapplies a guard that is not. For a caller that must see a guard that went missing.
+   * What the backend is and whether its guard is intact. By default a guard that is not intact is
+   * reapplied first; with `repair: false` it is only read, for a caller (health, status) that must
+   * see a guard that went missing and change nothing.
    */
-  verifyGuard(): Promise<IRuntimeDescription['guard']>;
+  describe(options?: { repair?: boolean }): Promise<IRuntimeDescription>;
   /** Lets go of an image no account is recorded to run any more; never fails because it is in use. */
   releaseImage(imageId: string): Promise<void>;
   /** The image id a reference (a tag) names right now; fails when the image does not exist. */

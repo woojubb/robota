@@ -17,7 +17,6 @@ import {
 
 export type FakeStep =
   | 'describe'
-  | 'verifyGuard'
   | 'resolveImage'
   | 'releaseImage'
   | 'provision'
@@ -136,18 +135,13 @@ export class FakeRuntime implements IRuntimePort {
     };
   }
 
-  async describe(): Promise<IRuntimeDescription> {
-    this.enter('describe');
+  async describe(options: { repair?: boolean } = {}): Promise<IRuntimeDescription> {
+    this.enter('describe', options.repair === false ? 'verify' : '');
     return {
       backend: 'container',
       guard: { state: this.guardState },
       isolation: ['in-memory test double: no isolation'],
     };
-  }
-
-  async verifyGuard(): Promise<IRuntimeDescription['guard']> {
-    this.enter('verifyGuard');
-    return { state: this.guardState };
   }
 
   async resolveImage(reference: string): Promise<string> {
