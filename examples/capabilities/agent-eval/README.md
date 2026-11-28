@@ -205,3 +205,41 @@ ROBOTA_EVAL_DOCKER=1 ROBOTA_EVAL_DOCKER_IMAGE=node:22 \
 To change a task on purpose, edit `src/outcome-coding-tasks.ts`, print the new digest with
 `createHash('sha256').update(serializeCodingTasks()).digest('hex')`, and replace the constant in
 `src/outcome-coding-tasks.test.ts` in the same change, stating why the frozen baseline moved.
+
+## Coding worker, validating relay and offline run
+
+The worker runs one coding trial on the current runtime in a locked-down container. It has no network and no
+credential: its model client relays every request over stdio (no retries) to the host, and the host's relay
+decides what leaves the machine.
+
+- **Worker.** `src/outcome-coding-worker.ts` reads one `init` line (prompt, model, endpoint, directories, the
+  baseline's settings), then drives a headless session in a disposable `HOME` and product state directory. The
+  task tree is the only host mount (`/work/project`); the throwaway git repository the trust check needs and the
+  session state live in memory-backed scratch space, so the observed tree holds only what the agent wrote. The
+  runtime declares session-control tools that no option turns off; the worker cuts the declaration down to the
+  baseline's five file tools before a request leaves.
+- **Relay.** `src/outcome-coding-relay.ts` validates every request (endpoint, model, text-only content, function
+  tools from the allow-list, forced settings, authorized fields only, size, deadline) and makes exactly one
+  upstream attempt per accepted request: a server error, a throw and a timeout are reported, never repeated. A
+  refused request never reaches the reply source. The reply source is injected; offline it is a scripted one.
+- **Settings.** `src/outcome-coding-settings.ts` carries the baseline's limits, sampling and tool tiers. The
+  model, the endpoint and provider routing options are runtime values, never constants.
+- **Image.** `src/outcome-coding-image.ts` builds from an export of a commit (no history, no pack objects),
+  removes the example's tasks, verifiers and scoring and the `research/` tree, and searches the build context and
+  the built image for every solved file, every verifier, the task identifiers and credential-like file names. A
+  single hit fails the run.
+
+The fast `test` script covers all of this without Docker, including the worker end to end through the relay with
+a scripted reply source. The opt-in offline run needs a local Docker daemon and takes several minutes; run it
+once per pinned commit (the source checkout must have no tracked changes):
+
+```bash
+pnpm --filter robota-capability-agent-eval coding:offline --out <result.json>
+```
+
+It runs every task's broken and solved controls in the verifier container, the isolation canaries (network and
+name resolution refused, non-root, host path and credential-like variables invisible, writes outside the tree
+refused, an escaping symlink detected), the image search, and scripted trials with known verdicts through the
+worker and the relay, including one whose requests the relay must refuse without reaching the reply source.
+Flags: `--source`, `--revision`, `--node-image`, `--verifier-image`, `--model`, `--endpoint`, `--base` (host
+directory the daemon can mount, default the home directory), `--image` (reuse a built tag), `--keep-image`.
