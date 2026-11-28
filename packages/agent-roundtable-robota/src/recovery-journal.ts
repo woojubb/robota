@@ -89,10 +89,15 @@ export class ScopeLog {
     return this.queued(async () => structuredClone(await this.loaded()));
   }
 
-  /** A record with an id already used is a no-op when identical and a conflict when it differs. */
-  append(entry: RecoveryJournalEntry): Promise<void> {
+  /**
+   * A record with an id already used is a no-op when identical and a conflict when it differs.
+   * `guard` runs in turn, right before the entry is written, so a write queued behind others still
+   * sees what happened while it waited.
+   */
+  append(entry: RecoveryJournalEntry, guard?: () => void): Promise<void> {
     return this.queued(async () => {
       const entries = await this.loaded();
+      guard?.();
       if (entry.kind === 'record') {
         const existing = this.recordIds.get(entry.record.recordId);
         if (existing) {
@@ -141,6 +146,12 @@ export interface AttemptJournal extends IRecoverableExecutionJournal {
   readonly effectCalls: EffectCallIds;
   /** Writes what the turn returned; later reconciliation answers from it instead of rerunning. */
   turnEnd(entry: Extract<RecoveryJournalEntry, { kind: 'turn-end' }>): Promise<void>;
+  /**
+   * Ends the attempt's right to write: its appends and effect-call claims are refused with
+   * `attempt-sealed` from now on, while reads stay open so the attempt can still be reconciled.
+   * A stopped run seals the Session's writes by itself, the instant its signal aborts.
+   */
+  seal(): void;
 }
 
 /**
@@ -152,11 +163,38 @@ export interface AttemptJournal extends IRecoverableExecutionJournal {
 export function attemptJournal(
   log: ScopeLog,
   attempt: { attemptId: string; sessionId: string; cwd: string },
+  /** The run the attempt belongs to: once it is stopped, nothing the Session does is journaled. */
+  signal?: AbortSignal,
 ): AttemptJournal {
   const binding = new Map<string, Promise<void>>();
   const effectIds = new Map<string, string>();
+  let sealed = false;
+  /** The adapter's own writes: allowed until the turn has settled. */
+  const open = (): void => {
+    if (sealed)
+      throw new RuntimeParticipantError(
+        'attempt-sealed',
+        `Attempt ${attempt.attemptId} is sealed: its turn ended, so it may not write to its journal`,
+      );
+  };
+  /**
+   * The Session's writes: also refused once the run is stopped. What a Session writes while it
+   * unwinds from a stop (a result for a call it cancelled, a failure for a request it dropped) is not
+   * what happened outside, and a later reconciliation would take it for the truth; a stop therefore
+   * leaves the journal as a process death at that instant would. A provider's response is the
+   * exception (see `guardFor`): it records what the provider really returned, and its usage is
+   * reported only once it is written.
+   */
+  const writable = (): void => {
+    open();
+    if (signal?.aborted)
+      throw new RuntimeParticipantError(
+        'attempt-sealed',
+        `Attempt ${attempt.attemptId} is sealed: its run was stopped, so its Session may not write to its journal`,
+      );
+  };
 
-  function bound(executionId: string): Promise<void> {
+  function bound(executionId: string, guard: () => void): Promise<void> {
     let pending = binding.get(executionId);
     if (!pending) {
       pending = (async () => {
@@ -167,7 +205,7 @@ export function attemptJournal(
             entry.attemptId === attempt.attemptId &&
             entry.executionId === executionId,
         );
-        if (!saved) await log.append({ kind: 'binding', ...attempt, executionId });
+        if (!saved) await log.append({ kind: 'binding', ...attempt, executionId }, guard);
       })();
       binding.set(executionId, pending);
       // A failed write must not be remembered as done.
@@ -176,10 +214,15 @@ export function attemptJournal(
     return pending;
   }
 
+  const guardFor = (record: TExecutionJournalRecord): (() => void) =>
+    record.kind === 'model-response' ? open : writable;
+
   return {
     async append(record) {
-      await bound(record.executionId);
-      await log.append({ kind: 'record', record });
+      const guard = guardFor(record);
+      guard();
+      await bound(record.executionId, guard);
+      await log.append({ kind: 'record', record }, guard);
     },
     async read(executionId) {
       const records = (await log.entries()).flatMap((entry) =>
@@ -189,20 +232,30 @@ export function attemptJournal(
     },
     effectCalls: {
       async claim(record: ToolEffectStart) {
+        writable();
         const known = effectIds.get(record.actionId);
         if (known) return known;
-        await bound(record.executionId);
+        await bound(record.executionId, writable);
         const callId = `${TOOL_EFFECT_CALL_PREFIX}${crypto.randomUUID()}`;
-        await log.append({
-          kind: 'effect-call',
-          attemptId: attempt.attemptId,
-          actionId: record.actionId,
-          callId,
-        });
+        await log.append(
+          {
+            kind: 'effect-call',
+            attemptId: attempt.attemptId,
+            actionId: record.actionId,
+            callId,
+          },
+          writable,
+        );
         effectIds.set(record.actionId, callId);
         return callId;
       },
     },
-    turnEnd: (entry) => log.append(entry),
+    async turnEnd(entry) {
+      open();
+      await log.append(entry, open);
+    },
+    seal() {
+      sealed = true;
+    },
   };
 }

@@ -43,7 +43,14 @@ participant without checkpoints keeps its live session, since discarding it woul
 can restore, and may therefore retain the abandoned attempt. Only a turn stored as running, which no
 process saw settle, requires reconciliation before the conversation continues, which a durable
 conversation does itself, under its claim and in one commit, from what each participant's own journal
-proves, and refuses whole when an answer cannot be used. Cancellation does not
+proves, and refuses whole when an answer cannot be used. A durable conversation treats a stop inside a
+living process the way it treats a process stop: an attempt that had entered its runtime stays running
+under its own attempt id, its session is discarded, and the next run reconciles it, so an effect that
+completed before the stop is never run again; one that never entered its runtime ran nothing and is
+dispatched again. An interrupted selection in a durable conversation likewise leaves no call reserved:
+its calls are answered as unknown, kept counted until the host reconciles them, and the host is asked
+again. Without durability, an effect the abandoned attempt completed can run again after a cancel or a
+timeout. Cancellation does not
 establish that an external effect never happened, nor that a model call cost nothing: a call never fully
 reported keeps its bound counted until the host reconciles it, since a refund on a guess would let a
 budget be overspent. Of the calls never fully reported, only one that recovery proved never dispatched

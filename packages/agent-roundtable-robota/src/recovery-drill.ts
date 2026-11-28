@@ -47,9 +47,9 @@ export class World {
   private readonly processes: Generation[] = [];
 
   /** A new process; the previous one's claim is past its lease by the time this one starts. */
-  generation(kill?: KillGate | KillPlan): Generation {
+  generation(kill?: KillGate | KillPlan, interrupt?: () => void): Generation {
     this.skew += LEASE_MS + 1;
-    const process = new Generation(this, kill);
+    const process = new Generation(this, kill, interrupt);
     this.processes.push(process);
     return process;
   }
@@ -73,6 +73,11 @@ export class Generation {
   constructor(
     readonly world: World,
     private readonly plan?: KillGate | KillPlan,
+    /**
+     * With it, the plan's point stops the process in-process instead of killing it: `interrupt` is
+     * called there (a host cancelling, a timeout, a disposal) and everything keeps running.
+     */
+    private readonly interrupt?: () => void,
   ) {
     this.gate = gateOf(plan);
     const disk = world.disk;
@@ -84,6 +89,10 @@ export class Generation {
       const result = await op();
       const commitPlan = typeof plan === 'object' ? plan : undefined;
       if (commitPlan?.at === 'commit' && commitPlan.n === n) {
+        if (this.interrupt) {
+          this.interrupt();
+          return result;
+        }
         this.kill();
         if (commitPlan.replyLost) return this.hang();
       }
@@ -148,6 +157,13 @@ export class Generation {
           entries.push(structuredClone(entry));
           this.world.journals.set(key, entries);
         };
+        if (this.interrupt) {
+          // The entry is written either way; the stop lands just before or just after it.
+          if (when === 'before') this.interrupt();
+          write();
+          if (when === 'after') this.interrupt();
+          return;
+        }
         if (when === 'before') {
           this.kill();
           return this.hang();

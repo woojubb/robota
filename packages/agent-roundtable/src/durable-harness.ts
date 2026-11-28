@@ -137,6 +137,9 @@ export class Generation {
     return structuredClone(this.world.journal.get(scope) ?? []);
   }
 
+  /** Called once an entry reached the journal: where a test stops the process in-process instead. */
+  onAppend?: (entry: JournalEntry) => void;
+
   async append(scope: string, entry: JournalEntry): Promise<void> {
     if (this.killed) return never();
     const k = this.appends++;
@@ -144,6 +147,7 @@ export class Generation {
       const entries = this.world.journal.get(scope) ?? [];
       entries.push(structuredClone(entry));
       this.world.journal.set(scope, entries);
+      this.onAppend?.(entry);
     };
     if (this.plan?.at === 'append' && this.plan.k === k) {
       if (this.plan.written) write();
@@ -214,18 +218,24 @@ export function scriptedAgent(
     services: TurnServices,
     responses: readonly ParticipantResponse[] | undefined,
     turnsBefore: number,
+    signal: AbortSignal,
   ): Promise<{ kind: 'speak'; content: string; turnsAfter: number }> {
     const key = scope(turn);
+    // A runtime stops at its own checkpoints once cancelled: after each entry it journals.
+    const put = async (entry: JournalEntry): Promise<void> => {
+      await gen.append(key, entry);
+      signal.throwIfAborted();
+    };
     const seen = turn.context.messages.map((message) => message.content);
     let entries = await gen.readJournal(key);
     let text = entries.find((entry) => entry.t === 'response')?.text;
     if (text === undefined) {
       const callId = `model:${turn.attemptId}:${entries.filter((e) => e.t === 'intent' && e.callId.startsWith('model:')).length}`;
-      await gen.append(key, { t: 'intent', callId });
+      await put({ t: 'intent', callId });
       await services.admitModelCall({ callId, providerId: 'script', modelId: 'm', bound: BOUND });
-      await gen.append(key, { t: 'request', callId });
+      await put({ t: 'request', callId });
       text = replyTo(turn.participantId, seen);
-      await gen.append(key, { t: 'response', callId, text });
+      await put({ t: 'response', callId, text });
       await services.recordUsage(modelReport(callId));
     }
     if (options.failure?.(turn.participantId, seen)) throw new Error('scripted failure');
@@ -248,16 +258,16 @@ export function scriptedAgent(
           (e) => e.t === 'intent' && e.callId.startsWith('tool-effect:'),
         );
         callId = `tool-effect:${effectId}:${tries.length}`;
-        await gen.append(key, { t: 'intent', callId });
+        await put({ t: 'intent', callId });
         await services.admitToolEffect({ callId, toolName: 'pay', tokens: 5 });
-        await gen.append(key, { t: 'effect-start', effectId, callId });
+        await put({ t: 'effect-start', effectId, callId });
       }
       result = settled ?? (await gen.runEffect(effectId));
-      await gen.append(key, { t: 'effect-result', effectId, result });
+      await put({ t: 'effect-result', effectId, result });
       if (!started) await services.recordUsage(effectReport(callId));
     }
     const content = `${text} + ${result}`;
-    await gen.append(key, { t: 'done', content });
+    await put({ t: 'done', content });
     return { kind: 'speak', content, turnsAfter: turnsBefore + 1 };
   }
 
@@ -326,13 +336,13 @@ export function scriptedAgent(
           release: async () => {},
           session: {
             checkpoint: async () => checkpointAt(turns),
-            runTurn: async (turn, { services }) => {
-              const done = await drive(turn, services, undefined, turns);
+            runTurn: async (turn, { services, signal }) => {
+              const done = await drive(turn, services, undefined, turns, signal);
               turns = done.turnsAfter;
               return { kind: 'speak', content: done.content };
             },
-            resumeTurn: async (turn, responses, { services }) => {
-              const done = await drive(turn, services, responses, turns);
+            resumeTurn: async (turn, responses, { services, signal }) => {
+              const done = await drive(turn, services, responses, turns, signal);
               turns = done.turnsAfter;
               return { kind: 'speak', content: done.content };
             },

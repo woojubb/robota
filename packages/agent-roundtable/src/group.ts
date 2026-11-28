@@ -26,8 +26,9 @@ export async function executeGroup(options: {
   emit: (event: RoundtableEvent, signal: AbortSignal) => Promise<void>;
   start: (turn: ParticipantTurn) => Promise<void>;
   /**
-   * Discard an attempt that cancellation ended without a prepared result; it is dispatched again.
-   * `entered` says whether its session ran the attempt and so holds it in private state.
+   * Settle an attempt that cancellation ended without a prepared result. `entered` says whether its
+   * session ran the attempt, and so holds it in private state and may have acted outside the
+   * conversation; the caller decides whether it is dispatched again or reconciled.
    */
   restore: (turn: ParticipantTurn, entered: boolean) => Promise<void>;
   settle: (turn: ParticipantTurn, outcome: PreparedMember['outcome']) => Promise<void>;
