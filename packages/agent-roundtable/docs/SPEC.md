@@ -84,6 +84,13 @@ committed is delivered after a restart rather than asked for again. Recovery req
 capabilities, in the store, the participants and the selector, checked before any work, since a
 guarantee nothing enforces would be silently weaker than it claims.
 
+A file-backed store is offered for one host. It keeps every acknowledged commit, fence and receipt through the death
+of the writing process, because publishing a revision or a claim generation is one create-only step that two writers
+cannot both win, with no lock whose failure could let two owners in. It reports a damaged file rather than repairing it,
+since a silent repair could hide a lost commit or reissue a fence. It
+lives in a Node-only subpath so the package root stays neutral and dependency-free. Its durability against power loss is
+only what the platform's `fsync` gives.
+
 ## Non-goals
 
 This package implements neither a model/tool runtime nor a permission engine. It does not discover
