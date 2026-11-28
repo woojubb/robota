@@ -226,9 +226,13 @@ describe('image retention', () => {
     const host = await makeHost();
     await host.plane.add(addInput('alice'));
     host.runtime.rebuildImage(IMAGE);
+    const failed = host.runtime.rebuildImage(IMAGE);
     host.runtime.failNext('start', new Error('broken'));
     await refusal(host.plane.upgrade('alice'));
-    expect(host.runtime.calls.some((c) => c.startsWith('releaseImage:'))).toBe(false);
+    // Only the image that failed is let go; the one the account is recorded on stays.
+    expect(host.runtime.calls.filter((c) => c.startsWith('releaseImage:'))).toEqual([
+      `releaseImage:${failed}`,
+    ]);
 
     host.runtime.failNext('releaseImage', new Error('image is in use'));
     await expect(host.plane.upgrade('alice')).resolves.toMatchObject({ moved: [{ id: 'alice' }] });

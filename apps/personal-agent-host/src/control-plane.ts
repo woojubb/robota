@@ -503,6 +503,8 @@ export class ControlPlane {
       await this.releaseIfUnused(record.imageId);
     } catch (error) {
       const reason = errorMessage(error);
+      // The image that failed was retained when its start was tried; nothing is recorded on it.
+      await this.releaseIfUnused(imageId);
       try {
         await this.deps.runtime.stop(record.id).catch(() => undefined);
         await this.deps.runtime.provision(previous);

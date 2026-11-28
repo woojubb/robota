@@ -138,6 +138,9 @@ changes isolation. A desktop VM is not a server: the run on a real server stays 
   image; `--all` then stops at that account and lists which accounts moved, were skipped or failed. A suspended
   account is refused ("resume first") and `--all` lists it as skipped. An account already on the new image is
   left alone. State, key and access code are untouched; each upgrade is a short restart of that account.
+  The control plane keeps each recorded image alive with an engine reference named `pah-<install id>-images:<id>`
+  and removes it once no account is recorded on that image, so moving the `personal-agent:local` tag or
+  pruning dangling images does not take an account's image away.
 - **Host upgrade.** Run the installer again (`sudo sh docker/personal-agent-host/install.sh` from the updated
   checkout). It rebuilds the images, restarts the control plane and proxy and keeps your settings and
   accounts; units keep running and keep the image they were recorded with until you `upgrade` them.
