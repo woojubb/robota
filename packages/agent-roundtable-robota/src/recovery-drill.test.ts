@@ -94,8 +94,8 @@ const roomOptions = (
   budget: { tokens: 100_000, mode: 'strict' },
 });
 
-async function restart(world: World, turns: readonly TScriptedTurn[]) {
-  const gen = world.generation();
+async function restart(world: World, turns: readonly TScriptedTurn[], gate?: KillGate) {
+  const gen = world.generation(gate);
   const { participant, provider } = solo(gen, turns);
   const room = await loadRoundtable({
     conversationId: 'room',
@@ -105,7 +105,7 @@ async function restart(world: World, turns: readonly TScriptedTurn[]) {
       resolveSelector: (reference) => ({ reference, create: () => selector }),
     },
   });
-  return { room, provider };
+  return { room, provider, gen };
 }
 
 /** Kills the first process where `gate` says, then restarts onto a provider with only `rest` left to say. */
@@ -116,6 +116,13 @@ async function killed(gate: KillGate, rest: readonly TScriptedTurn[]) {
   const room = createRoundtable(roomOptions(gen, participant));
   expect(await runUntilKilled(gen, room)).toEqual({ killed: true });
   return { world, ...(await restart(world, rest)) };
+}
+
+/** Restarts onto a provider that never answers, killed once it has journaled its next request. */
+async function restartKilled(world: World, rest: readonly TScriptedTurn[], gate: KillGate) {
+  const next = await restart(world, rest, gate);
+  expect(await runUntilKilled(next.gen, next.room)).toEqual({ killed: true });
+  return next;
 }
 
 /** Kills at the `nth` (from zero) journaled record of `kind`. */
@@ -167,6 +174,23 @@ describe('a Session participant recovered after its process was killed', () => {
     expect(new Set(models.map((record) => record.callId)).size).toBe(3);
     await room.dispose();
   });
+
+  it.each([2, 3])(
+    'recovers after the restart is itself killed with its new request unanswered, %i times over',
+    async (kills) => {
+      // Each restart journals a new request and dies before the provider answers it.
+      const { world } = await killed(atRecord('model-request', 1, 'after'), [done]);
+      for (let n = 1; n < kills; n++)
+        await restartKilled(world, [done], atRecord('model-request', 0, 'after'));
+      const last = await restart(world, [done]);
+      expect(await last.room.run()).toMatchObject({ status: 'completed' });
+      expectFinished(last.room, world, 1);
+      expect(last.provider.calls()).toBe(1);
+      const models = usage(last.room).filter((record) => record.kind === 'model');
+      expect(new Set(models.map((record) => record.callId)).size).toBe(models.length);
+      await last.room.dispose();
+    },
+  );
 
   it('completes from a journaled final response without calling the provider', async () => {
     const { world, room, provider } = await killed(atRecord('model-response', 1, 'after'), []);

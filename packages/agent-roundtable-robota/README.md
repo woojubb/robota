@@ -189,7 +189,7 @@ survives the writer, `read()` returns every entry in append order, and `durabili
 when that holds. A journal that declares otherwise is refused with `journal-not-durable` before any
 session options are built, as are automatic compaction and hooks (`recovery-unsupported`), which write
 or run outside it. Entries are structured-cloneable values, since a journaled message holds a `Date`:
-how they reach a disk is the journal's own business, and a journal has one writer per scope.
+how they reach a disk is the journal's own business, and a journal has one writer per scope. The journal holds the participant's private history (every model request carries its messages, and each turn's end carries a checkpoint of it), so protect it like a session store; it grows with turns times history.
 
 After a restart the roundtable asks the factory what its journal proves about the attempt that was
 running. A turn that never began is refunded and started again. A request journaled without a

@@ -90,6 +90,20 @@ describe('hideUnansweredRequest', () => {
     expect(hideUnansweredRequest([...settled, request('c2'), failure('c2')])).toEqual(settled);
   });
 
+  it('hides every unanswered request at the tail, not only the latest', () => {
+    const settled = [request('c1'), response('c1')];
+    expect(hideUnansweredRequest([...settled, request('c2'), request('c3')])).toEqual(settled);
+    expect(
+      hideUnansweredRequest([
+        ...settled,
+        request('c2'),
+        request('c3'),
+        failure('c3'),
+        request('c4'),
+      ]),
+    ).toEqual(settled);
+  });
+
   it('hides the only request, leaving nothing to continue', () => {
     expect(hideUnansweredRequest([request('c1')])).toEqual([]);
   });

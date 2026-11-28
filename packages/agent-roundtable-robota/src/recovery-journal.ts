@@ -112,24 +112,28 @@ export class ScopeLog {
 }
 
 /**
- * Hides the latest model invocation when it never got a response: agent-core refuses to resume past
- * an unanswered latest request, and nothing after that request ever depended on it, so the run
+ * Hides every model invocation at the tail that never got a response: agent-core refuses to resume
+ * past an unanswered latest request, and nothing after such a request ever depended on it, so the run
  * continues from the last round that did settle and asks the provider again under a new call id.
+ * Several can pile up when a restart is itself killed before its new request is answered.
  */
 export function hideUnansweredRequest(
   records: readonly TExecutionJournalRecord[],
 ): TExecutionJournalRecord[] {
-  const index = records.findLastIndex((record) => record.kind === 'model-request');
-  if (index < 0) return [...records];
-  const request = records[index]!;
-  const callId = 'callId' in request ? request.callId : undefined;
-  const settled =
-    records.some((record) => record.kind === 'model-response' && record.callId === callId) ||
-    records
-      .slice(index + 1)
-      .some((record) => record.kind === 'model-cache-hit' || record.kind === 'managed-frame');
-  if (settled) return [...records];
-  return records.filter((record) => !('callId' in record) || record.callId !== callId);
+  let visible = [...records];
+  for (;;) {
+    const index = visible.findLastIndex((record) => record.kind === 'model-request');
+    if (index < 0) return visible;
+    const request = visible[index]!;
+    const callId = 'callId' in request ? request.callId : undefined;
+    const settled =
+      visible.some((record) => record.kind === 'model-response' && record.callId === callId) ||
+      visible
+        .slice(index + 1)
+        .some((record) => record.kind === 'model-cache-hit' || record.kind === 'managed-frame');
+    if (settled) return visible;
+    visible = visible.filter((record) => !('callId' in record) || record.callId !== callId);
+  }
 }
 
 /** What `sessionParticipant` hands the Session for one attempt of one turn. */
