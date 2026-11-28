@@ -14,7 +14,10 @@ import type { RecoveryJournal, RecoveryJournalEntry, RecoveryScope } from './rec
  * of handles whose every I/O hangs forever once the generation is killed; what it already wrote stays
  * on the shared disk, which is all a later generation sees.
  */
-/** Long enough that a stalled test machine never loses a live process's claim; a restart jumps the clock past it. */
+/**
+ * Long enough that a stalled test machine never loses a live process's claim; a restart jumps the
+ * clock past it.
+ */
 export const LEASE_MS = 10_000;
 
 /** Decides, for the n-th journal entry a generation appends, whether the kill lands before or after it is written. */
@@ -33,8 +36,6 @@ const gateOf = (kill: KillGate | KillPlan | undefined): KillGate | undefined => 
   return (_entry, n) => (n === kill.k ? (kill.written ? 'after' : 'before') : undefined);
 };
 
-const never = (): Promise<never> => new Promise(() => {});
-
 /** The disk and the outside world: everything that outlives a process. */
 export class World {
   skew = 0;
@@ -43,10 +44,19 @@ export class World {
   /** How many times each external effect actually ran. */
   readonly effects = new Map<string, number>();
 
+  private readonly processes: Generation[] = [];
+
   /** A new process; the previous one's claim is past its lease by the time this one starts. */
   generation(kill?: KillGate | KillPlan): Generation {
     this.skew += LEASE_MS + 1;
-    return new Generation(this, kill);
+    const process = new Generation(this, kill);
+    this.processes.push(process);
+    return process;
+  }
+
+  /** Ends the case: every killed process lets go of what it was hung on, so nothing of it stays alive. */
+  teardown(): void {
+    for (const process of this.processes) process.teardown();
   }
 }
 
@@ -66,16 +76,16 @@ export class Generation {
   ) {
     this.gate = gateOf(plan);
     const disk = world.disk;
-    const gated = <T>(op: () => Promise<T>): Promise<T> => (this.killed ? never() : op());
+    const gated = <T>(op: () => Promise<T>): Promise<T> => (this.killed ? this.hang() : op());
     const written = async <T>(op: () => Promise<T>): Promise<T> => {
-      if (this.killed) return never();
+      if (this.killed) return this.hang();
       const n = this.writes++;
       if (n > 400) throw new Error('A generation is writing without end');
       const result = await op();
       const commitPlan = typeof plan === 'object' ? plan : undefined;
       if (commitPlan?.at === 'commit' && commitPlan.n === n) {
         this.kill();
-        if (commitPlan.replyLost) return never();
+        if (commitPlan.replyLost) return this.hang();
       }
       return result;
     };
@@ -91,9 +101,25 @@ export class Generation {
     };
   }
 
+  private readonly hung = new Set<(reason: Error) => void>();
+  private tornDown = false;
+
+  /** An operation of a killed process, which never finishes until the case is torn down. */
+  private hang(): Promise<never> {
+    if (this.tornDown) return Promise.reject(new Error('The killed process was torn down'));
+    return new Promise<never>((_resolve, reject) => this.hung.add(reject));
+  }
+
+  /** Fails every hung operation, so the dead process's own cleanup can run and release its timers. */
+  teardown(): void {
+    this.tornDown = true;
+    for (const reject of this.hung) reject(new Error('The killed process was torn down'));
+    this.hung.clear();
+  }
+
   /** Runs an outside-world operation of this process, which a killed process never finishes. */
   io<T>(op: () => Promise<T>): Promise<T> {
-    return this.killed ? never() : op();
+    return this.killed ? this.hang() : op();
   }
 
   kill(): void {
@@ -110,11 +136,11 @@ export class Generation {
     return {
       durability,
       read: async () => {
-        if (this.killed) return never();
+        if (this.killed) return this.hang();
         return structuredClone(this.world.journals.get(key) ?? []);
       },
       append: async (entry) => {
-        if (this.killed) return never();
+        if (this.killed) return this.hang();
         const n = this.appends++;
         const when = this.gate?.(entry, n);
         const write = () => {
@@ -124,12 +150,12 @@ export class Generation {
         };
         if (when === 'before') {
           this.kill();
-          return never();
+          return this.hang();
         }
         write();
         if (when === 'after') {
           this.kill();
-          return never();
+          return this.hang();
         }
       },
     };

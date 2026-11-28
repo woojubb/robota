@@ -61,6 +61,16 @@ const reached = {
   settledThenKilled: 0,
 };
 
+/**
+ * Releases what the killed processes of a case still hold. Their hung operations fail, which lets the
+ * conversation handles they left behind finish disposing and clear their lease timers; otherwise each
+ * case would keep its whole dead process alive until the file ends.
+ */
+async function endCase(world: World): Promise<void> {
+  world.teardown();
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
 /** One restart, or a chain of them: each generation but the last is killed by its plan. */
 async function recover(
   scenario: MatrixScenario,
@@ -151,6 +161,7 @@ async function recover(
   }
   reached.parked += settled.length;
   await room.dispose();
+  await endCase(world);
   return { settled };
 }
 
@@ -161,14 +172,14 @@ const references = new Map<MatrixScenario, Reference>(
 );
 
 /**
- * The full first x second product is behind `KILL_MATRIX_FULL=1`. Each recovery leaves a little
- * memory behind, so the full product needs a larger worker heap: `VITEST_WORKER_HEAP_MB=6144`.
+ * The full first x second product is behind `KILL_MATRIX_FULL=1` and fits the default worker heap.
  *
  * CI sweeps the recoveries of two kinds of first kill: three sampled ones spread over the run (every
- * other kill point of their recovery, plus the early ones below), and every first kill whose recovery parks an effect that the host then settles. For the second kind the
- * second kill is taken at the recovery's first few writes and appends, where it reconciles, takes the
- * host's answer and hands it to the participant: a kill there leaves the host's answer committed
- * while the participant has not yet journaled it.
+ * other kill point of their recovery, plus the early ones below), and every first kill whose
+ * recovery parks an effect that the host then settles. For the second kind the second kill is taken
+ * at the recovery's first few writes and appends, where it reconciles, takes the host's answer and
+ * hands it to the participant: a kill there leaves the host's answer committed while the
+ * participant has not yet journaled it.
  */
 const FULL = process.env.KILL_MATRIX_FULL === '1';
 const EARLY_WRITES = 3;
@@ -184,7 +195,10 @@ async function recoveryPoints(
   const gen = world.generation(first);
   await drive(world, gen, createIn(scenario, gen), mode, []);
   const restart = world.generation();
-  await drive(world, restart, await loadIn(scenario, restart), mode, []);
+  const resumed = await loadIn(scenario, restart);
+  await drive(world, restart, resumed, mode, []);
+  await resumed.dispose();
+  await endCase(world);
   return plansFor(restart);
 }
 
