@@ -10,7 +10,8 @@
     "baseline:plugin": "tsx --conditions=source src/outcome-plugin.ts",
     "baseline:browser": "tsx --conditions=source src/outcome-browser.ts",
     "test": "node --import tsx --test src/outcome-*.test.ts",
-    "coding:offline": "tsx --conditions=source src/outcome-coding-offline.ts"
+    "coding:offline": "tsx --conditions=source src/outcome-coding-offline.ts",
+    "coding:live": "tsx --conditions=source src/outcome-live.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",

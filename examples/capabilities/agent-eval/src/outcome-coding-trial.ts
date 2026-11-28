@@ -248,7 +248,8 @@ export interface ITrialRecord {
   readonly cleanupError?: string;
 }
 
-const MAX_BODY_BYTES = 160_000;
+/** Largest request body the relay forwards; also bounds the credit one reservation may need. */
+export const MAX_BODY_BYTES = 160_000;
 /** What a protocol line carries besides the request body: prefix, ids, url and framing. */
 const LINE_OVERHEAD_BYTES = 16_384;
 const STDERR_LINE_LIMIT = 65_536;
