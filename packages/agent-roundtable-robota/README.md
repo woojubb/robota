@@ -187,8 +187,8 @@ Passing `recovery: { journal(scope) }` instead of `journal` makes a `sessionPart
 `RecoveryJournal` of one conversation and participant: `append(entry)` resolves only once the entry
 survives the writer, `read()` returns every entry in append order, and `durability` is `'durable'` only
 when that holds. A journal that declares otherwise is refused with `journal-not-durable` before any
-session options are built, as are automatic compaction and hooks (`recovery-unsupported`), which write
-or run outside it. Entries are structured-cloneable values, since a journaled message holds a `Date`:
+session options are built, as are automatic compaction, hooks and in-process prompt handlers
+(`recovery-unsupported`), which write, run or wait outside it. Entries are structured-cloneable values, since a journaled message holds a `Date`:
 how they reach a disk is the journal's own business, and a journal has one writer per scope. The journal holds the participant's private history (every model request carries its messages, and each turn's end carries a checkpoint of it), so protect it like a session store; it grows with turns times history.
 
 After a restart the roundtable asks the factory what its journal proves about the attempt that was
@@ -280,6 +280,13 @@ check runs when the lease opens (for `runtimeSelector`, at the start of each `se
 lease is claimed or a `Session` is constructed, so the turn fails before the refused runtime makes any
 provider call, and an agent built for the refused open is destroyed. It applies whether or not the conversation has
 limits.
+
+A model-backed tool (an advisor, a subagent tool) is not refused, but its inner provider calls are
+not journaled: an enforced participant must declare it in `paidTools` (an undeclared tool is
+refused), and a metered participant counts only its effect, not those calls. Automatic compaction is
+an allowed, metered caller for a non-durable participant, journaled under its own execution id.
+A durable (`recovery`) participant routes approvals through conversation wait requests and refuses
+`ask`, `permissionHandler` and `promptForApproval`, whose in-process wait a restart would lose.
 
 ## Enforced model calls
 
