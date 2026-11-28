@@ -369,3 +369,79 @@ It runs inside the same worker, relay and verifier; nothing about scoring change
   is exercised by a trial whose implementer prompt lacks its marker. The fast tests run them through the real worker
   as a plain process; the opt-in `coding:offline` run repeats them through the container, the relay and the
   verifier container.
+
+## Paid-run driver
+
+`src/outcome-live.ts` (`coding:live`) ties the ledger, the gateway client, the credential reader, the trial runner
+and the delegation arm into one run, in the order the plan fixes, and keeps everything a report needs in an
+evidence folder. Nothing here fixes a model, an endpoint or a provider: they are flags.
+
+```bash
+pnpm --filter robota-capability-agent-eval coding:live \
+  --arms delegation,control --trial-cap <calls per trial> --call-cap <calls in the run> --ceiling-usd <dollars> \
+  --evidence <folder outside the repository and outside the temporary directory> \
+  --credential-file <file> --credential-name <NAME> \
+  --decision-rule <url of the posted rule comment, ending in #issuecomment-<id>> \
+  --model <id> --endpoint <chat completions url> --provider <route name> \
+  [--route-options <json object merged into every request>] \
+  [--basis-prompt-usd-per-million <x> --basis-completion-usd-per-million <y>] \
+  [--base <host directory the container daemon can mount>] [--source <checkout>] [--revision <rev>] \
+  [--node-image <image>] [--verifier-image <image>] \
+  [--resume [--reconcile]] [--dry-run]
+```
+
+**Preconditions.**
+
+- A local container daemon, and the `--source` checkout (default: this repository) at the pinned revision with no
+  tracked changes; the worker image is built from a clean export of that revision and searched for solutions,
+  verifiers and credential-like files before any trial.
+- An evidence folder that does not exist yet (or holds only the files of a stopped run) **outside the repository**.
+  The driver refuses a folder inside the repository's work tree (resolved through symlinks, the main checkout of a
+  linked work tree included) and, for a real run, inside the system temporary directory. A credential file inside
+  the repository is refused too.
+- `--decision-rule` with the posted rule's comment URL: a real run does not start without it, so the rule is fixed
+  before the first call. It is recorded in the evidence.
+- `--credential-file` and `--credential-name`: exactly one named line of that file is read (absent or repeated lines
+  are refused), kept in memory only, never logged, and passed only to the host relay's upstream client; the worker
+  container gets no environment variable and no mount for it.
+- The two arms get an equal `--trial-cap`; `--call-cap` and `--ceiling-usd` go into the fresh ledger's header and
+  cannot change. Without `--basis-*` flags the ledger basis is the highest rate the endpoint listing shows.
+
+**Preflight, recorded in `preflight.json`.** The evidence and working paths; the decision rule; Docker; the credential
+(reported only as present); the catalog (the pinned model is still listed); the endpoint listing and a basis at or
+above its highest rates; a credits check covering the next reservation (repeated before every trial); the worker
+image. A failed check stops the run before any call and before a ledger exists, so the same command can be run again.
+
+**Order.** One smoke trial per arm (not counted), then three rounds over the six tasks; within a round the tasks go
+in their fixed order and the arm that goes first alternates by task and by round. A trial that ended by an
+infrastructure stop (a spend-gate stop, or a container or verifier error before an observation was written) is
+replaced by one recovery trial of the same task and arm, in the same place of the order; every other non-pass counts
+as a failed attempt, as the posted rule defines. Automatic stops (a refused admission, an unknown or failed paid call,
+a receipt or model mismatch, an unattributed call, a failed catalog, credential or credits check) end the run with no
+retry in that process; each is recorded with the ledger's state. `--resume` carries on from the evidence folder: it
+refuses while the ledger holds unsettled entries unless `--reconcile` settles them at their reservations (check the
+provider's own record first), lifts a recorded stop, and runs the recovery trial for the stopped one. A trial that
+started and never ended counts as an infrastructure stop too.
+
+**Evidence folder.** `ledger.jsonl` (the spend ledger), `events.jsonl` (every trial start and end, every stop),
+`observations/` (one write-once observation per trial, with the measures by role), `preflight.json` and `summary.json`.
+The summary holds results by arm and task, measures by role (failed attempts included), settled cost with unknown
+cost kept unknown, infrastructure stops and their recoveries, the total bound against the ceiling, the cleanup
+checks, the leak count and the outcome the decision rule computes.
+
+**Decision rule.** `src/outcome-live-decision.ts` implements the posted rule as a pure function, in both forms (with a
+control arm, and delegation alone against the baseline's measured passes). An unknown ratio is neither at most nor
+above the threshold. The settled-cost ratio is unknown when any counted trial of either arm has a call without a
+receipt or the control's settled cost is zero; the wall-latency ratio is unknown when the control's wall time is zero.
+
+**End of run.** The driver removes its image and working directory, then compares the container, image, network
+and volume listings with those taken before the image was built and checks that no trial or working directory and no
+copy of the credential is left; it then scans the whole evidence folder (and the summary) for the credential's plain,
+base64, hex and URL-encoded forms and reports only a count. The exit code is 0 only when every planned trial finished
+with no stop, every cleanup check holds and the leak count is zero.
+
+`--dry-run` runs the same driver against a loopback gateway with scripted replies and a fake credential (or the named
+one, if given): everything except the upstream call, with no cost. It still needs the daemon and the pinned
+checkout, and may keep its evidence under the temporary directory. The fast tests cover the path guard, the order,
+the recovery and stop logic, resume refusals, credential handling and the decision rule without Docker, and run the
+dry run through the real worker and relay as a plain process.
