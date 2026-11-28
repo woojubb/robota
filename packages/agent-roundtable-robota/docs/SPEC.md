@@ -50,7 +50,8 @@ dispatched is refunded, a call whose report the journal holds is settled with it
 prove either way stays counted. A turn whose end was journaled is answered from it, and an effect that
 started without a result is never started again until the host settles it. A run stopped inside a
 living process leaves the journal as a process death at that instant would: from the moment of the stop
-the Session writes nothing, so what it does while unwinding is never taken for what happened outside,
+the Session writes nothing but a provider's response, so what it does while unwinding is never taken
+for what happened outside, while the tokens a response cost are still reported,
 and once an attempt's turn settles or its session is released the attempt refuses every write while
 staying readable for reconciliation. A turn the Session finished before a stop was observed is journaled
 and returned, never discarded.
@@ -66,8 +67,8 @@ Tool traces and a runtime's private message history never enter the shared trans
 own final text does, and only once that text is non-empty after trimming. A checkpoint never carries a
 live credential, a callable value, or anything that is not the runtime's own conversation content. A
 delta a runtime streamed is always delivered, in the order it streamed, before the turn's outcome is
-returned to the caller, unless the run was stopped while it was being delivered. A resource this package leases is never handed to a second lease while the
-first is still open.
+returned to the caller, unless the run was stopped while it was being delivered. A resource this
+package leases is never handed to a second lease while the first is still open.
 
 ## Non-goals
 

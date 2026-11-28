@@ -141,3 +141,48 @@ describe('a stopped run', () => {
     await lease.release();
   });
 });
+
+describe('a model response that arrives after a stop', () => {
+  it('is journaled and its usage reported, for a metered participant', async () => {
+    const stop = new AbortController();
+    const { entries, journal } = journalOf(() => {});
+    const scripted = attested([{ text: 'late' }]);
+    let inFlight!: () => void;
+    const requested = new Promise<void>((resolve) => (inFlight = resolve));
+    let answer!: () => void;
+    const gate = new Promise<void>((resolve) => (answer = resolve));
+    const provider: IAIProvider = {
+      ...scripted,
+      chat: async (messages, options) => {
+        inFlight();
+        await gate;
+        return scripted.chat(messages, options);
+      },
+    };
+    const reported: string[] = [];
+    const metered: TurnServices = {
+      ...services,
+      recordUsage: async (report) => {
+        reported.push(report.callId);
+      },
+    };
+    const participant = participantOver(journal, provider, async () => 'paid');
+    const lease = await participant.factory.openSession({
+      conversationId: 'room',
+      participantId: 'solo',
+    });
+    const running = lease.session.runTurn(turn, {
+      signal: stop.signal,
+      onDelta: async () => {},
+      services: metered,
+    });
+    running.catch(() => {});
+    await requested;
+    stop.abort(new Error('stopped'));
+    answer();
+    await expect(running).rejects.toThrow('stopped');
+    expect(records(entries).map((record) => record.kind)).toContain('model-response');
+    expect(reported).toHaveLength(1);
+    await lease.release();
+  });
+});

@@ -181,7 +181,9 @@ export function attemptJournal(
    * The Session's writes: also refused once the run is stopped. What a Session writes while it
    * unwinds from a stop (a result for a call it cancelled, a failure for a request it dropped) is not
    * what happened outside, and a later reconciliation would take it for the truth; a stop therefore
-   * leaves the journal as a process death at that instant would.
+   * leaves the journal as a process death at that instant would. A provider's response is the
+   * exception (see `guardFor`): it records what the provider really returned, and its usage is
+   * reported only once it is written.
    */
   const writable = (): void => {
     open();
@@ -192,7 +194,7 @@ export function attemptJournal(
       );
   };
 
-  function bound(executionId: string): Promise<void> {
+  function bound(executionId: string, guard: () => void): Promise<void> {
     let pending = binding.get(executionId);
     if (!pending) {
       pending = (async () => {
@@ -203,7 +205,7 @@ export function attemptJournal(
             entry.attemptId === attempt.attemptId &&
             entry.executionId === executionId,
         );
-        if (!saved) await log.append({ kind: 'binding', ...attempt, executionId }, writable);
+        if (!saved) await log.append({ kind: 'binding', ...attempt, executionId }, guard);
       })();
       binding.set(executionId, pending);
       // A failed write must not be remembered as done.
@@ -212,11 +214,15 @@ export function attemptJournal(
     return pending;
   }
 
+  const guardFor = (record: TExecutionJournalRecord): (() => void) =>
+    record.kind === 'model-response' ? open : writable;
+
   return {
     async append(record) {
-      writable();
-      await bound(record.executionId);
-      await log.append({ kind: 'record', record }, writable);
+      const guard = guardFor(record);
+      guard();
+      await bound(record.executionId, guard);
+      await log.append({ kind: 'record', record }, guard);
     },
     async read(executionId) {
       const records = (await log.entries()).flatMap((entry) =>
@@ -229,7 +235,7 @@ export function attemptJournal(
         writable();
         const known = effectIds.get(record.actionId);
         if (known) return known;
-        await bound(record.executionId);
+        await bound(record.executionId, writable);
         const callId = `${TOOL_EFFECT_CALL_PREFIX}${crypto.randomUUID()}`;
         await log.append(
           {

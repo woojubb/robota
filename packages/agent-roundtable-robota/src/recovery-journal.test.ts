@@ -307,7 +307,7 @@ describe('a sealed attempt journal', () => {
     const attempts = attemptJournal(new ScopeLog(journal), attempt, stop.signal);
     await attempts.append(request('c1'));
     stop.abort();
-    await expect(attempts.append(response('c1'))).rejects.toEqual(refused);
+    await expect(attempts.append(failure('c1'))).rejects.toEqual(refused);
     await expect(attempts.effectCalls.claim(start('act-1') as never)).rejects.toEqual(refused);
     // What the turn returned, if the Session did return, is still written.
     await attempts.turnEnd({
@@ -318,6 +318,18 @@ describe('a sealed attempt journal', () => {
       checkpoint: { version: '1', data: null },
     });
     expect(entries.map((entry) => entry.kind)).toEqual(['binding', 'record', 'turn-end']);
+  });
+
+  it('still takes a provider response after the stop, since it records what the provider returned', async () => {
+    const { entries, journal } = memory();
+    const stop = new AbortController();
+    const attempts = attemptJournal(new ScopeLog(journal), attempt, stop.signal);
+    await attempts.append(request('c1'));
+    stop.abort();
+    await attempts.append(response('c1'));
+    expect(entries.map((entry) => entry.kind)).toEqual(['binding', 'record', 'record']);
+    attempts.seal();
+    await expect(attempts.append(response('c2'))).rejects.toEqual(refused);
   });
 
   it('does not seal another attempt of the same scope', async () => {
