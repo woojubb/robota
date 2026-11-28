@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import type { IDelegationReport } from './outcome-coding-protocol.js';
 import type { IRelayLogEntry } from './outcome-coding-relay.js';
-import { idleBetweenJobs, measureTrial } from './outcome-delegation-measures.js';
+import { idleBetweenJobs, measureTrial, overlappingJobs } from './outcome-delegation-measures.js';
 
 function entry(patch: Partial<IRelayLogEntry> & { id: number }): IRelayLogEntry {
   return {
@@ -111,4 +111,33 @@ test('a single-agent trial reports its calls under one role and no coordination 
   assert.equal(measures.coordination.calls, 0);
   assert.equal(measures.coordination.idleBetweenJobsMs, null);
   assert.equal(measures.childJobsStarted, null);
+});
+
+test('overlapping child jobs are recorded as pairs, and a serial trial has none', () => {
+  assert.equal(overlappingJobs(undefined), null);
+  assert.deepEqual(overlappingJobs(report), { count: 0, pairs: [] });
+  const overlapped: IDelegationReport = {
+    jobsStarted: 3,
+    jobsRefused: 0,
+    jobs: [
+      { agent: 'implementer', startMs: 0, endMs: 500 },
+      { agent: 'reviewer', startMs: 200, endMs: 300 },
+      // Still running when the report was taken, so it overlaps nothing that starts after it.
+      { agent: 'implementer', startMs: 600, endMs: null },
+    ],
+  };
+  assert.deepEqual(overlappingJobs(overlapped), { count: 1, pairs: [{ first: 0, second: 1 }] });
+  // Touching windows are serial, and idle time still counts an overlap as zero.
+  assert.equal(
+    overlappingJobs({
+      jobsStarted: 2,
+      jobsRefused: 0,
+      jobs: [
+        { agent: 'implementer', startMs: 0, endMs: 100 },
+        { agent: 'reviewer', startMs: 100, endMs: 150 },
+      ],
+    })?.count,
+    0,
+  );
+  assert.equal(measureTrial([], overlapped, 1).childJobOverlap?.count, 1);
 });

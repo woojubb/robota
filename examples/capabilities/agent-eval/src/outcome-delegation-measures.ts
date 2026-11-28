@@ -29,12 +29,29 @@ export interface ICoordinationMeasure {
   readonly idleBetweenJobsMs: number | null;
 }
 
+/** Two child jobs whose timed windows overlapped; the numbers are start-order positions from 0. */
+export interface IOverlappingJobs {
+  readonly first: number;
+  readonly second: number;
+}
+
+/** An observation only: the trial's verdict does not depend on it. */
+export interface IJobOverlap {
+  readonly count: number;
+  readonly pairs: readonly IOverlappingJobs[];
+}
+
 export interface ITrialMeasures {
   readonly byRole: Readonly<Record<string, IRoleMeasure>>;
   readonly total: IRoleMeasure;
   readonly coordination: ICoordinationMeasure;
   readonly childJobsStarted: number | null;
   readonly childJobsRefused: number | null;
+  /**
+   * Child jobs that ran at the same time. Idle time counts an overlap as zero, so a trial that was
+   * not serial shows here; null without a job report.
+   */
+  readonly childJobOverlap: IJobOverlap | null;
   /** Wall time of the whole trial as the host saw it. */
   readonly wallMs: number;
 }
@@ -77,6 +94,19 @@ export function idleBetweenJobs(report: IDelegationReport | undefined): number |
   return idle;
 }
 
+/** Every pair of jobs where the later one started before the earlier one ended (or never ended). */
+export function overlappingJobs(report: IDelegationReport | undefined): IJobOverlap | null {
+  if (report === undefined) return null;
+  const pairs: IOverlappingJobs[] = [];
+  report.jobs.forEach((earlier, first) => {
+    report.jobs.forEach((later, second) => {
+      if (second <= first) return;
+      if (earlier.endMs === null || later.startMs < earlier.endMs) pairs.push({ first, second });
+    });
+  });
+  return { count: pairs.length, pairs };
+}
+
 /**
  * Pure: the by-role measures of one trial from the relay's log and the worker's job report.
  * Coordination is what the parent and the reviewer spent, plus the idle time between child jobs;
@@ -110,6 +140,7 @@ export function measureTrial(
     },
     childJobsStarted: report?.jobsStarted ?? null,
     childJobsRefused: report?.jobsRefused ?? null,
+    childJobOverlap: overlappingJobs(report),
     wallMs,
   };
 }

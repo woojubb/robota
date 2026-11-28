@@ -192,6 +192,9 @@ async function main(): Promise<void> {
       : createJobLimiter({
           inner: createInProcessSubagentRunner,
           maxJobs: init.delegation.maxJobs,
+          childAgents: init.delegation.roles
+            .filter((role) => role.name !== init.delegation?.parent)
+            .map((role) => role.name),
           childOnlyTools,
         });
   const runtime = createAgentRuntime({

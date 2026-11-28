@@ -12,6 +12,7 @@ export type TDelegationBehavior =
   | 'broken-approved'
   | 'no-delegation'
   | 'fourth-spawn'
+  | 'built-in-agent'
   | 'parent-writes'
   | 'reviewer-writes'
   | 'call-cap';
@@ -30,7 +31,7 @@ export interface IDelegationScriptPlan {
 }
 
 /** One waited child job, as the model writes it. */
-function spawn(agent: 'implementer' | 'reviewer', prompt: string): IScriptedStep {
+function spawn(agent: string, prompt: string): IScriptedStep {
   return {
     toolCalls: [
       {
@@ -118,6 +119,16 @@ export function planDelegationTrial(
           spawn('reviewer', 'Judge the change again.'),
           done,
         ],
+      };
+    case 'built-in-agent':
+      return {
+        ...base,
+        // A job for an agent type that is not a child role is refused before it starts and counted,
+        // and it does not use one of the three jobs; the parent then claims the work done.
+        expectedFailures: ['not-delegated', 'verifier-failed'],
+        childJobsStarted: 0,
+        childJobsRefused: 1,
+        steps: [spawn('general-purpose', 'Make the requested change.'), done],
       };
     case 'parent-writes':
       return {
