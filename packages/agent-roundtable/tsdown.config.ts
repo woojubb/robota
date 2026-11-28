@@ -1,7 +1,9 @@
+import { builtinModules } from 'node:module';
+
 import { defineConfig } from 'tsdown';
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/testing/index.ts'],
+  entry: ['src/index.ts', 'src/node.ts', 'src/testing/index.ts'],
   format: { esm: {}, cjs: {} },
   outDir: 'dist',
   platform: 'neutral',
@@ -11,4 +13,7 @@ export default defineConfig({
     js: format === 'cjs' ? '.cjs' : '.js',
     dts: format === 'cjs' ? '.d.cts' : '.d.ts',
   }),
+  deps: {
+    neverBundle: [/^node:/, ...builtinModules],
+  },
 });
