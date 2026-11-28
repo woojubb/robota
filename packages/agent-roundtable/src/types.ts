@@ -8,10 +8,12 @@ import type {
   ResponseReceipt,
 } from './request-types';
 import type {
+  CallSettlement,
   ModelCallCapability,
   PricePolicy,
   TurnServices,
   UsageBudget,
+  UsageCallKind,
   UsageEstimator,
   UsageReconciliation,
   UsageRecord,
@@ -121,9 +123,54 @@ export interface ParticipantLease {
   release(): Promise<void>;
 }
 
+/** What a factory knows of one attempt the process stopped without seeing it settle. */
+export interface AttemptRecoveryInput {
+  conversationId: string;
+  participantId: string;
+  /** The interrupted turn exactly as stored, including the attempt id its runtime journaled under. */
+  turn: ParticipantTurn;
+  /** The private state the attempt started from; null before the participant's first turn. */
+  checkpoint: ParticipantCheckpoint | null;
+  /** Every call the attempt admitted that no report has settled; each is answered exactly once. */
+  reservedCalls: readonly { callId: string; kind: UsageCallKind }[];
+}
+
+/**
+ * A factory's answer for one interrupted attempt, drawn from its own durable journal. `calls` answers
+ * every reserved call: 'not-dispatched' only for a call proven never to have left, 'settled' with the
+ * journal's final report, 'uncertain' for the rest, which keeps the bound counted.
+ * - 'not-started': nothing was dispatched, so the turn runs again from the start under a new attempt id,
+ *   and with it new call ids; every call must be 'not-dispatched'.
+ * - 'resume': the same attempt continues from `checkpoint`, reusing what its journal holds.
+ * - 'settled': the attempt had finished; its outcome is published without running it again.
+ * - 'uncertain': an effect started without a result. The turn parks on `requests`, all of kind
+ *   'reconciliation', and the effect is never attempted again until the host settles them.
+ */
+export type AttemptRecovery = { calls: readonly CallSettlement[] } & (
+  | { kind: 'not-started' }
+  | { kind: 'resume'; checkpoint: ParticipantCheckpoint }
+  | {
+      kind: 'settled';
+      outcome: Exclude<ParticipantOutcome, { kind: 'failed' }>;
+      checkpoint: ParticipantCheckpoint;
+    }
+  | {
+      kind: 'uncertain';
+      requests: readonly ParticipantRequest[];
+      checkpoint: ParticipantCheckpoint;
+    }
+);
+
 export interface ParticipantFactory {
   /** Every opened session supports checkpointed waits and resumeTurn. */
   supportsContinuation?: boolean;
+  /**
+   * 'reconcilable' declares that `reconcile` can answer, from the factory's own durable journal, for
+   * any attempt a process stopped midway. Required by durable recovery, which refuses a factory
+   * without it before any work starts.
+   */
+  recovery?: 'none' | 'reconcilable';
+  reconcile?(input: AttemptRecoveryInput): AttemptRecovery | Promise<AttemptRecovery>;
   /** Checkpoint formats this factory can restore without migration. */
   checkpointVersions?: readonly string[];
   /**
@@ -182,6 +229,16 @@ export interface TurnSelector {
    * A budget accepts only 'none' or 'enforced'.
    */
   modelCalls?: ModelCallCapability;
+  /**
+   * 'reconcilable' declares that a selection the process stopped midway can be recovered by asking
+   * again, and that its saved progress survives a restart. Required by durable recovery.
+   */
+  recovery?: 'none' | 'reconcilable';
+  /**
+   * The same context always yields an equivalent decision, so a decision the process stopped before
+   * saving may be asked for again. Without it an interrupted selection requires the host.
+   */
+  idempotentDecision?: boolean;
   /** Omit only for a stateless policy whose progress is derived from the selection context. */
   checkpoint?(): Promise<ParticipantCheckpoint>;
   select(

@@ -10,6 +10,8 @@ export function roundRobin(): TurnSelector {
   return {
     reference: { id: 'roundtable/round-robin', version: '1' },
     modelCalls: 'none',
+    recovery: 'reconcilable',
+    idempotentDecision: true,
     select: ({ participants, turns }) => {
       const last = turns.at(-1)?.participantId;
       const next =

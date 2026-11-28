@@ -44,6 +44,12 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
   if (!envelope) throw new RoundtableError('conflict', 'Conversation does not exist');
   const state = decodeConversation(envelope, options.conversationId);
   const { definition, phase } = state;
+  // Refused before any registry call: a durable conversation's recovery rests on the store's promise.
+  if (definition.recovery === 'durable' && options.store.durability !== 'durable')
+    throw new RoundtableError(
+      'invalid-config',
+      'A durable conversation can only be loaded with a store that declares durability',
+    );
   const builtInPolicy = increments();
   const savedPolicyIsBuiltIn = definition.contextPolicy.id === builtInPolicy.reference.id;
   if (savedPolicyIsBuiltIn) sameReference(definition.contextPolicy, builtInPolicy.reference);
@@ -55,6 +61,7 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
   normalizeBudget(budget, options.pricing, options.estimator);
   if (
     !state.terminal &&
+    definition.recovery !== 'durable' &&
     (phase.kind === 'selecting' ||
       (phase.kind === 'group' &&
         phase.members.some(
@@ -93,7 +100,7 @@ export async function loadRoundtable(options: LoadRoundtableOptions): Promise<Ro
         ? phase.members.find(
             (member) =>
               member.participantId === saved.id &&
-              ['prepared', 'waiting', 'resumable'].includes(member.status),
+              ['prepared', 'waiting', 'resumable', 'recovering'].includes(member.status),
           )
         : undefined;
     if (prepared) compatible(prepared.checkpoint, registered.factory.checkpointVersions);

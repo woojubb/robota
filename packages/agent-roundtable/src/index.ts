@@ -1,6 +1,8 @@
 export type {
   ActionRequest,
   AgentParticipant,
+  AttemptRecovery,
+  AttemptRecoveryInput,
   CompletedTurn,
   ContextAssembly,
   ContextAssemblyInput,
