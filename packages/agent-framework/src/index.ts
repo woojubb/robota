@@ -388,6 +388,8 @@ export {
   buildStatusLineCommandSubcommands,
   buildPluginCommandSubcommands,
   createShowPluginManagerIntent,
+  abandonUnresolvedCommandExecutions,
+  ABANDON_EXECUTION_COMMAND_DESCRIPTION,
   clearConversationHistory,
   createShowSessionPickerIntent,
   createSessionRenameHostAction,

@@ -10,7 +10,7 @@ import {
   utf8ByteLength,
 } from '@robota-sdk/agent-core';
 import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
-import { loadSessionForUpdate } from '@robota-sdk/agent-session';
+import { abandonUnresolvedExecutions, loadSessionForUpdate } from '@robota-sdk/agent-session';
 
 import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
@@ -177,7 +177,13 @@ import type {
   TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface/session';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface/transport';
-import type { IPermissionAskContext, Session } from '@robota-sdk/agent-session';
+import type {
+  IAbandonedExecutions,
+  IExecutionJournalStore,
+  IPermissionAskContext,
+  ISessionExecutionJournal,
+  Session,
+} from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceMoveInstructions } from './interactive-session-workspace-move.js';
 export type { TInteractiveSessionOptions } from './interactive-session-options.js';
@@ -312,6 +318,8 @@ export class InteractiveSession
   /** Transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
   private readonly promptRegistry: SessionPromptRegistry;
   private readonly providerErrorGuidance?: IProviderErrorGuidance;
+  /** Where this session's managed turns are journaled; absent for a host that runs none. */
+  private readonly executionJournals?: IExecutionJournalStore;
   private readonly promptFileReferenceTag?: string;
   private readonly resolveDefaultLoopPrompt?: () => string;
   private readonly userSettingsSources: readonly IHostSettingsSource[];
@@ -385,6 +393,7 @@ export class InteractiveSession
       },
     });
     this.providerErrorGuidance = options.providerErrorGuidance;
+    this.executionJournals = options.executionJournals;
     this.promptFileReferenceTag = options.promptFileReferenceTag;
     this.resolveDefaultLoopPrompt = options.resolveDefaultLoopPrompt;
     this.userSettingsSources = options.userSettingsSources ?? [];
@@ -556,6 +565,7 @@ export class InteractiveSession
       promptFileReferenceTag: this.promptFileReferenceTag,
       getSession: () => this.session!,
       getSessionOrThrow: () => this.getSessionOrThrow(),
+      getExecutionJournal: () => this.currentExecutionJournal(),
       getCwd: () => this.getCwd(),
       files: options.host.files,
       getProjectAccess: () => this.workspace.projectAccess,
@@ -1025,6 +1035,23 @@ export class InteractiveSession
 
   protected async ensureInitialized(): Promise<void> {
     if (!this.initialized && this.initPromise) await this.initPromise;
+    // Only a session with a journal waits here, so every other session's admission takes the same
+    // number of ticks it always did.
+    const held = this.holdUnresolvedExecutions();
+    if (held !== undefined) await held;
+  }
+
+  /** Read once per session; a failed read is kept, so input stays refused rather than guessed at. */
+  private unresolvedHold: Promise<void> | undefined;
+  private holdUnresolvedExecutions(): Promise<void> | undefined {
+    const session = this.session;
+    if (session === null || this.executionJournals === undefined) return undefined;
+    this.unresolvedHold ??= (async () => {
+      const unresolved = await this.currentExecutionJournal()?.unresolved();
+      if (unresolved !== undefined && unresolved.length > 0)
+        session.holdUnresolvedExecutions(unresolved);
+    })();
+    return this.unresolvedHold;
   }
 
   protected getSessionOrThrow(): Session {
@@ -2215,6 +2242,29 @@ export class InteractiveSession
     this.autoCompactThresholdSource = source;
     this.emit('context_update', this.getContextState());
     this.persistCurrentSession();
+  }
+
+  /** The durable journal of this session's own executions, when the host supplied a store. */
+  private currentExecutionJournal(): ISessionExecutionJournal | undefined {
+    const session = this.session;
+    return session === null ? undefined : this.executionJournals?.forSession(session.getSessionId());
+  }
+
+  /**
+   * Give up every unfinished managed execution, so the session accepts input again. User-only: it
+   * discards an execution whose effects cannot be confirmed, and says so.
+   */
+  async abandonUnresolvedExecutions(): Promise<IAbandonedExecutions> {
+    await this.ensureInitialized();
+    const journal = this.currentExecutionJournal();
+    if (journal === undefined)
+      return {
+        executionIds: [],
+        message: 'This session keeps no execution journal, so no managed execution can be pending.',
+      };
+    const abandoned = await abandonUnresolvedExecutions(this.getSessionOrThrow(), journal);
+    if (abandoned.executionIds.length > 0) this.persistCurrentSession();
+    return abandoned;
   }
 
   clearConversationHistory(): void {

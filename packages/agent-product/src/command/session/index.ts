@@ -1,4 +1,5 @@
 export {
+  executeAbandonExecutionCommand,
   executeClearCommand,
   executeCostCommand,
   executeRenameCommand,
@@ -8,6 +9,7 @@ export {
 } from './session-command.js';
 export {
   SessionCommandSource,
+  createAbandonExecutionCommandEntry,
   createClearCommandEntry,
   createCostCommandEntry,
   createRenameCommandEntry,

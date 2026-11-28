@@ -316,6 +316,16 @@ These are behaviors a caller cannot infer from a type signature alone.
   model-step helper provider that the consumer passes in; none is inferred from environment
   variables or defaults. `auto` mode is available only when that helper builds the classifier and
   the provider declares that it isolates helper requests; otherwise it is refused with the reason.
+- **A managed provider's turn is admitted only through the durable journal, and a crash never
+  resumes silently.** The interactive session runs a managed turn through the journal its host
+  supplied and seals the execution when the turn settles; without a journal the turn is refused,
+  and a model-step turn never touches it. An execution the journal holds open that the session's
+  history cannot account for (the process ended mid-turn) refuses every kind of input, including
+  loops, forks and moves, because which of its tool calls ran is unknown. Only the user can
+  abandon it, with a command the model is never offered: it seals the execution first, so it can
+  never be resumed, closes any open calls as failed, and tells the user the effects may exist
+  outside the session. A code rewind restores files without touching history, so the session is
+  told about it explicitly, whether or not the rewind finished; the journal is left as it is.
 - **A rename or a redaction reaches the stored record or says why not.** `setName` writes the name
   onto the session's stored record. A redaction replaces matched text where the conversation, its
   display history and its name hold it, keeping every message, id and tool-call pairing so the

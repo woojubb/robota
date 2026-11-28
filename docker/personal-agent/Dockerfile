@@ -41,6 +41,9 @@ ENV HOME=/home/node \
     XDG_CONFIG_HOME=/home/node/.personal/xdg/config \
     XDG_CACHE_HOME=/home/node/.personal/xdg/cache
 
+# Used only when a host sets PERSONAL_AGENT_INGRESS_ADDR (see the entrypoint).
+COPY --chown=root:root --chmod=0444 docker/personal-agent/ingress-forwarder.mjs /opt/personal-agent-ingress.mjs
+
 RUN mkdir -p /home/node/.personal && chown node:node /home/node/.personal && chmod 0700 /home/node/.personal
 
 # Configures the provider from the environment on every start (the key itself is only ever read
@@ -55,6 +58,9 @@ if [ -n "${PERSONAL_AGENT_PROVIDER:-}" ]; then
   if [ -n "${PERSONAL_AGENT_API_KEY_ENV:-}" ]; then set -- "$@" --api-key-env "$PERSONAL_AGENT_API_KEY_ENV"; fi
   personal-agent configure "$@"
 fi
+# A host that runs this unit on a network of its own sets PERSONAL_AGENT_INGRESS_ADDR to the unit's
+# address; the forwarder then relays that address's ports to the agent's loopback ones.
+if [ -n "${PERSONAL_AGENT_INGRESS_ADDR:-}" ]; then node /opt/personal-agent-ingress.mjs & fi
 # Published through a TLS reverse proxy on the host when a public URL is given.
 if [ -n "${PERSONAL_AGENT_PUBLIC_URL:-}" ]; then exec personal-agent start --server; fi
 exec personal-agent start

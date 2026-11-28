@@ -1,4 +1,5 @@
 import {
+  ABANDON_EXECUTION_COMMAND_DESCRIPTION,
   CLEAR_COMMAND_DESCRIPTION,
   COST_COMMAND_DESCRIPTION,
   RENAME_COMMAND_DESCRIPTION,
@@ -8,6 +9,7 @@ import {
 
 import {
   CD_COMMAND_DESCRIPTION,
+  executeAbandonExecutionCommand,
   executeCdCommand,
   executeClearCommand,
   executeCostCommand,
@@ -27,6 +29,19 @@ export function createClearCommandEntry(): ICommand {
     description: CLEAR_COMMAND_DESCRIPTION,
     source: 'session',
     // User-only: wiping the conversation is the user's decision.
+    modelInvocable: false,
+    userInvocable: true,
+  };
+}
+
+export function createAbandonExecutionCommandEntry(): ICommand {
+  return {
+    name: 'abandon-execution',
+    displayName: 'Abandon Execution',
+    description: ABANDON_EXECUTION_COMMAND_DESCRIPTION,
+    source: 'session',
+    // User-only: it discards an execution whose effects cannot be confirmed, so only the person
+    // who can check the workspace and outside systems decides it; the model is never offered it.
     modelInvocable: false,
     userInvocable: true,
   };
@@ -121,6 +136,15 @@ function createClearSystemCommand(): ISystemCommand {
   });
 }
 
+function createAbandonExecutionSystemCommand(): ISystemCommand {
+  const entry = createAbandonExecutionCommandEntry();
+  return createSystemCommandFromEntry(entry, {
+    requiresPermission: false,
+    lifecycle: 'inline',
+    execute: executeAbandonExecutionCommand,
+  });
+}
+
 function createRenameSystemCommand(): ISystemCommand {
   const entry = createRenameCommandEntry();
   return createSystemCommandFromEntry(entry, {
@@ -169,6 +193,7 @@ function createValidateSessionSystemCommand(): ISystemCommand {
 /** The session commands, by name, each with its entry and its system command. */
 const SESSION_COMMANDS: readonly (readonly [() => ICommand, () => ISystemCommand])[] = [
   [createClearCommandEntry, createClearSystemCommand],
+  [createAbandonExecutionCommandEntry, createAbandonExecutionSystemCommand],
   [createRenameCommandEntry, createRenameSystemCommand],
   [createCdCommandEntry, createCdSystemCommand],
   [createResumeCommandEntry, createResumeSystemCommand],

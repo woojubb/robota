@@ -42,6 +42,7 @@ import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry, TGuardrail } from '@robota-sdk/agent-core';
 import type {
+  TExecutionProvider,
   IAIProvider,
   IContextWindowState,
   IToolWithEventService,
@@ -63,7 +64,8 @@ export interface IInitOptions {
   /** Additive response style applied to the composed system prompt. */
   outputStyle?: IOutputStylePrompt;
   cwd: string;
-  provider: IAIProvider;
+  provider: TExecutionProvider;
+  helperProvider?: IAIProvider;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
   baselinePermissionAllow?: readonly string[];

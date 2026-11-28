@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IInteractiveSessionStandardOptions } from '../../interactive/interactive-session-options.js';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 
 const testHost = createTestFrameworkHost();
 
@@ -27,7 +28,7 @@ const { createAgentRuntime } = await import('../session-runtime.js');
 const { createInteractiveRuntime } = await import('../../interaction/createInteractiveRuntime.js');
 const { MockInteractionChannel } = await import('../../interaction/__tests__/MockInteractionChannel.js');
 
-const provider = { name: 'recipe-test-provider' } as IInteractiveSessionStandardOptions['provider'];
+const provider = { name: 'recipe-test-provider' } as IAIProvider;
 
 beforeEach(() => buildRuntimeSession.mockClear());
 describe('public session factories project into the SessionRecipe kernel', () => {

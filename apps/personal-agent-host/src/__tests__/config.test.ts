@@ -83,8 +83,23 @@ describe('configuration from the environment', () => {
     ['PERSONAL_AGENT_HOST_ENGINE_ENDPOINT', 'ftp://engine'],
     ['PERSONAL_AGENT_HOST_ENGINE_ENDPOINT', 'http://engine.example.test:2375'],
     ['PERSONAL_AGENT_HOST_ENGINE_ENDPOINT', 'unix://relative'],
+    ['PERSONAL_AGENT_HOST_GUARD_IMAGE', 'bad image'],
+    ['PERSONAL_AGENT_HOST_DNS_SERVERS', '8.8.8.8, not-an-address'],
+    ['PERSONAL_AGENT_HOST_DNS_SERVERS', '::1'],
   ])('refuses %s=%s and names the setting', (name, value) => {
     expect(refusal({ ...VALID, [name]: value })).toContain(name);
+  });
+
+  it('reads the guard image and the resolvers units may use', () => {
+    const config = loadConfig({
+      ...VALID,
+      PERSONAL_AGENT_HOST_GUARD_IMAGE: 'guard:1',
+      PERSONAL_AGENT_HOST_DNS_SERVERS: '10.0.0.2, 192.168.1.1',
+    });
+    expect(config.guardImage).toBe('guard:1');
+    expect(config.dnsServers).toEqual(['10.0.0.2', '192.168.1.1']);
+    expect(loadConfig(VALID).guardImage).toBeUndefined();
+    expect(loadConfig(VALID).dnsServers).toBeUndefined();
   });
 
   it('refuses equal HTTP and HTTPS ports', () => {
