@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import { type IRuntimePort, type IUnitSpec, RuntimePortError } from '../port.js';
 
+/** A unit image as the engine names it: an id, never a tag. */
+export const TEST_IMAGE_ID = `sha256:${'1'.repeat(64)}`;
 const CONTRACT_KEY = 'contract-model-key-7f3a91c2';
 
 export function unitSpecFor(account: string, overrides: Partial<IUnitSpec> = {}): IUnitSpec {
   return {
     account,
     installId: 'abcdef01',
-    image: 'personal-agent:test',
+    image: TEST_IMAGE_ID,
     subnetSlot: 0,
     limits: { memoryMb: 512, cpus: 1, pids: 128 },
     hostname: `${account}.agents.example.test`,
@@ -51,6 +53,15 @@ export function describeRuntimePortContract(
       const first = await port.resolveImage(image);
       expect(first).toMatch(/^sha256:[a-f0-9]{64}$/u);
       expect(await port.resolveImage(image)).toBe(first);
+    });
+
+    it('reports the image a running unit was made from', async () => {
+      const port = await make();
+      await port.provision(specFor('alpha'));
+      await port.start(specFor('alpha'), {});
+      expect((await port.inspect('alpha')).imageId).toBe(specFor('alpha').image);
+      expect((await port.list())[0]?.imageId).toBe(specFor('alpha').image);
+      await port.destroy('alpha');
     });
 
     it('provisions idempotently', async () => {

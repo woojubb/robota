@@ -441,6 +441,9 @@ export class FakeEngine {
     return {
       Id: container.Id,
       Name: `/${container.name}`,
+      Image: /^sha256:[a-f0-9]{64}$/u.test(String(container.body.Image))
+        ? container.body.Image
+        : this.imageIdOf(String(container.body.Image)),
       State: {
         Status: status,
         Running: container.running,

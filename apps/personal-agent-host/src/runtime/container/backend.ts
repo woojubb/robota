@@ -63,6 +63,7 @@ export interface IContainerRuntimeOptions {
 
 interface IEngineContainer {
   Id: string;
+  Image?: string;
   State: { Status: string; Running: boolean; ExitCode: number; Health?: { Status: string } };
   Config: { Env?: string[] | null; Labels?: Record<string, string> | null };
 }
@@ -141,6 +142,9 @@ export class ContainerRuntime implements IRuntimePort {
     if (spec.installId !== this.options.installId) {
       throw new RuntimePortError('invalid-spec', 'The unit belongs to a different install');
     }
+    if (!IMAGE_ID.test(spec.image)) {
+      throw new RuntimePortError('invalid-spec', 'The unit image must be an engine image id');
+    }
     if (accountNetwork(this.options.subnetPool, spec.subnetSlot) === undefined) {
       throw new RuntimePortError(
         'invalid-spec',
@@ -195,6 +199,7 @@ export class ContainerRuntime implements IRuntimePort {
       endpoints: addresses
         ? { host: addresses.unit, guiPort: GUI_PORT, wsPort: WS_PORT }
         : { host: '', guiPort: 0, wsPort: 0 },
+      ...(container?.Image !== undefined ? { imageId: container.Image } : {}),
       keyConfigured: container?.State.Running === true ? keyConfigured : false,
     };
   }
@@ -376,7 +381,10 @@ export class ContainerRuntime implements IRuntimePort {
         );
       }
       const name = objectName(this.options.installId, spec.account);
-      if (found.container?.State.Running) return this.statusOf(spec.account, found);
+      // A running unit made from another image is replaced, never kept as if it were this one.
+      if (found.container?.State.Running && found.container.Image === spec.image) {
+        return this.statusOf(spec.account, found);
+      }
       await this.retainImage(spec.image);
       if (found.container) await this.removeContainer(name);
       await this.engine.json('POST', '/containers/create', {

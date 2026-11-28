@@ -144,6 +144,8 @@ changes isolation. A desktop VM is not a server: the run on a real server stays 
 - **Host upgrade.** Run the installer again (`sudo sh docker/personal-agent-host/install.sh` from the updated
   checkout). It rebuilds the images, restarts the control plane and proxy and keeps your settings and
   accounts; units keep running and keep the image they were recorded with until you `upgrade` them.
+  A host installed before accounts recorded image ids has a version 1 store, which the control plane
+  refuses by design: delete its accounts and add them again after the re-run.
 - **Backup and restore are not available yet.** Copy the state directory and the account volumes
   (`pah-<install id>-<account>-state`) yourself if the data matters; a copy taken while a unit runs may be
   inconsistent.

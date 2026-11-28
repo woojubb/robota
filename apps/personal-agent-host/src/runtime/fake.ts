@@ -115,6 +115,7 @@ export class FakeRuntime implements IRuntimePort {
       state: unit.state,
       healthy: unit.state === 'running',
       endpoints,
+      imageId: unit.spec.image,
       keyConfigured: unit.startedWithKey !== undefined,
     };
   }

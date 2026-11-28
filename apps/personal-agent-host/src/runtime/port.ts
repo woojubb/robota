@@ -49,6 +49,8 @@ export interface IUnitStatus {
   state: UnitRunState;
   healthy: boolean;
   endpoints: IUnitEndpoints;
+  /** The image id the unit's container was created from; absent while no container exists. */
+  imageId?: string;
   /** Whether the unit was started with a model key; never the key. */
   keyConfigured: boolean;
 }
