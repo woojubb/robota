@@ -1,4 +1,4 @@
-import type { ISubnetPool } from '../../config.js';
+import { IMAGE_ID, type ISubnetPool } from '../../config.js';
 import { errorMessage, scrub } from '../../errors.js';
 import {
   type IAccessCode,
@@ -22,7 +22,6 @@ import {
   cidrsOverlap,
   GUI_PORT,
   LABEL_ACCOUNT,
-  LABEL_IMAGE,
   LABEL_INSTALL,
   LABEL_SLOT,
   objectName,
@@ -269,6 +268,29 @@ export class ContainerRuntime implements IRuntimePort {
     }
   }
 
+  async resolveImage(reference: string): Promise<string> {
+    return this.attempt(async () => {
+      try {
+        const image = await this.engine.json<{ Id?: string }>(
+          'GET',
+          `/images/${encodeURI(reference)}/json`,
+        );
+        if (typeof image.Id !== 'string' || !IMAGE_ID.test(image.Id)) {
+          throw new RuntimePortError('failed', `The engine returned no usable id for ${reference}`);
+        }
+        return image.Id;
+      } catch (error) {
+        if (isNotFound(error)) {
+          throw new RuntimePortError(
+            'failed',
+            `The unit image ${reference} does not exist on the engine; build it first`,
+          );
+        }
+        throw error;
+      }
+    });
+  }
+
   async provision(spec: IUnitSpec): Promise<IUnitStatus> {
     this.checkSpec(spec);
     return this.attempt(async () => {
@@ -439,11 +461,12 @@ export class ContainerRuntime implements IRuntimePort {
     });
   }
 
-  async accessCode(account: string): Promise<IAccessCode> {
+  async accessCode(spec: IUnitSpec): Promise<IAccessCode> {
+    this.checkSpec(spec);
+    const account = spec.account;
     return this.attempt(async () => {
       const { found } = await this.existing(account);
-      const image = found.volume?.Labels?.[LABEL_IMAGE];
-      if (!found.volume || !image) {
+      if (!found.volume) {
         throw new RuntimePortError('no-access-code', `Unit ${account} has no state yet`);
       }
       // The volume is read by a throwaway container, so the code is available stopped or running.
@@ -451,7 +474,7 @@ export class ContainerRuntime implements IRuntimePort {
         this.engine,
         this.options.installId,
         {
-          image,
+          image: spec.image,
           entrypoint: ['cat', `${READ_MOUNT}/${ACCESS_CODE_FILE}`],
           mounts: [{ volume: found.volume.Name, target: READ_MOUNT }],
         },

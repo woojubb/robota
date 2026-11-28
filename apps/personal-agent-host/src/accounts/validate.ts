@@ -1,4 +1,4 @@
-import { IMAGE, validateBaseDomain } from '../config.js';
+import { IMAGE_ID, validateBaseDomain } from '../config.js';
 import { HostError } from '../errors.js';
 import type { IProviderInfo, IUnitLimits, RuntimeBackend } from '../runtime/port.js';
 import type { AccountState, IAccountRecord, KeySource } from './types.js';
@@ -138,8 +138,8 @@ export function parseAccountRecord(value: unknown, where: string): IAccountRecor
       corrupt('hostname must be <id>.<valid DNS domain>');
     }
     if (!STATES.includes(r.state as AccountState)) corrupt('unknown state');
-    if (typeof r.image !== 'string' || !IMAGE.test(r.image))
-      corrupt('image is not a valid reference');
+    if (typeof r.imageId !== 'string' || !IMAGE_ID.test(r.imageId))
+      corrupt('imageId is not an image id');
     if (typeof r.createdAt !== 'string' || !TIMESTAMP.test(r.createdAt))
       corrupt('createdAt is invalid');
     if (typeof r.updatedAt !== 'string' || !TIMESTAMP.test(r.updatedAt))
@@ -155,7 +155,7 @@ export function parseAccountRecord(value: unknown, where: string): IAccountRecor
       keySource: validateKeySource(r.keySource),
       limits: validateLimits(r.limits),
       subnetSlot: r.subnetSlot as number,
-      image: r.image as string,
+      imageId: r.imageId as string,
       createdAt: r.createdAt as string,
       updatedAt: r.updatedAt as string,
     };

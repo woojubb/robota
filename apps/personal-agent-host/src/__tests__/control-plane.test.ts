@@ -333,7 +333,13 @@ describe('access code, list, show and status', () => {
     expect(status.runtime).toMatchObject({ backend: 'container', guard: 'verified' });
     expect(status.routesHash).toMatch(/^[a-f0-9]{16}$/u);
     expect(status.accounts).toEqual([
-      { id: 'alice', desired: 'active', actual: 'running', healthy: true },
+      {
+        id: 'alice',
+        desired: 'active',
+        actual: 'running',
+        healthy: true,
+        imageId: host.store.get('alice')?.imageId,
+      },
     ]);
     expect(status.orphans).toEqual(['stray']);
     expect(status.domainMismatches).toEqual([]);

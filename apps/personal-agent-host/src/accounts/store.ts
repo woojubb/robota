@@ -7,7 +7,7 @@ import { assertOwnerOnly, ensurePrivateDir, isNotFound, writeFileAtomic } from '
 import type { IAccountRecord } from './types.js';
 import { parseAccountRecord } from './validate.js';
 
-const STORE_VERSION = 1;
+const STORE_VERSION = 2;
 const INSTALL_ID = /^[a-f0-9]{8}$/u;
 
 interface IStoreFile {

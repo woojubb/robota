@@ -160,7 +160,6 @@ describe('the unit as the engine is asked to build it', () => {
       'robota.personal-agent-host.install': INSTALL,
       'robota.personal-agent-host.account': 'alpha',
       'robota.personal-agent-host.slot': '0',
-      'robota.personal-agent-host.image': 'personal-agent:test',
       'robota.personal-agent-host.kind': 'unit',
     };
     expect(fake.containerNames()).toEqual([NAME]);
@@ -231,7 +230,7 @@ describe('secrets', () => {
       await runtime.describe(),
       await runtime.inspect('alpha'),
       await runtime.list(),
-      await runtime.accessCode('alpha'),
+      await runtime.accessCode(spec('alpha')),
     ]);
     expect(shown).not.toContain(KEY);
   });
@@ -470,12 +469,12 @@ describe('lifecycle', () => {
 
   it('starts a stopped unit again with the same address and access code', async () => {
     const { runtime } = await started();
-    const code = (await runtime.accessCode('alpha')).code;
+    const code = (await runtime.accessCode(spec('alpha'))).code;
     await runtime.stop('alpha');
-    expect((await runtime.accessCode('alpha')).code).toBe(code);
+    expect((await runtime.accessCode(spec('alpha'))).code).toBe(code);
     const again = await runtime.start(spec('alpha'), { modelApiKey: KEY });
     expect(again.endpoints.host).toBe('10.200.0.2');
-    expect((await runtime.accessCode('alpha')).code).toBe(code);
+    expect((await runtime.accessCode(spec('alpha'))).code).toBe(code);
   });
 
   it('leaves a unit that is already running as it is', async () => {
@@ -501,7 +500,7 @@ describe('lifecycle', () => {
 
   it('reads the access code from the volume with a throwaway container that has no network and no write access', async () => {
     const { fake, runtime } = await started();
-    await runtime.accessCode('alpha');
+    await runtime.accessCode(spec('alpha'));
     const helper = fake.requests
       .filter(
         (r) =>
@@ -726,5 +725,62 @@ describe('the guard as the backend uses it', () => {
     const description = await runtimeOn(await newEngine()).describe();
     expect(description.backend).toBe('container');
     expect(description.isolation.join(' ')).toMatch(/trusted accounts only/u);
+  });
+});
+
+describe('image identity', () => {
+  it('resolves a reference to the engine image id through the image endpoint', async () => {
+    const fake = await newEngine();
+    fake.imageIds.set('personal-agent:local', `sha256:${'c'.repeat(64)}`);
+    const runtime = runtimeOn(fake);
+    expect(await runtime.resolveImage('personal-agent:local')).toBe(`sha256:${'c'.repeat(64)}`);
+    expect(fake.requests.at(-1)).toMatchObject({
+      method: 'GET',
+      path: '/images/personal-agent:local/json',
+    });
+  });
+
+  it('says to build the image when the engine does not have it', async () => {
+    const fake = await newEngine();
+    fake.images.add('other:image');
+    await expect(runtimeOn(fake).resolveImage('personal-agent:local')).rejects.toThrow(
+      /does not exist on the engine; build it first/u,
+    );
+  });
+
+  it('starts the unit and runs the access-code helper from the id in the spec', async () => {
+    const fake = await newEngine();
+    const id = `sha256:${'d'.repeat(64)}`;
+    const runtime = runtimeOn(fake);
+    await runtime.provision(spec('alpha', { image: id }));
+    await runtime.start(spec('alpha', { image: id }), {});
+    expect(fake.container(NAME)?.Image).toBe(id);
+    await runtime.accessCode(spec('alpha', { image: id }));
+    const helper = fake.requests
+      .filter(
+        (r) =>
+          r.path === '/containers/create' &&
+          r.body?.Labels?.['robota.personal-agent-host.kind'] === 'helper',
+      )
+      .at(-1)?.body;
+    expect(helper?.Image).toBe(id);
+  });
+
+  it('reads the access code although the image the volume was made for no longer exists', async () => {
+    const fake = await newEngine();
+    const runtime = runtimeOn(fake);
+    await runtime.provision(spec('alpha', { image: 'personal-agent:old' }));
+    await runtime.start(spec('alpha', { image: 'personal-agent:old' }), {});
+    const code = (await runtime.accessCode(spec('alpha', { image: 'personal-agent:old' }))).code;
+    const current = `sha256:${'e'.repeat(64)}`;
+    fake.images.add(current);
+    expect((await runtime.accessCode(spec('alpha', { image: current }))).code).toBe(code);
+  });
+
+  it('puts no image label on the volume, so nothing can rely on a stale one', async () => {
+    const { fake } = await started();
+    expect(Object.keys(fake.volume(`${NAME}-state`) ?? {})).not.toContain(
+      'robota.personal-agent-host.image',
+    );
   });
 });

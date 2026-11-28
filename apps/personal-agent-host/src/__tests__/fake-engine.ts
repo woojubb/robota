@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 
 import { cidrsOverlap } from '../runtime/container/names.js';
@@ -92,8 +92,15 @@ export class FakeEngine {
   healthyAfterPolls = 1;
   /** Starting a unit leaves it exited with this code when set. */
   startExit: number | undefined;
-  /** Images the engine knows; empty accepts any. */
+  /** Images the engine knows by name; empty accepts any. */
   images = new Set<string>();
+  /** The id each image name currently resolves to; a name not listed gets a derived one. */
+  imageIds = new Map<string, string>();
+
+  /** The id a name resolves to. */
+  imageIdOf(name: string): string {
+    return this.imageIds.get(name) ?? `sha256:${createHash('sha256').update(name).digest('hex')}`;
+  }
 
   async listen(): Promise<void> {
     const dir = await tempDir();
@@ -240,6 +247,15 @@ export class FakeEngine {
       return send(200, { ApiVersion: this.apiVersion, MinAPIVersion: this.minApiVersion });
     }
 
+    // ---- images ----
+    if ((match = is('GET', /^\/images\/(.+)\/json$/u))) {
+      const name = decodeURIComponent(match[1]);
+      if (this.images.size > 0 && !this.images.has(name)) {
+        throw new Refusal(404, `No such image: ${name}`);
+      }
+      return send(200, { Id: this.imageIdOf(name) });
+    }
+
     // ---- volumes ----
     if (is('POST', /^\/volumes\/create$/u)) {
       const name = String(body?.Name);
@@ -328,8 +344,9 @@ export class FakeEngine {
       if (this.find(name))
         throw new Refusal(409, `Conflict. The container name "${name}" is already in use`);
       const image = String(body?.Image);
-      if (this.images.size > 0 && !this.images.has(image))
-        throw new Refusal(404, `No such image: ${image}`);
+      const known =
+        this.images.has(image) || [...this.images].some((n) => this.imageIdOf(n) === image);
+      if (this.images.size > 0 && !known) throw new Refusal(404, `No such image: ${image}`);
       const container: IFakeContainer = {
         Id: randomBytes(32).toString('hex'),
         name,

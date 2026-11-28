@@ -73,6 +73,7 @@ sudo personal-agent-host show alice
 sudo personal-agent-host access-code alice    # the code alice enters at https://alice.<domain>
 sudo personal-agent-host suspend alice        # stops the unit, keeps its data; the address answers 503
 sudo personal-agent-host resume alice
+sudo personal-agent-host upgrade alice        # or --all: moves to the rebuilt unit image, see Operations
 sudo personal-agent-host delete alice         # asks you to type the id back; removes the unit, data and key
 sudo personal-agent-host status               # engine, guard, proxy, and each unit's desired and actual state
 ```
@@ -128,9 +129,21 @@ changes isolation. A desktop VM is not a server: the run on a real server stays 
 - **Logs.** `docker compose -f docker/personal-agent-host/compose.yaml logs control-plane proxy`. A unit's
   log (its access code appears there too) is `docker logs <unit>`, readable by root only.
 - **The audit trail** is `audit.log` in the state directory: every command and its outcome, never a key.
-- **Upgrade, backup and restore are not available yet.** Running the installer again rebuilds and restarts
-  the control plane and proxy with your settings and accounts, but it is a repair, not a tested upgrade path.
-  Copy the state directory and the engine's `personal-agent-host-*` volumes yourself if the data matters.
+- **Account upgrade.** An account runs the image id recorded for it (`show` prints it in short form), not
+  the `personal-agent:local` tag, so rebuilding the tag changes nothing by itself. Rebuild the unit image
+  (`docker compose --profile build build unit-image` in the bundle directory, or the installer below), then
+  `sudo personal-agent-host upgrade --all` (or `upgrade <id>`). Each active account in turn is stopped and
+  started from the new image, and the new image is recorded only once its unit answers healthy. If it does not,
+  the previous image is started again, the command fails with the reason and the account stays on the previous
+  image; `--all` then stops at that account and lists which accounts moved, were skipped or failed. A suspended
+  account is refused ("resume first") and `--all` lists it as skipped. An account already on the new image is
+  left alone. State, key and access code are untouched; each upgrade is a short restart of that account.
+- **Host upgrade.** Run the installer again (`sudo sh docker/personal-agent-host/install.sh` from the updated
+  checkout). It rebuilds the images, restarts the control plane and proxy and keeps your settings and
+  accounts; units keep running and keep the image they were recorded with until you `upgrade` them.
+- **Backup and restore are not available yet.** Copy the state directory and the account volumes
+  (`pah-<install id>-<account>-state`) yourself if the data matters; a copy taken while a unit runs may be
+  inconsistent.
 - **Removing it.** Delete every account first (`delete`), then `docker compose down` in the bundle directory,
   and remove `/var/lib/personal-agent-host`, the compose volumes, `/usr/local/bin/personal-agent-host` and the
   firewall table the host leaves behind (`nft delete table inet pah_<install id>`; `nft list tables` shows it).

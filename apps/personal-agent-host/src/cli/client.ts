@@ -3,9 +3,9 @@ import { parseArgs } from 'node:util';
 import { adminPaths } from '../admin/paths.js';
 import { adminRequest, UnreachableError } from '../admin/client.js';
 import { EXIT, exitCodeFor } from '../admin/protocol.js';
-import type { IAccountView, IStatusReport } from '../control-plane.js';
+import type { IAccountView, IStatusReport, IUpgradeResult } from '../control-plane.js';
 import { errorMessage, HostError } from '../errors.js';
-import { formatAccount, formatList, formatStatus } from './format.js';
+import { formatAccount, formatList, formatStatus, formatUpgrade } from './format.js';
 import { type ICliIo, readAll, readHidden, readLine } from './io.js';
 
 export const USAGE = `Usage: personal-agent-host <command>
@@ -23,6 +23,8 @@ Commands:
   delete <id> [--confirm <id>]
                               Remove an account and its state; the id must be typed back
   access-code <id>            Print the account's access code
+  upgrade <id> | --all        Move accounts to the unit image now configured; each new image
+                              is proven healthy first, else the previous one is restored
   list | show <id> | status   Inspect accounts and the host
 
 Options: --json prints the machine-readable result. The state directory comes from
@@ -39,6 +41,7 @@ const CLIENT_COMMANDS = [
   'resume',
   'delete',
   'access-code',
+  'upgrade',
   'list',
   'show',
   'status',
@@ -60,6 +63,7 @@ const OPTIONS = {
   cpus: { type: 'string' },
   pids: { type: 'string' },
   confirm: { type: 'string' },
+  all: { type: 'boolean' },
 } as const;
 
 const ALLOWED: Record<ClientCommand, readonly string[]> = {
@@ -78,6 +82,7 @@ const ALLOWED: Record<ClientCommand, readonly string[]> = {
   suspend: ['json'],
   resume: ['json'],
   'access-code': ['json'],
+  upgrade: ['json', 'all'],
   list: ['json'],
   show: ['json'],
   status: ['json'],
@@ -110,7 +115,11 @@ function parse(command: ClientCommand, args: string[]) {
       throw new UsageError(`--${name} does not apply to ${command}`);
     }
   }
-  const expected = NEEDS_ID.has(command) ? 1 : 0;
+  if (command === 'upgrade' && (parsed.values.all === true) === parsed.positionals.length > 0) {
+    throw new UsageError('upgrade needs one account id, or --all');
+  }
+  const expected =
+    command === 'upgrade' ? parsed.positionals.length : NEEDS_ID.has(command) ? 1 : 0;
   if (parsed.positionals.length !== expected) {
     throw new UsageError(
       expected === 1 ? `${command} needs exactly one account id` : `${command} takes no arguments`,
@@ -193,6 +202,14 @@ async function execute(
         confirmation: await confirmation(values, id ?? '', io),
       });
       return { result, text: `Deleted ${id}\n` };
+    }
+    case 'upgrade': {
+      const result = await adminRequest<IUpgradeResult>(
+        socket,
+        'POST',
+        id === undefined ? '/v1/upgrade' : `${path}/upgrade`,
+      );
+      return { result, text: formatUpgrade(result) };
     }
     case 'access-code': {
       const result = await adminRequest<{ code: string }>(socket, 'POST', `${path}/access-code`);

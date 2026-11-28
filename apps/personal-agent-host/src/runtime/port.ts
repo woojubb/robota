@@ -22,6 +22,7 @@ export interface IProviderInfo {
 export interface IUnitSpec {
   account: string;
   installId: string;
+  /** An engine image id, never a mutable tag. */
   image: string;
   subnetSlot: number;
   limits: IUnitLimits;
@@ -80,6 +81,8 @@ export class RuntimePortError extends Error {
 
 export interface IRuntimePort {
   describe(): Promise<IRuntimeDescription>;
+  /** The image id a reference (a tag) names right now; fails when the image does not exist. */
+  resolveImage(reference: string): Promise<string>;
   /** Creates the unit's volume, network and container without starting it. Idempotent. */
   provision(spec: IUnitSpec): Promise<IUnitStatus>;
   /** Starts a provisioned unit with its secrets. Refused while the guard is not verified. */
@@ -91,5 +94,9 @@ export interface IRuntimePort {
   inspect(account: string): Promise<IUnitStatus>;
   /** Every unit of this install, recorded or not. */
   list(): Promise<IUnitStatus[]>;
-  accessCode(account: string): Promise<IAccessCode>;
+  /**
+   * Reads the access code from the unit's state, stopped or running, with the image the account
+   * is recorded to run.
+   */
+  accessCode(spec: IUnitSpec): Promise<IAccessCode>;
 }

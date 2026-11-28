@@ -4,7 +4,6 @@ import type { ISubnetPool } from '../../config.js';
 export const LABEL_INSTALL = 'robota.personal-agent-host.install';
 export const LABEL_ACCOUNT = 'robota.personal-agent-host.account';
 export const LABEL_SLOT = 'robota.personal-agent-host.slot';
-export const LABEL_IMAGE = 'robota.personal-agent-host.image';
 export const LABEL_KIND = 'robota.personal-agent-host.kind';
 
 /**

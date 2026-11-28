@@ -45,6 +45,14 @@ export function describeRuntimePortContract(
 ): void {
   const specFor = options.specFor ?? unitSpecFor;
   describe(`runtime port contract: ${name}`, () => {
+    it('resolves an image reference to a stable id', async () => {
+      const port = await make();
+      const image = specFor('alpha').image;
+      const first = await port.resolveImage(image);
+      expect(first).toMatch(/^sha256:[a-f0-9]{64}$/u);
+      expect(await port.resolveImage(image)).toBe(first);
+    });
+
     it('provisions idempotently', async () => {
       const port = await make();
       const first = await port.provision(specFor('alpha'));
@@ -67,13 +75,13 @@ export function describeRuntimePortContract(
       const port = await make();
       await port.provision(specFor('alpha'));
       expect((await port.start(specFor('alpha'), {})).state).toBe('running');
-      const first = (await port.accessCode('alpha')).code;
+      const first = (await port.accessCode(specFor('alpha'))).code;
       expect(first.length).toBeGreaterThan(0);
       await port.stop('alpha');
       expect((await port.inspect('alpha')).state).toBe('stopped');
-      expect((await port.accessCode('alpha')).code).toBe(first);
+      expect((await port.accessCode(specFor('alpha'))).code).toBe(first);
       await port.start(specFor('alpha'), {});
-      expect((await port.accessCode('alpha')).code).toBe(first);
+      expect((await port.accessCode(specFor('alpha'))).code).toBe(first);
       await port.destroy('alpha');
     });
 
@@ -106,7 +114,7 @@ export function describeRuntimePortContract(
         await port.start(specFor('alpha'), {}),
         await port.inspect('alpha'),
         await port.list(),
-        await port.accessCode('alpha'),
+        await port.accessCode(specFor('alpha')),
       ];
       for (const result of results) {
         expect(JSON.parse(JSON.stringify(result))).toEqual(result);
@@ -126,7 +134,7 @@ export function describeRuntimePortContract(
       const port = await make();
       expect(await code(port.inspect('nobody'))).toBe('unknown-account');
       expect(await code(port.stop('nobody'))).toBe('unknown-account');
-      expect(await code(port.accessCode('nobody'))).toBe('unknown-account');
+      expect(await code(port.accessCode(specFor('nobody')))).toBe('unknown-account');
       expect(await code(port.start(specFor('nobody'), {}))).toBe('unknown-account');
     });
 

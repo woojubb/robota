@@ -59,10 +59,20 @@ export interface IAccountView {
   /** Whether a key is stored for this account; the key itself is never shown. */
   key: 'set' | 'unset';
   limits: IUnitLimits;
-  image: string;
+  imageId: string;
   createdAt: string;
   updatedAt: string;
   runtime: IUnitStatus | { state: 'unknown' };
+}
+
+export interface IUpgradeResult {
+  /** The image id the configured unit image resolves to now. */
+  target: string;
+  moved: Array<{ id: string; from: string }>;
+  /** Accounts already running the target image. */
+  current: string[];
+  /** Accounts not touched, with the reason (a suspended account cannot be proven healthy). */
+  skipped: Array<{ id: string; reason: string }>;
 }
 
 export interface IStatusReport {
@@ -81,12 +91,17 @@ export interface IStatusReport {
     desired: IAccountRecord['state'];
     actual: IUnitStatus['state'] | 'absent' | 'unknown';
     healthy: boolean;
+    imageId: string;
   }>;
   /** Units of this install with no record. */
   orphans: string[];
 }
 
 const DEFAULT_ACTOR = 'operator';
+
+function names(ids: readonly string[]): string {
+  return ids.length === 0 ? 'none' : ids.join(', ');
+}
 const DEFAULT_BACKOFF: IBackoff = { baseMs: 2_000, maxMs: 300_000 };
 
 /**
@@ -333,7 +348,7 @@ export class ControlPlane {
         keySource,
         limits,
         subnetSlot: this.nextSlot(),
-        image: this.deps.config.unitImage,
+        imageId: await this.deps.runtime.resolveImage(this.deps.config.unitImage),
         createdAt: now,
         updatedAt: now,
       };
@@ -412,6 +427,90 @@ export class ControlPlane {
     });
   }
 
+  /**
+   * Moves one account, or every account, to the image the configured unit image names now. The new
+   * image is recorded only after its unit is healthy; otherwise the unit is started again from the
+   * previous image and the command fails, so nothing is left half-upgraded.
+   */
+  async upgrade(target: string | { all: true }, actor = DEFAULT_ACTOR): Promise<IUpgradeResult> {
+    const single = typeof target === 'string' ? target : null;
+    return this.command('upgrade', single, actor, async () => {
+      const records = single === null ? this.deps.store.list() : [this.require(single)];
+      const result: IUpgradeResult = {
+        target: await this.deps.runtime.resolveImage(this.deps.config.unitImage),
+        moved: [],
+        current: [],
+        skipped: [],
+      };
+      for (const record of records) {
+        if (record.state === 'provisioning' || record.state === 'deleting') {
+          throw new HostError('busy', `Account ${record.id} is ${record.state}`);
+        }
+        if (record.state === 'suspended') {
+          if (single !== null) {
+            throw new HostError(
+              'refused',
+              `Account ${record.id} is suspended; resume it first, so the new image can be proven healthy`,
+            );
+          }
+          result.skipped.push({ id: record.id, reason: 'suspended; resume it first' });
+          continue;
+        }
+        if (record.imageId === result.target) {
+          result.current.push(record.id);
+          continue;
+        }
+        try {
+          await this.moveToImage(record, result.target);
+        } catch (error) {
+          if (single !== null) throw error;
+          throw new HostError(
+            error instanceof HostError ? error.code : 'runtime-failed',
+            `${errorMessage(error)}. Stopped there; moved: ${names(result.moved.map((m) => m.id))}; ` +
+              `skipped: ${names(result.skipped.map((s) => s.id))}; failed: ${record.id}`,
+          );
+        }
+        result.moved.push({ id: record.id, from: record.imageId });
+      }
+      return result;
+    });
+  }
+
+  private async moveToImage(record: IAccountRecord, imageId: string): Promise<void> {
+    await this.requireGuard();
+    const secrets = await this.deps.secrets.resolve(record);
+    this.track(secrets.modelApiKey);
+    const previous = unitSpecOf(record, this.deps.config, this.deps.store.installId);
+    const next = { ...previous, image: imageId };
+    try {
+      await this.deps.runtime.stop(record.id).catch((error: unknown) => {
+        if (error instanceof RuntimePortError && error.code === 'unknown-account') return;
+        throw error;
+      });
+      await this.deps.runtime.provision(next);
+      await this.deps.runtime.start(next, secrets);
+      await this.deps.store.put({ ...record, imageId, updatedAt: this.timestamp() });
+    } catch (error) {
+      const reason = errorMessage(error);
+      try {
+        await this.deps.runtime.stop(record.id).catch(() => undefined);
+        await this.deps.runtime.provision(previous);
+        await this.deps.runtime.start(previous, secrets);
+      } catch (rollback) {
+        throw new HostError(
+          'runtime-failed',
+          `Upgrading ${record.id} failed (${reason}) and the previous image could not be started ` +
+            `again (${errorMessage(rollback)}); the account is recorded on the previous image and ` +
+            'the reconcile loop keeps retrying it',
+        );
+      }
+      throw new HostError(
+        'runtime-failed',
+        `Upgrading ${record.id} failed (${reason}); the previous image is running again`,
+      );
+    }
+  }
+
   async delete(id: string, confirmation: string, actor = DEFAULT_ACTOR): Promise<void> {
     return this.command('delete', id, actor, async () => {
       const record = this.require(id);
@@ -433,7 +532,8 @@ export class ControlPlane {
       if (record.state === 'provisioning' || record.state === 'deleting') {
         throw new HostError('busy', `Account ${id} is ${record.state}`);
       }
-      return (await this.deps.runtime.accessCode(id)).code;
+      const spec = unitSpecOf(record, this.deps.config, this.deps.store.installId);
+      return (await this.deps.runtime.accessCode(spec)).code;
     });
   }
 
@@ -473,6 +573,7 @@ export class ControlPlane {
             desired: r.state,
             actual: unit ? unit.state : 'absent',
             healthy: unit?.healthy ?? false,
+            imageId: r.imageId,
           };
         }),
         orphans: [...units.keys()].filter((account) => !recorded.has(account)).sort(),
@@ -508,7 +609,7 @@ export class ControlPlane {
       keySource: record.keySource,
       key: hasKey ? 'set' : 'unset',
       limits: record.limits,
-      image: record.image,
+      imageId: record.imageId,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       runtime,
