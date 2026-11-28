@@ -6,12 +6,14 @@ import { bindAdminSocket } from './admin/socket.js';
 import { SecretStore } from './accounts/secret-store.js';
 import { AccountStore } from './accounts/store.js';
 import { AuditLog } from './audit.js';
-import { type IHostConfig, loadConfig } from './config.js';
+import { ALLOW_CONTAINER_SETTING, type IHostConfig, loadConfig } from './config.js';
 import { ControlPlane } from './control-plane.js';
 import { errorMessage, HostError } from './errors.js';
 import { FakeProxy } from './proxy/fake.js';
 import type { IProxyPort } from './proxy/port.js';
 import { FakeRuntime } from './runtime/fake.js';
+import { ContainerRuntime } from './runtime/container/backend.js';
+import { EngineClient } from './runtime/container/engine-client.js';
 import type { IRuntimePort } from './runtime/port.js';
 
 /** The only way to serve without a real backend; named so it cannot be set by accident. */
@@ -58,6 +60,8 @@ function fakeAllowed(env: NodeJS.ProcessEnv): boolean {
 
 function chooseBackend(
   env: NodeJS.ProcessEnv,
+  config: IHostConfig,
+  installId: string,
   options: IServeOptions,
   log: (line: string) => void,
 ): { runtime: IRuntimePort; proxy: IProxyPort } {
@@ -65,9 +69,31 @@ function chooseBackend(
     return { runtime: options.runtime, proxy: options.proxy ?? new FakeProxy() };
   }
   if (!fakeAllowed(env)) {
+    // Containers share the host's kernel, so the backend runs only when the operator has said the
+    // accounts are trusted, and only with the image that applies the network guard.
+    if (config.allowContainer && config.guardImage !== undefined) {
+      log(
+        `Container backend: accounts share this engine's kernel and are for trusted people only; ` +
+          `engine ${config.engineEndpoint}`,
+      );
+      if (!options.proxy) {
+        log('WARNING: no proxy is built into this version; accounts run but no site is served');
+      }
+      return {
+        runtime: new ContainerRuntime({
+          engine: new EngineClient({ endpoint: config.engineEndpoint }),
+          installId,
+          subnetPool: config.subnetPool,
+          guardImage: config.guardImage,
+          ...(config.dnsServers ? { resolvers: config.dnsServers } : {}),
+        }),
+        proxy: options.proxy ?? new FakeProxy(),
+      };
+    }
     throw new HostError(
       'refused',
-      'No runtime backend is available: the container backend is not built into this version. ' +
+      'No runtime backend is available. The container backend runs only for trusted accounts: set ' +
+        `${ALLOW_CONTAINER_SETTING}=true and PERSONAL_AGENT_HOST_GUARD_IMAGE (an image with the firewall tool). ` +
         `For tests and development only, ${FAKE_RUNTIME_SETTING}=true serves with an in-memory fake`,
     );
   }
@@ -88,10 +114,10 @@ export async function startServe(
   const { log } = options;
   const config = loadConfig(env);
   const interval = options.reconcileMs ?? reconcileMs(env);
-  const { runtime, proxy } = chooseBackend(env, options, log);
   const paths = adminPaths({ PERSONAL_AGENT_HOST_STATE_DIR: config.stateDir });
 
   const store = await AccountStore.open(config.stateDir);
+  const { runtime, proxy } = chooseBackend(env, config, store.installId, options, log);
   const secrets = await SecretStore.open(config.stateDir);
   const audit = await AuditLog.open(join(config.stateDir, 'audit.log'));
   const plane = new ControlPlane({ config, store, secrets, audit, runtime, proxy });

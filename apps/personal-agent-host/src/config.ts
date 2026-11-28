@@ -25,6 +25,10 @@ export interface IHostConfig {
   httpPort?: number;
   httpsPort?: number;
   engineEndpoint: string;
+  /** An image with the firewall tool, run briefly to apply and check the network guard. */
+  guardImage?: string;
+  /** Resolvers units may reach for DNS; the engine host's own when absent. */
+  dnsServers?: string[];
 }
 
 const PREFIX = 'PERSONAL_AGENT_HOST_';
@@ -197,6 +201,22 @@ export function loadConfig(env: NodeJS.ProcessEnv): IHostConfig {
   const engineIssue = engineEndpoint(engine);
   if (engineIssue) problems.add('ENGINE_ENDPOINT', engineIssue);
 
+  const guardImage = get('GUARD_IMAGE');
+  if (guardImage !== '' && !IMAGE.test(guardImage)) {
+    problems.add('GUARD_IMAGE', 'is not a valid image reference');
+  }
+  const dnsRaw = get('DNS_SERVERS');
+  const dnsServers = dnsRaw === '' ? [] : dnsRaw.split(',').map((entry) => entry.trim());
+  for (const server of dnsServers) {
+    if (ipToInt(server) === undefined) {
+      problems.add(
+        'DNS_SERVERS',
+        `must be a comma-separated list of IPv4 addresses (got "${server}")`,
+      );
+      break;
+    }
+  }
+
   const httpPort = integer(env, problems, 'HTTP_PORT', undefined, 1, 65535);
   const httpsPort = integer(env, problems, 'HTTPS_PORT', undefined, 1, 65535);
   if (httpPort !== undefined && httpPort === httpsPort) {
@@ -227,6 +247,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): IHostConfig {
     ...(httpPort !== undefined ? { httpPort } : {}),
     ...(httpsPort !== undefined ? { httpsPort } : {}),
     engineEndpoint: engine,
+    ...(guardImage !== '' ? { guardImage } : {}),
+    ...(dnsServers.length > 0 ? { dnsServers } : {}),
   };
 }
 
