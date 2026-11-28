@@ -75,6 +75,7 @@ function createMockRuntimeSession() {
     getSessionId: vi.fn().mockReturnValue('test-session-id'),
     getSystemMessage: vi.fn().mockReturnValue('mock system prompt'),
     getToolSchemas: vi.fn().mockReturnValue([]),
+    invalidateManagedContinuation: vi.fn(),
   };
 }
 

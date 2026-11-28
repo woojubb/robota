@@ -16,11 +16,13 @@ import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface/execution';
 import type { ISubmitOptions, ITurnHandle, TTurnSource } from '@robota-sdk/agent-interface/session';
-import type { Session } from '@robota-sdk/agent-session';
+import type { ISessionExecutionJournal, Session } from '@robota-sdk/agent-session';
 
 export interface IExecutionControllerCallbacks {
   getSession: () => Session;
   getSessionOrThrow: () => Session;
+  /** The durable journal of this session's managed turns; absent when the host keeps none. */
+  getExecutionJournal?: () => ISessionExecutionJournal | undefined;
   getCwd: () => string;
   /**
    * The host's file access, stated even when the host lends none (`undefined`): an Edit diff then

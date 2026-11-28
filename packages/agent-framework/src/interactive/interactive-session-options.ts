@@ -35,7 +35,7 @@ import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
-import type { TGuardrail } from '@robota-sdk/agent-core';
+import type { TExecutionProvider, TGuardrail } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
   TProviderDefinition,
@@ -59,7 +59,7 @@ import type { ExternalEventGrantHistory } from './external-event-ingress.js';
 export type TExternalEventVerifierFactory = (
   config: IAccessTokenVerifierConfig,
 ) => IAccessTokenVerifier;
-import type { Session } from '@robota-sdk/agent-session';
+import type { IExecutionJournalStore, Session } from '@robota-sdk/agent-session';
 import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
@@ -70,7 +70,21 @@ export interface IInteractiveSessionStandardOptions {
   /** Additive response style applied to the composed system prompt. */
   outputStyle?: IOutputStylePrompt;
   cwd: string;
-  provider: IAIProvider;
+  /**
+   * A managed execution provider is accepted. It runs the whole turn itself, so its turns go through
+   * `executionJournals`; without that store a managed provider's turn is refused.
+   */
+  provider: TExecutionProvider;
+  /**
+   * Explicit model-step provider for side requests (naming, permission classification) when
+   * `provider` is managed; never derived from the environment. See `ICreateSessionOptions`.
+   */
+  helperProvider?: IAIProvider;
+  /**
+   * The durable journal the session's managed turns are written to and recovered from. Required for
+   * a managed `provider`; a model-step provider never touches it.
+   */
+  executionJournals?: IExecutionJournalStore;
   /**
    * `provider` is a placeholder that never calls a model — a host started this session
    * without a configured provider (a served runtime's first run). `getStatusSnapshot()` reports it so
@@ -314,6 +328,8 @@ export interface IInteractiveSessionInjectedOptions {
   observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   cwd: string;
   provider?: IAIProvider;
+  /** See {@link IInteractiveSessionStandardOptions.executionJournals}. */
+  executionJournals?: IExecutionJournalStore;
   /** See {@link IInteractiveSessionStandardOptions.setupRequired}. */
   setupRequired?: boolean;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */

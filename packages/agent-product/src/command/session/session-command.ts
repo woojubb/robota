@@ -1,6 +1,7 @@
 import { confirmAction, isArtifactLockedError, isConfirmed } from '@robota-sdk/agent-core';
 import {
   RENAME_COMMAND_USAGE,
+  abandonUnresolvedCommandExecutions,
   clearConversationHistory,
   createShowSessionPickerIntent,
   createSessionRenameHostAction,
@@ -58,6 +59,29 @@ export async function executeClearCommand(
   // to every attached surface — the result carries no separate notification.
   clearConversationHistory(context);
   return { success: true, message: CLEAR_COMMAND_MESSAGE };
+}
+
+/**
+ * `/abandon-execution` gives up the managed execution a crash or failure left open, after the user
+ * confirms where a renderer is attached. The host seals it and tells the user what may already have
+ * happened outside the session; nothing is resumed or re-run.
+ */
+export async function executeAbandonExecutionCommand(
+  context: ICommandHostSessionAccess & ICommandHostUserInteraction,
+  _args: string,
+): Promise<ICommandResult> {
+  const ui = context.getUserInteraction();
+  if (ui) {
+    const response = await ui.ask(
+      confirmAction(
+        'abandon-execution',
+        'Abandon the unfinished managed execution? Its tool calls may already have run; it will never be resumed.',
+      ),
+    );
+    if (!isConfirmed(response)) return { success: true, message: 'Abandon cancelled.' };
+  }
+  const abandoned = await abandonUnresolvedCommandExecutions(context);
+  return { success: true, message: abandoned.message };
 }
 
 export function executeRenameCommand(

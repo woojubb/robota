@@ -200,6 +200,8 @@ export function createTestCommandHost(
     getCwd: () => cwd,
     getCommandInvocationSource: () => 'user',
     clearConversationHistory: () => {},
+    // "nothing was pending" — matches a host that keeps no journal.
+    abandonUnresolvedExecutions: async () => ({ executionIds: [], message: '' }),
     getSessionUsage: () => [],
     // "this host wrote a copy" — a stable id and the default fork name, nothing on disk.
     forkSession: (input) =>

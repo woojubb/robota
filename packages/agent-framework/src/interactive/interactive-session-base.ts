@@ -237,24 +237,39 @@ export abstract class InteractiveSessionBase {
   inspectEditCheckpoint(checkpointId: string): IEditCheckpointInspection {
     return this.histTracker.inspectEditCheckpoint(checkpointId);
   }
-  async restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult> {
+  /**
+   * A code rewind restores files and never touches the session's history, so the session cannot see
+   * it. It is told here, whether or not the rewind finished: a native connection that has seen the
+   * files change under it must not continue. Nothing is done to the journal: an unfinished managed
+   * execution stays unfinished, and a sealed one is history.
+   */
+  private async rewinding<T>(rewind: () => Promise<T>): Promise<T> {
     await this.ensureInitialized();
-    return this.histTracker.restoreEditCheckpoint(checkpointId);
+    try {
+      return await rewind();
+    } finally {
+      this.getSessionOrThrow().invalidateManagedContinuation();
+    }
+  }
+  async restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult> {
+    return this.rewinding(() => this.histTracker.restoreEditCheckpoint(checkpointId));
   }
   async rollbackEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult> {
-    await this.ensureInitialized();
-    return this.histTracker.rollbackEditCheckpoint(checkpointId);
+    return this.rewinding(() => this.histTracker.rollbackEditCheckpoint(checkpointId));
   }
   // Branching time-travel.
   listCheckpointBranches(): string[] {
     return this.histTracker.listCheckpointBranches();
   }
   async forkCheckpointBranch(checkpointId: string): Promise<IEditCheckpointRestoreResult> {
-    await this.ensureInitialized();
-    return this.histTracker.forkCheckpointBranch(checkpointId);
+    return this.rewinding(() => this.histTracker.forkCheckpointBranch(checkpointId));
   }
   switchCheckpointBranch(checkpointId: string): void {
-    this.histTracker.switchCheckpointBranch(checkpointId);
+    try {
+      this.histTracker.switchCheckpointBranch(checkpointId);
+    } finally {
+      this.getSessionOrThrow().invalidateManagedContinuation();
+    }
   }
 
   getUsedMemoryReferences(): IMemoryReference[] {

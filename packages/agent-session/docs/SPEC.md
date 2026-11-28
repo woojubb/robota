@@ -219,6 +219,11 @@ A session runs one turn at a time:
   bytes stay for inspection and it can never be resumed. A host that seals its stored artifacts
   has no sealed journal, and the store refuses to be built for it rather than write a sealed
   session's conversation in plain text.
+- A host may hold the session on executions its durable journal shows open that the session's
+  history cannot account for (a crash ended the process mid-turn). The hold is memory only,
+  because the journal is the authority and is read again whenever the session is started; while it
+  stands the session refuses input like a pending execution, and lifting it requires the host to
+  have sealed those executions as abandoned.
 - A wait holds no live approver. The turn claim is held until the execution and its pending writes
   settle. Injected classifiers, hooks and tools own their own model calls and must declare their
   journal integration separately.
