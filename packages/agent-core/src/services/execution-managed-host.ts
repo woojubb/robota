@@ -124,6 +124,7 @@ export function createManagedToolExecutor(input: {
         callId,
         journal,
         includeReceipts: true,
+        ...(context.sessionId !== undefined ? { sessionId: context.sessionId } : {}),
         signal,
         onExecutionEvent: context.onExecutionEvent,
       },

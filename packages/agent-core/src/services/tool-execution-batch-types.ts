@@ -27,6 +27,8 @@ export interface IToolExecutionBatchContext {
   catalog?: 'offered' | 'registered';
   /** Preserve caller-owned fields such as interactive permission policy for direct calls. */
   parentContext?: IToolExecutionContext;
+  /** Session the run belongs to; every tool context carries it unless the parent context names one. */
+  sessionId?: string;
   /** AbortSignal — queued tools are skipped when aborted */
   signal?: AbortSignal;
   /** Validated durable settlements; these indices never enter a tool body again. */

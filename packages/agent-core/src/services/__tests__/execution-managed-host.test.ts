@@ -78,7 +78,9 @@ function fixture(options?: {
   for (const message of options?.earlier ?? []) store.addMessage(message);
   const effects = vi.fn(async (value: number) => `effect:${value}`);
   const tools = new Tools({ resolveToolSearchMode: () => 'off' });
+  const seenSessionIds: Array<string | undefined> = [];
   tools.addTool(schema, async (parameters, context) => {
+    seenSessionIds.push(context?.sessionId);
     await context!.beforeToolEffect!(parameters);
     return effects(Number(parameters.value));
   });
@@ -90,6 +92,7 @@ function fixture(options?: {
     context: {
       conversationId: 'conversation',
       executionId: 'execution',
+      sessionId: 'session',
       startTime: new Date('2026-01-01T00:00:00.000Z'),
       messages: store.getMessages(),
       config,
@@ -117,7 +120,7 @@ function fixture(options?: {
       eventEmitter: new ExecutionEventEmitter(DEFAULT_ABSTRACT_EVENT_SERVICE, SilentLogger),
     },
   });
-  return { records, journal, store, effects, ...host, controller };
+  return { records, journal, store, effects, seenSessionIds, ...host, controller };
 }
 
 describe('managed host tool boundary', () => {
@@ -173,6 +176,7 @@ describe('managed host tool boundary', () => {
     expect(result.content).toBe('done');
     f.assertHealthy();
     expect(f.effects).toHaveBeenCalledTimes(4);
+    expect(f.seenSessionIds).toEqual(['session', 'session', 'session', 'session']);
     expect(f.store.getMessages().map((message) => message.role)).toEqual([
       'user',
       'assistant',

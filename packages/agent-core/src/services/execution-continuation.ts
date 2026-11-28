@@ -147,6 +147,7 @@ export async function continueJournaledExecution(
       onThinkingDelta: options.onThinkingDelta,
       onExecutionEvent: options.onExecutionEvent,
       traceContext: options.traceContext,
+      sessionId: options.sessionId,
     },
   );
   deps.eventEmitter.prepareOwnerPathBases(conversationId);

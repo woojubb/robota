@@ -94,6 +94,7 @@ export async function executeAndRecordToolCalls(
   maxSameToolInputs?: number,
   traceContext?: IRunTraceContext,
   journalContext?: IToolBatchJournalContext,
+  sessionId?: string,
 ): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
   let assistantToolCalls = inputToolCalls;
@@ -207,12 +208,14 @@ export async function executeAndRecordToolCalls(
     requests: toolRequests,
     ...policy,
     signal,
+    // The run's session, not the conversation id the agent mints for itself.
+    ...(sessionId !== undefined ? { sessionId } : {}),
   };
   toolContext.lifecycle = toolExecutionLifecycle({
     plugins: deps.plugins,
     logger,
     executionId,
-    sessionId: conversationId,
+    sessionId: sessionId ?? conversationId,
     // A pre-effect wait resumes the wrapper, not a new logical call.
     alreadyDispatched: (index) =>
       effectiveJournalContext?.recovery?.actions.get(toolRequests[index].executionId ?? '')

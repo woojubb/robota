@@ -243,6 +243,7 @@ export async function restoreJournaledRound(
           ...(preparedPolicy && { preparedPolicy }),
           ...(options.includeReceipts && { captureReceipts: true, assistantFrame: batch.response }),
         },
+        options.sessionId,
       );
       if (options.includeReceipts && !outcome.receipts)
         conflict('The recovered batch does not have a complete set of durable receipts');
