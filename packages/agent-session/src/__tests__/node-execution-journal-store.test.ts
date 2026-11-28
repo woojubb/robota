@@ -146,8 +146,12 @@ describe('NodeExecutionJournalStore', () => {
     await journal.append(request('a'));
     const afterFirst = steps.slice(steps.indexOf('fsync-file') + 1);
     expect(steps.indexOf('write')).toBeLessThan(steps.indexOf('fsync-file'));
-    // The file's own entry, then the session directory's entry in the journals root.
-    expect(afterFirst).toEqual(['fsync-dir:s1', `fsync-dir:${SESSION_JOURNALS_DIRECTORY}`]);
+    // The file's own entry, then each level above it, once.
+    expect(afterFirst).toEqual([
+      'fsync-dir:s1',
+      `fsync-dir:${SESSION_JOURNALS_DIRECTORY}`,
+      `fsync-dir:${basename(baseDir)}`,
+    ]);
     const before = steps.length;
     await journal.append(request('b'));
     expect(steps.slice(before)).toEqual(['write', 'fsync-file']);

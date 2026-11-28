@@ -171,7 +171,7 @@ class SessionJournal implements ISessionExecutionJournal {
    * acknowledged; the first acknowledged append of this instance flushes it again.
    */
   readonly #entrySynced = new Set<string>();
-  /** Whether the journals root's own entry for this session's directory has been flushed. */
+  /** Whether the directories above this session's have had their own entries flushed. */
   #rootSynced = false;
 
   constructor(directory: string, ownedRoot: string | undefined, io: INodeExecutionJournalIo) {
@@ -349,15 +349,7 @@ class SessionJournal implements ISessionExecutionJournal {
     } finally {
       closeSync(descriptor);
     }
-    const flush = this.#io.syncDirectory ?? syncDirectory;
-    if (created || !this.#entrySynced.has(executionId)) {
-      flush(this.#directory);
-      this.#entrySynced.add(executionId);
-    }
-    if (!this.#rootSynced) {
-      flush(dirname(this.#directory));
-      this.#rootSynced = true;
-    }
+    this.#flushEntries(`j:${executionId}`, created);
     loaded.records.push(stored);
     loaded.byId.set(stored.recordId, stored);
     loaded.size += line.length;
@@ -401,7 +393,7 @@ class SessionJournal implements ISessionExecutionJournal {
     if (!SEAL_REASONS.has(outcome.reason))
       throw new ExecutionJournalStoreError('invalid-identity', 'Unknown seal reason');
     const first = this.#seal(executionId);
-    if (first !== undefined) return this.#sameSeal(first, outcome.reason);
+    if (first !== undefined) return this.#sameSeal(first, outcome.reason, executionId);
     this.#ensureDirectory();
     const seal: IExecutionSeal = {
       reason: outcome.reason,
@@ -425,14 +417,42 @@ class SessionJournal implements ISessionExecutionJournal {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
       const raced = this.#seal(executionId);
-      if (raced !== undefined) return this.#sameSeal(raced, outcome.reason);
+      if (raced !== undefined) return this.#sameSeal(raced, outcome.reason, executionId);
       throw error;
     }
+    // The write above flushed the session directory itself; the levels above it are still owed.
+    this.#entrySynced.add(`s:${executionId}`);
+    this.#flushEntries(`s:${executionId}`, false);
     this.#loaded.delete(executionId);
     return seal;
   }
 
-  #sameSeal(existing: IExecutionSeal, reason: TExecutionSealReason): IExecutionSeal {
+  /**
+   * Make the directory entry of `key`'s file durable, once per instance (or when `force`d), and the
+   * entries of the directories above it once. A file found already in place may have been put there
+   * by a write that died before its directory flush, so it was never acknowledged; whoever returns
+   * or extends it must flush that entry first.
+   */
+  #flushEntries(key: string, force: boolean): void {
+    const flush = this.#io.syncDirectory ?? syncDirectory;
+    if (force || !this.#entrySynced.has(key)) {
+      flush(this.#directory);
+      this.#entrySynced.add(key);
+    }
+    if (!this.#rootSynced) {
+      const root = dirname(this.#directory);
+      flush(root);
+      flush(dirname(root));
+      this.#rootSynced = true;
+    }
+  }
+
+  #sameSeal(
+    existing: IExecutionSeal,
+    reason: TExecutionSealReason,
+    executionId: string,
+  ): IExecutionSeal {
+    this.#flushEntries(`s:${executionId}`, false);
     if (existing.reason === reason) return existing;
     throw new ExecutionJournalStoreError(
       'sealed',
