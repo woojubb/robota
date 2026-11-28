@@ -272,7 +272,7 @@ export interface Reference {
   writes: number;
   appends: number;
   messages: string[][];
-  effects: Record<string, number>;
+  ran: Record<string, number>;
   /** The completed calls, which a recovered run must reproduce. */
   completed: string[];
 }
@@ -303,7 +303,7 @@ export async function reference(scenario: MatrixScenario): Promise<Reference> {
     writes: gen.writes,
     appends: gen.appends,
     messages: transcript(room),
-    effects: Object.fromEntries(world.effects),
+    ran: Object.fromEntries(world.effects),
     completed: completedCalls(room.snapshot().usage),
   };
   await room.dispose();

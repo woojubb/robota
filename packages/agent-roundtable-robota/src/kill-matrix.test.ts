@@ -104,7 +104,7 @@ async function recover(
   const view = room.snapshot();
   const failed = new Set(settled.filter((s) => s.answer === 'failure').map((s) => s.effect));
   const expectedEffects = Object.fromEntries(
-    Object.entries(ref.effects).filter(([effect]) => !failed.has(effect)),
+    Object.entries(ref.ran).filter(([effect]) => !failed.has(effect)),
   );
   // Every effect ran at most once, and every effect the reference completed ran exactly once.
   for (const count of world.effects.values()) expect(count).toBe(1);
