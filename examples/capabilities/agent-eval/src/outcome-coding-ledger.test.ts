@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   appendFileSync,
   existsSync,
@@ -294,6 +295,66 @@ test('a stop persists, resume needs every call settled, and a resumed ledger adm
     const again = SpendLedger.open(path);
     assert.equal(again.state().stopReason, undefined);
     again.close();
+  });
+});
+
+test('a cost that is negative, fractional or not finite is refused and nothing is appended', () => {
+  withDir((dir) => {
+    const path = join(dir, 'ledger.jsonl');
+    const ledger = SpendLedger.create(path, header({ ceilingMicros: 100_000 }));
+    ledger.admit(REQUEST);
+    ledger.admit(REQUEST);
+    const before = readFileSync(path, 'utf8');
+    for (const bad of [-1, 0.5, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 60]) {
+      assert.equal(
+        refusal(() => ledger.reconcile(1, { costMicros: bad, reason: 'x' })),
+        'invalid-cost',
+      );
+      assert.equal(
+        refusal(() => ledger.settle(2, { costMicros: bad })),
+        'invalid-cost',
+      );
+    }
+    assert.equal(readFileSync(path, 'utf8'), before);
+    assert.deepEqual(ledger.state().unsettledIds, [1, 2]);
+    ledger.close();
+  });
+});
+
+test('a file holding a bad cost or reservation is refused on open', () => {
+  withDir((dir) => {
+    for (const [name, patch] of [
+      ['negative', (line: string) => line.replace('"costMicros":5', '"costMicros":-5')],
+      ['fractional', (line: string) => line.replace('"costMicros":5', '"costMicros":0.5')],
+      ['null', (line: string) => line.replace('"costMicros":5', '"costMicros":null')],
+      [
+        'reservation',
+        (line: string) => line.replace('"reservedMicros":300', '"reservedMicros":-300'),
+      ],
+    ] as const) {
+      const path = join(dir, `${name}.jsonl`);
+      const ledger = SpendLedger.create(path, header({ ceilingMicros: 100_000 }));
+      ledger.admit(REQUEST);
+      ledger.settle(1, { costMicros: 5 });
+      ledger.close();
+      // Re-seal the chain after the edit so only the value check can catch it.
+      const lines = readFileSync(path, 'utf8').trim().split('\n').map(patch);
+      let previous = '0'.repeat(64);
+      const sealed = lines.map((line, index) => {
+        const record = JSON.parse(line) as Record<string, unknown>;
+        record.prev = previous;
+        record.seq = index;
+        const text = JSON.stringify(record);
+        previous = createHash('sha256').update(text).digest('hex');
+        return text;
+      });
+      writeFileSync(path, `${sealed.join('\n')}\n`);
+      assert.equal(
+        refusal(() => SpendLedger.open(path)),
+        'corrupt',
+        name,
+      );
+    }
   });
 });
 

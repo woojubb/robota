@@ -61,6 +61,7 @@ export type TLedgerErrorCode =
   | 'already-settled'
   | 'unsettled'
   | 'not-stopped'
+  | 'invalid-cost'
   | 'broken';
 
 export class LedgerError extends Error {
@@ -142,6 +143,21 @@ function sha256(text: string): string {
 
 function isPositiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+/** A cost is whole micro-dollars and never negative; anything else would corrupt the committed total. */
+function isMicros(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+function requireMicros(value: unknown): number {
+  if (!isMicros(value)) {
+    throw new LedgerError(
+      'invalid-cost',
+      'A cost must be a non-negative whole number of micro-dollars',
+    );
+  }
+  return value;
 }
 
 function validateHeader(header: ILedgerHeader): void {
@@ -356,6 +372,7 @@ export class SpendLedger {
     switch (record.type) {
       case 'reserve':
         if (record.id !== this.entries.size + 1) corrupt('has an unexpected call number');
+        if (!isMicros(record.reservedMicros)) corrupt('has an invalid reservation');
         this.entries.set(record.id, {
           id: record.id,
           reservedMicros: record.reservedMicros,
@@ -365,6 +382,7 @@ export class SpendLedger {
       case 'settle':
       case 'reconcile': {
         const entry = this.entries.get(record.id);
+        if (!isMicros(record.costMicros)) corrupt('has an invalid cost');
         if (entry === undefined || entry.settledMicros !== undefined) {
           corrupt('settles a call that is unknown or already settled');
         } else {
@@ -482,6 +500,7 @@ export class SpendLedger {
    * is recorded in full against the ceiling and stops the run.
    */
   settle(id: number, receipt: ISettlement): { readonly overrun: boolean } {
+    requireMicros(receipt.costMicros);
     const entry = this.entryToSettle(id);
     const overrun = receipt.costMicros > entry.reservedMicros;
     this.append({
@@ -512,6 +531,7 @@ export class SpendLedger {
     id: number,
     resolution: { readonly costMicros?: number; readonly reason: string },
   ): void {
+    if (resolution.costMicros !== undefined) requireMicros(resolution.costMicros);
     const entry = this.entryToSettle(id);
     const costMicros = resolution.costMicros ?? entry.reservedMicros;
     this.append({ type: 'reconcile', id, costMicros, reason: resolution.reason });

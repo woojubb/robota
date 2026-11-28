@@ -372,6 +372,9 @@ test('the catalog, endpoint listing and credits checks read the gateway once eac
     });
     assert.equal((await checkCredits(location, credential, 3_500_001)).sufficient, false);
     assert.deepEqual(gateway.allPaths.filter((entry) => entry.includes('credits')).length, 2);
+    // Credit rounds down and usage rounds up: the remaining amount is never overstated.
+    gateway.credits = { data: { total_credits: '5.0000009', total_usage: '1.5000001' } };
+    assert.equal((await checkCredits(location, credential, 1)).remainingMicros, 3_499_999);
     gateway.credits = { data: { total_credits: 'lots' } };
     await assert.rejects(checkCredits(location, credential, 1), /malformed/);
     gateway.listing = { data: { endpoints: [] } };

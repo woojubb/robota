@@ -282,4 +282,6 @@ key, and the credential reader is tested with a temporary file.
   `checkCredits` (the remaining credit covers the next reservation) read the gateway once each. The gateway shape
   they assume is `GET <base>/models`, `GET <base>/models/<model>/endpoints`, `GET <base>/credits` and
   `POST <base>/chat/completions`, with the receipt in the reply (`usage.cost` in dollars, `usage.completion_tokens`,
-  `provider`, `model`).
+  `provider`, `model`). No real gateway has confirmed this shape. Before the first paid call the pre-run checks must
+  succeed against the real gateway: the catalog lists the model, the endpoint listing parses with rates within the
+  basis, the credits answer parses, and a reply carries `usage.cost`, `provider` and `model`.

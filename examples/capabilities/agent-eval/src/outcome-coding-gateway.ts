@@ -200,8 +200,9 @@ export async function checkCredits(
   const data = isObject(answer.body) ? answer.body.data : undefined;
   if (answer.status !== 200 || !isObject(data))
     throw new Error(`The credits check answered ${answer.status}`);
-  const total = parseMicros(data.total_credits);
-  const used = parseMicros(data.total_usage);
+  // Credit is rounded down and usage up, so the remaining amount is never overstated.
+  const total = parseMicros(data.total_credits, 'down');
+  const used = parseMicros(data.total_usage, 'up');
   if (total === undefined || used === undefined) throw new Error('The credits answer is malformed');
   const remainingMicros = total - used;
   return { remainingMicros, sufficient: remainingMicros >= requiredMicros };

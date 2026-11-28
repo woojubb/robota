@@ -18,7 +18,7 @@ const MILLION = 1_000_000n;
 const DECIMAL = /^(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/;
 
 /** Exact decimal text (or a number's shortest text) times 10^scale, rounded up; `undefined` if malformed. */
-function scaleUp(value: unknown, scale: number): bigint | undefined {
+function scaleUp(value: unknown, scale: number, down = false): bigint | undefined {
   const text = typeof value === 'number' ? (Number.isFinite(value) ? String(value) : '') : value;
   if (typeof text !== 'string') return undefined;
   const match = DECIMAL.exec(text.trim());
@@ -29,7 +29,7 @@ function scaleUp(value: unknown, scale: number): bigint | undefined {
   const digits = BigInt(`${match[1]}${fraction}`);
   if (exponent >= 0) return digits * 10n ** BigInt(exponent);
   const divisor = 10n ** BigInt(-exponent);
-  return (digits + divisor - 1n) / divisor;
+  return down ? digits / divisor : (digits + divisor - 1n) / divisor;
 }
 
 function toSafeNumber(value: bigint | undefined): number | undefined {
@@ -42,9 +42,9 @@ export function parseRate(usdPerToken: unknown): number | undefined {
   return toSafeNumber(scaleUp(usdPerToken, 12));
 }
 
-/** A dollar amount as whole micro-dollars, rounded up; `undefined` when malformed or negative. */
-export function parseMicros(usd: unknown): number | undefined {
-  return toSafeNumber(scaleUp(usd, 6));
+/** A dollar amount as whole micro-dollars, rounded up unless `down` is asked; `undefined` when malformed or negative. */
+export function parseMicros(usd: unknown, round: 'up' | 'down' = 'up'): number | undefined {
+  return toSafeNumber(scaleUp(usd, 6, round === 'down'));
 }
 
 /** Micro-dollars for a token count at a rate, rounded up. */
