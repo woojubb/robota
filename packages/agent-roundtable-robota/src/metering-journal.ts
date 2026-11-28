@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { collectAssistantUsageMetadata, verifiedProviderCallUsage } from '@robota-sdk/agent-core';
 import type {
   IExecutionJournal,
@@ -105,7 +104,7 @@ export function freshEffectCallIds(): EffectCallIds {
     async claim(record) {
       let callId = claimed.get(record.actionId);
       if (!callId) {
-        callId = `${TOOL_EFFECT_CALL_PREFIX}${randomUUID()}`;
+        callId = `${TOOL_EFFECT_CALL_PREFIX}${crypto.randomUUID()}`;
         claimed.set(record.actionId, callId);
       }
       return callId;

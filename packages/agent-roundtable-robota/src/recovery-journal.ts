@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type { IRecoverableExecutionJournal, TExecutionJournalRecord } from '@robota-sdk/agent-core';
 import type { ParticipantCheckpoint, ParticipantOutcome } from '@robota-sdk/agent-roundtable';
 import {
@@ -189,7 +188,7 @@ export function attemptJournal(
         const known = effectIds.get(record.actionId);
         if (known) return known;
         await bound(record.executionId);
-        const callId = `${TOOL_EFFECT_CALL_PREFIX}${randomUUID()}`;
+        const callId = `${TOOL_EFFECT_CALL_PREFIX}${crypto.randomUUID()}`;
         await log.append({
           kind: 'effect-call',
           attemptId: attempt.attemptId,
