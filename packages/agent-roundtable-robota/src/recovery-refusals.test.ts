@@ -119,6 +119,48 @@ describe('a reconcilable sessionParticipant', () => {
     await opensAfterRefusal(host);
   });
 
+  it.each([
+    ['ask', { ask: async () => ({ answers: {} }) }],
+    ['permissionHandler', { permissionHandler: async () => true }],
+    ['promptForApproval', { promptForApproval: async () => true }],
+  ] as const)(
+    'refuses an in-process `%s` handler, whose wait a restart loses, before the lease',
+    async (option, extra) => {
+      const { participant, createSessionOptions } = fixture(extra as Partial<SessionHostOptions>);
+      await expect(participant.factory.openSession(open)).rejects.toMatchObject({
+        code: 'recovery-unsupported',
+        message: expect.stringContaining(`\`${option}\``),
+      });
+      const host = await createSessionOptions.mock.results[0]!.value;
+      const { ask, permissionHandler, promptForApproval, ...rest } = host;
+      void ask;
+      void permissionHandler;
+      void promptForApproval;
+      await opensAfterRefusal(rest);
+    },
+  );
+
+  it('accepts in-process prompt handlers when the participant is not durable', async () => {
+    const provider = createScriptedProvider([{ text: 'hi' }]).provider;
+    const participant = sessionParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/session', version: '1' },
+      createSessionOptions: async () => ({
+        cwd: process.cwd(),
+        hookTypeExecutors: [],
+        tools: [],
+        provider,
+        systemMessage: 'Fixture host',
+        model: 'test-model',
+        ask: (async () => ({ answers: {} })) as never,
+        permissionHandler: async () => true,
+        promptForApproval: async () => true,
+      }),
+    });
+    const lease = await participant.factory.openSession(open);
+    await lease.release();
+  });
+
   it('accepts an empty hook table', async () => {
     const { participant } = fixture({ hooks: { SessionStart: [] } });
     const lease = await participant.factory.openSession(open);

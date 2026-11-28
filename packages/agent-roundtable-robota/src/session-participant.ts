@@ -109,8 +109,9 @@ interface ApprovalRequestData {
 
 /**
  * Automatic compaction writes under an execution id of its own, and hooks run before the first journal
- * record and are skipped when a turn resumes: neither can be recovered from the journal, so a
- * reconcilable participant refuses both before it opens anything.
+ * record and are skipped when a turn resumes: neither can be recovered from the journal. An in-process
+ * prompt handler waits on an answer nothing durable records. A reconcilable participant refuses all of
+ * them before it opens anything.
  */
 function assertRecoverableSession(hostOptions: SessionHostOptions): void {
   if (hostOptions.autoCompactThreshold !== false)
@@ -126,6 +127,12 @@ function assertRecoverableSession(hostOptions: SessionHostOptions): void {
       'recovery-unsupported',
       'Hooks run outside the recovery journal and are skipped when a turn resumes',
     );
+  for (const option of ['ask', 'permissionHandler', 'promptForApproval'] as const)
+    if (hostOptions[option] !== undefined)
+      throw new RuntimeParticipantError(
+        'recovery-unsupported',
+        `\`${option}\` waits for an answer outside the conversation, which a restarted process loses; approvals reach a recoverable participant as conversation wait requests`,
+      );
 }
 
 function freshState(cwd: string): SessionCheckpointState {

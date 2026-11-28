@@ -48,7 +48,7 @@ A participant that declares itself reconcilable recovers a turn a process stoppe
 durable journal, never by rerunning what the journal shows already happened: a call proven never
 dispatched is refunded, a call whose report the journal holds is settled with it, and a call it cannot
 prove either way stays counted. A turn whose end was journaled is answered from it, and an effect that
-started without a result is never started again until the host settles it. A run stopped inside a
+started without a result is never started again until the host settles it. A `Session` it wraps may use nothing that writes or waits outside that journal — automatic compaction, hooks, or an in-process prompt handler, whose wait a restart loses — and is refused before it opens; approvals reach it only as conversation waits. A run stopped inside a
 living process leaves the journal as a process death at that instant would: from the moment of the stop
 the Session writes nothing but a provider's response, so what it does while unwinding is never taken
 for what happened outside, while the tokens a response cost are still reported,
