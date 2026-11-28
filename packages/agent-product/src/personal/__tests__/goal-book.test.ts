@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,7 +14,7 @@ import {
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 
-import type { IGoalStore } from '../index.js';
+import type { IFeedItem, IGoalStore } from '../index.js';
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -380,7 +380,7 @@ describe('goal file store', () => {
 
   it('keeps a waiting approval when the feed is trimmed to its bound', async () => {
     const time = clock();
-    const { store } = fileStore();
+    const { store, dir } = fileStore();
     const book = new GoalBook({ store, now: time.now });
     const approval = await book.post({
       kind: 'approval',
@@ -388,9 +388,29 @@ describe('goal file store', () => {
       body: 'x',
       approval: { tool: 'BrowserSubmit', detail: 'POST', state: 'pending' },
     });
-    for (let index = 0; index < 510; index += 1) {
+    // Fill the feed to its bound by writing the store's own file format once: every post
+    // rewrites the whole file with a synced atomic write, so 500 posts would take seconds.
+    const seeded: Record<string, IFeedItem> = {
+      [approval.id]: (await store.getFeedItem(approval.id))!,
+    };
+    for (let index = 0; index < 499; index += 1) {
       time.advance(1);
-      await book.post({ kind: 'notice', title: `n${index}`, body: 'x' });
+      const id = `feed-seed${String(index).padStart(4, '0')}`;
+      seeded[id] = {
+        id,
+        at: time.now().toISOString(),
+        kind: 'notice',
+        title: `n${index}`,
+        body: 'x',
+        dismissed: false,
+      };
+    }
+    writeFileSync(join(dir, 'feed.json'), JSON.stringify(seeded));
+    expect(await book.feed(1000)).toHaveLength(500);
+    // Posts past the bound trim through the real store path.
+    for (let index = 0; index < 2; index += 1) {
+      time.advance(1);
+      await book.post({ kind: 'notice', title: `late${index}`, body: 'x' });
     }
     const feed = await book.feed(1000);
     expect(feed).toHaveLength(500);
