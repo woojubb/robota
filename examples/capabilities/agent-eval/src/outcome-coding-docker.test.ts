@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { CODING_TASKS } from './outcome-coding-tasks.js';
+import { ALL_CODING_TASKS } from './outcome-coding-tasks-repository.js';
 import { materializeTask, runContainerVerifier } from './outcome-coding-verify.js';
 
 /**
@@ -21,7 +21,7 @@ test(
   'controls in the verifier container: broken fails, solved passes, for every task',
   { skip: enabled ? false : 'set ROBOTA_EVAL_DOCKER=1 to run', timeout: 300_000 },
   async () => {
-    for (const definition of CODING_TASKS) {
+    for (const definition of ALL_CODING_TASKS) {
       for (const kind of ['broken', 'solved'] as const) {
         const root = mkdtempSync(join(base, '.coding-docker-'));
         try {

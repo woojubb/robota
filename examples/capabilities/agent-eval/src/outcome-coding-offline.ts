@@ -23,6 +23,7 @@ import {
   assembleImageContext,
   buildImage,
   forbiddenTexts,
+  leakNeedles,
   removeImage,
   searchImage,
   searchTree,
@@ -37,6 +38,7 @@ import {
 } from './outcome-coding-scripts.js';
 import { BASELINE_SETTINGS, forcedRequestFields } from './outcome-coding-settings.js';
 import { CODING_TASKS, type ICodingTask } from './outcome-coding-tasks.js';
+import { ALL_CODING_TASKS } from './outcome-coding-tasks-repository.js';
 import { CONTAINER_PATHS, createDockerLauncher, runTrial } from './outcome-coding-trial.js';
 import { materializeTask, runContainerVerifier } from './outcome-coding-verify.js';
 
@@ -83,7 +85,7 @@ function docker(args: string[]): string {
 }
 
 async function controls(): Promise<void> {
-  for (const task of CODING_TASKS) {
+  for (const task of ALL_CODING_TASKS) {
     const verdicts: Record<string, number | null> = {};
     for (const kind of ['broken', 'solved'] as const) {
       const root = mkdtempSync(join(baseDir, '.coding-control-'));
@@ -112,7 +114,7 @@ async function scriptedTrials(image: string): Promise<void> {
   const verify = (task: ICodingTask, tree: string) =>
     runContainerVerifier(task, tree, { image: verifierImage });
   const cases: { task: ICodingTask; behavior: TScriptedBehavior }[] = [
-    ...CODING_TASKS.flatMap((task) => [
+    ...ALL_CODING_TASKS.flatMap((task) => [
       { task, behavior: 'solve' as const },
       { task, behavior: 'claim-only' as const },
     ]),
@@ -194,7 +196,7 @@ async function main(): Promise<void> {
     throw new Error('A local Docker daemon is required');
   }
   mkdirSync(baseDir, { recursive: true });
-  const texts = forbiddenTexts(CODING_TASKS);
+  const texts = forbiddenTexts(ALL_CODING_TASKS);
   const work = mkdtempSync(join(baseDir, '.coding-offline-'));
   const tag = flags.image ?? `robota-eval-coding-worker:offline-${process.pid}`;
   let built = false;
@@ -220,6 +222,7 @@ async function main(): Promise<void> {
         revision: flags.revision,
         directory: join(work, 'context'),
         nodeImage,
+        excludeFilesContaining: leakNeedles(ALL_CODING_TASKS),
       });
       commit = context.commit;
       const contextSearch = searchTree(context.tree, texts);
