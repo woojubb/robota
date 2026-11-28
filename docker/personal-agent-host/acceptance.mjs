@@ -859,7 +859,11 @@ function record(status, name, detail, seconds) {
     for (const text of String(detail).split('\n')) process.stdout.write(`        ${text}\n`);
 }
 
-async function check(name, body) {
+async function check(name, body, { always = false } = {}) {
+  if (state.interrupted && !always) {
+    record('SKIP', name, 'the run was interrupted');
+    return;
+  }
   const start = Date.now();
   try {
     const outcome = await body();
@@ -1766,9 +1770,25 @@ async function tlsAndProxyChecks() {
       expect(leaks.length === 0, leaks.join('; '));
 
       expect(
-        (await stateFile('secrets/alice.json')).includes(state.keys.alice),
-        'the secret store does not hold the key (the control for this search)',
+        (await stateFile('secrets/alice.json')).includes(state.keys.alice) &&
+          (await stateFile('secrets/bob.json')).includes(state.keys.bob),
+        'the secret store does not hold the keys (the control for this search)',
       );
+      const stored = {
+        'the secret of alice': await stateFile('secrets/alice.json'),
+        'the secret of bob': await stateFile('secrets/bob.json'),
+      };
+      const crossStored = [
+        ...findSecrets(
+          { 'the secret of bob': stored['the secret of bob'] },
+          { alice: state.keys.alice },
+        ),
+        ...findSecrets(
+          { 'the secret of alice': stored['the secret of alice'] },
+          { bob: state.keys.bob },
+        ),
+      ];
+      expect(crossStored.length === 0, crossStored.join('; '));
       const scan = (account, patterns) =>
         docker(
           [
@@ -2043,6 +2063,7 @@ async function limitChecks() {
           current.stdout.trim() !== idBefore
         )
           break;
+        expect(!state.interrupted, 'the run was interrupted');
         expect(
           Date.now() - killedAt < 240_000,
           `${account} is ${view.state} / ${view.runtime.state} 240 s after the kill`,
@@ -2191,8 +2212,9 @@ async function main() {
     process.stdout.write('\ninterrupted: tearing down\n');
     state.interrupted = true;
   };
-  process.once('SIGINT', onSignal);
-  process.once('SIGTERM', onSignal);
+  // Not `once`: a second signal must not end the process before the teardown has run.
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
 
   heading(
     `Install (local certificate authority, ports ${SETTINGS.httpPort} and ${SETTINGS.httpsPort})`,
@@ -2244,6 +2266,7 @@ async function main() {
         expect(left.length === 0, `left behind: ${left.join(', ')}`);
         return 'the engine and the host are as they were before the run; the images are kept';
       },
+      { always: true },
     );
   }
   const count = (status) => state.results.filter((result) => result.status === status).length;

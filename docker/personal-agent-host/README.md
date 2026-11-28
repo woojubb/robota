@@ -104,7 +104,7 @@ in local-CA mode (ports 18080 and 18443, a state directory and a base domain of 
 fake keys, and runs every probe from inside the engine's network: from a unit, from the proxy's host network, from
 an unguarded container. It prints one `PASS`, `FAIL` or `SKIP` line per check and exits non-zero on any `FAIL`,
 then removes everything it made, also when a check fails (containers, volumes, networks, the firewall table, the
-state directory; images stay). Every negative check has a control that proves the probe could have succeeded.
+state directory, the metadata address it adds to the loopback device; images stay). Every negative check has a control that proves the probe could have succeeded.
 
 ```sh
 node docker/personal-agent-host/acceptance.mjs          # add --keep to leave the install up for a look

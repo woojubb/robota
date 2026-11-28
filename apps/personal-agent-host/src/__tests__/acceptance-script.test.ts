@@ -184,6 +184,19 @@ describe('the shipped guard and the fixture address', () => {
 
   it('lets a unit reach the fixture as an ordinary public address, and nothing private', () => {
     expect(toward('203.0.113.9')).toBe('accept');
+    // The real path leaves through an engine bridge that is not one of the install's.
+    expect(
+      evaluateGuard(guard, {
+        path: 'forward',
+        iif: fromUnit,
+        oif: 'accfx0',
+        family: 4,
+        protocol: 'tcp',
+        daddr: '203.0.113.9',
+        dport: 80,
+        conntrack: 'new',
+      }),
+    ).toBe('accept');
     for (const daddr of [
       '10.0.0.5',
       '172.20.0.1',
