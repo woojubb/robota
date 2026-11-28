@@ -80,6 +80,13 @@ await runQuickstart();
 This exact example is executed by `src/readme-example.test.ts`, so it stays runnable as the package
 changes.
 
+More runnable examples, each run by a test with scripted participants (no network, no key):
+
+- AI-only start: a conversation with no person in it, opened by its first participant from the
+  `purpose` alone — [`src/examples/ai-only-start.ts`](src/examples/ai-only-start.ts).
+- A durable conversation reloaded after a restart, on `FileConversationStore` and the file recovery
+  journal — [`../agent-roundtable-robota/src/examples/durable-restart.ts`](../agent-roundtable-robota/src/examples/durable-restart.ts).
+
 Omitting `store` uses the same in-memory store. A durable `ConversationStore` together with a
 `RoundtableRegistry` that maps saved runtime, selector and context policy versions back to live
 objects lets `loadRoundtable` reopen a conversation later.

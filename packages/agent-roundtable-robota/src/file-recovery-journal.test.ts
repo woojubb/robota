@@ -1,5 +1,6 @@
 import {
   appendFileSync,
+  chmodSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -11,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { isUniversalValueEqual } from '@robota-sdk/agent-core';
+import { encodeJournalValue, isUniversalValueEqual } from '@robota-sdk/agent-core';
 import type { TExecutionJournalRecord } from '@robota-sdk/agent-core';
 import {
   FileRecoveryJournalError,
@@ -29,8 +30,10 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 const hex = (text: string): string => Buffer.from(text, 'utf8').toString('hex');
+/** The directory the journal owns under the root a host passes. */
+const owned = (): string => join(root, 'recovery-journal');
 const journalFile = (): string =>
-  join(root, hex(scope.conversationId), `${hex(scope.participantId)}.jsonl`);
+  join(owned(), hex(scope.conversationId), `${hex(scope.participantId)}.jsonl`);
 
 function journalOf(io?: FileRecoveryJournalIo, which: RecoveryScope = scope): RecoveryJournal {
   return createFileRecoveryJournals(root, io ? { io } : {}).journal(which);
@@ -62,8 +65,11 @@ const entries: RecoveryJournalEntry[] = [
     kind: 'turn-end',
     attemptId: 'a1',
     phase: 'turn',
-    outcome: { kind: 'completed', content: 'done' },
-    checkpoint: { when: new Date(5), nested: { gone: undefined, zero: -0 } },
+    outcome: { kind: 'speak', content: 'done' },
+    checkpoint: {
+      version: 'v1',
+      data: { when: new Date(5), nested: { gone: undefined, zero: -0 } },
+    },
   } as unknown as RecoveryJournalEntry,
 ];
 
@@ -84,7 +90,7 @@ describe('createFileRecoveryJournals', () => {
     expect(
       (saved.record as unknown as { response: { timestamp: unknown } }).response.timestamp,
     ).toBeInstanceOf(Date);
-    expect(readdirSync(join(root, hex(scope.conversationId)))).toEqual([
+    expect(readdirSync(join(owned(), hex(scope.conversationId)))).toEqual([
       `${hex(scope.participantId)}.jsonl`,
     ]);
   });
@@ -126,8 +132,29 @@ describe('createFileRecoveryJournals', () => {
   it.runIf(process.platform !== 'win32')('writes owner-only files and directories', async () => {
     await journalOf().append(entries[0]!);
     expect(statSync(journalFile()).mode & 0o777).toBe(0o600);
-    expect(statSync(join(root, hex(scope.conversationId))).mode & 0o777).toBe(0o700);
-    expect(statSync(root).mode & 0o777).toBe(0o700);
+    expect(statSync(join(owned(), hex(scope.conversationId))).mode & 0o777).toBe(0o700);
+    expect(statSync(owned()).mode & 0o777).toBe(0o700);
+  });
+
+  it.runIf(process.platform !== 'win32')(
+    'owns a subdirectory of the root it is given and never changes the root itself',
+    async () => {
+      // A host may hand over a directory it shares with other files and has set its own mode on.
+      chmodSync(root, 0o755);
+      const journal = journalOf();
+      await journal.append(entries[0]!);
+      await journal.append(entries[1]!);
+      expect(statSync(root).mode & 0o777).toBe(0o755);
+      expect(readdirSync(root)).toEqual(['recovery-journal']);
+      expect(statSync(owned()).mode & 0o777).toBe(0o700);
+    },
+  );
+
+  it('creates the root when it does not exist yet', async () => {
+    const missing = join(root, 'not', 'yet');
+    const journal = createFileRecoveryJournals(missing).journal(scope);
+    await journal.append(entries[0]!);
+    expect(await createFileRecoveryJournals(missing).journal(scope).read()).toHaveLength(1);
   });
 
   describe('damage is refused and never repaired', () => {
@@ -175,6 +202,56 @@ describe('createFileRecoveryJournals', () => {
       await expectRefused('corrupt-entry');
     });
 
+    it('an entry of a known kind that lacks the fields it is read by', async () => {
+      const incomplete: unknown[] = [
+        { kind: 'binding', attemptId: 'a1', sessionId: 's1', cwd: '/work' },
+        { kind: 'effect-call', attemptId: 'a1', actionId: 'act', callId: 7 },
+        { kind: 'turn-end', attemptId: 'a1', phase: 'turn', outcome: { kind: 'speak' } },
+        {
+          kind: 'turn-end',
+          attemptId: 'a1',
+          phase: 'turn',
+          outcome: { kind: 'failed' },
+          checkpoint: { version: 'v1', data: null },
+        },
+        {
+          kind: 'turn-end',
+          attemptId: 'a1',
+          phase: 'turn',
+          outcome: { kind: 'yield' },
+          checkpoint: { data: null },
+        },
+        { kind: 'record' },
+        { kind: 'record', record: { recordId: 'r1', kind: 'model-request' } },
+      ];
+      for (const entry of incomplete) {
+        await seeded();
+        // Written as a well-formed line of the right format, so only its shape is wrong.
+        appendFileSync(
+          journalFile(),
+          `${JSON.stringify({ v: 1, n: 2, e: encodeJournalValue(entry) })}\n`,
+        );
+        await expectRefused('corrupt-entry');
+        rmSync(owned(), { recursive: true, force: true });
+      }
+    });
+
+    it('refuses to append an entry that lacks the fields its kind is read by, writing nothing', async () => {
+      const journal = journalOf();
+      await journal.append(entries[0]!);
+      const before = readFileSync(journalFile());
+      for (const entry of [
+        { kind: 'binding', attemptId: 'a1' },
+        { kind: 'turn-end', attemptId: 'a1', phase: 'turn' },
+        { kind: 'record', record: {} },
+      ]) {
+        await expect(journal.append(entry as never)).rejects.toMatchObject({
+          code: 'corrupt-entry',
+        });
+      }
+      expect(readFileSync(journalFile()).equals(before)).toBe(true);
+    });
+
     it('an unknown format version', async () => {
       await seeded();
       appendFileSync(journalFile(), `${JSON.stringify({ v: 2, n: 2, e: null })}\n`);
@@ -194,7 +271,7 @@ describe('createFileRecoveryJournals', () => {
         syncDirectory: (directory) => steps.push(`sync-dir:${directory}`),
       };
       await journalOf(io).append(entries[0]!);
-      const conversation = join(root, hex(scope.conversationId));
+      const conversation = join(owned(), hex(scope.conversationId));
       const file = steps.indexOf('fsync-file');
       expect(steps.indexOf('write')).toBeLessThan(file);
       // Directory entries are flushed only after the file's own flush.
@@ -217,7 +294,7 @@ describe('createFileRecoveryJournals', () => {
       await journalOf().append(entries[0]!);
       const synced: string[] = [];
       await journalOf({ syncDirectory: (d) => synced.push(d) }).append(entries[1]!);
-      expect(synced).toContain(join(root, hex(scope.conversationId)));
+      expect(synced).toContain(join(owned(), hex(scope.conversationId)));
     });
 
     it('continues a short write until the whole line is written', async () => {

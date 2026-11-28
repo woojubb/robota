@@ -57,8 +57,10 @@ staying readable for reconciliation. A turn the Session finished before a stop w
 and returned, never discarded.
 
 The journal this package ships for files (`./node`, Node built-ins and agent-core only) keeps one
-append-only file per scope and acknowledges an append only after the line and, for a new file, its
-directory entry are flushed. It refuses damage (a partial last line, a gap, an unreadable line) on every
+append-only file per scope, under a directory of its own beneath the one a host passes (which it never
+changes, since a host may share it), and acknowledges an append only after the line and, for a new file,
+its directory entry are flushed. It refuses damage (a partial last line, a gap, an unreadable line, an
+entry missing the fields its kind is read by) on every
 read and append and never repairs it, because a dropped tail would be a guess made on the only history
 there is; it has one writer per scope, which the conversation claim does not enforce.
 
