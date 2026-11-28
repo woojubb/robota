@@ -25,7 +25,7 @@ describe('durable loadRoundtable example', () => {
 
     // The reloaded conversation finished from what was on disk, and the booking still ran once.
     expect(run.result).toMatchObject({ status: 'completed', reason: 'done' });
-    expect(run.effects).toEqual({ 'booking-42': 1 });
+    expect(run.effectRuns).toEqual({ 'booking-42': 1 });
     expect(run.transcript).toEqual([
       'clerk: Booked: confirmed booking-42',
       expect.stringMatching(/^auditor: Audit: /),
