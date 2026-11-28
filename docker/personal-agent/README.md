@@ -16,7 +16,8 @@ OPENAI_API_KEY=... docker compose -f docker/personal-agent/compose.yaml up
   (`network_mode: host`, Linux).
 - **Hardening:** the program is root-owned and read-only. The agent runs as `node`, with every
   capability dropped, `no-new-privileges` and a read-only root filesystem. Its only writable places are
-  the state volume and `/tmp`.
+  the state volume and `/tmp`. The browser's crash-report database and font cache (`XDG_CONFIG_HOME`,
+  `XDG_CACHE_HOME`) live in the state volume; without a writable one Chromium aborts at launch.
 - **On a server:** [`server/`](server/) publishes the agent over HTTPS with Caddy, and
   [`server/install.sh`](server/install.sh) sets it up on a fresh Ubuntu or Debian VPS. The agent still
   binds loopback only; set `PERSONAL_AGENT_PUBLIC_URL` and the image starts it with `--server`.
