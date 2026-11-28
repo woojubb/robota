@@ -143,7 +143,7 @@ test(
     try {
       harness.gateway.behavior = (index) =>
         index === 1
-          ? { kind: 'receipt', patch: { provider: 'some-other-route' } }
+          ? { kind: 'receipt', generation: { provider_name: 'some-other-route' } }
           : { kind: 'receipt' };
       const result = await runDriver(
         harness.config({ dryRun: true, decisionRuleUrl: undefined, deadlineMs: 90_000 }),

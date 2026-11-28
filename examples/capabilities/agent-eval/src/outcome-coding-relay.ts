@@ -221,7 +221,12 @@ export interface IRelayGate {
 }
 
 export type IGateAdmission =
-  | { readonly ok: true; readonly settle: (answer: IUpstreamAnswer | undefined) => IGateVerdict }
+  | {
+      readonly ok: true;
+      readonly settle: (
+        answer: IUpstreamAnswer | undefined,
+      ) => IGateVerdict | Promise<IGateVerdict>;
+    }
   | { readonly ok: false; readonly detail: string };
 
 export interface IGateVerdict {
@@ -246,6 +251,8 @@ export interface IRelayLogEntry {
   readonly role?: string;
   /** Time the single upstream attempt took; absent for a refused request. */
   readonly latencyMs?: number;
+  /** Time the gate spent settling the call (the receipt lookup included); absent without a gate. */
+  readonly accountingMs?: number;
   /** Token counts the answer reported, even on a failed status; absent when it reported none. */
   readonly promptTokens?: number;
   readonly completionTokens?: number;
@@ -380,14 +387,17 @@ export function createCodingRelay(
           : { completionTokens: tokenCount(answer.body, 'completion_tokens') as number }),
       };
       let verdict: IGateVerdict | undefined;
+      let accounting: { readonly accountingMs: number } | undefined;
       if (admission !== undefined && admission.ok) {
+        const settleStartedAt = now();
         try {
-          verdict = admission.settle(answer);
+          verdict = await admission.settle(answer);
         } catch (error) {
           verdict = {
             stop: `the gate could not settle the call: ${error instanceof Error ? error.message : String(error)}`,
           };
         }
+        accounting = { accountingMs: Math.max(0, now() - settleStartedAt) };
       }
       if (verdict?.stop !== undefined) {
         stopped = verdict.stop;
@@ -398,6 +408,7 @@ export function createCodingRelay(
           requestBytes,
           upstreamAttempts: 1,
           ...measured,
+          ...accounting,
         });
         return reply(
           request.id,
@@ -413,6 +424,7 @@ export function createCodingRelay(
           requestBytes,
           upstreamAttempts: 1,
           ...measured,
+          ...accounting,
         });
         return reply(
           request.id,
@@ -427,6 +439,7 @@ export function createCodingRelay(
         requestBytes,
         upstreamAttempts: 1,
         ...measured,
+        ...accounting,
       });
       return reply(request.id, answer.status, answer.body);
     },

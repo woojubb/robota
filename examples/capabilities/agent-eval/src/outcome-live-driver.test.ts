@@ -73,8 +73,9 @@ async function go(
   lines: string[] = [],
   offset = 0,
 ): Promise<{ result: IDriverResult; seen: ReturnType<typeof stubTrials>['seen'] }> {
-  const stub = stubTrials((index, spec) =>
-    scriptFor(index + offset, spec.delegation === undefined),
+  const stub = stubTrials(
+    (index, spec) => scriptFor(index + offset, spec.delegation === undefined),
+    harness.gateway,
   );
   const result = await runDriver(
     harness.config(patch),
@@ -444,7 +445,7 @@ test('a failed preflight stops before any call, creates no ledger and records th
   for (const scenario of cases) {
     await withHarness(async (harness) => {
       scenario.prepare?.(harness);
-      const stub = stubTrials();
+      const stub = stubTrials(undefined, harness.gateway);
       const result = await runDriver(
         harness.config(scenario.patch),
         harness.deps({ runTrial: stub.run }),
@@ -472,7 +473,7 @@ test('a real run without the decision rule is refused before anything is touched
       'http://example.test/x#issuecomment-1',
       'https://example.test/x#issuecomment-abc',
     ]) {
-      const stub = stubTrials();
+      const stub = stubTrials(undefined, harness.gateway);
       await assert.rejects(
         runDriver(
           { ...harness.config(), decisionRuleUrl } as IDriverConfig,
@@ -593,7 +594,7 @@ test('--resume refuses a ledger whose header differs from this run', async () =>
       assert.equal(again.result.exitCode, 1);
     }
     // A different pinned commit is a different run too.
-    const stub = stubTrials();
+    const stub = stubTrials(undefined, harness.gateway);
     const other = await runDriver(
       harness.config({ resume: true }),
       harness.deps({
@@ -792,4 +793,22 @@ test('the credential-copy check scans a trial folder left behind', () => {
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
+});
+
+test('a stopped ledger halts the run even when the trial record carries no stop', async () => {
+  await withHarness(async (harness) => {
+    const stub = stubTrials(() => ({ calls: [{ noAnswer: true }] }), harness.gateway);
+    const result = await runDriver(
+      harness.config(),
+      harness.deps({
+        runTrial: async (spec) => {
+          const { stopReason: _dropped, ...record } = await stub.run(spec);
+          return record;
+        },
+      }),
+    );
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.summary.halt?.kind, 'spend-gate');
+    assert.equal(stub.seen.length, 1);
+  });
 });
