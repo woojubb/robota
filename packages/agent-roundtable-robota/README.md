@@ -126,6 +126,13 @@ export async function runQuickstart() {
 This exact example is executed by `src/readme-example.test.ts`, so it stays runnable as the package
 changes.
 
+More runnable examples, each run end to end by a test with scripted providers (no network, no key):
+
+- Mixed runtimes: an agent, a Session and a hand-written participant, on different providers, in one
+  conversation — [`src/examples/mixed-runtimes.ts`](src/examples/mixed-runtimes.ts).
+- Selector-driven review, `sessionParticipant` tools and the durable restart each have their own, linked
+  from their sections below.
+
 ## `sessionParticipant`: a real, permission-gated agent turn
 
 `sessionParticipant` wraps an agent runtime `Session` — the same runtime `agent-cli`/`agent-framework` build
@@ -182,6 +189,9 @@ That default also only ever frees a session's records once its execution settles
 a parked wait whose conversation fails or is simply never resumed keeps its records in memory for the
 life of the process. A host that expects abandoned waits supplies its own `journal` to clean those up.
 
+A runnable example, with a free tool, a paid tool the host approves, and a token budget:
+[`src/examples/session-tools.ts`](src/examples/session-tools.ts).
+
 ### Reconcilable recovery
 
 Passing `recovery: { journal(scope) }` instead of `journal` makes a `sessionParticipant` declare
@@ -213,11 +223,12 @@ import { createFileRecoveryJournals } from '@robota-sdk/agent-roundtable-robota/
 sessionParticipant({ /* ... */ recovery: createFileRecoveryJournals('/var/lib/my-host/recovery') });
 ```
 
-Each scope is one append-only file, `<root>/<hex(conversationId)>/<hex(participantId)>.jsonl`, written
-owner-only (0700 directories, 0600 files; the root and everything below it are made owner-only, so give
-it a directory of its own). An append resolves after the line is flushed and, for a new file, so are the
-directory entries above it. Damage is refused, never repaired: a partial last line (a write that was
-cut off), a gap in the numbering, or an unreadable line fails the next read and append with a
+Each scope is one append-only file, `<root>/recovery-journal/<hex(conversationId)>/<hex(participantId)>.jsonl`,
+written owner-only (0700 directories, 0600 files). The journal owns the `recovery-journal` directory it
+creates under `root`; `root` itself, which may be shared with other files, is never changed. An append
+resolves after the line is flushed and, for a new file, so are the directory entries above it. Damage
+is refused, never repaired: a partial last line (a write that was cut off), a gap in the numbering, an
+unreadable line, or an entry missing the fields its kind is read by fails the next read and append with a
 `FileRecoveryJournalError`, and the file stays as it is for you to inspect. Limits:
 
 - One writer per scope. The conversation claim does not fence the journal; two processes appending to
@@ -227,6 +238,10 @@ cut off), a gap in the numbering, or an unreadable line fails the next read and 
   entry; a process crash cannot.
 - Entries hold the participant's private history, and the files grow with turns times history; protect
   and prune them like a session store.
+
+A runnable example that stops a durable conversation mid-turn, opens new store and journal instances over
+the same directory, reloads it with `loadRoundtable` and finishes without running the completed effect
+again: [`src/examples/durable-restart.ts`](src/examples/durable-restart.ts).
 
 ## `runtimeParticipant`: a plain agent turn, no continuation
 
@@ -254,6 +269,9 @@ the first. Give each conversation its own instance instead of sharing one across
 Every decision is shown the conversation's whole shared transcript, not a bounded window — no context
 policy trims a selector's own view the way one trims what a participant receives — so the cost of each
 decision grows with the conversation rather than staying flat.
+
+A runnable example, in which a selector sends a draft back to its author until the reviewer approves:
+[`src/examples/selector-review.ts`](src/examples/selector-review.ts).
 
 ## Rendering a turn's shared increment
 

@@ -37,6 +37,7 @@ const scope = { conversationId: 'room', participantId: 'alice' };
 const file = (root: string): string =>
   join(
     root,
+    'recovery-journal',
     Buffer.from(scope.conversationId).toString('hex'),
     `${Buffer.from(scope.participantId).toString('hex')}.jsonl`,
   );
