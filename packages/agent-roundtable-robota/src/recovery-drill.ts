@@ -38,6 +38,13 @@ const gateOf = (kill: KillGate | KillPlan | undefined): KillGate | undefined => 
 
 /** The disk and the outside world: everything that outlives a process. */
 export class World {
+  /**
+   * With it, a generation's journals are the ones it returns instead of the in-memory map, so the same
+   * kill points can be driven through a real journal. Called once per generation: a new process opens
+   * its own handles over whatever the dead one left.
+   */
+  constructor(readonly journalsOf?: () => (scope: RecoveryScope) => RecoveryJournal) {}
+
   skew = 0;
   readonly disk = new MemoryConversationStore({ now: () => Date.now() + this.skew });
   readonly journals = new Map<string, RecoveryJournalEntry[]>();
@@ -110,6 +117,7 @@ export class Generation {
     };
   }
 
+  private backing: ((scope: RecoveryScope) => RecoveryJournal) | undefined;
   private readonly hung = new Set<(reason: Error) => void>();
   private tornDown = false;
 
@@ -142,17 +150,20 @@ export class Generation {
     durability: RecoveryJournal['durability'] = 'durable',
   ): RecoveryJournal {
     const key = `${scope.conversationId}/${scope.participantId}`;
+    const backing = (this.backing ??= this.world.journalsOf?.())?.(scope);
     return {
       durability,
       read: async () => {
         if (this.killed) return this.hang();
+        if (backing) return structuredClone([...(await backing.read())]);
         return structuredClone(this.world.journals.get(key) ?? []);
       },
       append: async (entry) => {
         if (this.killed) return this.hang();
         const n = this.appends++;
         const when = this.gate?.(entry, n);
-        const write = () => {
+        const write = (): Promise<void> | void => {
+          if (backing) return backing.append(structuredClone(entry));
           const entries = this.world.journals.get(key) ?? [];
           entries.push(structuredClone(entry));
           this.world.journals.set(key, entries);
@@ -160,7 +171,8 @@ export class Generation {
         if (this.interrupt) {
           // The entry is written either way; the stop lands just before or just after it.
           if (when === 'before') this.interrupt();
-          write();
+          const pending = write();
+          if (pending) await pending;
           if (when === 'after') this.interrupt();
           return;
         }
@@ -168,7 +180,9 @@ export class Generation {
           this.kill();
           return this.hang();
         }
-        write();
+        const pending = write();
+        // Only a real journal's write is asynchronous; the in-memory one keeps its timing.
+        if (pending) await pending;
         if (when === 'after') {
           this.kill();
           return this.hang();
