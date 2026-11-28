@@ -191,15 +191,15 @@ describe('createFileRecoveryJournals', () => {
           return data.length;
         },
         fsyncSync: () => steps.push('fsync-file'),
-        syncDirectory: (directory) => steps.push(`sync-dir:${directory.slice(root.length) || '/'}`),
+        syncDirectory: (directory) => steps.push(`sync-dir:${directory}`),
       };
       await journalOf(io).append(entries[0]!);
-      const conversation = `/${hex(scope.conversationId)}`;
+      const conversation = join(root, hex(scope.conversationId));
       const file = steps.indexOf('fsync-file');
       expect(steps.indexOf('write')).toBeLessThan(file);
       // Directory entries are flushed only after the file's own flush.
       expect(steps.indexOf(`sync-dir:${conversation}`, file)).toBeGreaterThan(file);
-      expect(steps).toContain('sync-dir:/');
+      expect(steps).toContain(`sync-dir:${root}`);
       expect(steps.at(-1)!.startsWith('sync-dir:')).toBe(true);
     });
 
