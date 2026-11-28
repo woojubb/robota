@@ -31,7 +31,7 @@ export const TAR_TYPE = 'application/x-tar';
 
 /**
  * Exit codes a script can rely on: 0 done; 1 something broke; 2 usage; 3 the request was turned
- * down; 4 no such account; 5 the control plane is not reachable.
+ * down; 4 no such account; 5 the control plane is not reachable; 6 `health` found a problem.
  */
 export const EXIT = {
   ok: 0,
@@ -40,6 +40,7 @@ export const EXIT = {
   refused: 3,
   notFound: 4,
   unreachable: 5,
+  unhealthy: 6,
 } as const;
 
 export function exitCodeFor(code: HostErrorCode): number {

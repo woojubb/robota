@@ -695,6 +695,22 @@ describe('the guard as the backend uses it', () => {
     expect(description.guard.detail).toMatch(/cannot apply the guard: .*Operation not supported/u);
   });
 
+  it('verifies the guard without reapplying it, and says so when it went missing', async () => {
+    const { fake, runtime } = await started();
+    const verify = async () => (await runtime.describe({ repair: false })).guard;
+    expect((await verify()).state).toBe('verified');
+    fake.flushGuard();
+    const missing = await verify();
+    expect(missing).toMatchObject({ state: 'unverified', detail: 'the guard table is missing' });
+    expect(fake.guardRules).toBeUndefined();
+    // The repairing check puts it back, and the verify-only one then agrees.
+    expect((await runtime.describe()).guard.state).toBe('verified');
+    expect((await verify()).state).toBe('verified');
+    fake.tamperGuard();
+    expect((await verify()).detail).toMatch(/differs/u);
+    expect(fake.guardRules).toContain('# edited');
+  });
+
   it('refuses to start while the guard cannot be applied, and starts nothing', async () => {
     const fake = await newEngine();
     fake.guardApplyFailure = { code: 1, output: 'Error: Could not process rule' };

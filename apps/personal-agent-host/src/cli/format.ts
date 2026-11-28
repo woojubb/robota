@@ -1,5 +1,6 @@
 import type {
   IAccountView,
+  IHealthReport,
   IRestoreResult,
   IStatusReport,
   IUpgradeResult,
@@ -71,13 +72,15 @@ export function formatStatus(report: IStatusReport): string {
     lines.push(
       '',
       table([
-        ['ID', 'DESIRED', 'ACTUAL', 'HEALTHY', 'IMAGE'],
+        ['ID', 'DESIRED', 'ACTUAL', 'HEALTHY', 'IMAGE', 'LAST RESTART', 'BACKOFF'],
         ...report.accounts.map((a) => [
           a.id,
           a.desired,
           a.actual,
           a.healthy ? 'yes' : 'no',
           shortImage(a.imageId),
+          a.lastRestartAt ?? '-',
+          a.backoff ? `${a.backoff.failures} failed, retry ${a.backoff.retryAt}` : '-',
         ]),
       ]),
     );
@@ -114,4 +117,13 @@ export function formatRestore(result: IRestoreResult): string {
     `${from.entries} entries, ${from.bytes} bytes.\n` +
     (result.restarted ? 'The unit was started again from its recorded image.\n' : '')
   );
+}
+
+/** One line per problem, so a monitor's mail or log says exactly what is wrong. */
+export function formatHealth(report: IHealthReport): string {
+  if (report.healthy) {
+    const accounts = `${report.checked} active account${report.checked === 1 ? '' : 's'}`;
+    return `healthy: the guard is verified, the routes are current, ${accounts} running and healthy\n`;
+  }
+  return `${report.problems.map((p) => `${p.account ?? p.kind}: ${p.message}`).join('\n')}\n`;
 }

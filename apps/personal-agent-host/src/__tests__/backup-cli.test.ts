@@ -58,6 +58,26 @@ describe('backup over the admin socket', () => {
     expect(host.runtime.calls.some((c) => c.startsWith('stop:'))).toBe(false);
   });
 
+  it("also refuses when the wrapper says the operator's own stdout is a terminal", async () => {
+    // Inside the container the CLI's stdout is a pipe even when the operator's is a screen.
+    const host = await hostWithAccount();
+    host.runtime.calls.length = 0;
+    const flagged = { ...host.env, PERSONAL_AGENT_HOST_STDOUT_TTY: '1' };
+    const refused = await runCli(flagged, ['backup', 'alice']);
+    expect(refused.code).toBe(2);
+    expect(refused.err).toMatch(/redirect it to a file/u);
+    expect(refused.bytes.length).toBe(0);
+    expect(host.runtime.calls.some((c) => c.startsWith('stop:'))).toBe(false);
+
+    // The control: the same command without the flag writes the archive.
+    const written = await runCli(host.env, ['backup', 'alice']);
+    expect(written.code).toBe(0);
+    expect(written.bytes.length).toBeGreaterThan(0);
+    // The flag is about stdout only: restore reads stdin and is unaffected.
+    const restored = await runCli(flagged, ['restore', 'alice'], written.bytes);
+    expect(restored.code).toBe(0);
+  });
+
   it('takes no options, and an unknown account is exit code 4', async () => {
     const host = await hostWithAccount();
     expect((await host.cli(['backup', 'alice', '--json'])).code).toBe(2);
