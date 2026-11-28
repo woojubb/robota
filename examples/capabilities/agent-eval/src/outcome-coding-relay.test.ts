@@ -243,3 +243,57 @@ test('the scripted source answers in order and fails visibly past the end of its
   assert.equal(third.status, 500);
   assert.equal(scripted.calls(), 3);
 });
+
+test('a gate refusal sends nothing, and a stopping settlement ends the run without more attempts', async () => {
+  let sent = 0;
+  const upstream: TUpstream = async () => {
+    sent += 1;
+    return { status: 200, body: { ok: true } };
+  };
+  const decisions = [
+    { ok: false as const, detail: 'ceiling: the reservation would exceed the ceiling' },
+    {
+      ok: true as const,
+      settle: () => ({ stop: 'the receipt named another route' }),
+    },
+  ];
+  const relay = createCodingRelay(policy(), upstream, () => NOW, {
+    admit: () => decisions.shift() ?? { ok: false, detail: 'none left' },
+  });
+  const refused = await relay.handle({ id: 1, ...request() });
+  assert.equal(refused.status, 403);
+  assert.equal(sent, 0);
+  assert.equal(relay.log[0]?.code, 'admission');
+  assert.equal(relay.upstreamAttempts(), 0);
+
+  const stopped = await relay.handle({ id: 2, ...request() });
+  assert.equal(stopped.status, 502);
+  assert.equal(sent, 1);
+  assert.equal(relay.stopReason(), 'the receipt named another route');
+  assert.equal(relay.log[1]?.outcome, 'stopped');
+
+  const after = await relay.handle({ id: 3, ...request() });
+  assert.equal(after.status, 403);
+  assert.equal(relay.log[2]?.code, 'stopped');
+  assert.equal(sent, 1);
+  assert.equal(relay.upstreamAttempts(), 1);
+});
+
+test('a gate that throws while settling stops the run instead of losing the call', async () => {
+  const relay = createCodingRelay(
+    policy(),
+    async () => ({ status: 200, body: {} }),
+    () => NOW,
+    {
+      admit: () => ({
+        ok: true,
+        settle: () => {
+          throw new Error('ledger write failed');
+        },
+      }),
+    },
+  );
+  const answer = await relay.handle({ id: 1, ...request() });
+  assert.equal(answer.status, 502);
+  assert.match(relay.stopReason() ?? '', /ledger write failed/);
+});

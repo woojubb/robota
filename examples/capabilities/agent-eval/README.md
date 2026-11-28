@@ -172,7 +172,7 @@ remain unmeasured rather than being reported as zero.
 
 ## Coding-task baseline fixtures
 
-`src/outcome-coding-*.ts` hold five small synthetic repository tasks (navigation, bug repair, feature,
+`src/outcome-coding-tasks.ts` holds five small synthetic repository tasks (navigation, bug repair, feature,
 multi-file change, test diagnosis) as data: prompt, initial file tree, protected files, a solved control and
 an independent verifier program the model never sees. The contents are ported unchanged from a pinned
 single-agent baseline and frozen by a SHA-256 over a canonical serialization (tasks in order, object keys
@@ -206,6 +206,42 @@ To change a task on purpose, edit `src/outcome-coding-tasks.ts`, print the new d
 `createHash('sha256').update(serializeCodingTasks()).digest('hex')`, and replace the constant in
 `src/outcome-coding-tasks.test.ts` in the same change, stating why the frozen baseline moved.
 
+## Repository-work task from a real merged fix
+
+Beside the five synthetic tasks there is a sixth, `repository-fix`, taken from a real merged fix in this
+repository. It is frozen on its own (a separate digest in `src/outcome-coding-repository.test.ts`), so the five
+keep theirs; `ALL_CODING_TASKS` lists the five and then this one, and both arms of a comparison use the same list.
+
+- **Why this fix.** It changes one small pure function in one file (the set of characters that count as a line
+  break when text a participant shares is quoted line by line). That is single-agent sized: the model reads one
+  file and changes one line of code. Its behavior is checked by a deterministic script that needs no dependency, network
+  or credential, and the unfixed behavior is something a reader can describe from outside.
+- **Tree.** `src/outcome-coding-repository-build.ts` exports the fix's parent commit with `git archive` (a plain
+  tree: no history, no pack objects) and keeps two files, the implementation and its package manifest. The kept
+  files are byte for byte the repository's own, so their comments are too. The result is committed as
+  `src/outcome-coding-tasks-repository-data.ts`; a test rebuilds it from the two commits when the checkout has
+  them and compares (it is skipped in a shallow clone). Regenerate with
+  `pnpm --filter robota-capability-agent-eval exec tsx src/outcome-coding-repository-build.ts`, then format the
+  result with prettier.
+- **Verifier.** It runs the implementation file directly (Node strips the types), so it needs Node 22.18 or
+  later, and compares complete rendered outputs for the line breaks that already worked and for the ones the
+  report is about. Any correct way of quoting passes; the fix's own text is not required. It never enters the
+  image or the prompt. Broken (the parent tree) fails on the behavior and solved (parent plus fix) passes, both
+  through the same trusted runner and, opt in, the verifier container.
+- **Prompt.** It reports the symptom as a reader of the shared text would (a forged header after a form feed
+  comes through unquoted) and states the rule the behavior must follow, every mandatory line break of the Unicode
+  line-breaking rules. It names no file, function or constant, and not the second character the fix adds. The
+  judgment: the rule is the stated requirement, so the verifier asks for nothing the prompt does not say, and
+  naming the missing characters would hand over the change. A test pins that the prompt contains none of the
+  code's names or the fix's lines.
+- **Fix lines and the image.** The pinned checkout that the worker image is built from already contains the fix,
+  in its own package and in sibling code and tests that repeat it. `leakNeedles` holds the lines the fix added
+  that the parent lacks; the image build removes every file holding one and the context and image searches look
+  for them like any other forbidden text.
+- **Limitation.** A public fix may be in a model's training data. A pass on this task is weaker evidence than a
+  pass on a task nobody published, and it says nothing about unpublished work; both arms see the same task, which
+  keeps their comparison fair but does not make the absolute score meaningful.
+
 ## Coding worker, validating relay and offline run
 
 The worker runs one coding trial on the current runtime in a locked-down container. It has no network and no
@@ -227,7 +263,8 @@ decides what leaves the machine.
 - **Image.** `src/outcome-coding-image.ts` builds from an export of a commit (no history, no pack objects),
   removes the example's tasks, verifiers and scoring and the `research/` tree, and searches the build context and
   the built image for every solved file, every verifier, the task identifiers and credential-like file names. A
-  single hit fails the run.
+  single hit fails the run. The search matches exact text: a solution that was re-encoded (compressed, base64,
+  split or reformatted) is not detected, so the image's protection rests on never copying those files in.
 
 The fast `test` script covers all of this without Docker, including the worker end to end through the relay with
 a scripted reply source. The opt-in offline run needs a local Docker daemon and takes several minutes; run it
@@ -243,3 +280,44 @@ refused, an escaping symlink detected), the image search, and scripted trials wi
 worker and the relay, including one whose requests the relay must refuse without reaching the reply source.
 Flags: `--source`, `--revision`, `--node-image`, `--verifier-image`, `--model`, `--endpoint`, `--base` (host
 directory the daemon can mount, default the home directory), `--image` (reuse a built tag), `--keep-image`.
+
+## Spend ledger and the live path (no paid call here)
+
+The relay's reply source can be a live gateway, but only behind an append-only spend ledger. Nothing in the fast
+tests reaches a real gateway or reads a real credential: they run against a loopback fake gateway with a fake
+key, and the credential reader is tested with a temporary file.
+
+- **Ledger.** `src/outcome-coding-ledger.ts` keeps integer micro-dollars in a hash-chained, fsynced file at a path
+  given at runtime, outside the repository. Its header (ceiling, call cap, rate basis, commit, route, output cap,
+  template allowance) is created exclusively and has no way to change; an edited header, a missing or reordered
+  line, or a torn tail is refused, and the file is never repaired or truncated. The ceiling and the call cap are
+  inputs; the defaults are the approved ceiling of two dollars and a cap of 400 calls. Only one process may hold a
+  ledger.
+- **Reservation and receipt.** Admission reserves a call's maximum cost durably before anything is sent: the bytes
+  actually sent upstream plus a fixed per-request token allowance for provider templates, and the output cap, at the
+  header's basis rates. The provider's receipt swaps in the real cost; a call without a receipt keeps its
+  reservation. Admission refuses past the call cap and one micro-dollar over the ceiling.
+- **Basis.** `src/outcome-coding-pricing.ts` reads the pinned provider's prices from the gateway's endpoint listing
+  and takes the highest of each kind across all its regions, not the model's headline price. The header's basis is
+  chosen at or above that, and `basisCovers` re-checks it before a run.
+- **Stops.** `src/outcome-coding-gate.ts` stops the run, with no retry and no further admission, when a call gets no
+  answer or no usable receipt (the reservation stays), when a receipt names another provider or model than the
+  pinned route, when its output tokens exceed the cap, or when its cost exceeds its reservation (recorded at the
+  real cost, against the ceiling). A stop is persisted; `resume` lifts it only when no call is unsettled, and calls
+  left unsettled by an earlier process block admission until each is reconciled explicitly.
+- **One request per admission.** `src/outcome-coding-gateway.ts` makes exactly one HTTP request per call: no retry,
+  no redirects, no connection reuse; plain HTTP is accepted only for a loopback address. The worker's own client is
+  built without retries, and the runtime's conversation service, which retries on rate limits and timeouts, is not
+  on the session's chat path, so one admission is one upstream request end to end. A test runs the real worker
+  against replies of 429 and 503 and counts the attempts.
+- **Credential.** `src/outcome-coding-credential.ts` reads the value of one named line of a file the caller names,
+  keeps it in memory in an object that prints as redacted, and passes it only to the host's upstream client. The
+  worker container gets no environment variable and no mount for it. The leak scan counts occurrences of a secret
+  (plain, base64, hex, URL-encoded) in evidence texts and directories and reports the count, never the secret.
+- **Checks before a run.** `catalogListsModel` (the pinned model is still listed), `fetchEndpointListing` and
+  `checkCredits` (the remaining credit covers the next reservation) read the gateway once each. The gateway shape
+  they assume is `GET <base>/models`, `GET <base>/models/<model>/endpoints`, `GET <base>/credits` and
+  `POST <base>/chat/completions`, with the receipt in the reply (`usage.cost` in dollars, `usage.completion_tokens`,
+  `provider`, `model`). No real gateway has confirmed this shape. Before the first paid call the pre-run checks must
+  succeed against the real gateway: the catalog lists the model, the endpoint listing parses with rates within the
+  basis, the credits answer parses, and a reply carries `usage.cost`, `provider` and `model`.

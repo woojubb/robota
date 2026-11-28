@@ -72,7 +72,11 @@ export function runIsolationCanaries(options: {
   readonly image: string;
   readonly baseDir: string;
   readonly task: ICodingTask;
+  /** The docker client; injected only by tests. */
+  readonly docker?: typeof spawnSync;
 }): IIsolationResult {
+  const docker = options.docker ?? spawnSync;
+  let containerName: string | undefined;
   const trialDir = mkdtempSync(join(options.baseDir, '.coding-canary-'));
   const tree = join(trialDir, 'project');
   const hostFile = join(trialDir, 'host-only.txt');
@@ -80,21 +84,26 @@ export function runIsolationCanaries(options: {
     writeFileSync(hostFile, 'never mounted into the container');
     materializeWorkerTree(options.task, tree);
     const sentinel = `canary-${createHash('sha256').update(trialDir).digest('hex')}`;
+    containerName = `robota-eval-canary-${createHash('sha256').update(trialDir).digest('hex').slice(0, 10)}`;
     const args = buildWorkerContainerArgs({
-      name: `robota-eval-canary-${createHash('sha256').update(trialDir).digest('hex').slice(0, 10)}`,
+      name: containerName,
       image: options.image,
       root: tree,
       command: ['node', '-e', CANARY_SCRIPT, hostFile],
     }).filter((argument) => argument !== '-i');
-    const run = spawnSync('docker', args, {
+    const run = docker('docker', args, {
       encoding: 'utf8',
       timeout: 60_000,
       // The sentinel lives in the docker client's environment, as a credential would on the host.
       env: { ...process.env, [CANARY_ENV_NAME]: sentinel },
     });
-    const line = run.stdout.split('\n').find((candidate) => candidate.startsWith('CANARY:'));
+    const line = String(run.stdout ?? '')
+      .split('\n')
+      .find((candidate) => candidate.startsWith('CANARY:'));
     if (line === undefined) {
-      throw new Error(`The canary container reported nothing: ${run.stderr.slice(-800)}`);
+      throw new Error(
+        `The canary container reported nothing: ${String(run.stderr ?? '').slice(-800)}`,
+      );
     }
     const report = JSON.parse(line.slice('CANARY:'.length)) as ICanaryReport;
     const sentinelHash = createHash('sha256').update(sentinel).digest('hex');
@@ -126,6 +135,10 @@ export function runIsolationCanaries(options: {
         .map(([name]) => name),
     };
   } finally {
+    // A timed-out client leaves its container running: remove it by name, whatever happened.
+    if (containerName !== undefined) {
+      docker('docker', ['rm', '-f', containerName], { stdio: 'ignore', timeout: 15_000 });
+    }
     rmSync(trialDir, { recursive: true, force: true });
   }
 }
