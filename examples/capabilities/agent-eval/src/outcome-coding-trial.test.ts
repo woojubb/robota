@@ -7,6 +7,7 @@ import { PassThrough } from 'node:stream';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { encodeWorkerLine } from './outcome-coding-protocol.js';
 import { createScriptedUpstream } from './outcome-coding-relay.js';
 import { planScriptedTrial } from './outcome-coding-scripts.js';
 import { BASELINE_SETTINGS } from './outcome-coding-settings.js';
@@ -259,3 +260,85 @@ test(
     }
   },
 );
+
+test('a settlement still pending when the worker reports its result is in the trial record', async () => {
+  const task = CODING_TASKS.find((candidate) => candidate.id === 'bug-repair') as ICodingTask;
+  const base = mkdtempSync(join(tmpdir(), 'coding-trial-test-'));
+  try {
+    const record = await runTrial({
+      task,
+      model,
+      endpoint,
+      upstream: async () => ({ status: 200, body: { ok: true } }),
+      gate: {
+        admit: () => ({
+          ok: true,
+          settle: async () => {
+            await new Promise((wait) => setTimeout(wait, 300));
+            return { stop: 'no record confirmed the call' };
+          },
+        }),
+      },
+      // A worker that sends one request and its result at once, before the settlement ends.
+      launch: (): IWorkerLaunch => {
+        const stdin = new PassThrough();
+        const stdout = new PassThrough();
+        let reported = false;
+        let done: (code: number | null) => void = () => undefined;
+        const exited = new Promise<number | null>((resolve) => {
+          done = resolve;
+        });
+        stdin.on('data', () => {
+          if (reported) return;
+          reported = true;
+          stdout.write(
+            encodeWorkerLine({
+              kind: 'request',
+              id: 1,
+              url: endpoint,
+              body: {
+                model,
+                messages: [
+                  { role: 'system', content: 'system' },
+                  { role: 'user', content: 'hello' },
+                ],
+              },
+            }),
+          );
+          stdout.write(
+            encodeWorkerLine({
+              kind: 'result',
+              completed: true,
+              interrupted: false,
+              response: '',
+              toolCalls: 0,
+              toolNames: [],
+              usage: null,
+              elapsedMs: 1,
+            }),
+          );
+        });
+        return {
+          paths: localPaths({ name: 'pending', trialDir: base, tree: base }),
+          worker: {
+            stdin,
+            stdout,
+            stderr: new PassThrough(),
+            exited,
+            kill: () => done(null),
+          },
+        };
+      },
+      verify: observeOnly,
+      baseDir: base,
+      deadlineMs: 30_000,
+      trialName: 'pending-settle',
+    });
+    assert.equal(record.stopReason, 'no record confirmed the call');
+    assert.equal(record.relayLog.length, 1);
+    assert.equal(record.relayLog[0]?.outcome, 'stopped');
+    assert.ok((record.relayLog[0]?.accountingMs ?? 0) >= 250);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});

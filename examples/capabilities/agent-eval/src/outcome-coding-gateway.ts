@@ -138,9 +138,10 @@ async function getJson(
   location: IGatewayLocation,
   path: string,
   credential?: ICredential,
+  timeoutMs: number = location.timeoutMs ?? 15_000,
 ): Promise<IGatewayAnswer> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), location.timeoutMs ?? 15_000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await requestOnce({
       url: `${location.baseUrl}${path}`,
@@ -244,6 +245,8 @@ export async function lookupGeneration(
         location,
         `/generation?id=${encodeURIComponent(generationId)}`,
         credential,
+        // A poll never runs past the wait bound; the floor keeps a last poll meaningful.
+        Math.max(200, Math.min(location.timeoutMs ?? 15_000, maxWaitMs - (now() - startedAt))),
       );
     } catch {
       answer = undefined;

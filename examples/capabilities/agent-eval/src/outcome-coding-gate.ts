@@ -11,8 +11,9 @@ import type { IRelayGate } from './outcome-coding-relay.js';
  * - no answer, or an answer that is not a success (an unknown or failed paid call: the reservation
  *   stays, because the provider may still have charged it);
  * - a success without a readable cost (also unknown, same reservation);
- * - a receipt whose provider or model differs from the pinned route, or for which the gateway's
- *   generation record (the only place the serving provider is named) could not be read;
+ * - a receipt whose provider or model differs from the pinned route, ;
+ * - a success whose generation record (the only place the serving provider is named) cannot be read
+ *   (also unknown, same reservation);
  * - a receipt whose output tokens exceed the output cap;
  * - a receipt whose cost exceeds its reservation (recorded at the real cost, against the ceiling).
  */
@@ -50,16 +51,17 @@ export function createLedgerGate(
           } catch {
             generation = undefined;
           }
+          if (generation === undefined) {
+            ledger.stop(
+              `call ${id} has no generation record confirming the provider; its reservation stays`,
+            );
+            return { stop: `call ${id} has no generation record confirming the provider` };
+          }
           const receipt = parseReceipt(answer.body, generation);
           const problems: string[] = [];
-          if (generation === undefined)
-            problems.push('no generation record confirmed the provider');
-          else if (receipt.provider !== route.provider)
+          if (receipt.provider !== route.provider)
             problems.push('the provider differs from the pinned route');
-          if (
-            receipt.model !== route.model ||
-            (generation !== undefined && receipt.generationModel !== route.model)
-          )
+          if (receipt.model !== route.model || receipt.generationModel !== route.model)
             problems.push('the model differs from the pinned route');
           if (receipt.outputTokens === undefined || receipt.outputTokens > maxOutputTokens) {
             problems.push('the output tokens are missing or exceed the output cap');

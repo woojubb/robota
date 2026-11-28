@@ -373,6 +373,8 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
     const noteDiagnostic = (line: string): void => {
       if (diagnostics.length < MAX_DIAGNOSTICS) diagnostics.push(line.slice(-MAX_DIAGNOSTIC_CHARS));
     };
+    // Requests are answered one at a time; the chain is awaited below so no settlement outlives the trial.
+    let chain: Promise<void> = Promise.resolve();
     const result = await new Promise<IWorkerResult | undefined>((done) => {
       let finished = false;
       const finish = (value: IWorkerResult | undefined): void => {
@@ -386,7 +388,6 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
         worker.kill();
         finish(undefined);
       }, deadlineMs + KILL_GRACE_MS);
-      let chain: Promise<void> = Promise.resolve();
       readBoundedLines(
         worker.stdout,
         stdoutLineLimit,
@@ -397,7 +398,6 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
           } else if (message.kind === 'result') {
             finish(message);
           } else {
-            // Requests are answered one at a time, in order.
             chain = chain
               .then(async () => {
                 const answer = await relay.handle(message);
@@ -426,6 +426,10 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
       worker.exited,
       new Promise((wait) => setTimeout(wait, KILL_GRACE_MS).unref()),
     ]);
+
+    // A request still in flight (an upstream attempt or a settlement) is bounded; its stop reason and
+    // log entry must be final before the record is taken.
+    await chain;
 
     const observation = await spec.verify(spec.task, tree);
     const measures = measureTrial(relay.log, result?.delegation, Date.now() - started);

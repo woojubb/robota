@@ -546,14 +546,14 @@ test('a generation lookup waits for a lagging record, gives up within its bound,
   }
 });
 
-test('a receipt without a generation record stops the run after settling the call', async () => {
+test('a receipt without a generation record stops the run and keeps the reservation', async () => {
   await withRun(async (context) => {
     context.gateway.generationStatus = 404;
     const answer = await request(context);
     assert.equal(answer.status, 502);
-    assert.match(context.relay.stopReason() ?? '', /no generation record confirmed the provider/);
-    assert.equal(context.ledger.state().settledMicros, 100);
-    assert.equal(context.ledger.state().unsettledIds.length, 0);
+    assert.match(context.relay.stopReason() ?? '', /no generation record confirming the provider/);
+    assert.equal(context.ledger.state().settledMicros, 0);
+    assert.equal(context.ledger.state().unsettledIds.length, 1);
     assert.equal((await request(context, 2)).status, 403);
     assert.equal(context.gateway.chatBodies.length, 1);
   });

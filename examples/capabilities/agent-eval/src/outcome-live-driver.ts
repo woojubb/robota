@@ -274,7 +274,7 @@ function tallyGate(
   inner: IRelayGate,
   tally: ITally,
   ledger: SpendLedger,
-  records: ReadonlyMap<string, TJsonObject>,
+  records: Map<string, TJsonObject>,
 ): IRelayGate {
   return {
     admit(request) {
@@ -291,10 +291,12 @@ function tallyGate(
         async settle(answer) {
           const verdict = await admission.settle(answer);
           const id = answer === undefined ? undefined : generationIdOf(answer.body);
+          const generation = id === undefined ? undefined : records.get(id);
+          if (id !== undefined) records.delete(id);
           const receipt =
-            answer === undefined
+            answer === undefined || generation === undefined
               ? undefined
-              : parseReceipt(answer.body, id === undefined ? undefined : records.get(id));
+              : parseReceipt(answer.body, generation);
           const usable =
             answer !== undefined &&
             answer.status >= 200 &&
@@ -732,7 +734,9 @@ export async function runDriver(config: IDriverConfig, deps: IDriverDeps): Promi
         const id = generationIdOf(body);
         if (id === undefined) return undefined;
         const record = await lookupGeneration(location, credential as ICredential, id);
-        if (record !== undefined) records.set(id, record);
+        // A record that names another generation is no record of this one.
+        if (record === undefined || record.id !== id) return undefined;
+        records.set(id, record);
         return record;
       });
       let first = true;
@@ -789,9 +793,19 @@ export async function runDriver(config: IDriverConfig, deps: IDriverDeps): Promi
         } catch (error) {
           thrown = redact(error instanceof Error ? error.message : String(error));
         }
+        // A stopped ledger ends the run even if the trial record did not carry the stop (a refused
+        // admission is classified separately).
+        const ledgerStop = ledger.state().stopReason;
+        const classified =
+          trialRecord !== undefined &&
+          trialRecord.stopReason === undefined &&
+          tally.refusals.length === 0 &&
+          ledgerStop !== undefined
+            ? { ...trialRecord, stopReason: ledgerStop }
+            : trialRecord;
         const verdict = classifyTrial({
           ...(thrown === undefined ? {} : { thrown }),
-          ...(trialRecord === undefined ? {} : { record: trialRecord }),
+          ...(classified === undefined ? {} : { record: classified }),
           admissionRefusals: tally.refusals,
         });
         const end: ITrialEnd = {

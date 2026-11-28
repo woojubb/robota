@@ -794,3 +794,21 @@ test('the credential-copy check scans a trial folder left behind', () => {
     rmSync(base, { recursive: true, force: true });
   }
 });
+
+test('a stopped ledger halts the run even when the trial record carries no stop', async () => {
+  await withHarness(async (harness) => {
+    const stub = stubTrials(() => ({ calls: [{ noAnswer: true }] }), harness.gateway);
+    const result = await runDriver(
+      harness.config(),
+      harness.deps({
+        runTrial: async (spec) => {
+          const { stopReason: _dropped, ...record } = await stub.run(spec);
+          return record;
+        },
+      }),
+    );
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.summary.halt?.kind, 'spend-gate');
+    assert.equal(stub.seen.length, 1);
+  });
+});
