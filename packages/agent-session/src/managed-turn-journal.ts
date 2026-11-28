@@ -91,8 +91,11 @@ export async function abandonUnresolvedExecutions(
   const pending = session.getPendingExecution();
   const executionIds = new Set(await journal.unresolved());
   if (pending) executionIds.add(pending.executionId);
-  if (executionIds.size === 0)
+  if (executionIds.size === 0) {
+    // A hold placed at start can outlive its executions (another process sealed them since).
+    session.releaseUnresolvedExecutions();
     return { executionIds: [], message: 'No managed execution is waiting to be abandoned.' };
+  }
   for (const executionId of executionIds)
     await journal.seal(executionId, { reason: 'abandoned', note: ABANDON_NOTE });
   if (pending) session.abandonPendingExecution(pending.executionId);

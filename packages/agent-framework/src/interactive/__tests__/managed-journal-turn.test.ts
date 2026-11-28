@@ -175,6 +175,10 @@ describe('InteractiveSession managed turns', () => {
       code: 'EXECUTION_RECOVERY_REQUIRED',
     });
     expect(managed.provider.run).not.toHaveBeenCalled();
+    // The hold, not only the turn's own check, stands behind forks and moves.
+    await expect(session.forkSession()).rejects.toMatchObject({
+      code: 'EXECUTION_RECOVERY_REQUIRED',
+    });
 
     const abandoned = await session.abandonUnresolvedExecutions();
     expect(abandoned.executionIds).toEqual(['exec_crashed']);

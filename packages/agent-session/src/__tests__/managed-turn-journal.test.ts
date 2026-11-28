@@ -224,6 +224,17 @@ describe('a managed turn through the durable journal', () => {
     });
   });
 
+  it('abandon lifts a stale hold when the journal has nothing unresolved any more', async () => {
+    const p = process_(async () => answer('after'));
+    p.session.holdUnresolvedExecutions(['exec_sealed_meanwhile']);
+    expect(() => p.session.assertInputAllowed()).toThrow(ExecutionRecoveryError);
+    await expect(abandonUnresolvedExecutions(p.session, p.journal)).resolves.toMatchObject({
+      executionIds: [],
+    });
+    expect(() => p.session.assertInputAllowed()).not.toThrow();
+    await expect(runJournaledTurn(p.session, p.journal, 'go')).resolves.toBe('after');
+  });
+
   it('abandon is refused while a turn runs', async () => {
     let release!: () => void;
     const hung = new Promise<void>((resolve) => void (release = resolve));
