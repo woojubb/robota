@@ -78,6 +78,8 @@ describe('the CLI against a running serve', () => {
         actual: 'running',
         healthy: true,
         imageId: expect.stringMatching(/^sha256:[a-f0-9]{64}$/u),
+        lastRestartAt: null,
+        backoff: null,
       },
     ]);
     expect(status.domainMismatches).toEqual([]);

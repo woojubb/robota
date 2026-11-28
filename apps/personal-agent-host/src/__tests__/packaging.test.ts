@@ -1,5 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -223,6 +225,71 @@ describe('the installer', () => {
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain('STATE_PATH');
     }
+  });
+
+  describe('the installed wrapper', () => {
+    // A pseudo-terminal for the wrapper's stdout and/or stdin: Python's pty module is on both
+    // macOS and the CI runners; a machine without Python skips the test.
+    const pty = `
+import os, pty, subprocess, sys
+wrapper, mode = sys.argv[1], sys.argv[2]
+master, slave = pty.openpty()
+stdin = slave if mode == 'both' else subprocess.DEVNULL
+stdout = slave if mode in ('both', 'stdout') else subprocess.PIPE
+done = subprocess.run(['sh', wrapper, 'backup', 'alice'], stdin=stdin, stdout=stdout, stderr=subprocess.PIPE)
+sys.exit(done.returncode)
+`;
+    const python = spawnSync('python3', ['--version']).status === 0;
+
+    function wrapperCalls(mode: 'both' | 'stdout' | 'neither'): string {
+      const dir = mkdtempSync(join(tmpdir(), 'pah-wrapper-'));
+      try {
+        const script = read('install.sh');
+        const body = /cat >"\$wrapper\.new" <<EOF\n([\s\S]*?)\nEOF\n/u.exec(script)?.[1] ?? '';
+        expect(body).toContain('docker exec');
+        const wrapper = join(dir, 'wrapper.sh');
+        writeFileSync(
+          wrapper,
+          body.replaceAll('$container', 'the-control-plane').replaceAll('\\$', '$'),
+        );
+        mkdirSync(join(dir, 'bin'));
+        const record = join(dir, 'calls.txt');
+        writeFileSync(
+          join(dir, 'bin', 'docker'),
+          `#!/bin/sh\nprintf '%s\\n' "$*" >> '${record}'\n`,
+          { mode: 0o755 },
+        );
+        const run = spawnSync('python3', ['-I', '-c', pty, wrapper, mode], {
+          env: { PATH: `${join(dir, 'bin')}:${process.env.PATH ?? ''}` },
+          encoding: 'utf8',
+        });
+        expect(run.status).toBe(0);
+        return readFileSync(record, 'utf8').trim();
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+
+    it.skipIf(!python)(
+      'tells the CLI when only stdout is a terminal, so backup still refuses to write to it',
+      () => {
+        expect(wrapperCalls('stdout')).toBe(
+          'exec -i -e PERSONAL_AGENT_HOST_STDOUT_TTY=1 the-control-plane personal-agent-host backup alice',
+        );
+      },
+    );
+
+    it.skipIf(!python)(
+      'allocates a terminal only when both ends are one, and passes no flag otherwise',
+      () => {
+        expect(wrapperCalls('both')).toBe(
+          'exec -it the-control-plane personal-agent-host backup alice',
+        );
+        expect(wrapperCalls('neither')).toBe(
+          'exec -i the-control-plane personal-agent-host backup alice',
+        );
+      },
+    );
   });
 
   it('never asks for or stores a model key, and works under a restrictive umask', () => {

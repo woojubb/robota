@@ -339,6 +339,8 @@ describe('access code, list, show and status', () => {
         actual: 'running',
         healthy: true,
         imageId: host.store.get('alice')?.imageId,
+        lastRestartAt: null,
+        backoff: null,
       },
     ]);
     expect(status.orphans).toEqual(['stray']);

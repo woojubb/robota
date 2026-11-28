@@ -44,13 +44,17 @@ export interface IGuardRuleset {
   chains: IGuardChain[];
 }
 
-/** Ranges a unit may never reach: private, loopback, link-local (metadata), carrier-grade NAT, reserved. */
+/**
+ * Ranges a unit may never reach: private, loopback, link-local (metadata), carrier-grade NAT, reserved,
+ * and a cloud provider's host-agent endpoint that sits on a public address.
+ */
 export const DENIED_RANGES: readonly string[] = [
   '0.0.0.0/8',
   '10.0.0.0/8',
   '100.64.0.0/10',
   '127.0.0.0/8',
   '169.254.0.0/16',
+  '168.63.129.16/32',
   '172.16.0.0/12',
   '192.0.0.0/24',
   '192.168.0.0/16',

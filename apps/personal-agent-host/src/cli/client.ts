@@ -5,12 +5,20 @@ import { adminDownload, adminRequest, adminUpload, UnreachableError } from '../a
 import { EXIT, exitCodeFor } from '../admin/protocol.js';
 import type {
   IAccountView,
+  IHealthReport,
   IRestoreResult,
   IStatusReport,
   IUpgradeResult,
 } from '../control-plane.js';
 import { errorMessage, HostError } from '../errors.js';
-import { formatAccount, formatList, formatRestore, formatStatus, formatUpgrade } from './format.js';
+import {
+  formatAccount,
+  formatHealth,
+  formatList,
+  formatRestore,
+  formatStatus,
+  formatUpgrade,
+} from './format.js';
 import { type ICliIo, readAll, readHidden, readLine } from './io.js';
 
 export const USAGE = `Usage: personal-agent-host <command>
@@ -37,12 +45,19 @@ Commands:
       [--from-other-account]  is checked first and the previous state is put back on any failure.
                               A backup of another account needs --from-other-account.
   list | show <id> | status   Inspect accounts and the host
+  health                      Exit 0 only when the guard is verified, the routes are current and every
+                              active account's unit is running, healthy and on its recorded image;
+                              otherwise exit 6 with one line per problem. For a monitor or a timer.
 
 Options: --json prints the machine-readable result. The state directory comes from
 PERSONAL_AGENT_HOST_STATE_DIR.
 
-Exit codes: 0 done, 1 failed, 2 usage, 3 refused, 4 no such account, 5 control plane not reachable.
+Exit codes: 0 done, 1 failed, 2 usage, 3 refused, 4 no such account, 5 control plane not reachable,
+6 health found a problem.
 `;
+
+/** Set by the installed wrapper when the operator's own stdout is a terminal. */
+export const OUTER_STDOUT_TTY = 'PERSONAL_AGENT_HOST_STDOUT_TTY';
 
 class UsageError extends Error {}
 
@@ -58,6 +73,7 @@ const CLIENT_COMMANDS = [
   'list',
   'show',
   'status',
+  'health',
 ] as const;
 type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
@@ -102,6 +118,7 @@ const ALLOWED: Record<ClientCommand, readonly string[]> = {
   list: ['json'],
   show: ['json'],
   status: ['json'],
+  health: ['json'],
 };
 
 const NEEDS_ID: ReadonlySet<ClientCommand> = new Set<ClientCommand>([
@@ -199,7 +216,8 @@ async function execute(
   values: Record<string, unknown>,
   socket: string,
   io: ICliIo,
-): Promise<{ result: unknown; text: string; to?: 'stderr' }> {
+  stdoutIsTerminal: boolean,
+): Promise<{ result: unknown; text: string; to?: 'stderr'; exit?: number }> {
   const path = `/v1/accounts/${id ?? ''}`;
   const account = (result: unknown): { result: unknown; text: string } => ({
     result,
@@ -231,7 +249,7 @@ async function execute(
     }
     case 'backup': {
       // The archive is the output, so nothing else may be written to stdout.
-      if (io.stdout.isTTY === true) {
+      if (stdoutIsTerminal) {
         throw new UsageError(
           `backup writes an archive; redirect it to a file: personal-agent-host backup ${id} > ${id}.tar`,
         );
@@ -267,6 +285,14 @@ async function execute(
       const result = await adminRequest<IStatusReport>(socket, 'GET', '/v1/status');
       return { result, text: formatStatus(result) };
     }
+    case 'health': {
+      const result = await adminRequest<IHealthReport>(socket, 'GET', '/v1/health');
+      return {
+        result,
+        text: formatHealth(result),
+        exit: result.healthy ? EXIT.ok : EXIT.unhealthy,
+      };
+    }
   }
 }
 
@@ -280,11 +306,21 @@ export async function runClient(
   try {
     const { id, values } = parse(command, args);
     const { socket } = adminPaths(env);
-    const { result, text, to } = await execute(command, id, values, socket, io);
+    // Inside a container the CLI's own stdout is a pipe even when the operator's is a terminal; the
+    // installed wrapper says so, so a backup still refuses to write an archive to a screen.
+    const stdoutIsTerminal = io.stdout.isTTY === true || env[OUTER_STDOUT_TTY] === '1';
+    const { result, text, to, exit } = await execute(
+      command,
+      id,
+      values,
+      socket,
+      io,
+      stdoutIsTerminal,
+    );
     (to === 'stderr' ? io.stderr : io.stdout).write(
       values.json === true ? `${JSON.stringify(result, null, 2)}\n` : text,
     );
-    return EXIT.ok;
+    return exit ?? EXIT.ok;
   } catch (error) {
     if (error instanceof UsageError) {
       io.stderr.write(`${error.message}\nRun "personal-agent-host" without arguments for usage.\n`);

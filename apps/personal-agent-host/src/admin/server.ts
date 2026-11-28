@@ -152,6 +152,10 @@ function route(
     if (method !== 'GET') wrongMethod();
     return { body: false, run: () => plane.status(ACTOR) };
   }
+  if (collection === 'health' && id === undefined) {
+    if (method !== 'GET') wrongMethod();
+    return { body: false, run: () => plane.health(ACTOR) };
+  }
   if (collection === 'upgrade' && id === undefined) {
     if (method !== 'POST') wrongMethod();
     return {

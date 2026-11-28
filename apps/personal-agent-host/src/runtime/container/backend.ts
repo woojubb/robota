@@ -225,8 +225,8 @@ export class ContainerRuntime implements IRuntimePort {
 
   // ---- the port ----------------------------------------------------------------------------
 
-  async describe(): Promise<IRuntimeDescription> {
-    const guard = await this.guard.ensure();
+  async describe(options: { repair?: boolean } = {}): Promise<IRuntimeDescription> {
+    const guard = options.repair === false ? await this.guard.verify() : await this.guard.ensure();
     return {
       backend: 'container',
       guard:

@@ -169,8 +169,10 @@ cat >"$wrapper.new" <<EOF
 # It needs the container engine, so run it as root: sudo personal-agent-host list
 # A terminal is allocated only when both ends are one (for the hidden key prompt): a pseudo-terminal
 # rewrites line endings, which would damage the archive that backup writes and restore reads.
+# When only stdout is a terminal, the CLI is told so, and a backup still refuses to write to it.
 set -eu
 if [ -t 0 ] && [ -t 1 ]; then exec docker exec -it $container personal-agent-host "\$@"; fi
+if [ -t 1 ]; then exec docker exec -i -e PERSONAL_AGENT_HOST_STDOUT_TTY=1 $container personal-agent-host "\$@"; fi
 exec docker exec -i $container personal-agent-host "\$@"
 EOF
 chmod 755 "$wrapper.new"
