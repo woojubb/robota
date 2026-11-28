@@ -187,4 +187,4 @@ say ''
 say "The host is running. Accounts will be at https://<id>.$PERSONAL_AGENT_HOST_BASE_DOMAIN"
 say 'Add one (the model key is asked for without echo, or piped on stdin):'
 say '  sudo personal-agent-host add alice --provider openai --model <model> --base-url <url>'
-say "Update later: sudo sh $bundle/install.sh   (keeps your settings and accounts)"
+say "Repair or rebuild: sudo sh $bundle/install.sh   (rebuilds this checkout; keeps your settings and accounts)"

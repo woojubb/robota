@@ -56,6 +56,11 @@ services:
   proxy:
     image: caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
     container_name: personal-agent-host-proxy
+    # --resume restarts from the last configuration the control plane loaded (kept in the config
+    # volume), so a proxy that restarts alone keeps serving every account instead of falling back to
+    # the bootstrap file, which has no sites.
+    command:
+      ['caddy', 'run', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile', '--resume']
     # The host's network: it must see each unit's private address and keep the visitor's Host
     # header. It binds ports 80 and 443 and nothing else.
     network_mode: host

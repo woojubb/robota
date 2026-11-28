@@ -31,6 +31,7 @@ interface IService {
   environment?: Record<string, string>;
   pid?: string;
   user?: string;
+  command?: string[];
 }
 
 const compose = parse(read('compose.yaml')) as { services: Record<string, IService> };
@@ -85,6 +86,11 @@ describe('the compose file', () => {
     expect(sources).not.toContain('/var/run/docker.sock');
     expect(sources).not.toContain('/var/lib/personal-agent-host');
     expect(sources).toContain('/var/lib/personal-agent-host/proxy');
+  });
+
+  it('restarts the proxy from the configuration the control plane last loaded', () => {
+    expect(proxy.command).toContain('--resume');
+    expect(proxy.command?.[0]).toBe('caddy');
   });
 
   it('shares the proxy admin socket as a file in a directory, never as a TCP port', () => {
