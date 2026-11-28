@@ -5,6 +5,7 @@ import type {
   ConversationStore,
   JsonValue,
   Roundtable,
+  RunResult,
 } from '@robota-sdk/agent-roundtable';
 import type { RecoveryJournal, RecoveryJournalEntry, RecoveryScope } from './recovery-journal';
 
@@ -13,12 +14,27 @@ import type { RecoveryJournal, RecoveryJournalEntry, RecoveryScope } from './rec
  * of handles whose every I/O hangs forever once the generation is killed; what it already wrote stays
  * on the shared disk, which is all a later generation sees.
  */
-export const LEASE_MS = 100;
+/**
+ * Long enough that a stalled test machine never loses a live process's claim; a restart jumps the
+ * clock past it.
+ */
+export const LEASE_MS = 10_000;
 
 /** Decides, for the n-th journal entry a generation appends, whether the kill lands before or after it is written. */
 export type KillGate = (entry: RecoveryJournalEntry, n: number) => 'before' | 'after' | undefined;
 
-const never = (): Promise<never> => new Promise(() => {});
+/** A kill chosen by position, so every position a reference run produces can be enumerated. */
+export type KillPlan =
+  /** Kill after the n-th write to the conversation store (0 is its creation); the reply is lost or delivered. */
+  | { at: 'commit'; n: number; replyLost: boolean }
+  /** Kill at the k-th journal append, which reaches the disk or not. */
+  | { at: 'append'; k: number; written: boolean };
+
+const gateOf = (kill: KillGate | KillPlan | undefined): KillGate | undefined => {
+  if (typeof kill === 'function' || kill === undefined) return kill;
+  if (kill.at !== 'append') return undefined;
+  return (_entry, n) => (n === kill.k ? (kill.written ? 'after' : 'before') : undefined);
+};
 
 /** The disk and the outside world: everything that outlives a process. */
 export class World {
@@ -28,36 +44,82 @@ export class World {
   /** How many times each external effect actually ran. */
   readonly effects = new Map<string, number>();
 
+  private readonly processes: Generation[] = [];
+
   /** A new process; the previous one's claim is past its lease by the time this one starts. */
-  generation(gate?: KillGate): Generation {
+  generation(kill?: KillGate | KillPlan): Generation {
     this.skew += LEASE_MS + 1;
-    return new Generation(this, gate);
+    const process = new Generation(this, kill);
+    this.processes.push(process);
+    return process;
+  }
+
+  /** Ends the case: every killed process lets go of what it was hung on, so nothing of it stays alive. */
+  teardown(): void {
+    for (const process of this.processes) process.teardown();
   }
 }
 
 export class Generation {
   killed = false;
+  /** Writes to the conversation store and journal appends this generation attempted. */
+  writes = 0;
   appends = 0;
   readonly store: ConversationStore;
+  private readonly gate: KillGate | undefined;
   private resolveKilled!: () => void;
   readonly whenKilled = new Promise<void>((resolve) => (this.resolveKilled = resolve));
 
   constructor(
     readonly world: World,
-    private readonly gate?: KillGate,
+    private readonly plan?: KillGate | KillPlan,
   ) {
+    this.gate = gateOf(plan);
     const disk = world.disk;
-    const gated = <T>(op: () => Promise<T>): Promise<T> => (this.killed ? never() : op());
+    const gated = <T>(op: () => Promise<T>): Promise<T> => (this.killed ? this.hang() : op());
+    const written = async <T>(op: () => Promise<T>): Promise<T> => {
+      if (this.killed) return this.hang();
+      const n = this.writes++;
+      if (n > 400) throw new Error('A generation is writing without end');
+      const result = await op();
+      const commitPlan = typeof plan === 'object' ? plan : undefined;
+      if (commitPlan?.at === 'commit' && commitPlan.n === n) {
+        this.kill();
+        if (commitPlan.replyLost) return this.hang();
+      }
+      return result;
+    };
     this.store = {
       durability: 'durable',
-      create: (id, state: JsonValue) => gated(() => disk.create(id, state)),
+      create: (id, state: JsonValue) => written(() => disk.create(id, state)),
       load: (id) => gated(() => disk.load(id)),
       claim: (id, owner, ms) => gated(() => disk.claim(id, owner, ms)),
       renew: (claim: ConversationClaim, ms) => gated(() => disk.renew(claim, ms)),
       release: (claim: ConversationClaim) => gated(() => disk.release(claim)),
-      commit: (change: ConversationCommit) => gated(() => disk.commit(change)),
+      commit: (change: ConversationCommit) => written(() => disk.commit(change)),
       lookupOperation: (id, operation) => gated(() => disk.lookupOperation(id, operation)),
     };
+  }
+
+  private readonly hung = new Set<(reason: Error) => void>();
+  private tornDown = false;
+
+  /** An operation of a killed process, which never finishes until the case is torn down. */
+  private hang(): Promise<never> {
+    if (this.tornDown) return Promise.reject(new Error('The killed process was torn down'));
+    return new Promise<never>((_resolve, reject) => this.hung.add(reject));
+  }
+
+  /** Fails every hung operation, so the dead process's own cleanup can run and release its timers. */
+  teardown(): void {
+    this.tornDown = true;
+    for (const reject of this.hung) reject(new Error('The killed process was torn down'));
+    this.hung.clear();
+  }
+
+  /** Runs an outside-world operation of this process, which a killed process never finishes. */
+  io<T>(op: () => Promise<T>): Promise<T> {
+    return this.killed ? this.hang() : op();
   }
 
   kill(): void {
@@ -74,11 +136,11 @@ export class Generation {
     return {
       durability,
       read: async () => {
-        if (this.killed) return never();
+        if (this.killed) return this.hang();
         return structuredClone(this.world.journals.get(key) ?? []);
       },
       append: async (entry) => {
-        if (this.killed) return never();
+        if (this.killed) return this.hang();
         const n = this.appends++;
         const when = this.gate?.(entry, n);
         const write = () => {
@@ -88,26 +150,26 @@ export class Generation {
         };
         if (when === 'before') {
           this.kill();
-          return never();
+          return this.hang();
         }
         write();
         if (when === 'after') {
           this.kill();
-          return never();
+          return this.hang();
         }
       },
     };
   }
 }
 
-export type Outcome = { killed: true } | { killed: false };
+export type Outcome = { killed: true } | { killed: false; result: RunResult };
 
 /** Runs until it finishes or the generation is killed; a killed run never settles, so it is abandoned. */
 export async function runUntilKilled(gen: Generation, room: Roundtable): Promise<Outcome> {
   const run = room.run();
   run.catch(() => {});
   return Promise.race([
-    run.then(() => ({ killed: false as const })),
+    run.then((result) => ({ killed: false as const, result })),
     gen.whenKilled.then(() => ({ killed: true as const })),
   ]);
 }

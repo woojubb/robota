@@ -214,7 +214,8 @@ describe('the installer', () => {
       expect(result.stderr).toContain('missing:');
     }
     expect(existsSync(state)).toBe(false);
-  });
+    // Above the spawn's own 60 s: a runner's engine can take seconds to answer.
+  }, 70_000);
 
   it('refuses a state path that is not a plain absolute path', () => {
     for (const path of ['relative/dir', '/var/../etc', '/a b']) {
