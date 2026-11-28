@@ -237,27 +237,33 @@ describe('FileConversationStore claim generations', () => {
     expect(await readdir(join(r.root, hex, 'claims'))).toEqual(['5.json']);
   });
 
-  it('reports a release that took effect as done when a newer owner has already moved on', async () => {
+  it('refuses a release whose claim was taken over while it stalled', async () => {
     const r = await racers(2);
     const [releasing, other] = r.stores;
     await other.create('room', null);
-    const claim = await other.claim('room', 'first', 60_000);
+    const claim = await other.claim('room', 'first', 1_000);
     let reached!: () => void;
     const atBarrier = new Promise<void>((resolve) => (reached = resolve));
     let resume!: () => void;
     const gate = new Promise<void>((resolve) => (resume = resolve));
     r.holds[0] = async (point) => {
-      if (point !== 'claim-linked') return;
+      if (point !== 'claim-synced') return;
       reached();
       await gate;
     };
-    const release = releasing.release(claim);
+    const release = releasing.release(claim).then(
+      () => 'released',
+      (error: { code: string }) => error.code,
+    );
     await atBarrier;
     r.holds[0] = undefined;
-    // The release is linked but not yet verified; the next owner takes the conversation.
+    // The lease lapses and another owner takes over and renews, which prunes the name the stalled
+    // release is about to link.
+    r.advance(r.now() + 10_000);
     const next = await other.claim('room', 'second', 60_000);
+    await other.renew(next, 60_000);
     resume();
-    await expect(release).resolves.toBeUndefined();
+    expect(await release).toBe('stale-claim');
     await expect(other.renew(next, 60_000)).resolves.toMatchObject({ fence: next.fence });
   });
 });

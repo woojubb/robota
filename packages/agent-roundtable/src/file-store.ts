@@ -135,14 +135,8 @@ export class FileConversationStore implements ConversationStore {
   async release(claim: ConversationClaim): Promise<void> {
     const id = claim.conversationId;
     await this.requireConversation(id);
-    await this.changeClaim(id, (current, applied) => {
-      try {
-        this.assertOwned(claim, current);
-      } catch (error) {
-        // Our release was linked, then withdrawn because a newer owner already moved on: it took effect.
-        if (applied && current.fence > claim.fence) return { next: current, result: undefined };
-        throw error;
-      }
+    await this.changeClaim(id, (current) => {
+      this.assertOwned(claim, current);
       return { next: { fence: current.fence, claim: null }, result: undefined };
     });
   }
@@ -412,21 +406,13 @@ export class FileConversationStore implements ConversationStore {
    */
   private async changeClaim<T>(
     conversationId: string,
-    decide: (
-      current: ClaimRecord,
-      applied: boolean,
-    ) => { next: Pick<ClaimRecord, 'fence' | 'claim'>; result: T },
+    decide: (current: ClaimRecord) => { next: Pick<ClaimRecord, 'fence' | 'claim'>; result: T },
   ): Promise<T> {
-    // `applied`: an earlier attempt of this call was linked and then withdrawn for a newer generation.
-    let applied = false;
     for (let attempt = 0; attempt < MAX_CLAIM_ATTEMPTS; attempt++) {
       const current = await this.readClaim(conversationId);
-      const { next, result } = decide(current, applied);
-      if (next === current) return result;
+      const { next, result } = decide(current);
       const record: ClaimRecord = { schemaVersion: 1, generation: current.generation + 1, ...next };
-      const outcome = await this.publishClaim(conversationId, record);
-      if (outcome === 'created') return result;
-      if (outcome === 'withdrawn') applied = true;
+      if ((await this.publishClaim(conversationId, record)) === 'created') return result;
     }
     throw new RoundtableError('busy', 'Conversation claim is contended');
   }
@@ -439,7 +425,7 @@ export class FileConversationStore implements ConversationStore {
   private async publishClaim(
     conversationId: string,
     record: ClaimRecord,
-  ): Promise<'created' | 'exists' | 'withdrawn'> {
+  ): Promise<'created' | 'exists'> {
     const directory = this.directory(conversationId);
     const claims = join(directory, 'claims');
     await this.makeDirectory(claims, directory);
@@ -458,7 +444,7 @@ export class FileConversationStore implements ConversationStore {
       const generations = await this.listClaims(claims);
       if (generations[generations.length - 1] !== record.generation) {
         await unlink(final).catch(() => undefined);
-        return 'withdrawn';
+        return 'exists';
       }
       for (const older of generations.slice(0, -1)) {
         await unlink(join(claims, `${older}.json`)).catch(() => undefined);
