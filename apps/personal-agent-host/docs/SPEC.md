@@ -47,8 +47,11 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
 - **One operation at a time, every command audited.** Refusals and failures are recorded with their reason,
   and so is a request rejected before it became a command (without its body). Request bodies are strict: an
   unknown field is an error, never ignored.
-- **A script can rely on the exit code.** Done, failed, usage, refused, no such account and unreachable each
-  have their own code, and every refusal carries a typed error code.
+- **A script can rely on the exit code.** Done, failed, usage, refused, no such account, unreachable and an
+  unhealthy host each have their own code, and every refusal carries a typed error code.
+- **Health is one answer a monitor can act on.** It is true only when the guard is verified, the routes are
+  current and every active account's unit is running, healthy and on its recorded image, and otherwise names each
+  problem. It reads live state and repairs nothing; the reconcile loop repairs, and status says what it did.
 - **Strays are reported, never deleted.** A unit of this install with no record is surfaced for the operator.
 
 ## Invariants
@@ -101,6 +104,9 @@ Self-signup, billing, live migration, GPU, and disk quotas on containers. Accoun
   the entries, and a restore must see all of an archive before replacing anything, so neither can be done in one
   pass over a pipe; the spool is private, size-limited (`PERSONAL_AGENT_HOST_BACKUP_MAX_BYTES`) and emptied by the
   server that holds the single-instance lock.
+- **The installed wrapper tells the CLI when the operator's stdout is a terminal.** The CLI runs inside the control
+  plane, where its stdout is a pipe even when the operator's is a screen, and a backup must never write an archive
+  to a screen; a terminal is allocated only when both ends are one, because it would rewrite the archive's bytes.
 - **Zero runtime dependencies.** Node built-ins only, so the root daemon has no third-party code to trust.
 - **A cleanup that cannot finish keeps the record.** The half-made account stays visible in `provisioning`
   rather than leaving an unrecorded unit behind.

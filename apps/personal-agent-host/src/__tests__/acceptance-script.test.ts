@@ -38,6 +38,7 @@ interface IScript {
   ): { controlled: ITarget[]; leaked: ITarget[]; inconclusive: ITarget[] };
   findSecrets(texts: Record<string, string>, secrets: Record<string, string>): string[];
   sha8(text: string): string;
+  tamperArchive(archive: Buffer, needle: string): Buffer;
   encodeClientFrame(opcode: number, payload: string | Buffer, maskKey?: Buffer): Buffer;
   decodeFrames(buffer: Buffer): { frames: IFrame[]; rest: Buffer };
 }
@@ -134,6 +135,27 @@ describe('the WebSocket frames of the probe client', () => {
   });
 });
 
+describe('tampering with an archive', () => {
+  it('changes exactly one byte inside the named text and leaves the rest as it was', () => {
+    const archive = Buffer.concat([
+      Buffer.alloc(512, 0x20),
+      Buffer.from('before-ab12cd'),
+      Buffer.alloc(512),
+    ]);
+    const tampered = script.tamperArchive(archive, 'before-ab12cd');
+    expect(tampered.length).toBe(archive.length);
+    const differing = [...archive.keys()].filter((i) => archive[i] !== tampered[i]);
+    expect(differing).toEqual([512 + 'before-ab12cd'.length - 1]);
+    // The input is not modified.
+    expect(archive.includes('before-ab12cd')).toBe(true);
+    expect(tampered.includes('before-ab12cd')).toBe(false);
+  });
+
+  it('refuses to guess when the text is not there', () => {
+    expect(() => script.tamperArchive(Buffer.alloc(1024), 'before-ab12cd')).toThrow();
+  });
+});
+
 describe('the script', () => {
   it('is valid JavaScript', () => {
     expect(spawnSync('node', ['--check', SCRIPT]).status).toBe(0);
@@ -158,6 +180,13 @@ describe('the script', () => {
   it('serves the model fixture from a documentation-range address on an engine network that routes', () => {
     expect(source).toContain("fixtureAddress: '203.0.113.9'");
     expect(source).toContain('com.docker.network.bridge.gateway_mode_ipv4=nat-unprotected');
+  });
+
+  it('keeps every operations check paired with a positive control and puts the unit image tag back', () => {
+    // The refusal of a tampered archive is followed by the restore of the untampered one.
+    expect(source).toMatch(/the control for the refusal above/u);
+    // Whatever the run built on the unit image tag is undone at teardown, also on failure.
+    expect(source).toMatch(/docker\(\['tag', state\.originalUnitImage, UNIT_TAG\]\)/u);
   });
 
   it('puts no key on a command line and reads no environment file', () => {

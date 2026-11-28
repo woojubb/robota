@@ -73,6 +73,18 @@ export function reached(outcome) {
   return outcome === 'connected' || outcome === 'refused';
 }
 
+/**
+ * A copy of an archive with one byte inside the first occurrence of `needle` changed: the tar stays
+ * well-formed and only the content no longer matches the hash the manifest holds.
+ */
+export function tamperArchive(archive, needle) {
+  const at = archive.indexOf(needle);
+  if (at < 0) throw new Error('the archive does not contain the text to change');
+  const copy = Buffer.from(archive);
+  copy[at + needle.length - 1] ^= 0x01;
+  return copy;
+}
+
 function hexToIp(hex) {
   const bytes = hex.match(/../gu) ?? [];
   return bytes
@@ -682,6 +694,8 @@ const state = {
   macListener: undefined,
   macConnections: 0,
   installerRan: false,
+  originalUnitImage: undefined,
+  builtImages: [],
   results: [],
 };
 
@@ -890,6 +904,42 @@ const unitAddress = (account) => state.views[account].runtime.endpoints.host;
 
 const cli = (args, input) =>
   docker(['exec', '-i', CONTROL, 'personal-agent-host', ...args], { input });
+
+/** Like `cli`, for commands that restart units and may take minutes. */
+const cliLong = (args, input) =>
+  run('docker', ['exec', '-i', CONTROL, 'personal-agent-host', ...args], {
+    input,
+    timeoutMs: 10 * 60_000,
+  });
+
+/** A run whose output and input are bytes: an archive is not text, and `run` decodes it. */
+function runBytes(command, args, { input, timeoutMs = 10 * 60_000 } = {}) {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    const out = [];
+    const err = [];
+    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
+    child.stdout.on('data', (chunk) => out.push(chunk));
+    child.stderr.on('data', (chunk) => err.push(chunk));
+    child.once('error', (error) => {
+      clearTimeout(timer);
+      resolve({ code: -1, stdout: Buffer.alloc(0), stderr: String(error.message) });
+    });
+    child.once('close', (code) => {
+      clearTimeout(timer);
+      resolve({
+        code: code ?? -1,
+        stdout: Buffer.concat(out),
+        stderr: Buffer.concat(err).toString('utf8'),
+      });
+    });
+    child.stdin.on('error', () => undefined);
+    child.stdin.end(input ?? Buffer.alloc(0));
+  });
+}
+
+const cliBytes = (args, input) =>
+  runBytes('docker', ['exec', '-i', CONTROL, 'personal-agent-host', ...args], { input });
 
 async function cliText(args) {
   const result = await cli(args);
@@ -1163,6 +1213,7 @@ const ACCOUNTS = {
   alice: w('--memory-mb 512 --cpus 0.5 --pids 128'),
   bob: [],
   carol: [],
+  dave: [],
 };
 
 async function addAccount(account) {
@@ -2104,9 +2155,339 @@ async function reloadCheck() {
   );
 }
 
+// ---- operations: upgrade, backup and restore, health -------------------------------------------
+
+const UNIT_TAG = 'personal-agent:local';
+const volumeOf = (account) => `${unitName(account)}-state`;
+
+/** The image id a unit's container was created from. */
+async function containerImage(account) {
+  return (await dockerJson(['inspect', unitName(account)]))[0].Image;
+}
+
+async function containerId(account) {
+  return (await dockerJson(['inspect', unitName(account)]))[0].Id;
+}
+
+/** Whether the engine holds the control plane's retention tag for an image id. */
+async function retained(imageId) {
+  const tag = `pah-${state.installId}-images:${imageId.replace(/^sha256:/u, '').slice(0, 12)}`;
+  const listed = await dockerOk(['image', 'ls', '--format', '{{.Repository}}:{{.Tag}}']);
+  return listed.split('\n').includes(tag);
+}
+
+/**
+ * Rebuilds the unit image tag on top of the original image with a trivial change, as an operator's
+ * rebuild would. The tag is put back at teardown.
+ */
+async function rebuildUnitImage(lines) {
+  const dockerfile = [`FROM ${state.originalUnitImage}`, ...lines, ''].join('\n');
+  const built = await docker(['build', '-q', '-t', UNIT_TAG, '-'], {
+    input: dockerfile,
+    timeoutMs: 10 * 60_000,
+  });
+  expect(built.code === 0, `building the test image failed: ${built.stderr.trim().slice(0, 300)}`);
+  const id = (await dockerOk(['image', 'inspect', '--format', '{{.Id}}', UNIT_TAG])).trim();
+  state.builtImages.push(id);
+  return id;
+}
+
+/** A command inside a throwaway container with one account's state volume (and nothing else). */
+const onVolume = (account, script) =>
+  helper(
+    `--network none --cap-add DAC_OVERRIDE -v ${volumeOf(account)}:/s`,
+    BASE_IMAGE,
+    'sh',
+    '-c',
+    script,
+  );
+
+async function readVolumeFile(account, file) {
+  const result = await onVolume(account, `cat /s/${file}`);
+  return result.code === 0 ? result.stdout : undefined;
+}
+
+async function volumeHas(account, file) {
+  return (await onVolume(account, `test -e /s/${file}`)).code === 0;
+}
+
+async function unitIsServed(account) {
+  const view = await show(account);
+  expect(
+    view.state === 'active' && view.runtime.state === 'running' && view.runtime.healthy === true,
+    `${account} is ${view.state} / ${view.runtime.state}`,
+  );
+  const answer = await viaProxy(account, {});
+  expect(answer.status === 200, `${account} answered ${answer.status ?? answer.error}`);
+  return view;
+}
+
+async function operationsChecks() {
+  heading('Operations: upgrade, backup and restore, health');
+  const account = 'dave';
+  const all = ['alice', 'bob', account];
+  const codes = {};
+  const memo = {};
+
+  await check(
+    'operations: dave is added, and every unit runs the image recorded for its account before anything is rebuilt',
+    async () => {
+      state.originalUnitImage = (
+        await dockerOk(['image', 'inspect', '--format', '{{.Id}}', UNIT_TAG])
+      ).trim();
+      await addAccount(account);
+      for (const name of all) {
+        codes[name] = await accessCode(name);
+        const view = await unitIsServed(name);
+        expect(
+          (await containerImage(name)) === view.imageId,
+          `${name}: the unit runs ${await containerImage(name)}, the record says ${view.imageId}`,
+        );
+      }
+      memo.first = (await show(account)).imageId;
+      return `every unit runs the image recorded for it (${memo.first.slice(7, 19)})`;
+    },
+  );
+
+  await check(
+    'upgrade: rebuilding the image tag changes nothing for a running account by itself',
+    async () => {
+      memo.second = await rebuildUnitImage([`LABEL acceptance.upgrade="${RUN}"`]);
+      expect(memo.second !== memo.first, 'the rebuilt tag names the same image id');
+      const before = await containerId(account);
+      await sleep(40_000); // longer than one reconcile pass
+      const view = await unitIsServed(account);
+      expect(view.imageId === memo.first, `the record moved to ${view.imageId}`);
+      expect((await containerImage(account)) === memo.first, 'the unit now runs another image');
+      expect((await containerId(account)) === before, 'the unit was restarted');
+      return `the tag now names ${memo.second.slice(7, 19)}; the record and the running unit stay on ${memo.first.slice(7, 19)}`;
+    },
+  );
+
+  await check(
+    'upgrade: --all moves every active account to the rebuilt image, healthy, served and with the same access code; a second run leaves them alone',
+    async () => {
+      const result = await cliLong(['upgrade', '--all', '--json']);
+      expect(
+        result.code === 0,
+        `upgrade --all failed (exit ${result.code}): ${(result.stderr || result.stdout).trim().slice(0, 400)}`,
+      );
+      const moved = JSON.parse(result.stdout);
+      expect(moved.target === memo.second, `the target is ${moved.target}`);
+      expect(
+        moved.moved
+          .map((m) => m.id)
+          .sort()
+          .join() === [...all].sort().join(),
+        `moved: ${JSON.stringify(moved.moved)}`,
+      );
+      for (const name of all) {
+        const view = await unitIsServed(name);
+        expect(view.imageId === memo.second, `${name} is recorded on ${view.imageId}`);
+        expect((await containerImage(name)) === memo.second, `${name} runs another image`);
+        expect((await accessCode(name)) === codes[name], `${name}: the access code changed`);
+      }
+      expect(await retained(memo.second), 'the new image has no retention tag');
+      expect(
+        !(await retained(memo.first)),
+        'the previous image is still retained although no account is recorded on it',
+      );
+      const again = JSON.parse((await cliLong(['upgrade', '--all', '--json'])).stdout);
+      expect(
+        again.moved.length === 0 && again.current.length === all.length,
+        `the second run: ${JSON.stringify(again)}`,
+      );
+      return `${all.join(', ')} moved to ${memo.second.slice(7, 19)} (200 each, same access codes); the previous image is released; a second run moved none`;
+    },
+  );
+
+  await check(
+    'upgrade: an image that never becomes healthy is rolled back; the account is served, the record and the access code are unchanged',
+    async () => {
+      memo.bad = await rebuildUnitImage(['ENTRYPOINT ["/bin/false"]', 'CMD []']);
+      expect(memo.bad !== memo.second, 'the failing image has the same id');
+      const container = await containerId(account);
+      const failed = await cliLong(['upgrade', account]);
+      expect(
+        failed.code === 1,
+        `exit ${failed.code}, not 1: ${(failed.stderr || failed.stdout).trim().slice(0, 300)}`,
+      );
+      expect(
+        /previous image is running again/u.test(failed.stderr),
+        `the failure does not say it rolled back: ${failed.stderr.trim().slice(0, 300)}`,
+      );
+      const view = await unitIsServed(account);
+      expect(view.imageId === memo.second, `the record is ${view.imageId}, not ${memo.second}`);
+      expect((await containerImage(account)) === memo.second, 'the unit runs another image');
+      expect((await containerId(account)) !== container, 'the unit was never restarted');
+      expect((await accessCode(account)) === codes[account], 'the access code changed');
+      expect(!(await retained(memo.bad)), 'the failing image is still retained');
+      expect(await retained(memo.second), 'the running image lost its retention tag');
+      return `exit 1 with "the previous image is running again"; ${account} stays on ${memo.second.slice(7, 19)}, served with 200, the same access code; the failing image is not retained`;
+    },
+  );
+
+  const marker = `before-${RUN}`;
+  await check(
+    'backup: the archive holds the state and the access code and never the model key, and the unit runs again',
+    async () => {
+      const written = await onVolume(account, `printf %s '${marker}' > /s/acceptance-marker`);
+      expect(written.code === 0, `cannot write the marker: ${written.stderr.trim()}`);
+      memo.code = await accessCode(account);
+      const result = await cliBytes(['backup', account]);
+      expect(result.code === 0, `backup failed (exit ${result.code}): ${result.stderr.trim()}`);
+      memo.archive = result.stdout;
+      expect(
+        memo.archive.length > 0 && memo.archive.length % 512 === 0,
+        `${memo.archive.length} bytes is not a tar`,
+      );
+      // The controls: the scan finds the marker and the access code, so it could have found a key.
+      expect(memo.archive.includes(marker), 'the archive does not hold the state marker');
+      expect(memo.archive.includes(memo.code), 'the archive does not hold the access code');
+      expect(memo.archive.includes('manifest.json'), 'the archive has no manifest');
+      for (const name of all)
+        expect(!memo.archive.includes(state.keys[name]), `the archive holds ${name}'s model key`);
+      await unitIsServed(account);
+      return `${memo.archive.length} bytes with the state marker and the access code, no key; the unit was stopped for it and runs again (200)`;
+    },
+  );
+
+  await check(
+    "restore: a tampered archive is refused before anything is touched; the account's state and unit are as they were",
+    async () => {
+      const wrote = await onVolume(
+        account,
+        `printf %s 'after-${RUN}' > /s/acceptance-marker && printf x > /s/acceptance-extra && rm /s/server-access-code`,
+      );
+      expect(wrote.code === 0, `cannot change the state: ${wrote.stderr.trim()}`);
+      const container = await containerId(account);
+      const tampered = tamperArchive(memo.archive, marker);
+      expect(!tampered.equals(memo.archive), 'the tampered copy equals the archive');
+      const refused = await cliBytes(['restore', account], tampered);
+      expect(
+        refused.code === 3,
+        `exit ${refused.code}, not 3 (refused): ${refused.stderr.trim().slice(0, 300)}`,
+      );
+      expect(
+        /archive is refused/u.test(refused.stderr),
+        `not refused as an archive: ${refused.stderr.trim().slice(0, 300)}`,
+      );
+      expect(
+        (await readVolumeFile(account, 'acceptance-marker')) === `after-${RUN}`,
+        'the state marker changed',
+      );
+      expect(await volumeHas(account, 'acceptance-extra'), 'the extra file is gone');
+      expect(!(await volumeHas(account, 'server-access-code')), 'the access code file is back');
+      expect((await containerId(account)) === container, 'the unit was restarted');
+      await unitIsServed(account);
+      return 'exit 3 "the archive is refused"; the marker, the extra file and the missing access code file are as they were; the unit never restarted. The next check restores the untampered archive, which proves this one could have succeeded';
+    },
+  );
+
+  await check(
+    'restore: the untampered archive (the control for the refusal above) brings back the state and the access code, keeps the stored key, and the account is served',
+    async () => {
+      const container = await containerId(account);
+      const result = await cliBytes(['restore', account, '--json'], memo.archive);
+      expect(
+        result.code === 0,
+        `restore failed (exit ${result.code}): ${result.stderr.trim().slice(0, 300)}`,
+      );
+      const restored = JSON.parse(result.stdout.toString('utf8'));
+      expect(
+        restored.account === account && restored.restarted === true,
+        `restore result: ${result.stdout.toString('utf8').slice(0, 200)}`,
+      );
+      expect(
+        (await readVolumeFile(account, 'acceptance-marker')) === marker,
+        'the state marker was not restored',
+      );
+      expect(
+        !(await volumeHas(account, 'acceptance-extra')),
+        'the extra file survived the restore',
+      );
+      expect((await accessCode(account)) === memo.code, 'the access code is not the backed-up one');
+      expect((await containerId(account)) !== container, 'the unit was not restarted');
+      const view = await unitIsServed(account);
+      expect(view.imageId === memo.second, `the record is ${view.imageId}`);
+      expect(
+        (await dockerOk(['inspect', unitName(account)])).includes(state.keys[account]),
+        'the unit was not started with its stored key',
+      );
+      return 'the marker is back, the extra file is gone, the access code equals the backed-up one, the unit restarted on its recorded image with its stored key and answers 200';
+    },
+  );
+
+  await check(
+    'health: exits 0 with one line when the guard is verified, the routes are current and every unit is running and healthy',
+    async () => {
+      const result = await cli(['health']);
+      expect(
+        result.code === 0,
+        `health exit ${result.code}: ${(result.stdout + result.stderr).trim().slice(0, 400)}`,
+      );
+      expect(
+        /^healthy: /u.test(result.stdout) && result.stdout.trim().split('\n').length === 1,
+        `output: ${result.stdout.trim()}`,
+      );
+      const report = JSON.parse((await cli(['health', '--json'])).stdout);
+      expect(report.healthy === true && report.checked === all.length, JSON.stringify(report));
+      return result.stdout.trim();
+    },
+  );
+
+  await check(
+    'health: a unit stopped behind the control plane gives exit 6 and one line naming it; after the reconcile loop restarts it, exit 0 and the restart shows in status',
+    async () => {
+      const container = unitName(account);
+      let sick;
+      let stoppedAt = 0;
+      // The reconcile loop could repair it between the stop and the question; then stop it again.
+      for (let attempt = 0; attempt < 3 && sick === undefined; attempt += 1) {
+        stoppedAt = Date.now();
+        await dockerOk(['stop', '-t', '1', container]);
+        const answer = await cli(['health']);
+        if (answer.code !== 0) sick = answer;
+      }
+      expect(sick !== undefined, 'health stayed 0 although the unit was stopped three times');
+      expect(sick.code === 6, `exit ${sick.code}, not 6`);
+      const lines = sick.stdout.trim().split('\n');
+      expect(
+        lines.length === 1 && /^dave: the unit is \w+ but the account is active$/u.test(lines[0]),
+        `output: ${sick.stdout.trim()}`,
+      );
+      for (;;) {
+        await sleep(3000);
+        if ((await cli(['health'])).code === 0) break;
+        expect(!state.interrupted, 'the run was interrupted');
+        expect(Date.now() - stoppedAt < 240_000, 'health is still not 0 240 s after the stop');
+      }
+      const seconds = Math.round((Date.now() - stoppedAt) / 1000);
+      const status = await cliJson(['status']);
+      const entry = status.accounts.find((a) => a.id === account);
+      expect(
+        entry.lastRestartAt !== null && Date.parse(entry.lastRestartAt) >= stoppedAt - 5000,
+        `status shows lastRestartAt ${entry.lastRestartAt}`,
+      );
+      expect(entry.backoff === null, `status shows a backoff: ${JSON.stringify(entry.backoff)}`);
+      await unitIsServed(account);
+      return `exit 6 with "${lines[0]}"; exit 0 again ${seconds} s after the stop; status shows the restart at ${entry.lastRestartAt}; served with 200`;
+    },
+  );
+}
+
 // ---- teardown ---------------------------------------------------------------------------------
 
 async function teardown() {
+  // The unit image tag goes back to what it named before the run, also when the install stays up.
+  if (state.originalUnitImage !== undefined) {
+    const back = await docker(['tag', state.originalUnitImage, UNIT_TAG]);
+    if (back.code !== 0) {
+      process.stdout.write(
+        `  could not point ${UNIT_TAG} back at ${state.originalUnitImage}: ${back.stderr.trim().slice(0, 200)}\n`,
+      );
+    }
+  }
   if (state.keep) {
     process.stdout.write(
       `\n== --keep: the install stays up (state ${STATE_PATH}, install id ${state.installId}); remove it with the guide's removal steps\n`,
@@ -2128,7 +2509,7 @@ async function teardown() {
   for (const name of state.containers)
     await step(`remove ${name}`, () => docker(['rm', '-f', name]));
   if (state.ca !== undefined) {
-    for (const account of ['alice', 'bob', 'carol'])
+    for (const account of ['alice', 'bob', 'carol', 'dave'])
       await step(`delete ${account}`, () => cli(['delete', account, '--confirm', account]));
   }
   if (state.installerRan) {
@@ -2161,6 +2542,8 @@ async function teardown() {
   }
   for (const network of state.networks)
     await step(`network ${network}`, () => docker(['network', 'rm', network]));
+  // The images the operations checks built; the original stays, and so does everything it was built from.
+  for (const id of new Set(state.builtImages)) await step(`image ${id}`, () => docker(['rmi', id]));
   if (state.installerRan) {
     await step('state directory', () =>
       docker([
@@ -2193,6 +2576,14 @@ async function leftovers() {
     const tables = await NFT('list', 'tables');
     if (tables.stdout.includes(`pah_${state.installId}`))
       left.push(`firewall table pah_${state.installId}`);
+  }
+  if (state.installId !== undefined) {
+    const images = await dockerOk([
+      ...w('image ls --format {{.Repository}}:{{.Tag}}'),
+      '--filter',
+      `reference=pah-${state.installId}-images`,
+    ]);
+    for (const name of images.split('\n').filter(Boolean)) left.push(`image tag ${name}`);
   }
   const lo = await helper('--network host', BASE_IMAGE, ...w('ip -o -4 addr show dev lo'));
   if (state.metadataAdded && lo.stdout.includes(METADATA_ADDRESS))
@@ -2246,6 +2637,7 @@ async function main() {
       await lifecycleChecks();
       await limitChecks();
       if (state.hold?.child !== undefined) await reloadCheck();
+      await operationsChecks();
     } else {
       process.stdout.write('\nsetup did not finish: the checks were not run\n');
     }
@@ -2260,7 +2652,7 @@ async function main() {
   }
   if (!state.keep) {
     await check(
-      'teardown: nothing of the run is left (containers, volumes, networks, firewall table, address, state directory, settings file)',
+      'teardown: nothing of the run is left (containers, volumes, networks, image retention tags, firewall table, address, state directory, settings file)',
       async () => {
         const left = await leftovers();
         expect(left.length === 0, `left behind: ${left.join(', ')}`);

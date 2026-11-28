@@ -106,6 +106,24 @@ export interface IRestoreResult {
   restarted: boolean;
 }
 
+export type HealthProblemKind =
+  'guard' | 'routes' | 'runtime' | 'unit-down' | 'unit-unhealthy' | 'unit-image';
+
+export interface IHealthProblem {
+  kind: HealthProblemKind;
+  /** The account the problem is about; null for a problem of the host. */
+  account: string | null;
+  message: string;
+}
+
+export interface IHealthReport {
+  /** True only when `problems` is empty. */
+  healthy: boolean;
+  /** How many active accounts were checked. */
+  checked: number;
+  problems: IHealthProblem[];
+}
+
 export interface IStatusReport {
   runtime: Pick<IRuntimeDescription, 'backend' | 'isolation'> & { guard: GuardState };
   routesHash: string | null;
@@ -123,12 +141,24 @@ export interface IStatusReport {
     actual: IUnitStatus['state'] | 'absent' | 'unknown';
     healthy: boolean;
     imageId: string;
+    /** When the reconcile loop last started this account's unit again; null if it never has. */
+    lastRestartAt: string | null;
+    /** Set while the loop is waiting out failed restarts of this account's unit. */
+    backoff: { failures: number; retryAt: string } | null;
   }>;
   /** Units of this install with no record. */
   orphans: string[];
 }
 
 const DEFAULT_ACTOR = 'operator';
+
+function shortId(imageId: string): string {
+  return imageId.replace(/^sha256:/u, '').slice(0, 12);
+}
+
+function isoOf(ms: number): string {
+  return new Date(ms).toISOString();
+}
 
 function names(ids: readonly string[]): string {
   return ids.length === 0 ? 'none' : ids.join(', ');
@@ -867,16 +897,92 @@ export class ControlPlane {
         audit: { failures: this.auditFailures, last: this.lastAuditFailure },
         accounts: records.map((r) => {
           const unit = units.get(r.id);
+          const loop = this.reconciler.accountStatus(r.id);
           return {
             id: r.id,
             desired: r.state,
             actual: unit ? unit.state : 'absent',
             healthy: unit?.healthy ?? false,
             imageId: r.imageId,
+            lastRestartAt: loop.lastRestartAt === null ? null : isoOf(loop.lastRestartAt),
+            backoff:
+              loop.backoff === null
+                ? null
+                : { failures: loop.backoff.failures, retryAt: isoOf(loop.backoff.retryAt) },
           };
         }),
         orphans: [...units.keys()].filter((account) => !recorded.has(account)).sort(),
       };
+    });
+  }
+
+  /**
+   * Whether the host is fit to serve, as one answer a monitor can act on: the guard is verified,
+   * the routes are current, and every active account's unit is running, healthy and on the image it
+   * is recorded to run. It reads live state and changes nothing; the reconcile loop does the repair.
+   */
+  async health(actor = DEFAULT_ACTOR): Promise<IHealthReport> {
+    return this.command('health', null, actor, async () => {
+      const problems: IHealthProblem[] = [];
+      try {
+        const { guard } = await this.deps.runtime.describe();
+        if (guard.state !== 'verified') {
+          problems.push({
+            kind: 'guard',
+            account: null,
+            message: `the network guard is not verified${guard.detail ? ` (${guard.detail})` : ''}`,
+          });
+        }
+      } catch (error) {
+        problems.push({
+          kind: 'guard',
+          account: null,
+          message: `the network guard cannot be checked (${errorMessage(error)})`,
+        });
+      }
+      if (this.routesHash === null || this.routesFailed) {
+        problems.push({
+          kind: 'routes',
+          account: null,
+          message: this.routesFailed
+            ? 'the proxy routes are not current: the last apply failed'
+            : 'the proxy routes have not been applied yet',
+        });
+      }
+      const active = this.deps.store.list().filter((r) => r.state === 'active');
+      let units: Map<string, IUnitStatus> | undefined;
+      try {
+        units = new Map((await this.deps.runtime.list()).map((u) => [u.account, u]));
+      } catch (error) {
+        problems.push({
+          kind: 'runtime',
+          account: null,
+          message: `the units cannot be listed (${errorMessage(error)})`,
+        });
+      }
+      for (const record of units ? active : []) {
+        const unit = units?.get(record.id);
+        if (unit?.state !== 'running') {
+          problems.push({
+            kind: 'unit-down',
+            account: record.id,
+            message: `the unit is ${unit ? unit.state : 'absent'} but the account is active`,
+          });
+        } else if (!unit.healthy) {
+          problems.push({
+            kind: 'unit-unhealthy',
+            account: record.id,
+            message: 'the unit is running but not healthy',
+          });
+        } else if (unit.imageId !== undefined && unit.imageId !== record.imageId) {
+          problems.push({
+            kind: 'unit-image',
+            account: record.id,
+            message: `the unit runs image ${shortId(unit.imageId)}, not the recorded ${shortId(record.imageId)}`,
+          });
+        }
+      }
+      return { healthy: problems.length === 0, checked: active.length, problems };
     });
   }
 

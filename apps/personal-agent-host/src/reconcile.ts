@@ -47,9 +47,22 @@ const ACTOR = 'reconcile';
  */
 export class Reconciler {
   private readonly retry = new Map<string, { failures: number; nextAt: number }>();
+  private readonly lastStart = new Map<string, number>();
   private readonly reportedOrphans = new Set<string>();
 
   constructor(private readonly deps: IReconcilerDeps) {}
+
+  /** What the loop has done about one account: its last restart and any backoff it is in. */
+  accountStatus(id: string): {
+    lastRestartAt: number | null;
+    backoff: { failures: number; retryAt: number } | null;
+  } {
+    const wait = this.retry.get(id);
+    return {
+      lastRestartAt: this.lastStart.get(id) ?? null,
+      backoff: wait ? { failures: wait.failures, retryAt: wait.nextAt } : null,
+    };
+  }
 
   private async record(
     command: string,
@@ -176,6 +189,7 @@ export class Reconciler {
         if (!unit) await runtime.provision(spec);
         await runtime.start(spec, unitSecrets);
         this.retry.delete(account.id);
+        this.lastStart.set(account.id, this.deps.now());
         report.started.push(account.id);
         changed = true;
         await this.record('reconcile-start', account.id, 'ok', null);

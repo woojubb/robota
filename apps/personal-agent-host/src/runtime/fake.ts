@@ -56,6 +56,7 @@ export class FakeRuntime implements IRuntimePort {
   private readonly images = new Map<string, string>();
   private readonly imageGenerations = new Map<string, number>();
   private guardState: GuardState = 'verified';
+  private readonly sick = new Set<string>();
   private nextHost = FIRST_HOST;
   /** Every call as `step:account`, in order. */
   readonly calls: string[] = [];
@@ -91,6 +92,12 @@ export class FakeRuntime implements IRuntimePort {
     if (unit?.state === 'running') unit.state = 'exited';
   }
 
+  /** A running unit that answers its health probe badly (or well again). */
+  setSick(account: string, sick: boolean): void {
+    if (sick) this.sick.add(account);
+    else this.sick.delete(account);
+  }
+
   has(account: string): boolean {
     return this.units.has(account);
   }
@@ -121,7 +128,7 @@ export class FakeRuntime implements IRuntimePort {
     return {
       account,
       state: unit.state,
-      healthy: unit.state === 'running',
+      healthy: unit.state === 'running' && !this.sick.has(account),
       endpoints,
       imageId: unit.spec.image,
       keyConfigured: unit.startedWithKey !== undefined,
