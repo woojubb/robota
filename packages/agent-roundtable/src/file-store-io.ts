@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { link, open, readdir, rename, unlink } from 'node:fs/promises';
+import { link, open, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 /** Named points in a file write at which a test can end the process. */
@@ -9,8 +9,7 @@ export type FileStoreCheckpoint =
   | 'linked'
   | 'claim-write'
   | 'claim-synced'
-  | 'claim-renamed'
-  | 'lock-held';
+  | 'claim-linked';
 
 export type CheckpointHook = (point: FileStoreCheckpoint) => void | Promise<void>;
 
@@ -41,10 +40,6 @@ export function processIsAlive(pid: number): boolean {
   } catch (error) {
     return errorCode(error) !== 'ESRCH';
   }
-}
-
-export function sleep(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 /** Writes `bytes[from, to)`, looping over short writes. */
@@ -98,22 +93,6 @@ export async function linkExclusive(temp: string, final: string): Promise<'creat
   } catch (error) {
     if (errorCode(error) === 'EEXIST') return 'exists';
     throw error;
-  }
-}
-
-/** Replaces `final` atomically; Windows refuses while another handle is open, so it retries a bounded number of times. */
-export async function renameOver(temp: string, final: string): Promise<void> {
-  const attempts = process.platform === 'win32' ? 8 : 1;
-  for (let attempt = 1; ; attempt++) {
-    try {
-      await rename(temp, final);
-      return;
-    } catch (error) {
-      const code = errorCode(error);
-      const retryable = code === 'EPERM' || code === 'EBUSY' || code === 'EACCES';
-      if (!retryable || attempt >= attempts) throw error;
-      await sleep(10 * attempt);
-    }
   }
 }
 

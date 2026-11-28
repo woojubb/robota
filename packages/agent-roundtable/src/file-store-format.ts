@@ -25,14 +25,20 @@ export interface RevisionRecord {
   fingerprint: string | null;
 }
 
-/** The fence outlives every claim; `claim` is null while no owner holds the conversation. */
+/**
+ * One generation of the claim state, published create-only as `claims/<generation>.json`; the highest
+ * generation is the state. The fence outlives every claim and only a successful claim raises it;
+ * `claim` is null while no owner holds the conversation.
+ */
 export interface ClaimRecord {
   schemaVersion: 1;
+  generation: number;
   fence: number;
   claim: { ownerId: string; expiresAt: number } | null;
 }
 
-export const EMPTY_CLAIM: ClaimRecord = { schemaVersion: 1, fence: 0, claim: null };
+/** The state before any claim: generation 0 has no file. */
+export const EMPTY_CLAIM: ClaimRecord = { schemaVersion: 1, generation: 0, fence: 0, claim: null };
 
 /** Longest id in bytes; its hex form must fit a 255-byte file name. */
 const MAX_ID_BYTES = 120;
@@ -122,12 +128,14 @@ export function parseRevision(
   };
 }
 
-export function parseClaim(raw: string, path: string): ClaimRecord {
-  const fields = parseObject(raw, path, ['schemaVersion', 'fence', 'claim']);
-  if (fields.schemaVersion !== 1 || !isCount(fields.fence)) {
-    throw new FileStoreCorruptionError(path, 'invalid schemaVersion or fence');
+export function parseClaim(raw: string, path: string, generation: number): ClaimRecord {
+  const fields = parseObject(raw, path, ['schemaVersion', 'generation', 'fence', 'claim']);
+  if (fields.schemaVersion !== 1 || fields.generation !== generation || !isCount(fields.fence)) {
+    throw new FileStoreCorruptionError(path, 'invalid schemaVersion, generation or fence');
   }
-  if (fields.claim === null) return { schemaVersion: 1, fence: fields.fence, claim: null };
+  if (fields.claim === null) {
+    return { schemaVersion: 1, generation, fence: fields.fence, claim: null };
+  }
   const owner = fields.claim as { ownerId?: unknown; expiresAt?: unknown } | undefined;
   if (
     owner === undefined ||
@@ -141,12 +149,13 @@ export function parseClaim(raw: string, path: string): ClaimRecord {
   }
   return {
     schemaVersion: 1,
+    generation,
     fence: fields.fence,
     claim: { ownerId: owner.ownerId, expiresAt: owner.expiresAt as number },
   };
 }
 
-/** Matches `<n>.json` with no leading zeros; anything else in the revisions directory is corrupt. */
+/** Matches `<n>.json` with no leading zeros; anything else in a revisions or claims directory is corrupt. */
 export function revisionNumber(name: string): number | undefined {
   const match = /^(0|[1-9]\d*)\.json$/u.exec(name);
   const value = match ? Number(match[1]) : NaN;
