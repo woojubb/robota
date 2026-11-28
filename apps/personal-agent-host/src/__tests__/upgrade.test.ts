@@ -234,3 +234,15 @@ describe('image retention', () => {
     await expect(host.plane.upgrade('alice')).resolves.toMatchObject({ moved: [{ id: 'alice' }] });
   });
 });
+
+describe('routes', () => {
+  it('serve the account again after an upgrade that found it down', async () => {
+    const host = await twoAccounts();
+    host.runtime.crash('alice');
+    await host.plane.delete('bob', 'bob'); // reapplies the routes while alice is down
+    expect(host.proxy.siteFor('alice.agents.example.test')?.kind).toBe('unavailable');
+    host.runtime.rebuildImage(IMAGE);
+    await host.plane.upgrade('alice');
+    expect(host.proxy.siteFor('alice.agents.example.test')?.kind).toBe('active');
+  });
+});

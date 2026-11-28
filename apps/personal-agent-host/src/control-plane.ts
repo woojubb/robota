@@ -470,6 +470,7 @@ export class ControlPlane {
         try {
           await this.moveToImage(record, result.target);
         } catch (error) {
+          await this.applyRoutes().catch(() => undefined);
           if (single !== null) throw error;
           throw new HostError(
             error instanceof HostError ? error.code : 'runtime-failed',
@@ -477,6 +478,8 @@ export class ControlPlane {
               `skipped: ${names(result.skipped.map((s) => s.id))}; failed: ${record.id}`,
           );
         }
+        // The unit was down and may have been served as unavailable meanwhile; routes follow state.
+        await this.applyRoutes().catch(() => undefined);
         result.moved.push({ id: record.id, from: record.imageId });
       }
       return result;
