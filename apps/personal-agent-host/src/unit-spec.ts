@@ -11,7 +11,7 @@ export function unitSpecOf(
   return {
     account: record.id,
     installId,
-    image: record.image,
+    image: record.imageId,
     subnetSlot: record.subnetSlot,
     limits: record.limits,
     hostname: record.hostname,

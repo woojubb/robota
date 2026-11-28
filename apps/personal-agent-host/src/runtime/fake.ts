@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 import {
   type GuardState,
@@ -14,7 +14,16 @@ import {
 } from './port.js';
 
 export type FakeStep =
-  'describe' | 'provision' | 'start' | 'stop' | 'destroy' | 'inspect' | 'list' | 'accessCode';
+  | 'describe'
+  | 'resolveImage'
+  | 'releaseImage'
+  | 'provision'
+  | 'start'
+  | 'stop'
+  | 'destroy'
+  | 'inspect'
+  | 'list'
+  | 'accessCode';
 
 const GUI_PORT = 8360;
 const WS_PORT = 8361;
@@ -36,6 +45,8 @@ interface IFakeUnit {
 export class FakeRuntime implements IRuntimePort {
   private readonly units = new Map<string, IFakeUnit>();
   private readonly failures = new Map<FakeStep, Error[]>();
+  private readonly images = new Map<string, string>();
+  private readonly imageGenerations = new Map<string, number>();
   private guardState: GuardState = 'verified';
   private nextHost = FIRST_HOST;
   /** Every call as `step:account`, in order. */
@@ -46,6 +57,20 @@ export class FakeRuntime implements IRuntimePort {
     const queue = this.failures.get(step) ?? [];
     queue.push(error);
     this.failures.set(step, queue);
+  }
+
+  /** Points a reference at a new image id, as rebuilding a tag does; returns the id. */
+  rebuildImage(reference: string): string {
+    const generation = (this.imageGenerations.get(reference) ?? 0) + 1;
+    this.imageGenerations.set(reference, generation);
+    const id = `sha256:${createHash('sha256').update(`${reference}#${generation}`).digest('hex')}`;
+    this.images.set(reference, id);
+    return id;
+  }
+
+  /** The image id a unit was last started from. */
+  imageOf(account: string): string | undefined {
+    return this.units.get(account)?.spec.image;
   }
 
   setGuard(state: GuardState): void {
@@ -90,6 +115,7 @@ export class FakeRuntime implements IRuntimePort {
       state: unit.state,
       healthy: unit.state === 'running',
       endpoints,
+      imageId: unit.spec.image,
       keyConfigured: unit.startedWithKey !== undefined,
     };
   }
@@ -101,6 +127,15 @@ export class FakeRuntime implements IRuntimePort {
       guard: { state: this.guardState },
       isolation: ['in-memory test double: no isolation'],
     };
+  }
+
+  async resolveImage(reference: string): Promise<string> {
+    this.enter('resolveImage', reference);
+    return this.images.get(reference) ?? this.rebuildImage(reference);
+  }
+
+  async releaseImage(imageId: string): Promise<void> {
+    this.enter('releaseImage', imageId);
   }
 
   async provision(spec: IUnitSpec): Promise<IUnitStatus> {
@@ -152,11 +187,11 @@ export class FakeRuntime implements IRuntimePort {
       .map(([account, unit]) => this.status(account, unit));
   }
 
-  async accessCode(account: string): Promise<IAccessCode> {
-    this.enter('accessCode', account);
-    const unit = this.unit(account);
+  async accessCode(spec: IUnitSpec): Promise<IAccessCode> {
+    this.enter('accessCode', spec.account);
+    const unit = this.unit(spec.account);
     if (!unit.accessCode) {
-      throw new RuntimePortError('no-access-code', `Unit ${account} has not started yet`);
+      throw new RuntimePortError('no-access-code', `Unit ${spec.account} has not started yet`);
     }
     return { code: unit.accessCode };
   }

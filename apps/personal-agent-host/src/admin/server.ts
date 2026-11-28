@@ -7,7 +7,7 @@ import { HTTP_STATUS, type IAdminErrorBody, MAX_BODY_BYTES } from './protocol.js
 
 const ACTOR = 'operator';
 const ROUTE_ID = /^[a-z0-9-]{1,63}$/u;
-const ACTIONS = ['suspend', 'resume', 'access-code', 'delete'] as const;
+const ACTIONS = ['suspend', 'resume', 'access-code', 'upgrade', 'delete'] as const;
 type Action = (typeof ACTIONS)[number];
 
 /** A request rejected before it became a command; the HTTP status says which kind. */
@@ -120,6 +120,16 @@ function route(plane: ControlPlane, method: string, path: string): IRoute {
     if (method !== 'GET') wrongMethod();
     return { body: false, run: () => plane.status(ACTOR) };
   }
+  if (collection === 'upgrade' && id === undefined) {
+    if (method !== 'POST') wrongMethod();
+    return {
+      body: true,
+      run: (b) => {
+        noParameters(b);
+        return plane.upgrade({ all: true }, ACTOR);
+      },
+    };
+  }
   if (collection !== 'accounts') throw new RequestError('No such route', 404);
   if (id === undefined) {
     if (method === 'GET') return { body: false, run: () => plane.list(ACTOR) };
@@ -164,6 +174,14 @@ function route(plane: ControlPlane, method: string, path: string): IRoute {
         run: async (b) => {
           noParameters(b);
           return { code: await plane.accessCode(id, ACTOR) };
+        },
+      };
+    case 'upgrade':
+      return {
+        body: true,
+        run: (b) => {
+          noParameters(b);
+          return plane.upgrade(id, ACTOR);
         },
       };
     case 'delete':

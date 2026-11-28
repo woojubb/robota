@@ -5,11 +5,16 @@ import { ContainerRuntime } from '../runtime/container/backend.js';
 import { EngineClient } from '../runtime/container/engine-client.js';
 import { parseResolvers } from '../runtime/container/guard.js';
 import { RuntimePortError, type IUnitSpec } from '../runtime/port.js';
-import { describeRuntimePortContract, unitSpecFor } from '../runtime/testing/contract.js';
+import {
+  describeRuntimePortContract,
+  TEST_IMAGE_ID,
+  unitSpecFor,
+} from '../runtime/testing/contract.js';
 import { FakeEngine } from './fake-engine.js';
 import { cleanTempDirs } from './harness.js';
 
 const INSTALL = 'abcdef01';
+const OLD_ID = `sha256:${'2'.repeat(64)}`;
 const KEY = 'sk-unit-secret-4c9e1d7a02';
 const SLOTS: Record<string, number> = { alpha: 0, beta: 1, nobody: 2, gamma: 3 };
 const POOL = parseSubnetPool('10.200.0.0/16');
@@ -84,7 +89,7 @@ describe('the unit as the engine is asked to build it', () => {
   it('hardens and limits the container in every field', async () => {
     const { fake } = await started();
     const body = fake.container(NAME) as Record<string, any>;
-    expect(body.Image).toBe('personal-agent:test');
+    expect(body.Image).toBe(TEST_IMAGE_ID);
     expect(body).not.toHaveProperty('User'); // the image's own user, never root
     expect(body).not.toHaveProperty('ExposedPorts');
     const host = body.HostConfig;
@@ -160,7 +165,6 @@ describe('the unit as the engine is asked to build it', () => {
       'robota.personal-agent-host.install': INSTALL,
       'robota.personal-agent-host.account': 'alpha',
       'robota.personal-agent-host.slot': '0',
-      'robota.personal-agent-host.image': 'personal-agent:test',
       'robota.personal-agent-host.kind': 'unit',
     };
     expect(fake.containerNames()).toEqual([NAME]);
@@ -197,6 +201,7 @@ describe('the unit as the engine is asked to build it', () => {
       state: 'running',
       healthy: true,
       endpoints: { host: '10.200.0.2', guiPort: 7360, wsPort: 7361 },
+      imageId: TEST_IMAGE_ID,
       keyConfigured: true,
     });
   });
@@ -231,7 +236,7 @@ describe('secrets', () => {
       await runtime.describe(),
       await runtime.inspect('alpha'),
       await runtime.list(),
-      await runtime.accessCode('alpha'),
+      await runtime.accessCode(spec('alpha')),
     ]);
     expect(shown).not.toContain(KEY);
   });
@@ -414,7 +419,7 @@ describe('rollback', () => {
     fake.failNext(
       /POST \/containers\/create name=pah-abcdef01-alpha/u,
       404,
-      'No such image: personal-agent:test',
+      `No such image: ${TEST_IMAGE_ID}`,
     );
     await expect(runtime.start(spec('alpha'), {})).rejects.toThrow(/No such image/u);
     expect(fake.containerNames()).toEqual([]);
@@ -470,12 +475,12 @@ describe('lifecycle', () => {
 
   it('starts a stopped unit again with the same address and access code', async () => {
     const { runtime } = await started();
-    const code = (await runtime.accessCode('alpha')).code;
+    const code = (await runtime.accessCode(spec('alpha'))).code;
     await runtime.stop('alpha');
-    expect((await runtime.accessCode('alpha')).code).toBe(code);
+    expect((await runtime.accessCode(spec('alpha'))).code).toBe(code);
     const again = await runtime.start(spec('alpha'), { modelApiKey: KEY });
     expect(again.endpoints.host).toBe('10.200.0.2');
-    expect((await runtime.accessCode('alpha')).code).toBe(code);
+    expect((await runtime.accessCode(spec('alpha'))).code).toBe(code);
   });
 
   it('leaves a unit that is already running as it is', async () => {
@@ -501,7 +506,7 @@ describe('lifecycle', () => {
 
   it('reads the access code from the volume with a throwaway container that has no network and no write access', async () => {
     const { fake, runtime } = await started();
-    await runtime.accessCode('alpha');
+    await runtime.accessCode(spec('alpha'));
     const helper = fake.requests
       .filter(
         (r) =>
@@ -516,7 +521,7 @@ describe('lifecycle', () => {
       ReadonlyRootfs: true,
       Mounts: [{ Type: 'volume', Source: `${NAME}-state`, Target: '/state', ReadOnly: true }],
     });
-    expect(helper?.Image).toBe('personal-agent:test');
+    expect(helper?.Image).toBe(TEST_IMAGE_ID);
     expect(fake.containerNames()).toEqual([NAME]); // the helper is gone
   });
 
@@ -726,5 +731,111 @@ describe('the guard as the backend uses it', () => {
     const description = await runtimeOn(await newEngine()).describe();
     expect(description.backend).toBe('container');
     expect(description.isolation.join(' ')).toMatch(/trusted accounts only/u);
+  });
+});
+
+describe('image identity', () => {
+  it('resolves a reference to the engine image id through the image endpoint', async () => {
+    const fake = await newEngine();
+    fake.imageIds.set('personal-agent:local', `sha256:${'c'.repeat(64)}`);
+    const runtime = runtimeOn(fake);
+    expect(await runtime.resolveImage('personal-agent:local')).toBe(`sha256:${'c'.repeat(64)}`);
+    expect(fake.requests.at(-1)).toMatchObject({
+      method: 'GET',
+      path: '/images/personal-agent:local/json',
+    });
+  });
+
+  it('says to build the image when the engine does not have it', async () => {
+    const fake = await newEngine();
+    fake.images.add('other:image');
+    await expect(runtimeOn(fake).resolveImage('personal-agent:local')).rejects.toThrow(
+      /does not exist on the engine; build it first/u,
+    );
+  });
+
+  it('starts the unit and runs the access-code helper from the id in the spec', async () => {
+    const fake = await newEngine();
+    const id = `sha256:${'d'.repeat(64)}`;
+    const runtime = runtimeOn(fake);
+    await runtime.provision(spec('alpha', { image: id }));
+    await runtime.start(spec('alpha', { image: id }), {});
+    expect(fake.container(NAME)?.Image).toBe(id);
+    await runtime.accessCode(spec('alpha', { image: id }));
+    const helper = fake.requests
+      .filter(
+        (r) =>
+          r.path === '/containers/create' &&
+          r.body?.Labels?.['robota.personal-agent-host.kind'] === 'helper',
+      )
+      .at(-1)?.body;
+    expect(helper?.Image).toBe(id);
+  });
+
+  it('reads the access code although the image the volume was made for no longer exists', async () => {
+    const fake = await newEngine();
+    const runtime = runtimeOn(fake);
+    await runtime.provision(spec('alpha', { image: OLD_ID }));
+    await runtime.start(spec('alpha', { image: OLD_ID }), {});
+    const code = (await runtime.accessCode(spec('alpha', { image: OLD_ID }))).code;
+    const current = `sha256:${'e'.repeat(64)}`;
+    fake.images.add(current);
+    expect((await runtime.accessCode(spec('alpha', { image: current }))).code).toBe(code);
+  });
+
+  it('puts no image label on the volume, so nothing can rely on a stale one', async () => {
+    const { fake } = await started();
+    expect(Object.keys(fake.volume(`${NAME}-state`) ?? {})).not.toContain(
+      'robota.personal-agent-host.image',
+    );
+  });
+
+  it('keeps the image alive with a retaining reference at start and lets go of it on release', async () => {
+    const fake = await newEngine();
+    const id = `sha256:${'f'.repeat(64)}`;
+    const runtime = runtimeOn(fake);
+    await runtime.provision(spec('alpha', { image: id }));
+    await runtime.start(spec('alpha', { image: id }), {});
+    expect(fake.requests).toContainEqual(
+      expect.objectContaining({ method: 'POST', path: `/images/${id}/tag` }),
+    );
+    expect([...fake.retained]).toEqual([`pah-${INSTALL}-images:ffffffffffff`]);
+    await runtime.releaseImage(id);
+    expect([...fake.retained]).toEqual([]);
+    await expect(runtime.releaseImage(id)).resolves.toBeUndefined();
+  });
+
+  it('refuses to start from an image the engine does not have', async () => {
+    const fake = await newEngine();
+    fake.images.add('guard:test');
+    const runtime = runtimeOn(fake);
+    await runtime.provision(spec('alpha'));
+    await expect(
+      runtime.start(spec('alpha', { image: `sha256:${'9'.repeat(64)}` }), {}),
+    ).rejects.toThrow(/does not exist on the engine/u);
+  });
+
+  it('reports the image id of the container and replaces a running unit made from another image', async () => {
+    const { fake, runtime } = await started();
+    expect((await runtime.inspect('alpha')).imageId).toBe(TEST_IMAGE_ID);
+    expect((await runtime.list())[0]?.imageId).toBe(TEST_IMAGE_ID);
+    await runtime.start(spec('alpha', { image: OLD_ID }), { modelApiKey: KEY });
+    expect(fake.container(NAME)?.Image).toBe(OLD_ID);
+    expect((await runtime.inspect('alpha')).imageId).toBe(OLD_ID);
+    expect((await runtime.inspect('alpha')).state).toBe('running');
+  });
+
+  it('refuses a spec whose image is not an id', async () => {
+    const runtime = runtimeOn(await newEngine());
+    await expect(
+      runtime.provision(spec('alpha', { image: 'personal-agent:local' })),
+    ).rejects.toMatchObject({
+      code: 'invalid-spec',
+    });
+    await expect(
+      runtime.start(spec('alpha', { image: 'personal-agent:local' }), {}),
+    ).rejects.toMatchObject({
+      code: 'invalid-spec',
+    });
   });
 });

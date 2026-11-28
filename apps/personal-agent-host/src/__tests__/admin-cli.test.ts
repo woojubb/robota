@@ -37,7 +37,7 @@ describe('the CLI against a running serve', () => {
 
     const list = await host.cli(['list']);
     expect(list.code).toBe(0);
-    expect(list.out).toMatch(/vera\s+active\s+running\s+set\s+https:\/\/vera/u);
+    expect(list.out).toMatch(/vera\s+active\s+running\s+set\s+[a-f0-9]{12}\s+https:\/\/vera/u);
 
     const show = await host.cli(['show', 'vera']);
     expect(show.out).toMatch(/provider\s+anthropic test-model/u);
@@ -72,7 +72,13 @@ describe('the CLI against a running serve', () => {
     expect(list.map((v) => [v.id, v.key])).toEqual([['vera', 'set']]);
     const status = JSON.parse((await host.cli(['status', '--json'])).out) as IStatusReport;
     expect(status.accounts).toEqual([
-      { id: 'vera', desired: 'active', actual: 'running', healthy: true },
+      {
+        id: 'vera',
+        desired: 'active',
+        actual: 'running',
+        healthy: true,
+        imageId: expect.stringMatching(/^sha256:[a-f0-9]{64}$/u),
+      },
     ]);
     expect(status.domainMismatches).toEqual([]);
   });
@@ -179,6 +185,9 @@ describe('exit codes', () => {
     expect((await host.cli(['add', 'x'], KEY)).code).toBe(2);
     expect((await host.cli([...ADD, '--memory-mb', 'lots'], KEY)).code).toBe(2);
     expect((await host.cli(['serve', 'now'])).code).toBe(2);
+    expect((await host.cli(['upgrade'])).code).toBe(2);
+    expect((await host.cli(['upgrade', 'x', '--all'])).code).toBe(2);
+    expect((await host.cli(['suspend', 'x', '--all'])).code).toBe(2);
 
     const missing = await runCli({ ...host.env, PERSONAL_AGENT_HOST_STATE_DIR: '/tmp/pah-none' }, [
       'list',
@@ -326,5 +335,41 @@ describe('concurrent commands', () => {
     expect(steps).toEqual(['provision:alpha', 'start:alpha', 'provision:bravo', 'start:bravo']);
     // The status command ran after both adds, so it saw both.
     expect(results[2].out).toMatch(/alpha[\s\S]*bravo/u);
+  });
+});
+
+describe('upgrade from the CLI', () => {
+  it('moves one account or all of them and reports what it did', async () => {
+    const host = await startHost();
+    await host.cli(ADD, KEY);
+    await host.cli(['add', 'wren', '--provider', 'anthropic'], KEY);
+    expect((await host.cli(['upgrade', 'vera'])).out).toMatch(/current\s+vera/u);
+
+    host.runtime.rebuildImage('personal-agent:test');
+    const one = await host.cli(['upgrade', 'vera', '--json']);
+    expect(one.code).toBe(0);
+    expect(JSON.parse(one.out).moved.map((m: { id: string }) => m.id)).toEqual(['vera']);
+
+    const all = await host.cli(['upgrade', '--all']);
+    expect(all.code).toBe(0);
+    expect(all.out).toMatch(/moved\s+wren/u);
+    expect(all.out).toMatch(/current\s+vera/u);
+  });
+
+  it('exits 3 for a suspended account, 4 for an unknown one and 1 after a rollback', async () => {
+    const host = await startHost();
+    await host.cli(ADD, KEY);
+    await host.cli(['suspend', 'vera']);
+    host.runtime.rebuildImage('personal-agent:test');
+    const suspended = await host.cli(['upgrade', 'vera']);
+    expect(suspended.code).toBe(3);
+    expect(suspended.err).toContain('resume it first');
+    expect((await host.cli(['upgrade', 'nobody'])).code).toBe(4);
+
+    await host.cli(['resume', 'vera']);
+    host.runtime.failNext('start', new Error('new image is broken'));
+    const failed = await host.cli(['upgrade', 'vera']);
+    expect(failed.code).toBe(1);
+    expect(failed.err).toContain('previous image is running again');
   });
 });

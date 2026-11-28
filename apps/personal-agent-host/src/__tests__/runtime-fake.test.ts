@@ -67,7 +67,9 @@ describe('fake runtime specifics', () => {
   it('gives a typed error for an access code before the first start', async () => {
     const runtime = new FakeRuntime();
     await runtime.provision(unitSpecFor('a'));
-    await expect(runtime.accessCode('a')).rejects.toBeInstanceOf(RuntimePortError);
-    await expect(runtime.accessCode('a')).rejects.toMatchObject({ code: 'no-access-code' });
+    await expect(runtime.accessCode(unitSpecFor('a'))).rejects.toBeInstanceOf(RuntimePortError);
+    await expect(runtime.accessCode(unitSpecFor('a'))).rejects.toMatchObject({
+      code: 'no-access-code',
+    });
   });
 });

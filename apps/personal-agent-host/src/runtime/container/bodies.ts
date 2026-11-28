@@ -6,7 +6,6 @@ import {
   INGRESS_VARIABLE,
   DETACH_FROM_COMPOSE,
   LABEL_ACCOUNT,
-  LABEL_IMAGE,
   LABEL_INSTALL,
   LABEL_KIND,
   LABEL_SLOT,
@@ -36,7 +35,6 @@ export function unitLabels(
     [LABEL_INSTALL]: spec.installId,
     [LABEL_ACCOUNT]: spec.account,
     [LABEL_SLOT]: String(spec.subnetSlot),
-    [LABEL_IMAGE]: spec.image,
     [LABEL_KIND]: kind,
   };
 }

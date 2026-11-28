@@ -4,7 +4,6 @@ import type { ISubnetPool } from '../../config.js';
 export const LABEL_INSTALL = 'robota.personal-agent-host.install';
 export const LABEL_ACCOUNT = 'robota.personal-agent-host.account';
 export const LABEL_SLOT = 'robota.personal-agent-host.slot';
-export const LABEL_IMAGE = 'robota.personal-agent-host.image';
 export const LABEL_KIND = 'robota.personal-agent-host.kind';
 
 /**
@@ -36,6 +35,15 @@ const BRIDGE_SLOT_DIGITS = 3;
 
 export function objectName(installId: string, account: string): string {
   return `pah-${installId}-${account}`;
+}
+
+/**
+ * The engine reference that keeps an image an account is recorded to run alive. An image known only
+ * by its id is removed with its last container once its tag has moved, and a rollback or a restart
+ * needs it to still exist.
+ */
+export function retainReference(installId: string, imageId: string): string {
+  return `pah-${installId}-images:${imageId.replace(/^sha256:/u, '').slice(0, 12)}`;
 }
 
 export function volumeName(installId: string, account: string): string {

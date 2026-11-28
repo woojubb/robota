@@ -27,7 +27,7 @@ function record(id: string, slot = 0): IAccountRecord {
     keySource: 'account',
     limits: { memoryMb: 512, cpus: 1, pids: 64 },
     subnetSlot: slot,
-    image: 'personal-agent:test',
+    imageId: `sha256:${'a'.repeat(64)}`,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   };
@@ -122,13 +122,17 @@ describe('account store', () => {
     const cases: Array<[string, string]> = [
       ['not json', '{nope'],
       ['array', '[]'],
-      ['wrong version', JSON.stringify({ version: 2, installId: 'abcdef01', accounts: [] })],
-      ['bad install id', JSON.stringify({ version: 1, installId: 'XYZ', accounts: [] })],
-      ['accounts missing', JSON.stringify({ version: 1, installId: 'abcdef01' })],
+      ['wrong version', JSON.stringify({ version: 99, installId: 'abcdef01', accounts: [] })],
+      [
+        'store from before image ids',
+        JSON.stringify({ version: 1, installId: 'abcdef01', accounts: [] }),
+      ],
+      ['bad install id', JSON.stringify({ version: 2, installId: 'XYZ', accounts: [] })],
+      ['accounts missing', JSON.stringify({ version: 2, installId: 'abcdef01' })],
       [
         'record with unknown state',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
           accounts: [{ ...record('a'), state: 'weird' }],
         }),
@@ -136,7 +140,7 @@ describe('account store', () => {
       [
         'record with bad id',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
           accounts: [{ ...record('a'), id: 'A!' }],
         }),
@@ -144,7 +148,7 @@ describe('account store', () => {
       [
         'hostname not of the id',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
           accounts: [{ ...record('a'), hostname: 'b.agents.example.test' }],
         }),
@@ -152,7 +156,7 @@ describe('account store', () => {
       [
         'missing limits',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
           accounts: [{ ...record('a'), limits: undefined }],
         }),
@@ -160,7 +164,7 @@ describe('account store', () => {
       [
         'hostname with an injected line',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
           accounts: [{ ...record('alice'), hostname: 'alice.evil.example\n}\nimport /etc/x {' }],
         }),
@@ -168,7 +172,7 @@ describe('account store', () => {
       [
         'hostname with no domain',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
           accounts: [{ ...record('alice'), hostname: 'alice.' }],
         }),
@@ -176,7 +180,7 @@ describe('account store', () => {
       [
         'hostname with a space',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
           accounts: [{ ...record('alice'), hostname: 'alice.a b' }],
         }),
@@ -184,31 +188,31 @@ describe('account store', () => {
       [
         'hostname in uppercase',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
           accounts: [{ ...record('alice'), hostname: 'alice.Example.Test' }],
         }),
       ],
       [
-        'image with a space',
+        'image id that is a tag',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
-          accounts: [{ ...record('alice'), image: 'bad image' }],
+          accounts: [{ ...record('alice'), imageId: 'personal-agent:test' }],
         }),
       ],
       [
-        'image with a newline',
+        'image id with a newline',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
-          accounts: [{ ...record('alice'), image: 'img\nx' }],
+          accounts: [{ ...record('alice'), imageId: 'sha256:aa\nx' }],
         }),
       ],
       [
         'duplicate id',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
           accounts: [record('a', 0), record('a', 1)],
         }),
@@ -216,7 +220,7 @@ describe('account store', () => {
       [
         'duplicate slot',
         JSON.stringify({
-          version: 1,
+          version: 2,
           installId: 'abcdef01',
           accounts: [record('a', 0), record('b', 0)],
         }),
