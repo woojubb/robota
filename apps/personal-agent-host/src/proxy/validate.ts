@@ -45,7 +45,15 @@ export function validatePort(value: unknown, what = 'port'): number {
   return value;
 }
 
-/** An upstream, `host:port`, where the host is an IPv4 address or a DNS name; never empty or a wildcard. */
+function isLoopbackOrUnspecified(host: string): boolean {
+  return host.startsWith('127.') || host === '0.0.0.0';
+}
+
+/**
+ * An upstream, `host:port`: an IPv4 address or a multi-label DNS name that a unit can have on a
+ * network of its own. Never empty, a wildcard, loopback, unspecified or a single label, so a route
+ * can neither assume the unit shares the proxy's machine nor reach a service on the proxy's own host.
+ */
 export function validateUpstream(value: unknown): string {
   if (typeof value !== 'string') return refuse('upstream', 'must be text');
   const match = /^([^:]+):(\d{1,5})$/u.exec(value);
@@ -55,6 +63,10 @@ export function validateUpstream(value: unknown): string {
   if (!isIpv4(host) && !named) {
     return refuse('upstream', 'must name an IPv4 address or a DNS name');
   }
+  if (isLoopbackOrUnspecified(host))
+    return refuse('upstream', 'must not be a loopback or unspecified address');
+  if (!isIpv4(host) && !host.includes('.'))
+    return refuse('upstream', 'must not be a single-label host');
   if (Number(port) < 1 || Number(port) > 65535 || String(Number(port)) !== port) {
     return refuse('upstream', 'has a port outside 1 to 65535');
   }

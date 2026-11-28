@@ -4,6 +4,7 @@ import {
   bridgeName,
   GUI_PORT,
   INGRESS_VARIABLE,
+  DETACH_FROM_COMPOSE,
   LABEL_ACCOUNT,
   LABEL_IMAGE,
   LABEL_INSTALL,
@@ -105,7 +106,7 @@ export function unitContainerBody(
     Image: spec.image,
     Hostname: spec.account,
     Env: unitEnvironment(spec, secrets, network.unit),
-    Labels: unitLabels(spec),
+    Labels: { ...unitLabels(spec), ...DETACH_FROM_COMPOSE },
     Healthcheck: {
       Test: ['CMD', 'node', '-e', HEALTH_SCRIPT],
       Interval: HEALTH_INTERVAL_S * NANO,

@@ -7,6 +7,18 @@ export const LABEL_SLOT = 'robota.personal-agent-host.slot';
 export const LABEL_IMAGE = 'robota.personal-agent-host.image';
 export const LABEL_KIND = 'robota.personal-agent-host.kind';
 
+/**
+ * An image built by `docker compose` carries that project's labels, and a container made from it
+ * inherits them, so `compose down` or `ps` would treat a unit as one of the bundle's own services.
+ * A container's own label wins over its image's, so these blank values keep every unit and helper
+ * out of any compose project.
+ */
+export const DETACH_FROM_COMPOSE: Readonly<Record<string, string>> = {
+  'com.docker.compose.project': '',
+  'com.docker.compose.service': '',
+  'com.docker.compose.version': '',
+};
+
 /** The ports the agent publishes inside its unit; the in-unit forwarder listens on the same ones. */
 export const GUI_PORT = 7360;
 export const WS_PORT = 7361;

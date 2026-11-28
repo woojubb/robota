@@ -1,4 +1,4 @@
-import { readFile, unlink } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { request } from 'node:http';
 
 import { errorMessage, HostError } from '../errors.js';
@@ -68,7 +68,7 @@ async function readIfPresent(path: string): Promise<string | undefined> {
 
 /**
  * The real proxy port: writes the configuration for the listed sites and loads it. A configuration
- * the proxy does not accept is rolled back to the last good one, on disk and in the proxy.
+ * the proxy does not accept is never written and the proxy is returned to the last good one.
  */
 export class CaddyProxy implements IProxyPort {
   private lastGood: string | undefined;
@@ -96,11 +96,14 @@ export class CaddyProxy implements IProxyPort {
     const next = generateCaddyfile(sites, this.options.settings);
     const { configPath } = this.options;
     const previous = this.lastGood ?? (await readIfPresent(configPath));
+    // The proxy loads it first and the file is written only once it has been accepted, so the file
+    // on disk is always a configuration the proxy has proven, and a crash between the two steps
+    // leaves the last proven one in place.
     try {
-      await writeFileAtomic(configPath, next);
       await this.load(next);
+      await writeFileAtomic(configPath, next);
     } catch (error) {
-      await this.rollback(previous);
+      await this.restore(previous);
       throw new HostError(
         'runtime-failed',
         `The proxy configuration was not applied and the previous one is kept: ${errorMessage(error)}`,
@@ -110,18 +113,9 @@ export class CaddyProxy implements IProxyPort {
     return { hash: configHash(next) };
   }
 
-  private async rollback(previous: string | undefined): Promise<void> {
-    const { configPath } = this.options;
-    try {
-      if (previous === undefined) {
-        await unlink(configPath).catch(() => undefined);
-        return;
-      }
-      await writeFileAtomic(configPath, previous);
-      // A refused configuration leaves the proxy on the old one; one that failed midway may not.
-      await this.options.transport(previous).catch(() => undefined);
-    } catch {
-      // The original failure is the one worth reporting.
-    }
+  /** A refused configuration leaves the proxy on the old one; one that failed midway may not. */
+  private async restore(previous: string | undefined): Promise<void> {
+    if (previous === undefined) return;
+    await this.options.transport(previous).catch(() => undefined);
   }
 }
