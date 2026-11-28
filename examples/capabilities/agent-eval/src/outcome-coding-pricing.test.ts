@@ -91,18 +91,32 @@ test('a listing without the provider, without prices or with a malformed price i
 });
 
 test('a receipt never reads a missing or malformed field as zero', () => {
-  const receipt = parseReceipt({
-    provider: 'route-a',
+  const reply = {
     model: 'm',
+    provider: 'ignored-reply-field',
     usage: { cost: 0.0000123, prompt_tokens: 10, completion_tokens: 5 },
-  });
-  assert.deepEqual(receipt, {
+  };
+  assert.deepEqual(parseReceipt(reply), {
     costMicros: 13,
+    promptTokens: 10,
+    outputTokens: 5,
+    provider: undefined,
+    model: 'm',
+    generationModel: undefined,
+  });
+  const record = { provider_name: 'route-a', model: 'm2', total_cost: 0.00002 };
+  assert.deepEqual(parseReceipt(reply, record), {
+    costMicros: 20,
     promptTokens: 10,
     outputTokens: 5,
     provider: 'route-a',
     model: 'm',
+    generationModel: 'm2',
   });
+  // The larger cost wins in either direction; one readable cost stands alone.
+  assert.equal(parseReceipt(reply, { total_cost: 0.000001 }).costMicros, 13);
+  assert.equal(parseReceipt({ usage: {} }, { total_cost: 0.000004 }).costMicros, 4);
+  assert.equal(parseReceipt({ usage: {} }, { total_cost: 'free' }).costMicros, undefined);
   const empty = parseReceipt({ usage: { cost: 'free', completion_tokens: -1 } });
   assert.equal(empty.costMicros, undefined);
   assert.equal(empty.outputTokens, undefined);

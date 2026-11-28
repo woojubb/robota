@@ -1,5 +1,6 @@
 import type { SpendLedger } from './outcome-coding-ledger.js';
 import { parseReceipt } from './outcome-coding-pricing.js';
+import type { TJson, TJsonObject } from './outcome-coding-protocol.js';
 import type { IRelayGate } from './outcome-coding-relay.js';
 
 /**
@@ -10,11 +11,15 @@ import type { IRelayGate } from './outcome-coding-relay.js';
  * - no answer, or an answer that is not a success (an unknown or failed paid call: the reservation
  *   stays, because the provider may still have charged it);
  * - a success without a readable cost (also unknown, same reservation);
- * - a receipt whose provider or model differs from the pinned route;
+ * - a receipt whose provider or model differs from the pinned route, or for which the gateway's
+ *   generation record (the only place the serving provider is named) could not be read;
  * - a receipt whose output tokens exceed the output cap;
  * - a receipt whose cost exceeds its reservation (recorded at the real cost, against the ceiling).
  */
-export function createLedgerGate(ledger: SpendLedger): IRelayGate {
+export function createLedgerGate(
+  ledger: SpendLedger,
+  lookup: (body: TJson) => Promise<TJsonObject | undefined>,
+): IRelayGate {
   const { route, maxOutputTokens } = ledger.header;
   return {
     admit({ bytes, body }) {
@@ -27,28 +32,40 @@ export function createLedgerGate(ledger: SpendLedger): IRelayGate {
       const { id } = admission;
       return {
         ok: true,
-        settle(answer) {
+        async settle(answer) {
           if (answer === undefined) {
             ledger.stop(`call ${id} got no answer; its reservation stays`);
             return { stop: `call ${id} got no answer` };
           }
-          const receipt = parseReceipt(answer.body);
-          if (answer.status < 200 || answer.status >= 300 || receipt.costMicros === undefined) {
+          const replied = parseReceipt(answer.body);
+          if (answer.status < 200 || answer.status >= 300 || replied.costMicros === undefined) {
             ledger.stop(
               `call ${id} has no usable receipt (status ${answer.status}); its reservation stays`,
             );
             return { stop: `call ${id} has no usable receipt` };
           }
+          let generation: TJsonObject | undefined;
+          try {
+            generation = await lookup(answer.body);
+          } catch {
+            generation = undefined;
+          }
+          const receipt = parseReceipt(answer.body, generation);
           const problems: string[] = [];
-          if (receipt.provider !== route.provider)
+          if (generation === undefined)
+            problems.push('no generation record confirmed the provider');
+          else if (receipt.provider !== route.provider)
             problems.push('the provider differs from the pinned route');
-          if (receipt.model !== route.model)
+          if (
+            receipt.model !== route.model ||
+            (generation !== undefined && receipt.generationModel !== route.model)
+          )
             problems.push('the model differs from the pinned route');
           if (receipt.outputTokens === undefined || receipt.outputTokens > maxOutputTokens) {
             problems.push('the output tokens are missing or exceed the output cap');
           }
           const { overrun } = ledger.settle(id, {
-            costMicros: receipt.costMicros,
+            costMicros: receipt.costMicros as number,
             ...(receipt.promptTokens === undefined ? {} : { promptTokens: receipt.promptTokens }),
             ...(receipt.outputTokens === undefined ? {} : { outputTokens: receipt.outputTokens }),
           });

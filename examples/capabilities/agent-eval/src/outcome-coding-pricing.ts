@@ -5,7 +5,7 @@
  * rounded up, so no conversion can make a bound smaller than the price it came from.
  */
 
-import type { TJson } from './outcome-coding-protocol.js';
+import type { TJson, TJsonObject } from './outcome-coding-protocol.js';
 
 export interface IRates {
   /** Micro-dollars per million input tokens. */
@@ -145,6 +145,8 @@ export interface IReceipt {
   readonly outputTokens: number | undefined;
   readonly provider: string | undefined;
   readonly model: string | undefined;
+  /** The model the gateway's generation record names. */
+  readonly generationModel: string | undefined;
 }
 
 function count(value: unknown): number | undefined {
@@ -152,18 +154,23 @@ function count(value: unknown): number | undefined {
 }
 
 /**
- * The provider's receipt in a completion reply: `usage.cost` in dollars, the token counts, and the
- * provider and model that served the call. A field that is absent or malformed is `undefined`, never
- * a default, so a missing receipt cannot read as zero cost.
+ * The receipt of one call: the token counts and `usage.cost` (dollars) from the completion reply,
+ * and the serving provider, model and billed `total_cost` from the gateway's generation record,
+ * because the reply itself does not name the provider. The cost is the larger of the two readable
+ * costs, so it is never understated. A field that is absent or malformed is `undefined`, never a
+ * default, so a missing receipt cannot read as zero cost.
  */
-export function parseReceipt(body: TJson | undefined): IReceipt {
+export function parseReceipt(body: TJson | undefined, generation?: TJsonObject): IReceipt {
   const usage = isObject(body) && isObject(body.usage) ? body.usage : undefined;
-  const cost = usage === undefined ? undefined : parseMicros(usage.cost);
+  const replyCost = usage === undefined ? undefined : parseMicros(usage.cost);
+  const recordCost = generation === undefined ? undefined : parseMicros(generation.total_cost);
+  const costs = [replyCost, recordCost].filter((cost): cost is number => cost !== undefined);
   return {
-    costMicros: cost,
+    costMicros: costs.length === 0 ? undefined : Math.max(...costs),
     promptTokens: count(usage?.prompt_tokens),
     outputTokens: count(usage?.completion_tokens),
-    provider: isObject(body) && typeof body.provider === 'string' ? body.provider : undefined,
+    provider: typeof generation?.provider_name === 'string' ? generation.provider_name : undefined,
     model: isObject(body) && typeof body.model === 'string' ? body.model : undefined,
+    generationModel: typeof generation?.model === 'string' ? generation.model : undefined,
   };
 }

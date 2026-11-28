@@ -304,8 +304,8 @@ key, and the credential reader is tested with a temporary file.
   and takes the highest of each kind across all its regions, not the model's headline price. The header's basis is
   chosen at or above that, and `basisCovers` re-checks it before a run.
 - **Stops.** `src/outcome-coding-gate.ts` stops the run, with no retry and no further admission, when a call gets no
-  answer or no usable receipt (the reservation stays), when a receipt names another provider or model than the
-  pinned route, when its output tokens exceed the cap, or when its cost exceeds its reservation (recorded at the
+  answer or no usable receipt (the reservation stays), when the generation record names another provider or model
+  than the pinned route or cannot be read, when its output tokens exceed the cap, or when its cost exceeds its reservation (recorded at the
   real cost, against the ceiling). A stop is persisted; `resume` lifts it only when no call is unsettled, and calls
   left unsettled by an earlier process block admission until each is reconciled explicitly.
 - **One request per admission.** `src/outcome-coding-gateway.ts` makes exactly one HTTP request per call: no retry,
@@ -319,11 +319,15 @@ key, and the credential reader is tested with a temporary file.
   (plain, base64, hex, URL-encoded) in evidence texts and directories and reports the count, never the secret.
 - **Checks before a run.** `catalogListsModel` (the pinned model is still listed), `fetchEndpointListing` and
   `checkCredits` (the remaining credit covers the next reservation) read the gateway once each. The gateway shape
-  they assume is `GET <base>/models`, `GET <base>/models/<model>/endpoints`, `GET <base>/credits` and
-  `POST <base>/chat/completions`, with the receipt in the reply (`usage.cost` in dollars, `usage.completion_tokens`,
-  `provider`, `model`). No real gateway has confirmed this shape. Before the first paid call the pre-run checks must
-  succeed against the real gateway: the catalog lists the model, the endpoint listing parses with rates within the
-  basis, the credits answer parses, and a reply carries `usage.cost`, `provider` and `model`.
+  they use is `GET <base>/models`, `GET <base>/models/<model>/endpoints`, `GET <base>/credits` (a top-level `balance`
+  in dollars, which is already the remaining amount), `POST <base>/chat/completions` and
+  `GET <base>/generation?id=<id>`. A completion reply carries `usage.cost` (dollars), the token counts, `model` and a
+  generation id, but not the serving provider; the provider, the model and the billed cost come from the generation
+  record, which `lookupGeneration` polls with the credential (it can lag the reply by seconds, so "not yet" answers are
+  retried within a bounded wait and any other status is an error). The settled cost is the larger of the reply's and
+  the record's, and a call whose record cannot be read is settled and then stops the run. Before the first paid call
+  the pre-run checks must succeed against the real gateway: the catalog lists the model, the endpoint listing parses
+  with rates within the basis, and the credits answer parses.
 
 ## Delegation arm
 
@@ -410,7 +414,8 @@ pnpm --filter robota-capability-agent-eval coding:live \
 **Preflight, recorded in `preflight.json`.** The evidence and working paths; the decision rule; Docker; the credential
 (reported only as present); the catalog (the pinned model is still listed); the endpoint listing and a basis at or
 above its highest rates; a credits check covering the next reservation (repeated before every trial); the worker
-image. A failed check stops the run before any call and before a ledger exists, so the same command can be run again.
+image (base images must be present before the run: the build does not refresh them but pulls a missing one, which
+the cleanup check would report). A failed check stops the run before any call and before a ledger exists, so the same command can be run again.
 
 **Order.** One smoke trial per arm (not counted), then three rounds over the six tasks; within a round the tasks go
 in their fixed order and the arm that goes first alternates by task and by round. A trial that ended by an

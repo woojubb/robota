@@ -26,6 +26,7 @@ import {
   createGatewayUpstream,
   fetchEndpointListing,
   type IGatewayLocation,
+  lookupGeneration,
 } from './outcome-coding-gateway.js';
 import {
   DEFAULT_TEMPLATE_ALLOWANCE_TOKENS,
@@ -41,7 +42,7 @@ import {
   parseReceipt,
   type IRates,
 } from './outcome-coding-pricing.js';
-import type { TJsonObject } from './outcome-coding-protocol.js';
+import type { TJson, TJsonObject } from './outcome-coding-protocol.js';
 import {
   createScriptedUpstream,
   type IRelayGate,
@@ -261,7 +262,20 @@ interface ITally {
   readonly refusals: string[];
 }
 
-function tallyGate(inner: IRelayGate, tally: ITally, ledger: SpendLedger): IRelayGate {
+/** The generation id a chat reply carries: `generationId`, else `id`. */
+function generationIdOf(body: TJson): string | undefined {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) return undefined;
+  const { generationId, id } = body as TJsonObject;
+  if (typeof generationId === 'string') return generationId;
+  return typeof id === 'string' ? id : undefined;
+}
+
+function tallyGate(
+  inner: IRelayGate,
+  tally: ITally,
+  ledger: SpendLedger,
+  records: ReadonlyMap<string, TJsonObject>,
+): IRelayGate {
   return {
     admit(request) {
       const admission = inner.admit(request);
@@ -274,8 +288,13 @@ function tallyGate(inner: IRelayGate, tally: ITally, ledger: SpendLedger): IRela
       tally.admitted += 1;
       return {
         ok: true,
-        settle(answer) {
-          const receipt = answer === undefined ? undefined : parseReceipt(answer.body);
+        async settle(answer) {
+          const verdict = await admission.settle(answer);
+          const id = answer === undefined ? undefined : generationIdOf(answer.body);
+          const receipt =
+            answer === undefined
+              ? undefined
+              : parseReceipt(answer.body, id === undefined ? undefined : records.get(id));
           const usable =
             answer !== undefined &&
             answer.status >= 200 &&
@@ -283,7 +302,7 @@ function tallyGate(inner: IRelayGate, tally: ITally, ledger: SpendLedger): IRela
             receipt?.costMicros !== undefined;
           if (usable) tally.costMicros += receipt.costMicros as number;
           else tally.withoutReceipt += 1;
-          return admission.settle(answer);
+          return verdict;
         },
       };
     },
@@ -337,7 +356,9 @@ export function verifyCleanup(input: ICleanupInput): ICleanupCheck[] {
       detail: {
         added: left,
         ...(kind === 'images'
-          ? { note: 'the image build never pulls, so base images are never added by the run' }
+          ? {
+              note: 'the image build does not refresh a base image but pulls one that is missing, so base images must be present before the run',
+            }
           : {}),
       },
     });
@@ -590,19 +611,22 @@ export async function runDriver(config: IDriverConfig, deps: IDriverDeps): Promi
               ledger?.header.templateAllowanceTokens ?? DEFAULT_TEMPLATE_ALLOWANCE_TOKENS,
             maxOutputTokens: BASELINE_SETTINGS.maxTokens,
           });
+    let creditsError: string | undefined;
     const creditsOk = async (): Promise<boolean> => {
       try {
         const credits = await checkCredits(location, credential as ICredential, requiredMicros);
         return credits.sufficient;
-      } catch {
+      } catch (error) {
+        creditsError = redact(error instanceof Error ? error.message : String(error));
         return false;
       }
     };
     if (ok) {
+      creditsError = undefined;
       ok = check(
         'credits cover the next reservation',
         await creditsOk(),
-        { requiredMicros },
+        { requiredMicros, ...(creditsError === undefined ? {} : { error: creditsError }) },
         'credits',
       );
     }
@@ -703,7 +727,14 @@ export async function runDriver(config: IDriverConfig, deps: IDriverDeps): Promi
     if (ok && ledger !== undefined && runtime !== undefined && workDir !== undefined) {
       const run = deps.runTrial ?? runTrial;
       const upstream = createGatewayUpstream({ endpoint, credential: credential as ICredential });
-      const baseGate = createLedgerGate(ledger);
+      const records = new Map<string, TJsonObject>();
+      const baseGate = createLedgerGate(ledger, async (body) => {
+        const id = generationIdOf(body);
+        if (id === undefined) return undefined;
+        const record = await lookupGeneration(location, credential as ICredential, id);
+        if (record !== undefined) records.set(id, record);
+        return record;
+      });
       let first = true;
       for (;;) {
         const next = nextTrial(slots, events);
@@ -733,7 +764,7 @@ export async function runDriver(config: IDriverConfig, deps: IDriverDeps): Promi
           endpoint,
           ...(config.routeOptions === undefined ? {} : { routeOptions: config.routeOptions }),
           upstream,
-          gate: tallyGate(baseGate, tally, ledger as SpendLedger),
+          gate: tallyGate(baseGate, tally, ledger as SpendLedger, records),
           launch: (input) => {
             const launched = activeRuntime.launch(input);
             if (deps.dryRun !== undefined) {

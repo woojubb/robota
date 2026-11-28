@@ -3,7 +3,7 @@ import { Agent as HttpsAgent, request as httpsRequest } from 'node:https';
 
 import { redactSecret, type ICredential } from './outcome-coding-credential.js';
 import { parseMicros } from './outcome-coding-pricing.js';
-import type { TJson } from './outcome-coding-protocol.js';
+import type { TJson, TJsonObject } from './outcome-coding-protocol.js';
 import type { TUpstream } from './outcome-coding-relay.js';
 
 /**
@@ -187,8 +187,8 @@ export interface ICreditsCheck {
 }
 
 /**
- * Reads the remaining credit (`data.total_credits` minus `data.total_usage`, in dollars) with the
- * credential and compares it with what the next reservation needs. Only the sufficiency and the
+ * Reads the remaining credit (the top-level `balance`, in dollars: what is left, not a total) with
+ * the credential and compares it with what the next reservation needs. Only the sufficiency and the
  * remaining amount leave this function.
  */
 export async function checkCredits(
@@ -197,13 +197,65 @@ export async function checkCredits(
   requiredMicros: number,
 ): Promise<ICreditsCheck> {
   const answer = await getJson(location, '/credits', credential);
-  const data = isObject(answer.body) ? answer.body.data : undefined;
-  if (answer.status !== 200 || !isObject(data))
+  if (answer.status !== 200 || !isObject(answer.body))
     throw new Error(`The credits check answered ${answer.status}`);
-  // Credit is rounded down and usage up, so the remaining amount is never overstated.
-  const total = parseMicros(data.total_credits, 'down');
-  const used = parseMicros(data.total_usage, 'up');
-  if (total === undefined || used === undefined) throw new Error('The credits answer is malformed');
-  const remainingMicros = total - used;
+  // The balance is rounded down, so the remaining amount is never overstated.
+  const remainingMicros = parseMicros(answer.body.balance, 'down');
+  if (remainingMicros === undefined) throw new Error('The credits answer is malformed');
   return { remainingMicros, sufficient: remainingMicros >= requiredMicros };
+}
+
+const GENERATION_ID = /^gen_[A-Za-z0-9]+$/;
+const RETRYABLE_STATUSES: ReadonlySet<number> = new Set([400, 404, 429, 500, 502, 503, 504]);
+
+export interface IGenerationLookupOptions {
+  /** Total time to keep asking before giving up; default 30 000 ms. */
+  readonly maxWaitMs?: number;
+  /** Longest pause between two attempts; default 2 000 ms. */
+  readonly maxPauseMs?: number;
+  readonly now?: () => number;
+  readonly sleep?: (ms: number) => Promise<void>;
+}
+
+/**
+ * Reads the gateway's record of one generation (the serving provider, the model and the billed
+ * cost), which can appear a few seconds after the reply. Each poll is one GET of the record; the
+ * chat endpoint is never touched. A status that means "not yet" or a transport failure is retried
+ * within the wait bound; any other status throws. Returns the record's `data` object, or
+ * `undefined` when the id is not a generation id or the wait ended without a record.
+ */
+export async function lookupGeneration(
+  location: IGatewayLocation,
+  credential: ICredential,
+  generationId: string,
+  options: IGenerationLookupOptions = {},
+): Promise<TJsonObject | undefined> {
+  if (!GENERATION_ID.test(generationId)) return undefined;
+  const maxWaitMs = options.maxWaitMs ?? 30_000;
+  const maxPauseMs = options.maxPauseMs ?? 2_000;
+  const now = options.now ?? Date.now;
+  const sleep =
+    options.sleep ?? ((ms: number) => new Promise<void>((done) => setTimeout(done, ms)));
+  const startedAt = now();
+  for (let attempt = 0; ; attempt += 1) {
+    let answer: IGatewayAnswer | undefined;
+    try {
+      answer = await getJson(
+        location,
+        `/generation?id=${encodeURIComponent(generationId)}`,
+        credential,
+      );
+    } catch {
+      answer = undefined;
+    }
+    if (answer !== undefined) {
+      if (answer.status === 200 && isObject(answer.body) && isObject(answer.body.data))
+        return answer.body.data as TJsonObject;
+      if (!RETRYABLE_STATUSES.has(answer.status) && answer.status !== 200)
+        throw new Error(`The generation lookup answered ${answer.status}`);
+    }
+    const remaining = maxWaitMs - (now() - startedAt);
+    if (remaining <= 0) return undefined;
+    await sleep(Math.min(maxPauseMs, 250 * 2 ** Math.min(attempt, 10), remaining));
+  }
 }
