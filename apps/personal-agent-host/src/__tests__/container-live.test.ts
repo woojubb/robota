@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-import { afterAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { parseSubnetPool } from '../config.js';
 import { ContainerRuntime } from '../runtime/container/backend.js';
@@ -30,10 +30,13 @@ const installId = randomBytes(4).toString('hex');
 const pool = parseSubnetPool(POOL);
 const SLOTS: Record<string, number> = { alpha: 0, beta: 1, nobody: 2 };
 
+/** The id the agent image resolves to; set before the suite runs. */
+let liveImageId = '';
+
 function spec(account: string): IUnitSpec {
   return unitSpecFor(account, {
     installId,
-    image: IMAGE,
+    image: liveImageId,
     subnetSlot: SLOTS[account] ?? 3,
     provider: { type: 'openai', model: 'live-contract-model', baseUrl: 'http://203.0.113.9/v1' },
   });
@@ -64,6 +67,9 @@ function withKey(port: IRuntimePort): IRuntimePort {
 }
 
 if (LIVE) {
+  beforeAll(async () => {
+    liveImageId = await runtime().resolveImage(IMAGE);
+  });
   vi.setConfig({ testTimeout: 240_000, hookTimeout: 240_000 });
   describeRuntimePortContract('container backend on the local engine', () => withKey(runtime()), {
     specFor: spec,

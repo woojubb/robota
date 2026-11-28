@@ -6,6 +6,34 @@ import { addInput, cleanTempDirs, KEY, makeHost } from './harness.js';
 afterEach(cleanTempDirs);
 
 describe('reconcile', () => {
+  it('restarts a running unit from the recorded image when it runs an unrecorded one', async () => {
+    // What a control plane that restarted in the middle of an upgrade leaves behind.
+    const host = await makeHost();
+    await host.plane.add(addInput('alice'));
+    const recorded = host.store.get('alice')?.imageId ?? '';
+    const record = host.store.get('alice');
+    if (!record) throw new Error('no record');
+    const stray = `sha256:${'b'.repeat(64)}`;
+    const spec = unitSpecFor('alice', {
+      installId: host.store.installId,
+      image: stray,
+      subnetSlot: record.subnetSlot,
+    });
+    await host.runtime.start(spec, { modelApiKey: KEY });
+    expect(host.runtime.imageOf('alice')).toBe(stray);
+
+    const report = await host.plane.reconcile();
+    expect(report.stopped).toEqual(['alice']);
+    expect(report.started).toEqual(['alice']);
+    expect(host.runtime.imageOf('alice')).toBe(recorded);
+    expect((await host.runtime.inspect('alice')).state).toBe('running');
+    expect(host.runtime.wasStartedWithKey('alice', KEY)).toBe(true);
+    expect(host.proxy.siteFor('alice.agents.example.test')?.kind).toBe('active');
+    expect(
+      (await host.auditLines()).some((l) => l.reason === 'unit runs an unrecorded image'),
+    ).toBe(true);
+  });
+
   it('does nothing when every unit is where its record says', async () => {
     const host = await makeHost();
     await host.plane.add(addInput('alice'));

@@ -3,7 +3,7 @@
 ## Purpose
 
 One server hosts many accounts, each with its own isolated instance of the personal agent, reachable only at
-its own HTTPS address. The control plane owns the account lifecycle (add, suspend, resume, delete), the
+its own HTTPS address. The control plane owns the account lifecycle (add, suspend, resume, upgrade, delete), the
 per-account secrets, the audit trail and what the proxy serves. It treats the agent as an image: it runs
 units and never links the agent's code, so the root-level daemon's trusted surface stays small.
 
@@ -21,6 +21,9 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
 - **Secrets are never output.** A model key enters through stdin or a hidden prompt, never an argument or the
   environment, is held in a file of its own and is read only to start that account's unit. Listing and showing accounts never load it, and it appears in no result, audit line, error message,
   proxy configuration or unit description, including text an underlying runtime returns.
+- **An account runs the image recorded for it.** The configured unit image is resolved to an image id when an
+  account is added or upgraded, so rebuilding a tag never changes a running account. An upgrade is proven
+  healthy before it is recorded; otherwise the previous image is started again and the account stays on it.
 - **The guard fails closed.** No unit starts unless the network guard is verified, and a reconcile that cannot
   verify it stops every unit.
 - **Only known hostnames are served, and only they get a certificate.** An account is served only while its
@@ -83,6 +86,9 @@ Self-signup, billing, live migration, GPU, and disk quotas on containers. Accoun
 - **The agent keeps binding loopback, and a byte forwarder inside the unit makes it reachable.** A sidecar loses
   its network when the unit restarts, and a bind-address option would touch the transports the single-account
   bundle shares and drop the loopback-only property; the image runs the forwarder only when the host asks.
+- **A rollback leaves the record on the previous image.** The reconcile loop restarts from the record, so an
+  upgrade that could not be proven never becomes what a restart runs; the access-code helper likewise uses the
+  recorded image, never one tied to when the volume was made, which an upgrade may have pruned.
 - **Zero runtime dependencies.** Node built-ins only, so the root daemon has no third-party code to trust.
 - **A cleanup that cannot finish keeps the record.** The half-made account stays visible in `provisioning`
   rather than leaving an unrecorded unit behind.

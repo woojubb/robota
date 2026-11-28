@@ -1,4 +1,4 @@
-import type { IAccountView, IStatusReport } from '../control-plane.js';
+import type { IAccountView, IStatusReport, IUpgradeResult } from '../control-plane.js';
 
 function pad(value: string, width: number): string {
   return value.padEnd(width);
@@ -16,14 +16,21 @@ function table(rows: string[][]): string {
     .join('\n');
 }
 
+/** The short form of an image id, as the engine's own tools show it. */
+export function shortImage(imageId: string): string {
+  return imageId.replace(/^sha256:/u, '').slice(0, 12);
+}
+
 function unitState(view: IAccountView): string {
   return view.runtime.state;
 }
 
 export function formatList(views: readonly IAccountView[]): string {
   if (views.length === 0) return 'No accounts.\n';
-  const rows = [['ID', 'STATE', 'UNIT', 'KEY', 'URL']];
-  for (const v of views) rows.push([v.id, v.state, unitState(v), v.key, v.url]);
+  const rows = [['ID', 'STATE', 'UNIT', 'KEY', 'IMAGE', 'URL']];
+  for (const v of views) {
+    rows.push([v.id, v.state, unitState(v), v.key, shortImage(v.imageId), v.url]);
+  }
   return `${table(rows)}\n`;
 }
 
@@ -40,7 +47,7 @@ export function formatAccount(view: IAccountView): string {
     ['provider', provider],
     ['key', `${view.keySource} (${view.key})`],
     ['limits', `${view.limits.memoryMb} MB, ${view.limits.cpus} CPUs, ${view.limits.pids} pids`],
-    ['image', view.image],
+    ['image', shortImage(view.imageId)],
     ['created', view.createdAt],
     ['updated', view.updatedAt],
   ];
@@ -59,8 +66,14 @@ export function formatStatus(report: IStatusReport): string {
     lines.push(
       '',
       table([
-        ['ID', 'DESIRED', 'ACTUAL', 'HEALTHY'],
-        ...report.accounts.map((a) => [a.id, a.desired, a.actual, a.healthy ? 'yes' : 'no']),
+        ['ID', 'DESIRED', 'ACTUAL', 'HEALTHY', 'IMAGE'],
+        ...report.accounts.map((a) => [
+          a.id,
+          a.desired,
+          a.actual,
+          a.healthy ? 'yes' : 'no',
+          shortImage(a.imageId),
+        ]),
       ]),
     );
   }
@@ -73,6 +86,17 @@ export function formatStatus(report: IStatusReport): string {
   }
   for (const orphan of report.orphans) {
     lines.push('', `WARNING: unit ${orphan} belongs to this install but has no account record`);
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+export function formatUpgrade(result: IUpgradeResult): string {
+  const lines = [`image     ${shortImage(result.target)}`];
+  for (const m of result.moved) lines.push(`moved     ${m.id} (from ${shortImage(m.from)})`);
+  for (const id of result.current) lines.push(`current   ${id}`);
+  for (const s of result.skipped) lines.push(`skipped   ${s.id} (${s.reason})`);
+  if (result.moved.length + result.current.length + result.skipped.length === 0) {
+    lines.push('No accounts.');
   }
   return `${lines.join('\n')}\n`;
 }

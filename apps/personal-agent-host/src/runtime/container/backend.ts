@@ -1,4 +1,4 @@
-import type { ISubnetPool } from '../../config.js';
+import { IMAGE_ID, type ISubnetPool } from '../../config.js';
 import { errorMessage, scrub } from '../../errors.js';
 import {
   type IAccessCode,
@@ -22,10 +22,10 @@ import {
   cidrsOverlap,
   GUI_PORT,
   LABEL_ACCOUNT,
-  LABEL_IMAGE,
   LABEL_INSTALL,
   LABEL_SLOT,
   objectName,
+  retainReference,
   slotOfAddress,
   volumeName,
   WS_PORT,
@@ -63,6 +63,7 @@ export interface IContainerRuntimeOptions {
 
 interface IEngineContainer {
   Id: string;
+  Image?: string;
   State: { Status: string; Running: boolean; ExitCode: number; Health?: { Status: string } };
   Config: { Env?: string[] | null; Labels?: Record<string, string> | null };
 }
@@ -141,6 +142,9 @@ export class ContainerRuntime implements IRuntimePort {
     if (spec.installId !== this.options.installId) {
       throw new RuntimePortError('invalid-spec', 'The unit belongs to a different install');
     }
+    if (!IMAGE_ID.test(spec.image)) {
+      throw new RuntimePortError('invalid-spec', 'The unit image must be an engine image id');
+    }
     if (accountNetwork(this.options.subnetPool, spec.subnetSlot) === undefined) {
       throw new RuntimePortError(
         'invalid-spec',
@@ -195,6 +199,7 @@ export class ContainerRuntime implements IRuntimePort {
       endpoints: addresses
         ? { host: addresses.unit, guiPort: GUI_PORT, wsPort: WS_PORT }
         : { host: '', guiPort: 0, wsPort: 0 },
+      ...(container?.Image !== undefined ? { imageId: container.Image } : {}),
       keyConfigured: container?.State.Running === true ? keyConfigured : false,
     };
   }
@@ -269,6 +274,52 @@ export class ContainerRuntime implements IRuntimePort {
     }
   }
 
+  /** Tags the image so it outlives every container made from it; idempotent. */
+  private async retainImage(imageId: string): Promise<void> {
+    const [repo, tag] = retainReference(this.options.installId, imageId).split(':');
+    try {
+      await this.engine.text('POST', `/images/${imageId}/tag`, { query: { repo, tag } });
+    } catch (error) {
+      if (isNotFound(error)) {
+        throw new RuntimePortError('failed', `The image ${imageId} does not exist on the engine`);
+      }
+      throw error;
+    }
+  }
+
+  async releaseImage(imageId: string): Promise<void> {
+    await this.attempt(async () => {
+      // Only the retaining reference is removed; the engine deletes the image when nothing else
+      // (a tag, a container) still uses it, and refuses while a unit runs from it.
+      await optional(
+        this.engine.text('DELETE', `/images/${retainReference(this.options.installId, imageId)}`),
+      ).catch(() => undefined);
+    });
+  }
+
+  async resolveImage(reference: string): Promise<string> {
+    return this.attempt(async () => {
+      try {
+        const image = await this.engine.json<{ Id?: string }>(
+          'GET',
+          `/images/${encodeURI(reference)}/json`,
+        );
+        if (typeof image.Id !== 'string' || !IMAGE_ID.test(image.Id)) {
+          throw new RuntimePortError('failed', `The engine returned no usable id for ${reference}`);
+        }
+        return image.Id;
+      } catch (error) {
+        if (isNotFound(error)) {
+          throw new RuntimePortError(
+            'failed',
+            `The unit image ${reference} does not exist on the engine; build it first`,
+          );
+        }
+        throw error;
+      }
+    });
+  }
+
   async provision(spec: IUnitSpec): Promise<IUnitStatus> {
     this.checkSpec(spec);
     return this.attempt(async () => {
@@ -330,7 +381,11 @@ export class ContainerRuntime implements IRuntimePort {
         );
       }
       const name = objectName(this.options.installId, spec.account);
-      if (found.container?.State.Running) return this.statusOf(spec.account, found);
+      // A running unit made from another image is replaced, never kept as if it were this one.
+      if (found.container?.State.Running && found.container.Image === spec.image) {
+        return this.statusOf(spec.account, found);
+      }
+      await this.retainImage(spec.image);
       if (found.container) await this.removeContainer(name);
       await this.engine.json('POST', '/containers/create', {
         query: { name },
@@ -439,11 +494,12 @@ export class ContainerRuntime implements IRuntimePort {
     });
   }
 
-  async accessCode(account: string): Promise<IAccessCode> {
+  async accessCode(spec: IUnitSpec): Promise<IAccessCode> {
+    this.checkSpec(spec);
+    const account = spec.account;
     return this.attempt(async () => {
       const { found } = await this.existing(account);
-      const image = found.volume?.Labels?.[LABEL_IMAGE];
-      if (!found.volume || !image) {
+      if (!found.volume) {
         throw new RuntimePortError('no-access-code', `Unit ${account} has no state yet`);
       }
       // The volume is read by a throwaway container, so the code is available stopped or running.
@@ -451,7 +507,7 @@ export class ContainerRuntime implements IRuntimePort {
         this.engine,
         this.options.installId,
         {
-          image,
+          image: spec.image,
           entrypoint: ['cat', `${READ_MOUNT}/${ACCESS_CODE_FILE}`],
           mounts: [{ volume: found.volume.Name, target: READ_MOUNT }],
         },

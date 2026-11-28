@@ -19,7 +19,11 @@ export interface IAccountRecord {
   keySource: KeySource;
   limits: IUnitLimits;
   subnetSlot: number;
-  image: string;
+  /**
+   * The engine image id the account's unit runs from. It changes only when an upgrade has proven
+   * the new image healthy, so rebuilding a tag never changes a running account.
+   */
+  imageId: string;
   createdAt: string;
   updatedAt: string;
 }

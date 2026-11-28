@@ -130,9 +130,29 @@ export class Reconciler {
         continue;
       }
       if (account.state !== 'active') continue;
-      if (unit?.state === 'running') {
+      let current = unit;
+      if (
+        unit?.state === 'running' &&
+        unit.imageId !== undefined &&
+        unit.imageId !== account.imageId
+      ) {
+        // A control plane that restarted mid-upgrade leaves a unit on an image nobody recorded.
+        try {
+          await runtime.stop(account.id);
+          report.stopped.push(account.id);
+          changed = true;
+          current = undefined;
+          await this.record('reconcile-stop', account.id, 'ok', 'unit runs an unrecorded image');
+        } catch (error) {
+          const reason = errorMessage(error);
+          report.failed.push({ account: account.id, reason });
+          await this.record('reconcile-stop', account.id, 'failed', reason);
+          continue;
+        }
+      }
+      if (current?.state === 'running') {
         this.retry.delete(account.id);
-        if (!unit.healthy) report.unhealthy.push(account.id);
+        if (!current.healthy) report.unhealthy.push(account.id);
         continue;
       }
       const wait = this.retry.get(account.id);
