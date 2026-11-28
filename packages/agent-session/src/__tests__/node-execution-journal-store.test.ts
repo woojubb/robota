@@ -172,6 +172,22 @@ describe('NodeExecutionJournalStore', () => {
     expect(steps.filter((step) => step === 'write')).toHaveLength(2);
   });
 
+  it('a fresh instance flushes the directories once before returning a seal an earlier call left', async () => {
+    // The earlier process may have died after linking the seal and before flushing its entry; an
+    // abandoned seal lost on power failure would make the execution resumable again.
+    await store().forSession('s1').append(request('a'));
+    await store().forSession('s1').seal(EXECUTION, { reason: 'abandoned' });
+    const steps: string[] = [];
+    const journal = store({ sealing: 'plain', io: recordingIo(steps) }).forSession('s1');
+    await journal.seal(EXECUTION, { reason: 'abandoned' });
+    await journal.seal(EXECUTION, { reason: 'abandoned' });
+    expect(steps).toEqual([
+      'fsync-dir:s1',
+      `fsync-dir:${SESSION_JOURNALS_DIRECTORY}`,
+      `fsync-dir:${basename(baseDir)}`,
+    ]);
+  });
+
   it('continues a short write', async () => {
     const journal = store({
       sealing: 'plain',
