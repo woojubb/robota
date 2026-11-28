@@ -23,8 +23,13 @@ units and never links the agent's code, so the root-level daemon's trusted surfa
   proxy configuration or unit description, including text an underlying runtime returns.
 - **The guard fails closed.** No unit starts unless the network guard is verified, and a reconcile that cannot
   verify it stops every unit.
-- **Only known hostnames are served.** An account is served only while its record says so; a suspended
-  account answers 503 and is never proxied, and a deleted or half-made one is unknown.
+- **Only known hostnames are served, and only they get a certificate.** An account is served only while its
+  record says so; a suspended account answers 503 and is never proxied, and a deleted or half-made one is
+  unknown. The proxy configuration has no catch-all site, no on-demand issuance and no default certificate, so
+  an unknown name fails the TLS handshake.
+- **Nothing unvalidated reaches the proxy configuration.** Every hostname, address, port, email and path is
+  checked first and a bad value is refused, never escaped, so no input can add a directive to it. A
+  configuration the proxy does not accept is rolled back to the last good one.
 - **A failed command leaves nothing half-made.** Every step of an add is undone on failure; a crash leaves at
   most a `provisioning` or `deleting` record, finished by removal at the next start and audited as recovered.
 - **Commands arrive over an owner-only Unix socket and nothing else.** No port is opened, so only the
@@ -83,3 +88,13 @@ Self-signup, billing, live migration, GPU, and disk quotas on containers. Accoun
   rather than leaving an unrecorded unit behind.
 - **An audit write that fails after its command completed does not fail the command.** The failure is
   counted and shown in status instead of reporting finished work as failed.
+- **Certificates are issued per listed hostname, not on demand.** Accounts are created by the operator, so
+  every hostname is known when the configuration is generated and no approval endpoint is needed; a wildcard
+  certificate stays a later, owner-chosen mode because it needs DNS-provider credentials.
+- **The proxy is configured through its admin socket, never a TCP port.** The control plane writes the
+  configuration atomically and owner-only, then loads it through that socket; the generator is the only author
+  of the file.
+- **Live streams outlive a reload.** Closing a WebSocket delays by minutes after a reload, so adding or deleting
+  one account does not cut the others' sessions.
+- **A route is built only from a reported address.** A running unit with no address is served as unavailable
+  rather than proxied to a placeholder.

@@ -501,3 +501,18 @@ describe('secrets never leave the store', () => {
     expect(JSON.stringify(outputs)).not.toContain(KEY);
   });
 });
+
+describe('routes', () => {
+  it('treats a running unit that reports no address as unavailable, never as a :0 upstream', async () => {
+    const host = await makeHost();
+    await host.plane.add(addInput('alice'));
+    const list = host.runtime.list.bind(host.runtime);
+    host.runtime.list = async () =>
+      (await list()).map((unit) => ({ ...unit, endpoints: { host: '', guiPort: 0, wsPort: 0 } }));
+    await host.plane.add(addInput('bob'));
+    expect(host.proxy.siteFor('alice.agents.example.test')).toEqual({
+      kind: 'unavailable',
+      hostname: 'alice.agents.example.test',
+    });
+  });
+});
