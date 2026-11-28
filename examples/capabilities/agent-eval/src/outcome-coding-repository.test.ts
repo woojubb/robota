@@ -266,6 +266,8 @@ test('the image context carries neither the solved overlay nor any other file ho
     put(root, `${EXAMPLE}/tsconfig.json`, '{}\n');
     put(root, `${EXAMPLE}/src/outcome-coding-worker.ts`, 'export {};\n');
     put(root, `${EXAMPLE}/src/outcome-coding-protocol.ts`, 'export {};\n');
+    put(root, `${EXAMPLE}/src/outcome-delegation-roles.ts`, 'export {};\n');
+    put(root, `${EXAMPLE}/src/outcome-delegation-limits.ts`, 'export {};\n');
     put(
       root,
       `${EXAMPLE}/src/outcome-coding-tasks-repository.ts`,

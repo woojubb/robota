@@ -7,6 +7,7 @@ import type { Readable, Writable } from 'node:stream';
 import {
   encodeHostLine,
   parseWorkerLine,
+  type IDelegationRoleInit,
   type IWorkerInit,
   type IWorkerResult,
   type TJsonObject,
@@ -30,6 +31,16 @@ import {
   type ICodingObservation,
 } from './outcome-coding-verify.js';
 import type { ICodingTask } from './outcome-coding-tasks.js';
+import { measureTrial, type ITrialMeasures } from './outcome-delegation-measures.js';
+import {
+  CHILD_ROLES,
+  createRoleRegistry,
+  delegationParentPrompt,
+  delegationRoles,
+  MAX_CHILD_JOBS,
+  PARENT_ROLE,
+  unionTools,
+} from './outcome-delegation-roles.js';
 
 /** Where the worker sees the task tree, its throwaway git repository and its disposable state. */
 export interface IWorkerPaths {
@@ -182,6 +193,17 @@ export function createDockerLauncher(image: string, limits?: IWorkerLimits) {
   };
 }
 
+/** Per-trial call cap, equal for every arm. */
+export const DEFAULT_TRIAL_CALL_CAP = 20;
+
+/** Selects the delegation arm for a trial; absent means the single-agent arm. */
+export interface IDelegationTrialSpec {
+  /** Most child jobs; defaults to the arm's limit of three. */
+  readonly maxJobs?: number;
+  /** Replaces the standard roles; used by controls that break one on purpose. */
+  readonly roles?: readonly IDelegationRoleInit[];
+}
+
 export interface ITrialSpec {
   readonly task: ICodingTask;
   readonly model: string;
@@ -198,6 +220,9 @@ export interface ITrialSpec {
   /** The trial's deadline: no request is forwarded after it, and the worker is stopped shortly after. */
   readonly deadlineMs?: number;
   readonly policy?: Partial<Pick<IRelayPolicy, 'allowedTools' | 'maxBodyBytes' | 'model'>>;
+  /** Most upstream attempts in the trial, every arm alike; defaults to the shared cap. */
+  readonly maxCalls?: number;
+  readonly delegation?: IDelegationTrialSpec;
   /** When set, the verifier's observation is written here exactly once, named after the trial. */
   readonly evidenceFile?: string;
   readonly trialName: string;
@@ -211,7 +236,11 @@ export interface ITrialRecord {
   readonly result: IWorkerResult | undefined;
   readonly relayLog: readonly IRelayLogEntry[];
   readonly upstreamAttempts: number;
-  /** Why the spend gate stopped the run, when it did. */
+  /** The trial hit its call cap; it ends as failed and stays in the denominator. */
+  readonly capReached: boolean;
+  /** Spend by role, written into the observation file when there is one. */
+  readonly measures: ITrialMeasures;
+  /** Why the spend gate (or role attribution) stopped the run, when it did. */
   readonly stopReason?: string;
   readonly elapsedMs: number;
   /** Worker output that was not protocol messages, bounded. */
@@ -297,6 +326,11 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
     materializeWorkerTree(spec.task, tree);
     const launched = spec.launch({ name: spec.trialName, trialDir, tree });
     const worker = launched.worker;
+    const maxJobs = spec.delegation?.maxJobs ?? MAX_CHILD_JOBS;
+    const roles =
+      spec.delegation === undefined
+        ? undefined
+        : [...(spec.delegation.roles ?? delegationRoles(launched.paths.projectDir))];
     const relay = createCodingRelay(
       {
         endpoint: spec.endpoint,
@@ -304,6 +338,8 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
         allowedTools: BASELINE_SETTINGS.allowedTools,
         forced: forcedRequestFields(spec.routeOptions),
         maxBodyBytes: MAX_BODY_BYTES,
+        maxCalls: spec.maxCalls ?? DEFAULT_TRIAL_CALL_CAP,
+        ...(roles === undefined ? {} : { roles: createRoleRegistry(roles) }),
         ...spec.policy,
         deadlineAt: started + deadlineMs,
         upstreamTimeoutMs: Math.min(60_000, deadlineMs),
@@ -315,17 +351,22 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
     const stdoutLineLimit = (spec.policy?.maxBodyBytes ?? MAX_BODY_BYTES) + LINE_OVERHEAD_BYTES;
     const init: IWorkerInit = {
       kind: 'init',
-      prompt: spec.task.prompt,
+      prompt:
+        roles === undefined ? spec.task.prompt : delegationParentPrompt(spec.task.prompt, maxJobs),
       model: spec.model,
       endpoint: spec.endpoint,
       ...launched.paths,
-      systemPrompt: codingSystemPrompt(launched.paths.projectDir),
-      allowedTools: BASELINE_SETTINGS.allowedTools,
+      systemPrompt:
+        roles === undefined
+          ? codingSystemPrompt(launched.paths.projectDir)
+          : (roles.find((role) => role.name === PARENT_ROLE)?.systemPrompt ?? ''),
+      allowedTools: roles === undefined ? BASELINE_SETTINGS.allowedTools : unionTools(roles),
       deniedTools: BASELINE_SETTINGS.deniedTools,
       maxTurns: BASELINE_SETTINGS.maxTurns,
       maxTokens: BASELINE_SETTINGS.maxTokens,
       temperature: BASELINE_SETTINGS.temperature,
       abortAfterMs: deadlineMs,
+      ...(roles === undefined ? {} : { delegation: { parent: PARENT_ROLE, roles, maxJobs } }),
     };
     worker.stdin.on('error', () => undefined);
     const noteDiagnostic = (line: string): void => {
@@ -386,11 +427,27 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
     ]);
 
     const observation = await spec.verify(spec.task, tree);
-    if (spec.evidenceFile !== undefined) writeObservationOnce(spec.evidenceFile, observation);
+    const measures = measureTrial(relay.log, result?.delegation, Date.now() - started);
+    // Written once, before scoring: the observation and what the trial spent, side by side.
+    if (spec.evidenceFile !== undefined) {
+      writeObservationOnce(spec.evidenceFile, { ...observation, measures });
+    }
     const report: ITrialReport = {
       completed: result?.completed === true,
       interrupted: result?.interrupted === true,
       toolCalls: result?.toolCalls ?? 0,
+      capReached: relay.capReached(),
+      stopped: relay.stopReason() !== undefined,
+      ...(roles === undefined
+        ? {}
+        : {
+            childCalls: relay.log.filter(
+              (entry) =>
+                entry.upstreamAttempts === 1 &&
+                entry.role !== undefined &&
+                CHILD_ROLES.includes(entry.role),
+            ).length,
+          }),
     };
     record = {
       taskId: spec.task.id,
@@ -400,6 +457,8 @@ export async function runTrial(spec: ITrialSpec): Promise<ITrialRecord> {
       result,
       relayLog: [...relay.log],
       upstreamAttempts: relay.upstreamAttempts(),
+      capReached: relay.capReached(),
+      measures,
       ...(relay.stopReason() === undefined ? {} : { stopReason: relay.stopReason() as string }),
       elapsedMs: Date.now() - started,
       diagnostics,

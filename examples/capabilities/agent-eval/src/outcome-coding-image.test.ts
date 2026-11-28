@@ -58,6 +58,10 @@ function fixtureRepository(): { root: string; solution: string } {
   put(root, `${EXAMPLE}/tsconfig.json`, '{}\n');
   put(root, `${EXAMPLE}/src/outcome-coding-worker.ts`, 'export {};\n');
   put(root, `${EXAMPLE}/src/outcome-coding-protocol.ts`, 'export {};\n');
+  put(root, `${EXAMPLE}/src/outcome-delegation-roles.ts`, 'export {};\n');
+  put(root, `${EXAMPLE}/src/outcome-delegation-limits.ts`, 'export {};\n');
+  put(root, `${EXAMPLE}/src/outcome-delegation-scripts.ts`, 'export {};\n');
+  put(root, `${EXAMPLE}/src/outcome-delegation-measures.ts`, 'export {};\n');
   put(
     root,
     `${EXAMPLE}/src/outcome-coding-tasks.ts`,
@@ -94,6 +98,10 @@ test('the image context is an exported tree without solutions, verifiers, the ea
     assert.equal(present(`${EXAMPLE}/tsconfig.json`), true);
     assert.equal(present(`${EXAMPLE}/src/outcome-coding-worker.ts`), true);
     assert.equal(present(`${EXAMPLE}/src/outcome-coding-protocol.ts`), true);
+    assert.equal(present(`${EXAMPLE}/src/outcome-delegation-roles.ts`), true);
+    assert.equal(present(`${EXAMPLE}/src/outcome-delegation-limits.ts`), true);
+    assert.equal(present(`${EXAMPLE}/src/outcome-delegation-scripts.ts`), false);
+    assert.equal(present(`${EXAMPLE}/src/outcome-delegation-measures.ts`), false);
     assert.equal(present(`${EXAMPLE}/src/outcome-coding-tasks.ts`), false);
     assert.equal(present(`${EXAMPLE}/src/outcome-coding-verify.ts`), false);
     assert.equal(present(`${EXAMPLE}/fixtures`), false);

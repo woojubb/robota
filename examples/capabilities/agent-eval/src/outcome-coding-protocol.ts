@@ -13,6 +13,38 @@ export type TJson =
 
 export type TJsonObject = { readonly [key: string]: TJson };
 
+/** One role of the delegation arm, as data the worker needs: no task, solution or verifier text. */
+export interface IDelegationRoleInit {
+  readonly name: string;
+  /** Text the role's system message carries, by which both sides recognize the role. */
+  readonly marker: string;
+  readonly description: string;
+  /** The role's prompt body; it contains the marker. */
+  readonly systemPrompt: string;
+  /** Tools the role's requests may declare and call. */
+  readonly tools: readonly string[];
+  readonly maxTurns: number;
+}
+
+export interface IDelegationInit {
+  /** The role the session itself runs as; every other role is a child job. */
+  readonly parent: string;
+  readonly roles: readonly IDelegationRoleInit[];
+  /** Most child jobs the trial may start; one more is refused and recorded. */
+  readonly maxJobs: number;
+}
+
+/** What the worker observed of the child jobs, in milliseconds since its session started. */
+export interface IDelegationReport {
+  readonly jobsStarted: number;
+  readonly jobsRefused: number;
+  readonly jobs: readonly {
+    readonly agent: string;
+    readonly startMs: number;
+    readonly endMs: number | null;
+  }[];
+}
+
 /** Everything the worker needs to run one trial, supplied at runtime and never compiled in. */
 export interface IWorkerInit {
   readonly kind: 'init';
@@ -34,6 +66,8 @@ export interface IWorkerInit {
   readonly temperature: number;
   /** The worker aborts its own run after this long. */
   readonly abortAfterMs: number;
+  /** Present for the delegation arm: the roles, and the child job limit. */
+  readonly delegation?: IDelegationInit;
 }
 
 export interface IWorkerRequest {
@@ -61,6 +95,7 @@ export interface IWorkerResult {
   readonly usage: TJson;
   readonly elapsedMs: number;
   readonly error?: string;
+  readonly delegation?: IDelegationReport;
 }
 
 export function encodeHostLine(message: IWorkerInit | IRelayReply): string {
@@ -112,6 +147,9 @@ export function parseWorkerLine(line: string): IWorkerRequest | IWorkerResult | 
       usage: (value.usage ?? null) as TJson,
       elapsedMs: value.elapsedMs,
       ...(typeof value.error === 'string' ? { error: value.error } : {}),
+      ...(isObject(value.delegation)
+        ? { delegation: value.delegation as unknown as IDelegationReport }
+        : {}),
     };
   }
   return undefined;

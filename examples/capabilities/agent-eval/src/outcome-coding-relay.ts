@@ -1,4 +1,5 @@
 import type { IRelayReply, TJson, TJsonObject } from './outcome-coding-protocol.js';
+import type { IRoleRegistry } from './outcome-delegation-roles.js';
 
 /**
  * The host-side relay for a trial. It sits between the worker (which has no network and no
@@ -21,6 +22,16 @@ export interface IRelayPolicy {
   readonly deadlineAt: number;
   /** Most time one upstream attempt may take. */
   readonly upstreamTimeoutMs: number;
+  /**
+   * Most upstream attempts the trial may make, for every arm. The request past it is refused and the
+   * trial is over: it counts as failed and stays in the denominator.
+   */
+  readonly maxCalls?: number;
+  /**
+   * Delegation arm: every request is attributed to a role by the hash of its system message, the
+   * role's own tool set replaces `allowedTools`, and an unattributed request stops the run.
+   */
+  readonly roles?: IRoleRegistry;
 }
 
 export type TRefusalCode =
@@ -36,6 +47,8 @@ export type TRefusalCode =
   | 'tool'
   | 'size'
   | 'admission'
+  | 'cap'
+  | 'unattributed'
   | 'stopped';
 
 export type TRelayDecision =
@@ -229,6 +242,13 @@ export interface IRelayLogEntry {
   readonly requestBytes: number;
   /** Zero for a refused request, one otherwise. */
   readonly upstreamAttempts: 0 | 1;
+  /** The role the request was attributed to; `agent` when the trial has no roles. */
+  readonly role?: string;
+  /** Time the single upstream attempt took; absent for a refused request. */
+  readonly latencyMs?: number;
+  /** Token counts the answer reported, even on a failed status; absent when it reported none. */
+  readonly promptTokens?: number;
+  readonly completionTokens?: number;
 }
 
 export interface ICodingRelay {
@@ -240,8 +260,23 @@ export interface ICodingRelay {
   readonly log: readonly IRelayLogEntry[];
   /** Total upstream attempts made; equals the number of requests that were not refused. */
   readonly upstreamAttempts: () => number;
-  /** Why the run stopped, once a gate has stopped it. */
+  /** Why the run stopped, once a gate or an unattributed request has stopped it. */
   readonly stopReason: () => string | undefined;
+  /** The trial's call cap was reached and a further request was refused. */
+  readonly capReached: () => boolean;
+}
+
+/** The single role of a trial without roles. */
+export const SINGLE_ROLE = 'agent';
+
+function tokenCount(body: TJson, key: string): number | undefined {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) return undefined;
+  const usage = (body as { readonly usage?: TJson }).usage;
+  if (usage === null || typeof usage !== 'object' || Array.isArray(usage) || usage === undefined) {
+    return undefined;
+  }
+  const value = (usage as { readonly [name: string]: TJson })[key];
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
 function reply(id: number, status: number, body: TJson): IRelayReply {
@@ -261,19 +296,46 @@ export function createCodingRelay(
   const log: IRelayLogEntry[] = [];
   let attempts = 0;
   let stopped: string | undefined;
-  const refused = (id: number, code: TRefusalCode, detail: string): IRelayReply => {
-    log.push({ id, outcome: 'refused', code, status: 403, requestBytes: 0, upstreamAttempts: 0 });
+  let capped = false;
+  const refused = (id: number, code: TRefusalCode, detail: string, role?: string): IRelayReply => {
+    log.push({
+      id,
+      outcome: 'refused',
+      code,
+      status: 403,
+      requestBytes: 0,
+      upstreamAttempts: 0,
+      ...(role === undefined ? {} : { role }),
+    });
     return reply(id, 403, failureBody('relay_refusal', detail, code));
   };
   return {
     log,
     upstreamAttempts: () => attempts,
     stopReason: () => stopped,
+    capReached: () => capped,
     async handle(request) {
       if (stopped !== undefined)
         return refused(request.id, 'stopped', `the run is stopped: ${stopped}`);
-      const decision = validateRelayRequest(policy, request, now());
-      if (!decision.ok) return refused(request.id, decision.code, decision.detail);
+      if (capped) return refused(request.id, 'cap', 'the trial call cap was reached');
+      let role: string | undefined = policy.roles === undefined ? SINGLE_ROLE : undefined;
+      let effective = policy;
+      if (policy.roles !== undefined) {
+        const attribution = policy.roles.attribute(request.body);
+        if (!attribution.ok) {
+          // An unattributed request means the harness no longer knows who is spending: stop.
+          stopped = `unattributed call: ${attribution.detail}`;
+          return refused(request.id, 'unattributed', stopped);
+        }
+        role = attribution.role;
+        effective = { ...policy, allowedTools: policy.roles.toolsOf(role) };
+      }
+      const decision = validateRelayRequest(effective, request, now());
+      if (!decision.ok) return refused(request.id, decision.code, decision.detail, role);
+      if (policy.maxCalls !== undefined && attempts >= policy.maxCalls) {
+        capped = true;
+        return refused(request.id, 'cap', 'the trial call cap was reached', role);
+      }
       const requestBytes = Buffer.byteLength(decision.encoded);
       const admission = gate?.admit({
         id: request.id,
@@ -282,9 +344,10 @@ export function createCodingRelay(
         body: decision.body,
       });
       if (admission !== undefined && !admission.ok) {
-        return refused(request.id, 'admission', admission.detail);
+        return refused(request.id, 'admission', admission.detail, role);
       }
       attempts += 1;
+      const sentAt = now();
       const remaining = Math.max(1, policy.deadlineAt - now());
       const timeoutMs = Math.min(policy.upstreamTimeoutMs, remaining);
       const controller = new AbortController();
@@ -306,6 +369,16 @@ export function createCodingRelay(
       } finally {
         if (timer !== undefined) clearTimeout(timer);
       }
+      const measured = {
+        ...(role === undefined ? {} : { role }),
+        latencyMs: Math.max(0, now() - sentAt),
+        ...(answer === undefined || tokenCount(answer.body, 'prompt_tokens') === undefined
+          ? {}
+          : { promptTokens: tokenCount(answer.body, 'prompt_tokens') as number }),
+        ...(answer === undefined || tokenCount(answer.body, 'completion_tokens') === undefined
+          ? {}
+          : { completionTokens: tokenCount(answer.body, 'completion_tokens') as number }),
+      };
       let verdict: IGateVerdict | undefined;
       if (admission !== undefined && admission.ok) {
         try {
@@ -324,6 +397,7 @@ export function createCodingRelay(
           status: 502,
           requestBytes,
           upstreamAttempts: 1,
+          ...measured,
         });
         return reply(
           request.id,
@@ -338,6 +412,7 @@ export function createCodingRelay(
           status: 502,
           requestBytes,
           upstreamAttempts: 1,
+          ...measured,
         });
         return reply(
           request.id,
@@ -351,6 +426,7 @@ export function createCodingRelay(
         status: answer.status,
         requestBytes,
         upstreamAttempts: 1,
+        ...measured,
       });
       return reply(request.id, answer.status, answer.body);
     },
