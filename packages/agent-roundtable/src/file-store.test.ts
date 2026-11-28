@@ -151,12 +151,12 @@ describe('FileConversationStore claim generations', () => {
   async function racers(count: number) {
     const root = await tempRoot();
     let now = 1_000;
-    const holds: Array<(() => Promise<void>) | undefined> = [];
+    const holds: Array<((point: string) => Promise<void> | void) | undefined> = [];
     const open = (index: number) =>
       new FileConversationStore({
         root,
         now: () => now,
-        checkpoint: (point) => (point === 'claim-synced' ? holds[index]?.() : undefined),
+        checkpoint: (point) => holds[index]?.(point),
       });
     const stores = Array.from({ length: count }, (_, i) => open(i));
     return {
@@ -183,7 +183,8 @@ describe('FileConversationStore claim generations', () => {
       let release!: () => void;
       const gate = new Promise<void>((resolve) => (release = resolve));
       r.stores.forEach((_, i) => {
-        r.holds[i] = async () => {
+        r.holds[i] = async (point) => {
+          if (point !== 'claim-synced') return;
           if (++arrived === r.stores.length) release();
           await gate;
         };
@@ -213,7 +214,8 @@ describe('FileConversationStore claim generations', () => {
     const atBarrier = new Promise<void>((resolve) => (reached = resolve));
     let resume!: () => void;
     const gate = new Promise<void>((resolve) => (resume = resolve));
-    r.holds[0] = async () => {
+    r.holds[0] = async (point) => {
+      if (point !== 'claim-synced') return;
       reached();
       await gate;
     };
@@ -233,5 +235,58 @@ describe('FileConversationStore claim generations', () => {
     await expect(other.renew(owner, 60_000)).resolves.toMatchObject({ fence: owner.fence });
     const hex = Buffer.from('room', 'utf8').toString('hex');
     expect(await readdir(join(r.root, hex, 'claims'))).toEqual(['5.json']);
+  });
+
+  it('reports a release that took effect as done when a newer owner has already moved on', async () => {
+    const r = await racers(2);
+    const [releasing, other] = r.stores;
+    await other.create('room', null);
+    const claim = await other.claim('room', 'first', 60_000);
+    let reached!: () => void;
+    const atBarrier = new Promise<void>((resolve) => (reached = resolve));
+    let resume!: () => void;
+    const gate = new Promise<void>((resolve) => (resume = resolve));
+    r.holds[0] = async (point) => {
+      if (point !== 'claim-linked') return;
+      reached();
+      await gate;
+    };
+    const release = releasing.release(claim);
+    await atBarrier;
+    r.holds[0] = undefined;
+    // The release is linked but not yet verified; the next owner takes the conversation.
+    const next = await other.claim('room', 'second', 60_000);
+    resume();
+    await expect(release).resolves.toBeUndefined();
+    await expect(other.renew(next, 60_000)).resolves.toMatchObject({ fence: next.fence });
+  });
+});
+
+describe('FileConversationStore retried commit', () => {
+  it('returns the receipt when the same operation lands from another instance mid-commit', async () => {
+    const root = await tempRoot();
+    const now = () => 1_000;
+    const a = new FileConversationStore({ root, now });
+    let landOnce: (() => Promise<unknown>) | undefined;
+    const b = new FileConversationStore({
+      root,
+      now,
+      checkpoint: async (point) => {
+        const land = landOnce;
+        if (point === 'temp-write' && land) {
+          landOnce = undefined;
+          await land();
+        }
+      },
+    });
+    await a.create('room', { step: 0 });
+    const claim = await a.claim('room', 'owner', 60_000);
+    const change = { claim, expectedRevision: 0, operationId: 'x', state: { step: 1 } };
+    let landed: unknown;
+    landOnce = async () => (landed = await a.commit(change));
+    const received = await b.commit(change);
+    expect(received).toEqual(landed);
+    expect(received.revision).toBe(1);
+    expect(await b.load('room')).toMatchObject({ revision: 1 });
   });
 });

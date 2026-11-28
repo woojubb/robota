@@ -203,8 +203,9 @@ Limits:
 - One host. The directory must be on a local file system that supports hard links; a network file system
   is outside the guarantee.
 - Lease expiry compares the clocks of the processes sharing the directory, so their skew must be small
-  against the lease. A commit checks its claim just before it publishes, and that window is covered by
-  the lease and the bounded skew, not by exclusion.
+  against the lease. A commit checks its claim just before it publishes, and nothing excludes a
+  takeover in between: the remaining lease must cover the time from that check to the publish, so a
+  host that can stall for longer must renew first or keep the lease long.
 - Old revisions are kept, because a retried commit must get its original receipt back; nothing prunes
   them. Conversation ids are at most 120 UTF-8 bytes.
 - `fsync` of a directory is not available on Windows, so there the newest acknowledged entry can be lost

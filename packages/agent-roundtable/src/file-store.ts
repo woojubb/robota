@@ -135,8 +135,14 @@ export class FileConversationStore implements ConversationStore {
   async release(claim: ConversationClaim): Promise<void> {
     const id = claim.conversationId;
     await this.requireConversation(id);
-    await this.changeClaim(id, (current) => {
-      this.assertOwned(claim, current);
+    await this.changeClaim(id, (current, applied) => {
+      try {
+        this.assertOwned(claim, current);
+      } catch (error) {
+        // Our release was linked, then withdrawn because a newer owner already moved on: it took effect.
+        if (applied && current.fence > claim.fence) return { next: current, result: undefined };
+        throw error;
+      }
       return { next: { fence: current.fence, claim: null }, result: undefined };
     });
   }
@@ -148,11 +154,21 @@ export class FileConversationStore implements ConversationStore {
     const id = change.claim.conversationId;
     const fingerprint = fingerprintOf(change.expectedRevision, change.state);
     const directory = this.directory(id);
-    const replay = await this.receiptFor(id, change.operationId, fingerprint);
-    if (replay) return replay;
+    // One snapshot decides everything: a retry whose operation already landed gets its receipt, as in
+    // the memory store, before ownership or the revision are looked at.
     const known = await this.requireConversation(id);
-    this.assertOwned(change.claim, await this.readClaim(id));
-    if (known.head.revision !== change.expectedRevision) {
+    const receipt = known.receipts.get(change.operationId);
+    const headRevision = known.head.revision;
+    if (receipt) return this.replay(id, receipt, change.operationId, fingerprint);
+    try {
+      this.assertOwned(change.claim, await this.readClaim(id));
+    } catch (error) {
+      // The same operation may have landed after the snapshot, before the lease ended.
+      const landed = (await this.requireConversation(id)).receipts.get(change.operationId);
+      if (landed) return this.replay(id, landed, change.operationId, fingerprint);
+      throw error;
+    }
+    if (headRevision !== change.expectedRevision) {
       throw new RoundtableError('conflict', 'Conversation revision changed');
     }
     const record: RevisionRecord = {
@@ -165,8 +181,8 @@ export class FileConversationStore implements ConversationStore {
     };
     if ((await this.publishRevision(directory, record)) === 'exists') {
       // A writer that linked first may be the same operation retried; its receipt is the answer.
-      const winner = await this.receiptFor(id, change.operationId, fingerprint);
-      if (winner) return winner;
+      const winner = (await this.requireConversation(id)).receipts.get(change.operationId);
+      if (winner) return this.replay(id, winner, change.operationId, fingerprint);
       throw new RoundtableError('conflict', 'Conversation revision changed');
     }
     known.head = record;
@@ -320,16 +336,17 @@ export class FileConversationStore implements ConversationStore {
   }
 
   /** The stored reply for a retried operation, a conflict when the id was used for another commit. */
-  private async receiptFor(
+  private async replay(
     conversationId: string,
+    receipt: { revision: number; fingerprint: string },
     operationId: string,
     fingerprint: string,
-  ): Promise<ConversationEnvelope | undefined> {
-    const known = await this.requireConversation(conversationId);
-    const receipt = known.receipts.get(operationId);
-    if (!receipt) return undefined;
+  ): Promise<ConversationEnvelope> {
     if (receipt.fingerprint !== fingerprint) {
-      throw new RoundtableError('conflict', 'Operation id was used for another commit');
+      throw new RoundtableError(
+        'conflict',
+        `Operation id ${operationId} was used for another commit`,
+      );
     }
     return this.readEnvelope(conversationId, receipt.revision);
   }
@@ -395,13 +412,21 @@ export class FileConversationStore implements ConversationStore {
    */
   private async changeClaim<T>(
     conversationId: string,
-    decide: (current: ClaimRecord) => { next: Pick<ClaimRecord, 'fence' | 'claim'>; result: T },
+    decide: (
+      current: ClaimRecord,
+      applied: boolean,
+    ) => { next: Pick<ClaimRecord, 'fence' | 'claim'>; result: T },
   ): Promise<T> {
+    // `applied`: an earlier attempt of this call was linked and then withdrawn for a newer generation.
+    let applied = false;
     for (let attempt = 0; attempt < MAX_CLAIM_ATTEMPTS; attempt++) {
       const current = await this.readClaim(conversationId);
-      const { next, result } = decide(current);
+      const { next, result } = decide(current, applied);
+      if (next === current) return result;
       const record: ClaimRecord = { schemaVersion: 1, generation: current.generation + 1, ...next };
-      if ((await this.publishClaim(conversationId, record)) === 'created') return result;
+      const outcome = await this.publishClaim(conversationId, record);
+      if (outcome === 'created') return result;
+      if (outcome === 'withdrawn') applied = true;
     }
     throw new RoundtableError('busy', 'Conversation claim is contended');
   }
@@ -414,7 +439,7 @@ export class FileConversationStore implements ConversationStore {
   private async publishClaim(
     conversationId: string,
     record: ClaimRecord,
-  ): Promise<'created' | 'exists'> {
+  ): Promise<'created' | 'exists' | 'withdrawn'> {
     const directory = this.directory(conversationId);
     const claims = join(directory, 'claims');
     await this.makeDirectory(claims, directory);
@@ -433,7 +458,7 @@ export class FileConversationStore implements ConversationStore {
       const generations = await this.listClaims(claims);
       if (generations[generations.length - 1] !== record.generation) {
         await unlink(final).catch(() => undefined);
-        return 'exists';
+        return 'withdrawn';
       }
       for (const older of generations.slice(0, -1)) {
         await unlink(join(claims, `${older}.json`)).catch(() => undefined);
