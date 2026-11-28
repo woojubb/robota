@@ -16,7 +16,7 @@ import {
   type UsageRecord,
 } from '@robota-sdk/agent-roundtable';
 import { normalizeEnforcement, type RuntimeEnforcement } from './enforcement';
-import { meterJournal, toolEffectCallId } from './metering-journal';
+import { meterJournal } from './metering-journal';
 import { sessionParticipant, type SessionHostOptions } from './session-participant';
 
 afterEach(() => {
@@ -184,6 +184,15 @@ describe('normalizeEnforcement: paid tools', () => {
   });
 });
 
+/** The call id the one admitted tool effect took: fresh, never the journal's action id. */
+function effectCallId(services: TurnServices): string {
+  const [call] = vi.mocked(services.admitToolEffect).mock.calls;
+  const callId = call![0].callId;
+  expect(callId).toMatch(/^tool-effect:/);
+  expect(callId).not.toContain('act-1');
+  return callId;
+}
+
 describe('meterJournal: paid tool effects', () => {
   function fakeServices() {
     const order: string[] = [];
@@ -214,9 +223,10 @@ describe('meterJournal: paid tool effects', () => {
   it('admits a paid effect with its id and bound before the start record reaches the journal', async () => {
     const f = fakeServices();
     await meterJournal(f.inner, f.services, enforcement).append(toolEffectStart('model'));
-    expect(f.order).toEqual(['admit:tool-effect:act-1', 'append:tool-effect-start']);
+    const callId = effectCallId(f.services);
+    expect(f.order).toEqual([`admit:${callId}`, 'append:tool-effect-start']);
     expect(f.services.admitToolEffect).toHaveBeenCalledWith({
-      callId: 'tool-effect:act-1',
+      callId,
       toolName: 'model',
       tokens: 40,
     });
@@ -274,7 +284,7 @@ describe('meterJournal: paid tool effects', () => {
       await metered.append(toolEffectStart('money'));
       await metered.append(toolResult('money', success));
       expect(f.services.recordUsage).toHaveBeenCalledWith({
-        callId: 'tool-effect:act-1',
+        callId: effectCallId(f.services),
         outcome: 'completed',
         provenance: 'reported',
         tokens: { input: 0, output: 0 },
@@ -289,7 +299,7 @@ describe('meterJournal: paid tool effects', () => {
     await metered.append(toolEffectStart('model'));
     await metered.append(toolResult('model'));
     expect(f.services.recordUsage).toHaveBeenCalledWith({
-      callId: 'tool-effect:act-1',
+      callId: effectCallId(f.services),
       outcome: 'completed',
       provenance: 'unknown',
       final: false,
@@ -299,14 +309,13 @@ describe('meterJournal: paid tool effects', () => {
   it('keeps tool-effect ids apart from model-call ids and refuses a model call that takes the prefix', async () => {
     const f = fakeServices();
     const metered = meterJournal(f.inner, f.services, enforcement);
-    expect(toolEffectCallId('call-1')).toBe('tool-effect:call-1');
     await metered.append(modelRequest('call-1'));
     await metered.append(toolEffectStart('money', 'call-1'));
     expect(f.services.admitModelCall).toHaveBeenCalledWith(
       expect.objectContaining({ callId: 'call-1' }),
     );
     expect(f.services.admitToolEffect).toHaveBeenCalledWith(
-      expect.objectContaining({ callId: 'tool-effect:call-1' }),
+      expect.objectContaining({ callId: expect.stringMatching(/^tool-effect:/) }),
     );
     await expect(metered.append(modelRequest('tool-effect:x'))).rejects.toMatchObject({
       code: 'unbounded-call',
@@ -339,14 +348,14 @@ describe('paid tool effects against a real ledger', () => {
     expect(failure()).toBeUndefined();
     const [record] = toolRecords(room);
     expect(record).toMatchObject({
-      callId: 'tool-effect:act-1',
+      callId: expect.stringMatching(/^tool-effect:/),
       kind: 'tool-effect',
       status: 'settled',
       provenance: 'reported',
       tokens: { input: 0, output: 0 },
     });
     // The model call and the tool effect are two records under distinct ids.
-    expect(room.snapshot().usage.map((r) => r.callId)).toEqual(['call-1', 'tool-effect:act-1']);
+    expect(room.snapshot().usage.map((r) => r.callId)).toEqual(['call-1', record!.callId]);
     await room.dispose();
   });
 
@@ -362,17 +371,23 @@ describe('paid tool effects against a real ledger', () => {
       reconciled: null,
       reservation: { tokens: 40 },
     });
-    await room.reconcileUsage({ callId: 'tool-effect:act-1', tokens: 7 });
+    await room.reconcileUsage({ callId: record!.callId, tokens: 7 });
     expect(toolRecords(room)[0]!.reconciled).toMatchObject({ tokens: 7 });
     await room.dispose();
   });
 
-  it('treats a repeated effect with the same id as one record and settles it again without conflict', async () => {
+  it('admits a repeated append through one journal once, and a fresh journal under a fresh id', async () => {
     for (const tokens of [0, 40]) {
       const { room, failure } = harness(
         async (services) => {
-          await settle(tokens)(services);
-          // A retried turn writes the same action again through a fresh journal.
+          const first = journalFor(services, tokens);
+          await first.append(modelRequest('call-1'));
+          await first.append(toolEffectStart('paid'));
+          await first.append(toolEffectStart('paid'));
+          await first.append(toolResult('paid'));
+          await first.append(toolResult('paid'));
+          // A resumed attempt writes the same action again through a fresh journal: a new admission,
+          // never the old one's id, which recovery may have refunded.
           const retry = journalFor(services, tokens);
           await retry.append(toolEffectStart('paid'));
           await retry.append(toolResult('paid'));
@@ -381,7 +396,9 @@ describe('paid tool effects against a real ledger', () => {
       );
       await room.run();
       expect(failure()).toBeUndefined();
-      expect(toolRecords(room)).toHaveLength(1);
+      const records = toolRecords(room);
+      expect(records).toHaveLength(2);
+      expect(new Set(records.map((record) => record.callId)).size).toBe(2);
       await room.dispose();
     }
   });

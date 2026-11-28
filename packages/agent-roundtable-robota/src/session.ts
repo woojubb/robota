@@ -24,3 +24,13 @@ export type { SessionCheckpointState } from './checkpoint-codec';
 // The recoverable counterpart to the root entry's `meterJournal`, for a host building its own
 // checkpoint-resumable, Session-like participant (`sessionParticipant`'s own metering wrapper).
 export { meterRecoverableJournal } from './metering-journal';
+
+// A reconcilable `sessionParticipant` keeps its recovery journal through this port; the host
+// implements it over whatever is durable for it.
+export type {
+  RecoveryJournal,
+  RecoveryJournalEntry,
+  RecoveryScope,
+  SessionRecoveryOptions,
+} from './recovery-journal';
+export type { EffectCallIds } from './metering-journal';
