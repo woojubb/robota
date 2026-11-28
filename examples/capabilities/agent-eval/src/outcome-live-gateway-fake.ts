@@ -6,10 +6,11 @@ import type { TUpstream } from './outcome-coding-relay.js';
 
 /**
  * A loopback gateway with no network and no cost, for the driver's dry run and its tests. It
- * answers the four requests a paid run makes (catalog, endpoint listing, credits, chat completion)
- * in the shape the real checks assume, and shows each chat request to a reply source the caller
- * sets, then adds the receipt fields (`usage.cost`, `provider`, `model`) the way the live gateway is
- * expected to. A behavior hook can break any single call on purpose.
+ * answers the requests a paid run makes (catalog, endpoint listing, credits, chat completion and the
+ * generation record) in the shapes the real gateway answers: the credits answer is a top-level
+ * balance; a chat reply carries a generation id, `model` and `usage.cost` but no provider; the
+ * serving provider is only in the generation record, which can be made to lag, be missing, or name
+ * another provider or model. A behavior hook can break any single call on purpose.
  */
 
 export type TFakeChatBehavior =
@@ -19,6 +20,8 @@ export type TFakeChatBehavior =
       readonly patch?: Record<string, unknown>;
       /** Usage fields replaced in the reply (for example a larger cost). */
       readonly usage?: Record<string, unknown>;
+      /** Fields replaced in this call's generation record (for example another provider). */
+      readonly generation?: Record<string, unknown>;
     }
   | { readonly kind: 'status'; readonly status: number }
   | { readonly kind: 'hang' }
@@ -44,6 +47,13 @@ export interface IFakeGateway {
   source: TUpstream | undefined;
   listing: unknown;
   credits: unknown;
+  /** The generation records by id; a test can add or replace one. */
+  readonly generations: Map<string, Record<string, unknown>>;
+  /** The first n polls of every record answer 404 before it appears. */
+  generationLagPolls: number;
+  /** No record is ever answered. */
+  generationMissing: boolean;
+  readonly generationPolls: string[];
   close(): Promise<void>;
 }
 
@@ -79,7 +89,11 @@ export async function startFakeGateway(options: IFakeGatewayOptions): Promise<IF
     behavior: () => ({ kind: 'receipt' }),
     source: undefined,
     listing: fakeListing(options.provider),
-    credits: { data: { total_credits: 5, total_usage: 1.5 } },
+    credits: { balance: '3.5', total_used: '1.5', token_pass: null },
+    generations: new Map(),
+    generationLagPolls: 0,
+    generationMissing: false,
+    generationPolls: [],
     close: async () => undefined,
   };
   const modelPath = `/v1/models/${options.model.split('/').map(encodeURIComponent).join('/')}/endpoints`;
@@ -98,6 +112,19 @@ export async function startFakeGateway(options: IFakeGatewayOptions): Promise<IF
         if (request.method === 'GET' && path === '/v1/credits') {
           return json(response, 200, gateway.credits);
         }
+        if (request.method === 'GET' && path.startsWith('/v1/generation?id=')) {
+          const id = decodeURIComponent(path.slice('/v1/generation?id='.length));
+          gateway.generationPolls.push(id);
+          const polls = gateway.generationPolls.filter((seen) => seen === id).length;
+          const record = gateway.generations.get(id);
+          if (
+            gateway.generationMissing ||
+            record === undefined ||
+            polls <= gateway.generationLagPolls
+          )
+            return json(response, 404, { error: 'not found' });
+          return json(response, 200, { data: record });
+        }
         if (request.method === 'POST' && path === '/v1/chat/completions') {
           const text = Buffer.concat(chunks).toString('utf8');
           const index = gateway.chatBodies.length;
@@ -114,7 +141,7 @@ export async function startFakeGateway(options: IFakeGatewayOptions): Promise<IF
               ? {
                   status: 200,
                   body: {
-                    id: 'fake-1',
+                    id: 'gen_fake1',
                     object: 'chat.completion',
                     choices: [
                       {
@@ -139,13 +166,27 @@ export async function startFakeGateway(options: IFakeGatewayOptions): Promise<IF
             base.usage !== null && typeof base.usage === 'object' && !Array.isArray(base.usage)
               ? (base.usage as { readonly [key: string]: TJson })
               : {};
-          return json(response, reply.status, {
+          const generationId = `gen_fake${index + 1}`;
+          const body = {
             ...base,
+            id: generationId,
+            generationId,
             model: options.model,
-            provider: options.provider,
             ...behavior.patch,
             usage: { ...usage, cost: options.costUsd ?? 0.0001, ...behavior.usage },
+          };
+          const cost = (body.usage as { readonly cost: number }).cost;
+          const tokens = body.usage as { readonly [key: string]: unknown };
+          gateway.generations.set(generationId, {
+            id: generationId,
+            model: options.model,
+            provider_name: options.provider,
+            total_cost: cost,
+            tokens_prompt: tokens.prompt_tokens,
+            tokens_completion: tokens.completion_tokens,
+            ...behavior.generation,
           });
+          return json(response, reply.status, body);
         }
         return json(response, 404, { error: 'not found' });
       })();

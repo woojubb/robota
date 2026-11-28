@@ -297,3 +297,33 @@ test('a gate that throws while settling stops the run instead of losing the call
   assert.equal(answer.status, 502);
   assert.match(relay.stopReason() ?? '', /ledger write failed/);
 });
+
+test('the relay awaits an asynchronous settlement and records its time apart from the upstream latency', async () => {
+  let now = NOW;
+  const upstream: TUpstream = async () => {
+    now += 7;
+    return { status: 200, body: { ok: true } };
+  };
+  const relay = createCodingRelay(policy(), upstream, () => now, {
+    admit: () => ({
+      ok: true,
+      settle: async () => {
+        now += 40;
+        await Promise.resolve();
+        return { stop: 'the record named another route' };
+      },
+    }),
+  });
+  assert.equal((await relay.handle({ id: 1, ...request() })).status, 502);
+  assert.match(relay.stopReason() ?? '', /another route/);
+  assert.equal(relay.log[0]?.outcome, 'stopped');
+  assert.equal(relay.log[0]?.latencyMs, 7);
+  assert.equal(relay.log[0]?.accountingMs, 40);
+  assert.equal((await relay.handle({ id: 2, ...request() })).status, 403);
+
+  const rejecting = createCodingRelay(policy(), upstream, () => now, {
+    admit: () => ({ ok: true, settle: () => Promise.reject(new Error('lookup broke')) }),
+  });
+  assert.equal((await rejecting.handle({ id: 1, ...request() })).status, 502);
+  assert.match(rejecting.stopReason() ?? '', /could not settle the call: lookup broke/);
+});

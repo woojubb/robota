@@ -164,6 +164,7 @@ const OBSERVATION = {
 /** A trial runner that drives the spend gate with scripted calls and returns a scripted record. */
 export function stubTrials(
   scriptFor: (index: number, spec: ITrialSpec) => ITrialScript = () => ({}),
+  gateway?: IFakeGateway,
 ): {
   readonly run: (spec: ITrialSpec) => Promise<ITrialRecord>;
   readonly seen: ISeenTrial[];
@@ -205,17 +206,25 @@ export function stubTrials(
         break;
       }
       admissions.push('admitted');
+      const generationId = `gen_stub${seen.length}x${id}`;
+      gateway?.generations.set(generationId, {
+        id: generationId,
+        model: call.model ?? spec.model,
+        provider_name: call.provider ?? PROVIDER,
+        total_cost: call.cost ?? 0.001,
+      });
       const answer = call.noAnswer
         ? undefined
         : {
             status: call.status ?? 200,
             body: {
+              id: generationId,
+              generationId,
               model: call.model ?? spec.model,
-              provider: call.provider ?? PROVIDER,
               usage: { cost: call.cost ?? 0.001, prompt_tokens: 10, completion_tokens: 5 },
             },
           };
-      const verdict = admission.settle(answer);
+      const verdict = await admission.settle(answer);
       log.push({
         id,
         outcome: verdict.stop === undefined ? 'forwarded' : 'stopped',

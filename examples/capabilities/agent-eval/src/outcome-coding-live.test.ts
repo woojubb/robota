@@ -17,6 +17,7 @@ import {
   checkCredits,
   createGatewayUpstream,
   fetchEndpointListing,
+  lookupGeneration,
   requestOnce,
 } from './outcome-coding-gateway.js';
 import { SpendLedger, type ILedgerHeader } from './outcome-coding-ledger.js';
@@ -34,6 +35,7 @@ type TChatMode =
       readonly kind: 'receipt';
       readonly patch?: Record<string, unknown>;
       readonly usage?: Record<string, unknown>;
+      readonly generation?: Record<string, unknown>;
     }
   | { readonly kind: 'status'; readonly status: number }
   | { readonly kind: 'hang' }
@@ -49,6 +51,10 @@ interface IFakeGateway {
   mode: TChatMode;
   listing: unknown;
   credits: unknown;
+  readonly generations: Map<string, Record<string, unknown>>;
+  readonly polls: string[];
+  lagPolls: number;
+  generationStatus: number | undefined;
   close(): Promise<void>;
 }
 
@@ -80,7 +86,11 @@ async function startGateway(): Promise<IFakeGateway> {
     allPaths: [],
     mode: { kind: 'receipt' },
     listing: LISTING,
-    credits: { data: { total_credits: 5, total_usage: 1.5 } },
+    credits: { balance: '3.5', total_used: '1.5', token_pass: null },
+    generations: new Map(),
+    polls: [],
+    lagPolls: 0,
+    generationStatus: undefined,
     close: async () => undefined,
   };
   const server: Server = createServer((request: IncomingMessage, response: ServerResponse) => {
@@ -98,6 +108,16 @@ async function startGateway(): Promise<IFakeGateway> {
       if (request.method === 'GET' && path === '/v1/credits') {
         return json(response, 200, gateway.credits);
       }
+      if (request.method === 'GET' && path.startsWith('/v1/generation?id=')) {
+        const id = decodeURIComponent(path.slice('/v1/generation?id='.length));
+        gateway.polls.push(id);
+        if (gateway.generationStatus !== undefined)
+          return json(response, gateway.generationStatus, { error: 'refused' });
+        const record = gateway.generations.get(id);
+        if (record === undefined || gateway.polls.length <= gateway.lagPolls)
+          return json(response, 404, { error: 'not found' });
+        return json(response, 200, { data: record });
+      }
       if (request.method === 'POST' && path === '/v1/chat/completions') {
         gateway.chatBodies.push(Buffer.concat(chunks).toString('utf8'));
         gateway.chatAuth.push(request.headers.authorization);
@@ -111,16 +131,26 @@ async function startGateway(): Promise<IFakeGateway> {
           response.writeHead(200, { 'content-type': 'text/plain' });
           return response.end(mode.text);
         }
+        const generationId = `gen_t${gateway.chatBodies.length}`;
+        const usage = { prompt_tokens: 40, completion_tokens: 12, cost: 0.0001, ...mode.usage };
+        gateway.generations.set(generationId, {
+          id: generationId,
+          model: MODEL,
+          provider_name: PROVIDER,
+          total_cost: usage.cost,
+          ...mode.generation,
+        });
         return json(response, 200, {
-          id: 'chat-1',
+          id: generationId,
+          generationId,
           object: 'chat.completion',
           model: MODEL,
-          provider: PROVIDER,
+          created: 1,
           choices: [
             { index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' },
           ],
           ...mode.patch,
-          usage: { prompt_tokens: 40, completion_tokens: 12, cost: 0.0001, ...mode.usage },
+          usage,
         });
       }
       return json(response, 404, { error: 'not found' });
@@ -177,11 +207,23 @@ async function withRun(
     deadlineAt: Date.now() + 60_000,
     upstreamTimeoutMs: options.upstreamTimeoutMs ?? 5_000,
   };
+  const credential = holdCredential(KEY);
+  const clock = fakeClock();
   const relay = createCodingRelay(
     policy,
-    createGatewayUpstream({ endpoint: gateway.endpoint, credential: holdCredential(KEY) }),
+    createGatewayUpstream({ endpoint: gateway.endpoint, credential }),
     Date.now,
-    createLedgerGate(ledger),
+    createLedgerGate(ledger, async (body) => {
+      const id = (body as { generationId?: string }).generationId;
+      return id === undefined
+        ? undefined
+        : await lookupGeneration(
+            { baseUrl: gateway.base, timeoutMs: 2_000 },
+            credential,
+            id,
+            clock,
+          );
+    }),
   );
   try {
     await run({ gateway, dir, ledger, ledgerPath, relay });
@@ -190,6 +232,24 @@ async function withRun(
     await gateway.close();
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+/** A clock the wait advances by itself, so a bounded lookup costs no real time. */
+function fakeClock(): {
+  readonly now: () => number;
+  readonly sleep: (ms: number) => Promise<void>;
+  readonly slept: number[];
+} {
+  let time = 0;
+  const slept: number[] = [];
+  return {
+    now: () => time,
+    sleep: async (ms) => {
+      slept.push(ms);
+      time += ms;
+    },
+    slept,
+  };
 }
 
 function request(context: ITest, id = 1, text = 'hello') {
@@ -273,7 +333,12 @@ test('a rate-limit answer is not retried either', async () => {
 
 test('a receipt that breaks the pinned route or the output cap stops the run, with the cost settled', async () => {
   const cases: [string, TChatMode, RegExp][] = [
-    ['provider', { kind: 'receipt', patch: { provider: 'route-b' } }, /provider differs/],
+    ['provider', { kind: 'receipt', generation: { provider_name: 'route-b' } }, /provider differs/],
+    [
+      'generation model',
+      { kind: 'receipt', generation: { model: 'other-model' } },
+      /model differs/,
+    ],
     ['model', { kind: 'receipt', patch: { model: 'other-model' } }, /model differs/],
     ['output', { kind: 'receipt', usage: { completion_tokens: 8193 } }, /exceed the output cap/],
     ['no output count', { kind: 'receipt', usage: { completion_tokens: 'many' } }, /output tokens/],
@@ -371,11 +436,19 @@ test('the catalog, endpoint listing and credits checks read the gateway once eac
       sufficient: true,
     });
     assert.equal((await checkCredits(location, credential, 3_500_001)).sufficient, false);
-    assert.deepEqual(gateway.allPaths.filter((entry) => entry.includes('credits')).length, 2);
+    assert.equal(gateway.allPaths.filter((entry) => entry.includes('credits')).length, 2);
     // Credit rounds down and usage rounds up: the remaining amount is never overstated.
-    gateway.credits = { data: { total_credits: '5.0000009', total_usage: '1.5000001' } };
+    // The balance is the remaining amount and rounds down: it is never overstated.
+    gateway.credits = { balance: '3.4999999', total_used: '1.5', token_pass: null };
     assert.equal((await checkCredits(location, credential, 1)).remainingMicros, 3_499_999);
-    gateway.credits = { data: { total_credits: 'lots' } };
+    gateway.credits = { balance: 0.25, total_used: '9', token_pass: null };
+    assert.deepEqual(await checkCredits(location, credential, 250_001), {
+      remainingMicros: 250_000,
+      sufficient: false,
+    });
+    gateway.credits = { balance: 'lots' };
+    await assert.rejects(checkCredits(location, credential, 1), /malformed/);
+    gateway.credits = { data: { total_credits: 5, total_usage: 1.5 } };
     await assert.rejects(checkCredits(location, credential, 1), /malformed/);
     gateway.listing = { data: { endpoints: [] } };
     assert.throws(
@@ -429,5 +502,78 @@ test('the credential appears nowhere in the ledger, the relay log or a failure m
       context.gateway.chatAuth.every((value) => value === `Bearer ${KEY}`),
       true,
     );
+  });
+});
+
+test('a generation lookup waits for a lagging record, gives up within its bound, and refuses a bad id', async () => {
+  const gateway = await startGateway();
+  try {
+    const location = { baseUrl: gateway.base, timeoutMs: 2_000 };
+    const credential = holdCredential(KEY);
+    gateway.generations.set('gen_abc123', { id: 'gen_abc123', provider_name: PROVIDER });
+    gateway.lagPolls = 3;
+    const lagging = fakeClock();
+    const found = await lookupGeneration(location, credential, 'gen_abc123', lagging);
+    assert.equal(found?.provider_name, PROVIDER);
+    assert.equal(gateway.polls.length, 4);
+    assert.equal(lagging.slept.length, 3);
+    assert.ok(lagging.slept.every((ms) => ms <= 2_000));
+
+    gateway.polls.length = 0;
+    const never = fakeClock();
+    assert.equal(await lookupGeneration(location, credential, 'gen_nothere', never), undefined);
+    assert.ok(never.now() <= 30_000);
+    assert.ok(never.slept.every((ms) => ms <= 2_000));
+    assert.ok(gateway.polls.length > 3);
+    assert.ok(gateway.polls.every((id) => id === 'gen_nothere'));
+
+    gateway.polls.length = 0;
+    for (const bad of ['', 'abc', 'gen_', 'gen_a/../b', 'gen_a b', 'gen_a?x=1']) {
+      assert.equal(await lookupGeneration(location, credential, bad, fakeClock()), undefined);
+    }
+    assert.equal(gateway.polls.length, 0);
+    assert.equal(gateway.chatBodies.length, 0);
+
+    gateway.generationStatus = 401;
+    const refused = lookupGeneration(location, credential, 'gen_abc123', fakeClock());
+    await assert.rejects(refused, (error: Error) => {
+      assert.match(error.message, /401/);
+      assert.equal(error.message.includes(KEY), false);
+      return true;
+    });
+  } finally {
+    await gateway.close();
+  }
+});
+
+test('a receipt without a generation record stops the run and keeps the reservation', async () => {
+  await withRun(async (context) => {
+    context.gateway.generationStatus = 404;
+    const answer = await request(context);
+    assert.equal(answer.status, 502);
+    assert.match(context.relay.stopReason() ?? '', /no generation record confirming the provider/);
+    assert.equal(context.ledger.state().settledMicros, 0);
+    assert.equal(context.ledger.state().unsettledIds.length, 1);
+    assert.equal((await request(context, 2)).status, 403);
+    assert.equal(context.gateway.chatBodies.length, 1);
+  });
+});
+
+test('a confirmed provider settles without a stop, at the larger of the two costs', async () => {
+  await withRun(async (context) => {
+    context.gateway.lagPolls = 2;
+    context.gateway.mode = { kind: 'receipt', generation: { total_cost: 0.0003 } };
+    assert.equal((await request(context)).status, 200);
+    assert.equal(context.relay.stopReason(), undefined);
+    assert.equal(context.ledger.state().settledMicros, 300);
+    context.gateway.mode = {
+      kind: 'receipt',
+      usage: { cost: 0.0004 },
+      generation: { total_cost: 0.0002 },
+    };
+    assert.equal((await request(context, 2)).status, 200);
+    assert.equal(context.ledger.state().settledMicros, 700);
+    assert.ok(context.relay.log.every((entry) => entry.accountingMs !== undefined));
+    assert.equal(context.gateway.chatBodies.length, 2);
   });
 });
